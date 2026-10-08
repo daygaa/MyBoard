@@ -1,0 +1,267 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/* ============================================================================ */
+/* MyBoard — Thème sombre "pro" (inspiré du projet Python original v3) */
+/* Background froid très sombre #111214, accent doré #d9a94e. */
+/* ============================================================================ */
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+:root {
+  --radius: 0.625rem;
+
+  /* Base palette MyBoard (sombre froid) */
+  --background: #111214;
+  --foreground: #ececef;
+  --card: #17181b;
+  --card-foreground: #ececef;
+  --popover: #1f2126;
+  --popover-foreground: #ececef;
+
+  /* L'accent doré est la signature visuelle de MyBoard */
+  --accent: #d9a94e;
+  --accent-foreground: #1a1408;
+  --accent-soft: rgba(217, 169, 78, 0.14);
+
+  /* Primary = accent doré pour les boutons principaux */
+  --primary: #d9a94e;
+  --primary-foreground: #1a1408;
+
+  /* Secondary / muted = panels */
+  --secondary: #1f2126;
+  --secondary-foreground: #ececef;
+  --muted: #1f2126;
+  --muted-foreground: #8b8d96;
+
+  --destructive: #e5636b;
+
+  --border: #2a2c33;
+  --input: #1f2126;
+  --ring: #d9a94e;
+
+  --chart-1: #d9a94e;
+  --chart-2: #e5636b;
+  --chart-3: #6bbd8a;
+  --chart-4: #c878d6;
+  --chart-5: #6ba8d9;
+
+  --sidebar: #17181b;
+  --sidebar-foreground: #ececef;
+  --sidebar-primary: #d9a94e;
+  --sidebar-primary-foreground: #1a1408;
+  --sidebar-accent: #1f2126;
+  --sidebar-accent-foreground: #ececef;
+  --sidebar-border: #2a2c33;
+  --sidebar-ring: #d9a94e;
+
+  color-scheme: dark;
+}
+
+.dark {
+  /* On force le même jeu de variables (l'app est sombre par défaut) */
+  --background: #111214;
+  --foreground: #ececef;
+  --card: #17181b;
+  --card-foreground: #ececef;
+  --popover: #1f2126;
+  --popover-foreground: #ececef;
+  --accent: #d9a94e;
+  --accent-foreground: #1a1408;
+  --primary: #d9a94e;
+  --primary-foreground: #1a1408;
+  --secondary: #1f2126;
+  --secondary-foreground: #ececef;
+  --muted: #1f2126;
+  --muted-foreground: #8b8d96;
+  --destructive: #e5636b;
+  --border: #2a2c33;
+  --input: #1f2126;
+  --ring: #d9a94e;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+    /* Scrollbars fines et discrètes (overflow y/x) */
+    scrollbar-width: thin;
+    scrollbar-color: #343741 transparent;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    background: var(--background);
+    color: var(--foreground);
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+      "Helvetica Neue", Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Sélection dorée */
+  ::selection {
+    background: var(--accent);
+    color: var(--accent-foreground);
+  }
+
+  /* Scrollbars webkit (largeurs 11px, thumb épais avec bord background) */
+  ::-webkit-scrollbar {
+    width: 11px;
+    height: 11px;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #343741;
+    border: 3px solid var(--background);
+    border-radius: 8px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #43464f;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+}
+
+/* ============================================================================ */
+/* Utilitaires booru */
+/* ============================================================================ */
+
+/* Fond damier pour la visionneuse (transparence sous l'image) */
+.checker {
+  background-color: #0d0e12;
+  background-image: linear-gradient(45deg, #17181b 25%, transparent 25%),
+    linear-gradient(-45deg, #17181b 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #17181b 75%),
+    linear-gradient(-45deg, transparent 75%, #17181b 75%);
+  background-size: 16px 16px;
+  background-position: 0 0, 0 8px, 8px -8px, -8px 0;
+}
+
+/* Raccourcis clavier */
+kbd {
+  font-family: var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo,
+    monospace;
+  font-size: 0.7rem;
+  padding: 0.05rem 0.35rem;
+  border-radius: 0.3rem;
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: #a1a9b8;
+}
+
+/* Animation d'entrée légère pour les cartes (fade-in + scale) */
+@keyframes mb-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.mb-fade-in {
+  animation: mb-fade-in 200ms ease-out both;
+}
+
+/* Animation d'entrée pour la visionneuse */
+@keyframes mb-zoom-in {
+  from {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+.mb-zoom-in {
+  animation: mb-zoom-in 180ms ease-out both;
+}
+
+/* Pulsation subtile de l'accent doré pour les badges favoris */
+@keyframes mb-pulse-gold {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(217, 169, 78, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(217, 169, 78, 0);
+  }
+}
+.mb-pulse-gold {
+  animation: mb-pulse-gold 1.8s ease-out infinite;
+}
+
+/* Effet "skeleton" doré pour les cartes en chargement */
+@keyframes mb-shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+.mb-skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--card) 0%,
+    var(--secondary) 50%,
+    var(--card) 100%
+  );
+  background-size: 200% 100%;
+  animation: mb-shimmer 1.4s linear infinite;
+}
+
+/* Curseurs pour le zoom/pan dans la visionneuse */
+.mb-grab {
+  cursor: grab;
+}
+.mb-grabbing {
+  cursor: grabbing;
+}
+
+/* Focus-visible doré cohérent */
+.focus-visible-gold:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}

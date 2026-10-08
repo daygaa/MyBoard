@@ -1,0 +1,116 @@
+// MyBoard — Prisma schema
+// Base SQLite locale pour la gestion de médias par tags (style booru).
+// Toutes les décisions sont documentées dans /home/z/my-project/worklog.md
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Médias (images, vidéos, audio, documents, archives…)
+// Fichiers content-addressed par sha256 : anti-doublon exact garanti.
+// Chemins sur disque SHARDÉS : originals/<2hex>/<rest>.<ext>
+// ---------------------------------------------------------------------------
+model Media {
+  id            Int       @id @default(autoincrement())
+  sha256        String    @unique
+  originalName  String
+  ext           String
+  mime          String
+  // kind : image | video | audio | document | archive | other
+  kind          String    @default("image")
+  size          Int       @default(0)
+  width         Int?
+  height        Int?
+  duration      Float?
+  // source URL libre (booru-style "source")
+  source        String?
+  // stockage local par défaut (remote pour usage futur : cloud/CDN)
+  storage       String    @default("local")
+  remoteUrl     String?
+  remoteThumbUrl String?
+  hasThumb      Boolean   @default(false)
+  // favori / score / vues (Phase 7 polish, mais colonnes prêtes)
+  favorite      Boolean   @default(false)
+  score         Int       @default(0)
+  views         Int       @default(0)
+  // dénormalisation : compte de tags (pour tri tagcount rapide)
+  tagCount      Int       @default(0)
+  importedAt    DateTime  @default(now())
+
+  tags          MediaTag[]
+  groups        MediaGroup[]
+
+  @@index([kind, id])
+  @@index([ext, id])
+  @@index([importedAt])
+  @@index([size])
+  @@index([tagCount])
+  @@index([favorite])
+}
+
+// ---------------------------------------------------------------------------
+// Tags
+// name normalisé : minuscules, espaces → underscores, max 255 chars
+// category : general | artist | character | copyright | meta
+// ---------------------------------------------------------------------------
+model Tag {
+  id         Int         @id @default(autoincrement())
+  name       String      @unique
+  category   String      @default("general")
+  postCount  Int         @default(0)
+  media      MediaTag[]
+
+  @@index([category])
+  @@index([postCount])
+}
+
+// ---------------------------------------------------------------------------
+// Liaison média ↔ tag (many-to-many)
+// ---------------------------------------------------------------------------
+model MediaTag {
+  mediaId Int
+  tagId   Int
+  media   Media @relation(fields: [mediaId], references: [id], onDelete: Cascade)
+  tag     Tag   @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([mediaId, tagId])
+  @@index([tagId, mediaId])
+}
+
+// ---------------------------------------------------------------------------
+// Key-value store pour métadonnées applicatives (version schéma, settings…)
+// ---------------------------------------------------------------------------
+model AppMeta {
+  key   String @id
+  value String
+}
+
+// ---------------------------------------------------------------------------
+// Groupes (collections manuelles de médias, indépendantes des tags)
+// Un média peut appartenir à plusieurs groupes. Un groupe a un nom + couleur.
+// ---------------------------------------------------------------------------
+model Group {
+  id        Int      @id @default(autoincrement())
+  name      String  @unique
+  color     String  @default("#d9a94e")
+  createdAt DateTime @default(now())
+  media     MediaGroup[]
+
+  @@index([name])
+}
+
+model MediaGroup {
+  mediaId Int
+  groupId Int
+  media   Media @relation(fields: [mediaId], references: [id], onDelete: Cascade)
+  group   Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@id([mediaId, groupId])
+  @@index([groupId, mediaId])
+}

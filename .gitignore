@@ -1,0 +1,54 @@
+# Dependencies (régénérés via bun install)
+node_modules/
+.pnp
+.pnp.js
+
+# Next.js build cache (régénéré au dev/build)
+.next/
+out/
+build/
+dist/
+
+# Misc
+.DS_Store
+*.pem
+.vscode/
+.idea/
+*.log
+dev.log
+server.log
+
+# Environnement (path DB local, à ne pas commité)
+.env
+.env*.local
+
+# Cache
+.cache/
+*.tsbuildinfo
+next-env.d.ts
+
+# ============================================================
+# MyBoard — Bibliothèque gérée (régénérée via seed)
+# ============================================================
+# Les originaux + thumbs sont TROP GROS pour Git (96 Mo + 9 Mo).
+# Ils sont re-créables via `bun run fetch:safebooru` + re-seed.
+# La DB library.db (676 Ko) est commitée car elle contient les tags.
+library/originals/
+library/thumbs/
+
+# Assets de démo Safebooru (94 Mo, re-téléchargeables via fetch:safebooru)
+demo_assets/safebooru/
+
+# Photos démo originales (2 Mo — re-générables, mais on les commit pour simplicité)
+# (si tu veux les exclure aussi, décommente la ligne suivante) :
+# demo_assets/*.jpg
+
+# Backup DB local (cache)
+db/
+
+# Z.ai sandbox mounts (ne jamais commit)
+upload/
+.zscripts/
+agent-ctx/
+tool-results/
+skills/
