@@ -1,60 +1,28 @@
 # MyBoard — Guide de lancement local
 
-Ce guide suppose que tu as téléchargé le workspace complet et extrait les
-fichiers/dossiers sur ta machine. Voici comment lancer l'app en local.
+## ⚡ Démarrage rapide (Windows PowerShell)
 
-## ⚠️ Important : re-créer les médias (premier lancement)
+```powershell
+# 1. Clone le repo (déjà fait si tu lis ça)
+git clone https://github.com/daygaa/MyBoard.git
+cd MyBoard
 
-Pour réduire la taille du téléchargement, les dossiers suivants ont été vidés :
-- `library/originals/` (les 343 médias originaux, 100 Mo)
-- `library/thumbs/` (les 343 miniatures, 11 Mo)
-- `demo_assets/safebooru/` (328 images Safebooru, 98 Mo)
+# 2. Setup automatique (crée .env, installe les deps, génère Prisma)
+.\setup.ps1
 
-**La DB `library/library.db` contient toujours les 343 entrées + 2204 tags**,
-mais les fichiers image correspondants ne sont plus sur disque. Les miniatures
-n'afficheront donc rien tant que tu n'as pas re-seedé.
-
-### Option A — Re-télécharger les 328 images Safebooru (recommandé)
-
-```bash
-# 1. Re-télécharge les images Safebooru (~6-8 min)
-bun run fetch:safebooru
-
-# 2. Reset la DB et re-seed (hash + thumb + tags pour chaque image)
-#    Sur Windows PowerShell :
-bun run db:push    # recrée le schema (écrase les données existantes)
-#    Puis démarre le serveur :
+# 3. Lance l'app
 bun run dev
-#    Dans un autre terminal, lance le seed :
-curl -X POST http://localhost:3000/api/seed
 ```
 
-Tu auras les 343 médias (15 démo originales + 328 Safebooru) avec leurs 2204 tags.
+Ouvre http://localhost:3000 dans ton navigateur. C'est prêt.
 
-### Option B — Juste les 10 images démo (rapide, ~1 Mo)
+> ⚠️ La **toute 1ère requête** prend ~15-20s (Next.js compile la page la 1ère fois). C'est normal. Les suivantes sont instantanées.
 
-```bash
-bun install
-bun run db:push    # reset DB
-bun run dev
-# Dans un autre terminal :
-curl -X POST http://localhost:3000/api/seed
-```
+---
 
-Tu auras juste les 10 images démo originales (chat, fleur, montagne, plage,
-portrait en 2 variantes) avec ~13 tags. Suffisant pour tester l'UI.
+## 📋 Détails des étapes (si setup.ps1 ne marche pas)
 
-### Option C — Réimporter tes propres médias
-
-Lance l'app, va sur http://localhost:3000/import, et drag-drop tes propres
-fichiers. La DB se remplira au fur et à mesure.
-
-## 1. Prérequis
-
-Tu as besoin de **[Bun](https://bun.sh/)** (runtime JavaScript, plus rapide que
-Node.js, installé en une commande). Alternative : Node.js 20+.
-
-### Installer Bun
+### 1. Prérequis : installer Bun
 
 **Windows (PowerShell) :**
 ```powershell
@@ -68,142 +36,198 @@ curl -fsSL https://bun.sh/install | bash
 ```
 
 Vérifie :
-```bash
+```powershell
 bun --version
 ```
 
-### (Optionnel) ffmpeg — pour les miniatures vidéo + transcodage
+### 2. Créer le fichier .env
 
-Si tu veux importer des vidéos et générer leurs miniatures / les transcoder,
-installe ffmpeg :
-- **Windows** : [gyan.dev](https://www.gyan.dev/ffmpeg/builds/) → télécharge
-  "ffmpeg-git-full.7z", extrais, et ajoute le dossier `bin` au PATH.
-- **macOS** : `brew install ffmpeg`
-- **Linux** : `sudo apt install ffmpeg`
+Le fichier `.env` est **volontairement exclu du repo** (sécurité — il contient le chemin de la DB). Crée-le à partir du template :
 
-Vérifie :
-```bash
-ffmpeg -version
+```powershell
+Copy-Item .env.example .env
 ```
 
-## 2. Installation des dépendances
+Ou crée-le manuellement avec ce contenu :
+```
+DATABASE_URL="file:../library/library.db"
+```
 
-Ouvre un terminal **dans le dossier du projet** (là où se trouve `package.json`),
-puis :
+> Le chemin est **relatif** au fichier `prisma/schema.prisma`. `../library/library.db` = remonte d'un niveau (de `prisma/` à la racine) puis entre dans `library/`. Ça marche sur Windows, macOS et Linux sans modification.
 
-```bash
+### 3. Installer les dépendances
+
+```powershell
 bun install
 ```
 
 Ça télécharge toutes les dépendances (Next.js, Prisma, shadcn/ui, sharp, etc.).
 Compte ~1-2 minutes la première fois.
 
-## 3. Préparation de la base de données
+### 4. Générer le Prisma Client
 
-La base SQLite est dans `library/library.db`. Elle est créée automatiquement au
-premier lancement, mais il faut d'abord "pousser" le schéma Prisma :
-
-```bash
-bun run db:push
+```powershell
+bun run db:generate
 ```
 
-Ça crée les tables `Media`, `Tag`, `MediaTag`, `Group`, `MediaGroup`, `AppMeta`
-dans `library.db`. Idempotent : tu peux le relancer sans casser tes données.
+Cela génère le client Prisma à partir du schéma. À faire après chaque `bun install` ou si tu modifies `prisma/schema.prisma`.
 
-> **Note** : le fichier `.env` contient `DATABASE_URL=file:../library/library.db`
-> (chemin relatif). Ça marchera sur n'importe quelle machine.
+### 5. Lancer l'app
 
-## 4. Lancer l'app
-
-```bash
+```powershell
 bun run dev
 ```
 
-Tu devrais voir :
+Ouvre http://localhost:3000.
+
+---
+
+## ⚠️ Important : re-créer les médias (premier lancement)
+
+Pour réduire la taille du repo Git, les dossiers suivants sont **vides** :
+- `library/originals/` (les médias originaux)
+- `library/thumbs/` (les miniatures)
+- `demo_assets/safebooru/` (les 300 images Safebooru)
+
+**La DB `library/library.db` contient déjà les 315 médias + 1838 tags**, mais les fichiers image correspondants ne sont pas sur disque. Les miniatures n'afficheront donc rien tant que tu n'as pas re-seedé.
+
+### Option A — Re-télécharger les 300 images Safebooru (complet, recommandé)
+
+```powershell
+# 1. Re-télécharge les images Safebooru (~6-8 min)
+bun run fetch:safebooru
+
+# 2. RESET la DB (écrase les données existantes — nécessaire pour re-seed propre)
+bun run db:push
+
+# 3. Démarre le serveur
+bun run dev
+
+# 4. Dans un AUTRE terminal PowerShell (pendant que dev tourne) :
+curl.exe -X POST http://localhost:3000/api/seed
 ```
-▲ Next.js 16.x (Turbopack)
-- Local:        http://localhost:3000
-✓ Ready in 1.3s
+
+> ⚠️ **IMPORTANT — PowerShell et curl** : utilise `curl.exe` (le vrai curl), pas `curl`. PowerShell aliases `curl` vers `Invoke-WebRequest` qui ne comprend pas `-X POST`. Si tu tapes `curl -X POST ...`, tu auras l'erreur `Impossible de trouver un paramètre correspondant au nom « X »`.
+
+Tu auras les 315 médias (15 démo originales + 300 Safebooru) avec leurs 1838 tags.
+
+### Option B — Juste les 15 images démo (rapide)
+
+```powershell
+bun run dev
+# Dans un autre terminal :
+curl.exe -X POST http://localhost:3000/api/seed
 ```
 
-Ouvre **http://localhost:3000** dans ton navigateur.
+Tu auras juste les 15 images démo (chat, fleur, montagne, plage, portrait + variantes). Suffisant pour tester l'UI.
 
-> ⚠️ La **toute première requête** sur `http://localhost:3000/` prend ~15-20s
-> (Next.js compile la page à la volée la 1ère fois). C'est normal. Les requêtes
-> suivantes sont instantanées.
+### Option C — Réimporter tes propres médias
 
-## 5. Importer les images de démo (voir section "Important" en haut)
+Lance l'app, va sur http://localhost:3000/import, et drag-drop tes propres fichiers. La DB se remplira au fur et à mesure.
 
-Voir la section "⚠️ Important : re-créer les médias" au début de ce fichier.
+---
 
-## 6. Vérifier que tout marche
-
-- Page browse : http://localhost:3000/
-- Page import : http://localhost:3000/import
-- Page groupes : http://localhost:3000/groups (si tu en crées)
-- Stats : http://localhost:3000/api/stats
-- Tags : http://localhost:3000/api/tags
-
-## 7. Commandes utiles
+## 🔧 Commandes utiles
 
 | Commande | Action |
 |---|---|
 | `bun run dev` | Démarre le serveur dev sur port 3000 |
 | `bun run lint` | Vérifie la qualité du code (ESLint) |
-| `bun run db:push` | Recrée/synchronise le schéma DB |
-| `bun run db:reset` | Réinitialise la DB (⚠️ efface les données) |
+| `bun run db:push` | Recrée/synchronise le schéma DB (**⚠️ reset les données**) |
+| `bun run db:generate` | Régénère le Prisma Client (à faire après `bun install`) |
 | `bun run fetch:safebooru` | Télécharge 300 images taguées depuis Safebooru |
-| `bun run scripts/import-tags-json.ts "dossier"` | Importe des tags depuis JSON sidecar |
-| `curl -X POST http://localhost:3000/api/seed` | Importe les images de démo en DB |
+| `curl.exe -X POST http://localhost:3000/api/seed` | Importe les images de démo en DB |
 
-## 8. Où sont mes fichiers ?
+> **Note PowerShell** : utilise toujours `curl.exe` et non `curl` (alias PowerShell → Invoke-WebRequest).
+
+---
+
+## 📁 Structure du projet
 
 ```
-ton-projet/
-├── library/                    ← Bibliothèque gérée par l'app
-│   ├── library.db              ← Base SQLite (tags, index, catalogue)
-│   ├── originals/<2hex>/       ← Médias originaux (shardés par hash)
-│   └── thumbs/<2hex>/          ← Miniatures JPEG
-├── demo_assets/                ← Images de démo (source factice pour tester l'import)
-│   ├── chat.jpg, fleur.jpg, …  ← Démo originale (10 images)
-│   └── safebooru/              ← Images téléchargées depuis Safebooru (328)
-├── prisma/schema.prisma        ← Schéma de la base
-├── src/                        ← Code source de l'app
-├── scripts/                    ← Scripts utilitaires
-│   ├── fetch-safebooru.ts      ← Télécharge 300 images Safebooru
-│   ├── import-tags-json.ts     ← Importe des tags depuis JSON sidecar
-│   └── import-tags-json.ps1    ← Wrapper PowerShell
-└── package.json
+MyBoard/
+├── .env                    ← Créé par setup.ps1 (à partir de .env.example)
+├── .env.example            ← Template du .env (committed)
+├── setup.ps1               ← Script de setup automatique (Windows)
+├── package.json            ← Scripts dev/lint/db:push/fetch:safebooru
+├── prisma/schema.prisma    ← Schéma DB (Media, Tag, MediaTag, Group, MediaGroup, AppMeta)
+├── library/                ← Bibliothèque gérée par l'app
+│   ├── library.db          ← Base SQLite (315 médias + 1838 tags)
+│   ├── originals/          ← Médias originaux (vides au début, re-créés via seed)
+│   └── thumbs/             ← Miniatures (vides au début, re-créées via seed)
+├── demo_assets/            ← Images de démo (source pour tester l'import)
+│   ├── *.jpg               ← 15 images démo originales
+│   └── safebooru/          ← 300 images Safebooru (re-téléchargeables via fetch:safebooru)
+├── src/                    ← Code source de l'app
+│   ├── app/                ← Pages Next.js (page.tsx, import/, groups/, api/)
+│   ├── components/board/    ← Composants UI (Header, MediaGrid, LightboxViewer, etc.)
+│   ├── components/import/   ← Composants page import
+│   ├── components/ui/       ← shadcn/ui (60+ composants)
+│   └── lib/                ← Libs partagées (shared.ts, search.ts, storage.ts, etc.)
+├── scripts/                ← Scripts utilitaires
+│   ├── fetch-safebooru.ts  ← Télécharge 300 images Safebooru
+│   └── import-tags-json.ts  ← Importe des tags depuis JSON sidecar
+└── LOCAL_SETUP.md          ← Ce fichier
 ```
 
-> ⚠️ `library/` est **géré par l'app** : ne renomme, déplace ni supprime rien
-> à la main dans ce dossier. Pour reset : supprime `library/library.db` (et
-> éventuellement `library/originals` + `library/thumbs`), puis `bun run db:push`
-> + re-seed.
+---
 
-## 9. Problèmes courants
+## 🐛 Problèmes courants
 
-**"Port 3000 déjà utilisé"** : un autre process tourne dessus.
-```bash
-# Linux/macOS
-lsof -i:3000
-kill -9 <PID>
+### "Environment variable not found: DATABASE_URL"
 
+Le fichier `.env` n'existe pas. Crée-le :
+```powershell
+Copy-Item .env.example .env
+```
+
+Puis relance `bun run db:generate` et `bun run dev`.
+
+### "curl : Impossible de trouver un paramètre correspondant au nom « X »"
+
+PowerShell aliases `curl` vers `Invoke-WebRequest`. Utilise `curl.exe` à la place :
+```powershell
+curl.exe -X POST http://localhost:3000/api/seed
+```
+
+### "Port 3000 déjà utilisé"
+
+Un autre process tourne dessus.
+```powershell
 # Windows (PowerShell)
 netstat -ano | findstr :3000
 taskkill /PID <PID> /F
 ```
 
-**"Prisma Client not generated"** :
-```bash
+### "Prisma Client not generated"
+
+```powershell
 bun run db:generate
 ```
 
-**"Les miniatures ne s'affichent pas"** : tu n'as pas re-seedé. Voir section
-"⚠️ Important" en haut de ce fichier.
+### "Les miniatures ne s'affichent pas"
 
-## 10. Sauvegarder ta bibliothèque
+Tu n'as pas re-seedé. Voir section "⚠️ Important : re-créer les médias" ci-dessus.
+
+### "Hydration error" / erreurs React
+
+Clear le cache Next.js :
+```powershell
+Remove-Item -Recurse -Force .next
+bun run dev
+```
+
+---
+
+## 💾 Sauvegarder ta bibliothèque
 
 Pour sauvegarder, copie simplement le dossier `library/` (ou au minimum
 `library/library.db`). C'est un backup complet : les médias originaux + les
 miniatures + tous les tags + les groupes.
+
+---
+
+## 📞 Support
+
+Si tu rencontres un souci, vérifie d'abord la section "Problèmes courants" ci-dessus.
+Le fichier `worklog.md` à la racine contient l'historique complet du développement.
