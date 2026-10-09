@@ -90,6 +90,13 @@ export function MediaCard({ item, index, onOpen }: Props) {
   const selectRange = useBoardUI((s) => s.selectRange);
   const lastIdx = useBoardUI((s) => s.lastSelectedIdx);
   const setLastSelectedIdx = useBoardUI((s) => s.setLastSelectedIdx);
+  const gridDensity = useBoardUI((s) => s.gridDensity);
+
+  // P5.4 : réduction 25% de la checkbox + étoile à partir de 20 colonnes
+  const compact = gridDensity >= 20;
+  const iconBtnSize = compact ? "h-4 w-4" : "h-6 w-6"; // 18px vs 24px
+  const starIconSize = compact ? "h-2.5 w-2.5" : "h-3.5 w-3.5";
+  const checkIconSize = compact ? "h-2 w-2" : "h-3 w-3";
 
   const isSel = selected.has(item.id);
   const isVideo = item.kind === "video";
@@ -180,31 +187,31 @@ export function MediaCard({ item, index, onOpen }: Props) {
         </span>
       )}
 
-      {/* Favori (top-right) */}
+      {/* Favori (top-right) — P5.3/P5.4 : 24x24 (ou 18x18 si >=20 cols) */}
       <span
         role="button"
         tabIndex={-1}
         aria-label={isFav ? "Retirer des favoris" : "Ajouter aux favoris"}
         onClick={toggleFavorite}
-        className={`absolute right-1.5 top-1.5 z-10 grid h-6 w-6 place-items-center rounded bg-black/55 backdrop-blur-sm transition hover:bg-black/75 ${
+        className={`absolute right-1.5 top-1.5 z-10 grid ${iconBtnSize} place-items-center rounded bg-black/55 backdrop-blur-sm transition hover:bg-black/75 ${
           isFav ? "text-[#d9a94e]" : "text-zinc-300"
         }`}
       >
         <Star
-          className={`h-3.5 w-3.5 ${isFav ? "fill-[#d9a94e]" : ""}`}
+          className={`${starIconSize} ${isFav ? "fill-[#d9a94e]" : ""}`}
         />
       </span>
 
-      {/* Checkbox batch si mode batch */}
+      {/* Checkbox batch — P5.3 : alignée au favori (left-1.5 top-1.5, 24x24) */}
       {batchMode && (
         <span
-          className={`absolute left-1.5 top-9 z-10 grid h-5 w-5 place-items-center rounded-md border backdrop-blur-sm transition ${
+          className={`absolute left-1.5 top-1.5 z-10 grid ${iconBtnSize} place-items-center rounded-md border backdrop-blur-sm transition ${
             isSel
               ? "border-[#d9a94e] bg-[#d9a94e] text-[#1a1408]"
               : "border-white/40 bg-black/50 text-transparent"
           }`}
         >
-          {isSel && <Check className="h-3 w-3" strokeWidth={3} />}
+          {isSel && <Check className={checkIconSize} strokeWidth={3} />}
         </span>
       )}
 

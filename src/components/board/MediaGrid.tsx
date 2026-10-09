@@ -629,6 +629,21 @@ export function MediaGrid({ items, query }: Props) {
   useEffect(() => {
     setDensityHydrated(true);
   }, []);
+
+  // P5.2 : Échap pour sortir du mode batch (même effet que bouton "Terminer")
+  useEffect(() => {
+    if (!batchMode) return;
+    function onKey(e: KeyboardEvent) {
+      const t = e.target as HTMLElement;
+      if (["INPUT", "TEXTAREA", "SELECT"].includes(t.tagName)) return;
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setBatchMode(false);
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [batchMode, setBatchMode]);
   useEffect(() => {
     if (!densityHydrated) return;
     const url = new URL(window.location.href);
@@ -717,20 +732,9 @@ export function MediaGrid({ items, query }: Props) {
 
   return (
     <div>
-      {/* Barre d'actions haut : menu 3 points (gauche) + sélection multiple (droite) */}
-      <div className="mb-3 flex items-center justify-between gap-2">
-        {/* Gauche : menu 3 points (uniquement en mode batch) */}
-        <div className="flex min-h-8 items-center">
-          {batchMode && (
-            <BulkActionsMenu
-              items={items}
-              selected={selected}
-              onDone={handleBulkActionDone}
-            />
-          )}
-        </div>
-
-        {/* Droite : Tout/Aucun/Terminer ou Sélection multiple */}
+      {/* Barre d'actions haut : boutons sélection (gauche) + menu 3 points (juste après) */}
+      <div className="mb-3 flex items-center gap-2">
+        {/* Boutons Tout/Aucun/Terminer ou Sélection multiple */}
         <div className="flex items-center gap-2">
           {batchMode ? (
             <>
@@ -764,6 +768,15 @@ export function MediaGrid({ items, query }: Props) {
             </Button>
           )}
         </div>
+
+        {/* P5.1 : Menu 3 points juste à droite des boutons (même div) */}
+        {batchMode && (
+          <BulkActionsMenu
+            items={items}
+            selected={selected}
+            onDone={handleBulkActionDone}
+          />
+        )}
       </div>
 
       {/* Grille responsive — densité pilotée par le store (localStorage). */}
@@ -827,7 +840,7 @@ export function MediaGrid({ items, query }: Props) {
             </p>
           )}
           <p className="mt-1 text-[11px] text-muted-foreground">
-            Astuce : Maj + clic pour sélectionner une plage. Utilisez le menu 3 points à gauche pour supprimer, favoris ou groupes.
+            {/* P5.1 : texte d'aide supprimé selon modif_UI-UX2.txt */}
           </p>
         </div>
       )}
