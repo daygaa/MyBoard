@@ -1,15 +1,22 @@
-// MyBoard — Page dédiée à un groupe (collection manuelle de médias).
+// MyBoard — Page dédiée à un dossier (collection manuelle de médias).
 //
 // Route : /groups/[id]
 // Server component — accès direct à la DB via Prisma (pas de boucle HTTP).
 // Réutilise <MediaGrid/> (sélection multiple, lightbox, densité grille) pour
 // rester cohérent avec la page browse principale.
 //
+// P6 — la sidebar Tags est désormais visible et fonctionnelle dans le contexte
+// du dossier : la recherche de tags filtre À L'INTÉRIEUR du dossier (pas sur
+// toute la DB). On utilise pour cela `mediaForGroupFiltered` (combine la clause
+// WHERE du groupe + celle de la recherche tag) et `tagsForGroup` (tags présents
+// sur les médias du groupe, postCount global).
+//
 // Pagination simplifiée (Prev/Next + numéros) — la <Pagination/> partagée
 // est hardcodée vers /?tags=...&page=N, donc non réutilisable ici.
 
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { Suspense } from "react";
 import {
   ChevronLeft,
   ChevronRight,
@@ -17,11 +24,20 @@ import {
   ArrowLeft,
 } from "lucide-react";
 import { db } from "@/lib/db";
-import { getGroup, mediaForGroup } from "@/lib/group-helpers";
-import { PAGE_SIZE } from "@/lib/shared";
-import type { MediaListItem } from "@/lib/types";
+import {
+  getGroup,
+  mediaForGroupFiltered,
+  tagsForGroup,
+} from "@/lib/group-helpers";
+import { PAGE_SIZE, pageSizeForDensity } from "@/lib/shared";
+import type { MediaListItem, TagDTO } from "@/lib/types";
 import { MediaGrid } from "@/components/board/MediaGrid";
 import { LightboxViewer } from "@/components/board/LightboxViewer";
+import {
+  GroupSearchBar,
+  GroupTagList,
+} from "@/components/group/GroupSidebar";
+import { MobileGroupSidebarInjector } from "@/components/group/MobileGroupSidebarInjector";
 
 export const dynamic = "force-dynamic";
 
@@ -30,15 +46,18 @@ type Ctx = { params: Promise<{ id: string }> };
 export async function generateMetadata({ params }: Ctx) {
   const { id: idStr } = await params;
   const id = Number(idStr);
-  if (!Number.isInteger(id) || id <= 0) return { title: "Groupe — MyBoard" };
+  if (!Number.isInteger(id) || id <= 0) return { title: "Dossier — MyBoard" };
   const g = await getGroup(db, id);
-  if (!g) return { title: "Groupe introuvable — MyBoard" };
+  if (!g) return { title: "Dossier introuvable — MyBoard" };
   return { title: `${g.name} — MyBoard` };
 }
 
 export default async function GroupPage(
-  { searchParams, params }: {
-    searchParams: Promise<{ page?: string }>;
+  {
+    searchParams,
+    params,
+  }: {
+    searchParams: Promise<{ page?: string; tags?: string; density?: string }>;
     params: Promise<{ id: string }>;
   }
 ) {
@@ -50,22 +69,73 @@ export default async function GroupPage(
   if (!group) notFound();
 
   const sp = await searchParams;
+  const query = (sp.tags ?? "").trim().replace(/\s+/g, " ");
   const page = Math.max(1, Number(sp.page) || 1);
+  // Densité grille depuis l'URL (sync depuis le client). Defaut = 7 si absent
+  const density = Number(sp.density) || 7;
+  const pageSize = pageSizeForDensity(density);
 
-  const { items, total } = await mediaForGroup(db, groupId, page, PAGE_SIZE);
-  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  // Médias du groupe FILTRÉS par la requête tag (server-side)
+  const { items, total } = await mediaForGroupFiltered(
+    db,
+    groupId,
+    query,
+    page,
+    pageSize
+  );
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
-  // Helper pour construire les liens de pagination de cette page
-  const pageHref = (p: number) =>
-    p === 1 ? `/groups/${groupId}` : `/groups/${groupId}?page=${p}`;
+  // Tags présents sur les médias du groupe (pour la sidebar)
+  // On ne les charge que si le groupe a des médias (sinan inutile)
+  const groupTags: TagDTO[] =
+    total > 0 || (await db.mediaGroup.count({ where: { groupId } })) > 0
+      ? await tagsForGroup(db, groupId)
+      : [];
 
-  // Cast sûr : mediaForGroup renvoie déjà des MediaListItem complets
+  // Helper pour construire les liens de pagination de cette page (préserve tags)
+  const pageHref = (p: number) => {
+    const params = new URLSearchParams();
+    if (query) params.set("tags", query);
+    if (p > 1) params.set("page", String(p));
+    if (density !== 7) params.set("density", String(density));
+    const qs = params.toString();
+    return qs ? `/groups/${groupId}?${qs}` : `/groups/${groupId}`;
+  };
+
+  // Cast sûr : mediaForGroupFiltered renvoie déjà des MediaListItem complets
   const gridItems = items as MediaListItem[];
 
   return (
-    <div className="flex flex-1 flex-col">
+    <div className="flex flex-1">
+      {/* Sidebar desktop — Tags + Recherche SCOPÉS au dossier */}
+      <aside className="sticky top-14 hidden h-[calc(100vh-3.5rem)] w-72 shrink-0 overflow-y-auto border-r border-border bg-card/40 px-4 py-5 md:block">
+        <section>
+          <h3 className="mb-2 px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            Recherche dans le dossier
+          </h3>
+          <Suspense fallback={<div className="h-9 rounded-md bg-card/60" />}>
+            <GroupSearchBar groupId={groupId} />
+          </Suspense>
+        </section>
+
+        <section className="mt-6">
+          <h3 className="mb-2 flex items-center justify-between px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            Tags du dossier
+            <span className="font-normal normal-case tracking-normal text-muted-foreground/60">
+              {groupTags.length}
+            </span>
+          </h3>
+          <GroupTagList
+            tags={groupTags}
+            query={query}
+            groupId={groupId}
+          />
+        </section>
+      </aside>
+
+      {/* Main */}
       <main className="min-w-0 flex-1 px-4 py-5 lg:px-6">
-        {/* En-tête de page : retour + nom du groupe + compteur */}
+        {/* En-tête de page : retour + nom du dossier + compteur */}
         <div className="mb-5 flex flex-wrap items-center gap-3">
           <Link
             href="/"
@@ -88,33 +158,48 @@ export default async function GroupPage(
                 {group.name}
               </h1>
               <p className="text-xs text-muted-foreground">
-                {total.toLocaleString("fr-FR")} média{total > 1 ? "s" : ""} dans
-                ce groupe
+                {total.toLocaleString("fr-FR")} média{total > 1 ? "s" : ""}
+                {query ? ` · filtré par « ${query} »` : ""}
               </p>
             </div>
           </div>
         </div>
 
+        {/* Recherche mobile (au-dessus de la grille) */}
+        <div className="mb-4 md:hidden">
+          <Suspense fallback={<div className="h-9 rounded-md bg-card/60" />}>
+            <GroupSearchBar groupId={groupId} />
+          </Suspense>
+        </div>
+
         {/* Grille ou empty state */}
         {gridItems.length > 0 ? (
-          <MediaGrid items={gridItems} query="" />
+          <MediaGrid items={gridItems} query={query} />
         ) : (
           <div className="grid place-items-center rounded-2xl border border-dashed border-border py-24 text-center">
             <p className="text-lg font-medium text-foreground">
-              Groupe vide
+              {query ? "Aucun média ne correspond" : "Dossier vide"}
             </p>
             <p className="mt-1 text-sm text-muted-foreground">
-              Ce groupe ne contient encore aucun média.
-              <br />
-              Sélectionnez des médias sur la page d&apos;accueil et utilisez le
-              menu 3 points pour les ajouter.
+              {query
+                ? "Essayez de retirer des tags de la recherche."
+                : "Ce dossier ne contient encore aucun média. Sélectionnez des médias sur la page d'accueil et utilisez le menu 3 points pour les ajouter."}
             </p>
-            <Link
-              href="/"
-              className="mt-5 inline-flex items-center gap-2 rounded-lg border border-border bg-card/60 px-4 py-2 text-sm font-medium text-foreground transition hover:bg-secondary"
-            >
-              Parcourir la bibliothèque
-            </Link>
+            {query ? (
+              <Link
+                href={`/groups/${groupId}`}
+                className="mt-5 inline-flex items-center gap-2 rounded-lg border border-border bg-card/60 px-4 py-2 text-sm font-medium text-foreground transition hover:bg-secondary"
+              >
+                Réinitialiser la recherche
+              </Link>
+            ) : (
+              <Link
+                href="/"
+                className="mt-5 inline-flex items-center gap-2 rounded-lg border border-border bg-card/60 px-4 py-2 text-sm font-medium text-foreground transition hover:bg-secondary"
+              >
+                Parcourir la bibliothèque
+              </Link>
+            )}
           </div>
         )}
 
@@ -197,6 +282,13 @@ export default async function GroupPage(
           </nav>
         )}
       </main>
+
+      {/* Injecteur pour la sidebar mobile (Sheet) — Tags du dossier */}
+      <MobileGroupSidebarInjector
+        groupId={groupId}
+        query={query}
+        tags={groupTags}
+      />
 
       {/* Visionneuse plein écran (montée si store.lightbox != null) */}
       <LightboxViewer />

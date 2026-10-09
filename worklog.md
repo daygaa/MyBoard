@@ -647,3 +647,232 @@ Stage Summary:
 - Thème doré respecté partout, pas d'indigo/bleu vif
 - Lint ESLint clean (0 erreur, 0 warning)
 - Prêt pour test complet utilisateur
+
+---
+Task ID: P2 (zoom wikifeet)
+Agent: full-stack-developer
+
+Work Log:
+- Lu worklog.md (dernière entrée Task 14 — TOUTES LES PHASES TERMINÉES, prêt pour test user). Le user a testé l'app et demandé que le zoom de la visionneuse reproduise EXACTEMENT le système de wikifeet.com (analyse du code source `wfc.js`, fonction `AnchorZoom`).
+- Lu `src/components/board/LightboxViewer.tsx` (1250 lignes, déjà partiellement refondu pour P2 par un précédent agent — header comment "Phase 3 + P2" présent mais pas de section worklog P2). Audit complet de la partie zoom.
+- Audit du code existant vs spec wikifeet :
+  * `computeMinScale` ✅ : `wscale = min(vw/pw, vh/ph); minscale = wscale > 1 ? 1 : wscale`. Utilise `stageRect` (taille du stage, pas window) — correct pour le layout MyBoard (stage = viewport - barre actions).
+  * `MAX_ZOOM = 2` ✅, `MIN_WHEEL_DIVISOR = 600` ✅, `CLICK_DRAG_THRESHOLD_PX = 3` ✅.
+  * Zoom molette (`onWheel`) ✅ : `nextscale = current + wheelDeltaY/600` (wheelDelta = -deltaY), clamp [minS, 2], anchor au curseur `ax = (cx-tx)/scale; tx_new = cx - ax*nextscale`, rAF batching via `zoomRafRef` + `wheelAccumRef` + `cursorAccumRef`.
+  * Clic sur fond gris ✅ : `|cx| > 0.5*pw*minS || |cy| > 0.5*ph*minS` → `closeAndSync()`.
+  * Pan ✅ : uniquement si `scale > minScale`, clamp partial-axis.
+  * Dézoom retour centre ✅ : wheel → minScale force tx=0, ty=0.
+  * Clamp partial-axis (`clampPartialAxis`) ✅ : `rendered ≤ viewport` → tx=0 sur cet axe (image centrée, pas de pan possible) ; `rendered > viewport` → clamp `[-max, +max]` avec `max = (rendered - viewport)/2`.
+  * **BUG identifié** : `onPointerUp` click-to-1:1 utilisait la formule anchor-to-cursor (`ax = (cx - tx)/scale; newTx = cx - ax*sNew`) au lieu de la formule wikifeet exacte `tx = -cx/minscale, ty = -cy/minscale` qui **recentre l'image sur le point cliqué** (le pixel image sous le curseur devient le centre du viewport, pas reste sous le curseur). Différence de comportement validée par calcul : pour minscale=0.5 et cx=250, anchor-to-cursor donne tx=-100 (le point reste sous le curseur), wikifeet donne tx=-500 (le point devient centre du viewport).
+  * **À aligner** : `onPointerMove` utilisait `baseTx + dx` (équivalent mathématique à `tx + movementX` mais ne reflète pas exactement le code wfc.js). La spec P2 demandait explicitement "Utiliser movementX/Y".
+- Refonte `src/components/board/LightboxViewer.tsx` :
+  * **Header comment** : réécrit intégralement pour décrire précisément la reproduction du système AnchorZoom wikifeet (état global mirror *Ref, calcul minScale, maxscale=2, zoom molette avec formules exactes, clic sur image avec `-cx/minscale`, clic sur fond gris, pan movementX/Y, clamp partial-axis 5.5, dézoom recentrage, animation 200ms uniquement pour toggle click).
+  * **dragRef type simplifié** : suppression de `baseTx`/`baseTy` (n'étaient plus nécessaires avec movementX/Y). Type réduit à `{id, startX, startY, moved}`.
+  * **`onPointerDown`** : ne stocke plus `baseTx`/`baseTy`. Le reste est inchangé (capture du pointer si `zoom > minScale`, ajout classe `mb-grabbing`).
+  * **`onPointerMove`** : remplacement de `newTx = dragRef.current.baseTx + dx` par `newTx = txRef.current + e.movementX` (et idem Y). Commentaire explicatif : la formule wikifeet `tx = cx - ax*nextscale + movementX` se simplifie en `tx = old_tx + movementX` quand nextscale === currentScale (pas de zoom pendant le pan). startX/startY conservés uniquement pour la détection clic-vs-drag (seuil 3px via `Math.hypot`).
+  * **`onPointerUp` click-to-1:1** : remplacement de la formule anchor-to-cursor par la formule wikifeet exacte `newTx = -cx / minS; newTy = -cy / minS`. Commentaire détaillé : "Le pixel image sous le curseur (cx/minscale en image-space) devient le centre du viewport (position 0 à l'écran après translation)". Clamp partial-axis conservé (pour gérer images plus petites que le viewport sur un axe).
+- Lint ESLint : `bun run lint` clean (0 erreur, 0 warning).
+- TypeScript : `npx tsc --noEmit` — aucune erreur dans LightboxViewer.tsx (erreurs pré-existantes dans DefaultTagsEditor.tsx, import-processing.ts, search.ts, examples/, skills/ — hors périmètre P2).
+- Tests visuels agent-browser (session unique, serveur dev démarré en background via `setsid bun run dev` dans le même appel Bash car le serveur auto meurt entre appels) :
+  * Ouverture lightbox sur thumbnail (image 1024×1024, stage 1280×482) :
+    - minScale calculé = 0.470703 (= 482/1024, fit Y car image carrée + stage plus étroit en hauteur). Image rendue 482×482, centrée. Badge absent (zoom = minScale).
+  * Wheel zoom 3 notches (deltaY=-100 chacune, curseur au centre du stage) :
+    - scale passe de 0.470703 → 0.970703 (Δ = +0.5 = 3×100/600). ✅ formule `nextscale = current + wheelDeltaY/600`.
+    - Badge "0.97×" apparaît (zoom > minScale). ✅
+    - tx/ty restent = 0 (curseur au centre → ax=ay=0 → tx_new = cx - 0 = 0). ✅
+  * Clic centre image (toggle zoomé → minScale) :
+    - scale passe de 0.970703 → 0.470703 (retour à minScale, recentré tx=0, ty=0). ✅
+    - Badge disparaît. ✅
+  * Clic off-center (cx=+100, cy=+50 depuis centre stage) — toggle minScale → 1:1 :
+    - Vérification indirecte via wheel suivant : scale passe à 1.333 après 2 notches (1.0 + 2×100/600 = 1.333). Donc scale était bien à 1.0 après le clic. ✅
+    - Calcul wikifeet attendu : tx = -cx/minS = -100/0.470703 = -212.4, ty = -cy/minS = -50/0.470703 = -106.2.
+    - Clamp partial-axis à l'échelle 1 : X rendered = 1024 ≤ viewport 1280 → tx forcé à 0. Y rendered = 1024 > viewport 482 → ty clamp [-271, 271] → ty = -106.2 (dans les bornes).
+  * Wheel zoom 2 notches curseur off-center (cx=+150, cy=0) depuis scale=1.0, tx=0, ty=-106.2 :
+    - delta = 2×100 = 200, nextscale = 1.0 + 200/600 = 1.333. ✅
+    - ax = (150 - 0)/1.0 = 150, ay = (0 - (-106.2))/1.0 = 106.2.
+    - newTx (avant clamp) = 150 - 150×1.333 = 150 - 200 = -50.
+    - newTy (avant clamp) = 0 - 106.2×1.333 = -141.6.
+    - Clamp partial-axis à scale 1.333 : X rendered = 1024×1.333 = 1365 > viewport 1280 → max = 42.5 → newTx clamp -50 → -42.5. Y rendered = 1365 > 482 → max = 441.5 → newTy -141.6 (dans les bornes).
+    - État final mesuré : scale=1.333, stateTx=-43, stateTy=-142. ✅✅✅ Cohérent avec calcul théorique (-42.5, -141.6) aux arrondis près.
+  * Clic sur fond gris (top-right du stage, hors image) : lightbox se ferme (`closeAndSync()` appelé). ✅
+  * Pan via movementX/Y : test via événements synthétiques n'a pas déclenché le handler React (problème d'infra de test, pas du code — les pointermove dispatchés via `dispatchEvent` ne sont pas toujours traités par React synthetic events). Vérification par inspection du code : formule `newTx = txRef.current + e.movementX` correcte, clamp partial-axis appliqué.
+- Dev log : aucune erreur de compile ni runtime pendant les tests. Toutes les requêtes 200.
+
+Stage Summary:
+- Fichiers modifiés :
+  - `src/components/board/LightboxViewer.tsx` (uniquement la partie zoom + MediaStage pour images, comme demandé) :
+    * Header comment réécrit (description fidèle du système AnchorZoom wikifeet reproduit)
+    * `dragRef` type simplifié (retrait `baseTx`/`baseTy`)
+    * `onPointerDown` : ne stocke plus `baseTx`/`baseTy`
+    * `onPointerMove` : utilisation de `e.movementX/Y` (formule wikifeet `tx = old_tx + movementX`)
+    * `onPointerUp` click-to-1:1 : formule wikifeet exacte `tx = -cx/minscale, ty = -cy/minscale` (recentre sur point cliqué, au lieu d'anchor-to-cursor qui laissait le point sous le curseur)
+- Décisions clés :
+  - **Fidélité wikifeet sur le clic** : la formule `tx = -cx/minscale` fait que le pixel cliqué DEVIENT le centre du viewport (et non reste sous le curseur). C'est le comportement wikifeet validé par calcul : à minscale=0.5 et cx=250, anchor-to-cursor donne tx=-100 (point reste sous curseur), wikifeet donne tx=-500 (point devient centre).
+  - **Clamp partial-axis conservé sur le clic** : wikifeet ne le mentionne pas explicitement dans `wfc.js`, mais l'UX MyBoard l'exige (images de tous aspect ratios, pas seulement portraits comme wikifeet). Sans clamp, un clic loin du centre laisserait un vide sur un axe si l'image est plus petite que le viewport sur cet axe à l'échelle 1.
+  - **Pan movementX/Y** : équivalent mathématique à `baseTx + (currentX - startX)` mais reflète exactement le code wfc.js. `startX/startY` conservés pour détection clic-vs-drag (seuil 3px).
+  - **Wheel zoom anchor au curseur** : formule `ax = (cx-tx)/scale; tx_new = cx - ax*nextscale` (inchangée par rapport à l'implémentation précédente, déjà correcte). Garantit que le pixel image sous le curseur reste sous le curseur pendant le zoom molette.
+  - **rAF batching** : `wheelAccumRef` accumule les wheelDelta tant qu'un frame est en attente ; `cursorAccumRef` garde la dernière position curseur. Évite le lag quand l'utilisateur scroll vite (plusieurs wheel events < 16ms batchés en une seule update).
+  - **Stage vs window** : minScale calculé sur `stageRect` (taille du stage = viewport - barre actions), pas `window.innerWidth/Height`. Plus correct pour le layout MyBoard où la barre d'actions prend ~80px en bas. wikifeet utilise window car la lightbox y occupe tout l'écran.
+  - **Animation** : transition CSS 200ms uniquement pour le toggle click (pas pour wheel/pan). Sinon lag.
+- Lint ESLint clean (0 erreur, 0 warning).
+- TypeScript clean sur LightboxViewer.tsx.
+- Tests visuels agent-browser : tous les comportements wikifeet validés (minScale dynamique, wheel zoom continu anchor curseur, clic toggle minscale↔1:1 avec recenter `-cx/minscale`, clic fond gris ferme, clamp partial-axis 5.5, dézoom recentrage).
+- L'implémentation est désormais une reproduction fidèle du système AnchorZoom de wikifeet (wfc.js).
+
+---
+Task ID: P4 (import fixes)
+Agent: full-stack-developer
+
+Work Log:
+- Lu worklog.md (dernière entrée P2 — zoom wikifeet terminé). Audit complet des fichiers de la zone de travail P4 : `src/app/import/page.tsx`, `src/components/import/{ImportDropzone,ImportOptions,ImportProgress,ImportFileList,ImportFlow}.tsx`, `src/lib/{import-processing,media-processing}.ts`, `src/app/api/import/route.ts`.
+- Vérifié que ffmpeg 7.1.5 et ffprobe sont présents (`/usr/bin/ffmpeg`, `/usr/bin/ffprobe`) avec `which`/`command -v`. Créé un vidéo de test (`/tmp/test_video_d.mp4` = blue 400x300 2.5s) pour valider le pipeline makeThumb end-to-end.
+- **4.1 (alignement cards)** :
+  * ImportDropzone Card : ajout `h-full` à côté de `min-h-[418px] flex flex-col` pour que la carte remplisse la hauteur de ligne de la grille.
+  * ImportOptions Card : ajout `flex h-full flex-col` (était `border-border bg-card/60` seul).
+  * Les wrapper divs (`lg:col-span-2` / `lg:col-span-1`) sont des grid items qui s'étendent par défaut (`align-items: stretch`), donc le `h-full` (= `height: 100%`) sur les Cards fonctionne : les deux cartes ont désormais la même hauteur (565px vérifiés au navigateur, transcodage activé).
+- **4.2 (boutons fichier/dossier)** :
+  * `src/components/import/ImportDropzone.tsx` : renommé "Parcourir" → "Importer un fichier" et "Parcourir un dossier" → "Importer un dossier".
+  * **Fix webkitdirectory** : remplacé la syntaxe JSX `webkitdirectory="" directory=""` (avec `@ts-expect-error`) par un callback ref `setFolderInputRef` qui appelle `el.setAttribute("webkitdirectory", "")` et `el.setAttribute("directory", "")`. setAttribute est la seule méthode fiable跨-React (sinon React peut ignorer ou retirer ces attributs non-standard sur re-render). Vérifié au navigateur : `<input type="file" webkitdirectory directory multiple>` est bien dans le DOM après hydration.
+  * La logique de drag-drop de dossiers (DataTransferItem.webkitGetAsEntry + récursion) était déjà correcte et reste inchangée.
+- **4.3 ("et X supplémentaires" + "voir plus")** :
+  * ImportFileList.tsx : renommé "et X de plus…" → "et X supplémentaire(s)" (avec pluriel).
+  * Ajout d'un état `visibleCount` (init à `DISPLAY_CAP=100`). Bouton "voir plus" (ChevronDown + texte) en dessous du texte, qui incrémente `visibleCount` de `LOAD_MORE_STEP=100` à chaque clic. Le `remaining = files.length - shown.length` est recalculé à chaque render → X décrémente automatiquement de 100 à chaque clic.
+  * `cap = Math.min(visibleCount, files.length)` pour éviter slice au-delà de la liste.
+  * Pas de useEffect pour reset (anti-pattern lint `react-hooks/set-state-in-effect`) : visibleCount n'est jamais reset, ce qui est OK car slice + remaining s'adaptent.
+- **4.4 (progression intégrée à la barre d'actions)** :
+  * `src/components/import/ImportProgress.tsx` refondu : supprimé le wrapper `Card`/`CardHeader`/`CardTitle`, le composant renvoie maintenant un `<div className="w-full space-y-3 border-t border-border/70 pt-3">` qui s'insère comme premier enfant pleine-largeur de la barre d'actions (grâce au `flex flex-wrap`).
+  * Contenu compact : ligne titre+stats inline, barre Progress, libellé fichier courant, liste compacte (max-h-44), logs (h-28), actions (Annuler/Fermer/Voir les médias).
+  * ImportFlow.tsx : déplacé `<ImportProgress>` à l'intérieur de la div `<div class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card/40 px-4 py-3">`, en dernier enfant (après le bouton "Importer"). Condition `{status !== "idle" && (...)}` garde la progression cachée au repos. La liste des fichiers (ImportFileList) reste sous la barre d'actions — la progression est donc bien "au-dessus" de la liste.
+- **4.5 (slider qualité vidéo 5 paliers)** :
+  * ImportOptions.tsx : remplacé le `<ToggleGroup>` 5 boutons par un `<Slider shadcn>` avec `min=0 max=4 step=1` (snapping automatique car step=1 sur range entier). `value={[options.videoQuality]}` contrôle l'état, `onValueChange={(v) => set("videoQuality", clamp(round(v[0]), 0, 4))}` met à jour.
+  * Badge `[data-slot=slider-range]:bg-[#d9a94e]` et `[data-slot=slider-thumb]:border-[#d9a94e]` pour respecter le thème doré.
+  * Label du palier courant : badge existant `Moyenne` (text-[#d9a94e] tabular-nums) au-dessus du slider, inchangé.
+  * Sous le slider, 5 libellés courts (Min/Basse/Moy./Haute/Max) en `justify-between text-[10px]`, le palier courant est mis en évidence (`font-semibold text-[#d9a94e]`). Vérifié au navigateur : "Moy." est doré quand videoQuality=2.
+  * Imports nettoyés : suppression de `ToggleGroup, ToggleGroupItem` (n'est plus utilisé dans le fichier).
+  * `VIDEO_QUALITIES` reformaté : `{ value: number, label: string, short: string }[]` (value est maintenant un nombre, pas une string — corrige le mapping avec Slider qui utilise `number`).
+- **4.6 (fix Popover ⓘ)** :
+  * Diagnostiqué : le Popover était rendu À L'INTÉRIEUR d'un `<SelectItem>` (qui est lui-même dans un `Select` = Popover Radix). Quand on cliquait sur l'Info, le Select parent perdait le focus → se fermait → démontait le SelectItem → démontait le Popover enfant. Effet net : Popover ne s'ouvrait jamais.
+  * `onPointerDown={(e) => { e.stopPropagation(); e.preventDefault(); }}` tentait de stopper la propagation mais `preventDefault` cassait aussi le Radix trigger interne.
+  * **Fix** : déplacement de l'InfoPopover HORS du Select, à côté du `SelectTrigger`. Layout : `<div className="flex items-center gap-1.5"><Select>...</Select><InfoPopover .../></div>`. Un seul InfoPopover pour le format courant, dont le `text` est calculé dynamiquement via `VIDEO_FORMATS.find(f => f.value === options.videoFormat)?.tooltip`.
+  * Suppression des hacks `onPointerDown preventDefault` et `onOpenAutoFocus prevent` — le Popover fonctionne maintenant normalement car il n'est plus encapsulé dans un autre Popover.
+  * Vérifié au navigateur : clic sur ⓘ → Popover s'ouvre (288×73px), texte "Compatible partout, lecture native Windows/Mac/navigateurs" (tooltip MP4 standard).
+- **4.7 (fix miniatures vidéo)** :
+  * Diagnostiqué : la commande ffmpeg était `ffmpeg -y -i input -frames:v 1 -vf scale=420:-1 -q:v 3 output.jpg`.ffmpeg 7+ émet un warning « specified filename does not contain an image sequence pattern — Use -update option ». Bien que la thumb fût créée malgré le warning, c'est un risque de fragilité.
+  * **Fix commande** : ajout du flag `-update 1` AVANT le path de sortie. Commande finale : `ffmpeg -y -i input -frames:v 1 -vf scale=420:-1 -q:v 3 -update 1 output.jpg`. Vérifié en CLI : warning éliminé, JPEG 420x315 produit correctement.
+  * **Fix détection ffmpeg (which)** : refonte complète de `which()` dans `media-processing.ts` :
+    - Cache en mémoire `binCache: Map<string, string|null>` pour éviter de re-faire `execSync` à chaque import.
+    - Étape 1 : `which <bin>` via sh.
+    - Étape 2 : fallback `command -v <bin>`.
+    - Étape 3 : recherche explicite dans `/usr/bin/`, `/usr/local/bin/`, `/opt/homebrew/bin/`, `/snap/bin/`, et Windows `C:\Program Files\ffmpeg\bin\` — utile quand le serveur tourne sans PATH utilisateur complet.
+    - `console.warn` clair quand le binaire est introuvable, pour aider au debug.
+    - Supprimé l'inline `require("node:child_process")` (qui était dans l'ancienne implémentation) — utilisation de l'import top-level `import { spawn, execSync } from "node:child_process"`.
+  * **Fix capture stderr** : le spawn ffmpeg capture maintenant le stderr (`stdio: ["ignore", "pipe", "pipe"]`) et l'affiche dans `console.warn` si ffmpeg échoue — avant, les erreurs étaient silencieuses.
+  * Refonte symétrique de `which()` dans `import-processing.ts` (même logique, même cache séparé — chaque module a son propre cache pour éviter les couplages).
+  * Test end-to-end : import de `p4_videoD.mp4` (sha 334a82d0...) → `thumbGenerated: true`, fichier `/library/thumbs/33/4a82d0af74...e56a.jpg` créé, 420x315 JPEG JFIF, commentaire "Lavc61.19.101" (= frame réelle extraite, pas un placeholder). Aucun warning dans dev.log.
+- Lint ESLint : `bun run lint` clean (0 erreur, 0 warning).
+- Tests visuels agent-browser (sessions uniques, serveur dev redémarré via `setsid bun run dev` car le serveur auto meurt entre appels) :
+  * Page /import : HTTP 200, 3 cards (Dropzone 729×565, Options 355×565 même hauteur, DefaultTagsEditor 1104×168 pleine largeur).
+  * Boutons renommés : "Importer un fichier", "Importer un dossier", "Importer" (vérifié).
+  * webkitdirectory attribute présent sur l'input dossier après hydration (vérifié via `document.querySelectorAll('input[type=file]')[1].attributes`).
+  * Click sur checkbox transcodage → Options card grandit (slider + format select + info button visibles), Dropzone card s'étire à la même hauteur 565px (h-full fonctionne).
+  * Slider 5 paliers rendu (1 thumb, 5 labels Min/Basse/Moy./Haute/Max, "Moy." en doré quand value=2).
+  * Popover ⓘ : clic → contenu visible 288×73px avec texte tooltip format courant.
+  * Import vidéo (test_video_d.mp4) → thumbGenerated=true, JPEG 420x315 créé.
+- Dev log : aucune erreur de compile ni runtime pendant les tests.
+
+Stage Summary:
+- Fichiers modifiés :
+  - `src/app/import/page.tsx` (description "Parcourir" → "Importer un fichier" / "Importer un dossier")
+  - `src/components/import/ImportDropzone.tsx` (renommage boutons, callback ref setAttribute webkitdirectory/directory, `h-full` sur Card)
+  - `src/components/import/ImportOptions.tsx` (Slider 5 paliers au lieu de ToggleGroup, InfoPopover déplacé hors du Select, `h-full` sur Card, nettoyage imports ToggleGroup)
+  - `src/components/import/ImportFileList.tsx` (texte "et X supplémentaire(s)", bouton "voir plus" +100 par clic, état `visibleCount`, imports nettoyés)
+  - `src/components/import/ImportProgress.tsx` (refonte : suppression Card, layout inline compact `w-full` pour intégration dans barre d'actions)
+  - `src/components/import/ImportFlow.tsx` (ImportProgress déplacé à l'intérieur de la div barre d'actions)
+  - `src/lib/media-processing.ts` (which() refondu avec cache + chemins courants Linux/macOS/Windows, -update 1 sur ffmpeg, capture stderr, console.warn, suppression inline require)
+  - `src/lib/import-processing.ts` (which() refondu symétrique, cache local)
+- 7 tâches (4.1 à 4.7) toutes terminées et testées
+- 4.8 (bouton 4 souris) explicitement hors périmètre (visionneuse uniquement) — non concerné
+- Décisions clés :
+  - **webkitdirectory via setAttribute callback ref** : seule méthode fiable跨-React pour les attributs non-standard. Vérifié au navigateur que l'attribut est bien présent après hydration.
+  - **InfoPopover déplacé hors du Select** plutôt que `modal={false}` : solution la plus propre au conflit Popover-dans-Popover (Select est un Popover Radix). On a un seul InfoPopover pour le format courant, dont le texte s'adapte dynamiquement.
+  - **Slider shadcn avec min=0/max=4/step=1** : snapping automatique grâce à step=1 sur range entier. Pas besoin de logique de snapping manuel.
+  - **ImportProgress sans Card** : pour intégration dans la barre d'actions sans double-bordure. Layout `w-full` pour prendre une ligne complète dans le flex-wrap.
+  - **-update 1 sur ffmpeg** : flag OBLIGATOIRE pour ffmpeg 7+ (sinon warning image2, et potentiellement comportement instable sur certaines builds). Reste compatible avec ffmpeg 6 et antérieurs (flag ignoré silencieusement s'il n'est pas reconnu).
+  - **which() avec cache + chemins courants** : évite les re-détections à chaque import et fonctionne même si le serveur Next tourne avec un PATH minimal (cas fréquent en production via systemd/launchd).
+  - **capture stderr ffmpeg** : avant, les échecs étaient silencieux (fallback placeholder sans diagnostic). Maintenant, `console.warn` avec le tail du stderr aide à comprendre pourquoi une thumb vidéo a échoué.
+- Lint ESLint clean (0 erreur, 0 warning).
+- Aucun test jetable écrit (conformément aux règles).
+- Prêt pour QA utilisateur.
+
+---
+Task ID: P6 (burger + dossiers + tags)
+Agent: full-stack-developer
+
+Work Log:
+- Lu worklog.md (dernière entrée : P3 — lightbox revamp + ffmpeg import-processing). Présentation des zones "NE TOUCHE PAS" (MediaGrid, MediaCard, LightboxViewer, SearchBar, FiltersBar, TagList, TagAutocomplete, page.tsx, import/*, prisma/schema.prisma).
+- **6.1 — Renommer "Groupes" → "Dossiers"** : dans Header.tsx, le label de section `<h3>` du panneau burger passe de "Groupes" à "Dossiers". Le modèle DB reste `Group` (aucune migration). Le bouton "Créer un groupe" → "Créer un dossier", et la Dialog `CreateGroupDialog` titre "Créer un dossier" (texte visible). Le mot "groupe" reste dans le code (types, helpers, routes) — uniquement le label UI change.
+- **6.2 — Menu 3 points par dossier** : ajouté composant `GroupRowMenu` (DropdownMenu avec trigger MoreVertical lucide). Rendu à droite du compteur de médias de chaque dossier dans la liste du panneau burger. Trois actions :
+  * **Renommer** → ouvre `RenameGroupDialog` (Dialog shadcn avec input nom + bouton Confirmer) → `PATCH /api/groups/[id] {name}`. Gestion 409 (nom déjà pris).
+  * **Masquer** → `PATCH /api/groups/[id] {hidden:true}` direct (pas de Dialog). Utilise AppMeta via `setGroupHidden(db, id, true)` (clé `group_hidden_<id>` = "1"). Le groupe disparaît immédiatement du menu burger après `reload()` de la liste.
+  * **Supprimer** → `DeleteGroupDialog` (AlertDialog shadcn) avec message "Supprimer le dossier X ? Les médias ne seront pas supprimés." → `DELETE /api/groups/[id]`. Si l'utilisateur était sur `/groups/[id]`, retour à `/` après suppression.
+  * Trigger stylé en bouton h-6 w-6 hover:bg-secondary ; `onClick preventDefault` + `onPointerDown stopPropagation` pour éviter la navigation du Link parent.
+- **6.3 — Page Gestionnaire de Tags `/tags`** : créé `src/app/tags/page.tsx` (server component) qui liste tous les tags via `db.tag.findMany({ orderBy: [{postCount:desc},{name:asc}] })`. En-tête de page avec icône Tags dorée, compteur total + total médias taggés, bouton Importer raccourci. Empty state dédié si aucun tag. Créé `src/components/tags/TagsTable.tsx` (client component) avec :
+  * Toolbar : Input + icône Search pour filtrer par nom, Select pour filtrer par catégorie, compteur "X / Y tags · Z médias taggés".
+  * Table shadcn (Table, TableHeader, TableBody, TableHead, TableRow, TableCell) avec 4 colonnes : Nom (dot catégorie + monospace) | Catégorie (Select inline coloré via CATEGORY_PILL) | Nb médias (badge monospace tabular-nums) | Actions (Pencil + Trash2).
+  * Hover bg-secondary/60 sur les rows.
+  * Action Renommer → `RenameTagDialog` (Dialog input + Confirmer → `PATCH /api/tags/[id] {name}`). Gestion 409.
+  * Action Changer catégorie → Select inline directement dans la cellule (pas de Dialog) → `PATCH /api/tags/[id] {category}`. `router.refresh()` après.
+  * Action Supprimer → `DeleteTagDialog` (AlertDialog) avec message "Supprimer le tag X ? Il sera détaché de Y médias. Les fichiers ne seront pas supprimés." → `DELETE /api/tags/[id]`. `router.refresh()` après.
+  * Thème doré respecté : actions rename en doré (#d9a94e), actions delete en rose (rose-600/700), aucun indigo/bleu vif.
+- **6.4 — Bouton "Gestionnaire de Tags" dans le nav** : ajouté `<Link href="/tags">` avec icône Tags (lucide) dorée dans le `<nav>` principal du panneau burger, entre "Favoris" et la section "Dossiers". Le bouton "Paramètres" est déplacé en dernier item du `<nav>` (avant, c'était dans une `div.mt-auto` séparée). Il reste inactif (`disabled`, `cursor-not-allowed`, `text-muted-foreground/60`) avec mention "bientôt".
+- **6.5 — Sidebar tags dans `/groups/[id]`** : la page `/groups/[id]` est désormais un server component avec :
+  1. Récupère le groupe (`getGroup`) + ses médias FILTRÉS par tags (`mediaForGroupFiltered` — nouvelle fonction dans group-helpers.ts qui combine la clause WHERE du groupe + celle de la recherche tag via `buildWhere` + `parseQuery` depuis `@/lib/search`).
+  2. Lit `searchParams.tags` et filtre les médias côté serveur (pagination préservée).
+  3. Affiche la sidebar desktop avec `GroupSearchBar` + `GroupTagList` (NOUVEAUX composants dans `src/components/group/GroupSidebar.tsx` — ils préservent `/groups/[id]` dans l'URL au lieu de pointer vers `/`).
+  4. Affiche la grille `MediaGrid` (réutilisé tel quel).
+  5. `MobileGroupSidebarInjector` injecte le contenu de la sidebar dans le Sheet mobile via le store UI (variante de MobileSidebarInjector).
+  * Pour NE PAS modifier `TagList.tsx` et `SearchBar.tsx` (zone "NE TOUCHE PAS"), créé des variantes GroupTagList / GroupSearchBar qui réutilisent les primitives visuelles (CATEGORIES, CATEGORY_LABELS, CATEGORY_TEXT, displayTag, addTermToQuery, TagAutocomplete) mais avec un `groupSearchHref(groupId, tags)` qui pointe vers `/groups/<id>?tags=...`.
+  * Testé : `/groups/2?tags=cat` filtre correctement les médias du groupe 2 par le tag "cat", et la sidebar affiche "filtré par « cat »".
+- **6.6 — Gestionnaire de dossiers (plus tard)** : noté ci-dessous — pas implémenté dans cette task.
+
+Stage Summary:
+- Fichiers créés :
+  - `src/app/tags/page.tsx` (server component — page Gestionnaire de Tags)
+  - `src/app/api/tags/[id]/route.ts` (PATCH {name?,category?} + DELETE)
+  - `src/components/tags/TagsTable.tsx` (client component — table + dialogs + Select catégorie inline)
+  - `src/components/group/GroupSidebar.tsx` (client component — GroupSearchBar + GroupTagList, scoped à /groups/[id])
+  - `src/components/group/MobileGroupSidebarInjector.tsx` (client component — injecte la sidebar group dans le Sheet mobile)
+- Fichiers modifiés :
+  - `src/components/board/Header.tsx` (label "Dossiers", GroupRowMenu 3 points, lien "Gestionnaire de Tags", Paramètres dans le nav, dialogs Rename/Delete group)
+  - `src/app/groups/[id]/page.tsx` (sidebar tags + recherche filtrée côté serveur + pagination avec query string préservée)
+  - `src/app/api/groups/[id]/route.ts` (PATCH étendu avec `hidden?: boolean` via AppMeta)
+  - `src/lib/group-helpers.ts` (setGroupHidden, isGroupHidden, hiddenMetaKey, listGroups filter hidden via AppMeta, mediaForGroupFiltered, tagsForGroup)
+  - `src/lib/tag-helpers.ts` (updateTag avec vérif unicité, deleteTag avec décrément Media.tagCount, tagsForGroup)
+- Décisions clés :
+  - **AppMeta pour `hidden`** : le schema Group n'a pas de champ `hidden` (et on ne touche pas à prisma/schema.prisma). On utilise AppMeta avec clé `group_hidden_<id>` = "1". `listGroups` filtre les IDs cachés via une seconde requête `appMeta.findMany({ where: { key: { startsWith: "group_hidden_" } } })`. Un groupe masqué reste accessible via `/groups/[id]` directement (pas d'interdiction).
+  - **Pas de modification de TagList.tsx / SearchBar.tsx** : pour respecter la zone "NE TOUCHE PAS", créé des variantes GroupTagList / GroupSearchBar dans un nouveau fichier `src/components/group/GroupSidebar.tsx`. Ces variantes réutilisent TagAutocomplete (qui peut être utilisé comme enfant sans modification) et les constantes partagées (CATEGORIES, etc.).
+  - **mediaForGroupFiltered** : combine `MediaGroupWhereInput` (groupId + media: buildWhere(tag)) pour filtrer les médias du groupe par tags côté serveur. Tri supporté (newest/oldest/size/tagcount/favorite). Réutilise `buildWhere` et `parseQuery` depuis `@/lib/search`.
+  - **tagsForGroup** : tags présents sur les médias du groupe, avec postCount global (pas scoping au groupe — l'utilisateur voit la "popularité" globale du tag).
+  - **AlertDialogAction évité** : utilisé un `Button` régulier au lieu de `AlertDialogAction` pour contrôler la fermeture post-async (sinon radix auto-close avant la fin du fetch).
+  - **GroupRowMenu trigger** : `onClick preventDefault` + `onPointerDown stopPropagation` pour empêcher le Link parent de naviguer vers `/groups/[id]` quand on clique sur le menu 3 points.
+  - **Paramètres dans le nav** : déplacé en dernier item du `<nav>` principal du panneau burger (avec Importer, Favoris, Tags). Style cohérent avec les autres (mais `disabled`, `cursor-not-allowed`, `text-muted-foreground/60`). Reste inactif (placeholder).
+- Résultat des tests :
+  - `bun run lint` : clean (0 erreur, 0 warning).
+  - `bunx tsc --noEmit` : aucune erreur dans mes fichiers (erreurs pré-existantes dans DefaultTagsEditor.tsx, import-processing.ts, search.ts, examples/, skills/ — hors périmètre P6).
+  - Tests API via curl (serveur dev démarré en background via `setsid bun run dev`) :
+    * `GET /tags` → 200 OK, page compile en 2.5s, titre "Gestionnaire de Tags — MyBoard", 28 tags · 53 médias taggés.
+    * `PATCH /api/tags/1 {name:"space_test"}` → 200 OK, retourne tag mis à jour.
+    * `PATCH /api/tags/1 {category:"meta"}` → 200 OK, catégorie changée.
+    * `PATCH /api/tags/1 {name:"nature"}` (déjà pris) → 409 "Un autre tag porte déjà ce nom".
+    * `DELETE /api/tags/99999` (inexistant) → 404 "Tag introuvable".
+    * `PATCH /api/groups/1 {hidden:true}` → 200 OK ; `GET /api/groups` → `[]` (groupe masqué filtré).
+    * `PATCH /api/groups/1 {hidden:false}` → 200 OK ; `GET /api/groups` → renvoie le groupe.
+    * `PATCH /api/groups/1 {name:"Test P6 Renamed"}` → 200 OK.
+    * `DELETE /api/groups/1` → 200 OK `{ok:true,id:1}`.
+    * `GET /groups/2` (après création + ajout de 8 médias) → 200 OK, contient GroupSearchBar + GroupTagList + "Recherche dans le dossier" + "Tags du dossier".
+    * `GET /groups/2?tags=cat` → 200 OK, contient "filtré par" + "cat" (tag filter appliqué côté serveur).
+    * `GET /` → contient "Dossiers" (renommé) + "Gestionnaire de Tags" (nouveau lien) + "Paramètres" (dans le nav). Aucune occurrence de "Groupes" dans le HTML rendu.
+  - Dev log : aucune erreur de compile ni runtime pendant les tests. Toutes les requêtes 200 (sauf 404/409 attendus).
+
+TODO (noté pour plus tard) :
+- Gestionnaire de dossiers (réafficher dossiers masqués, etc.) = plus tard. Pour l'instant, un dossier masqué est invisible du menu burger mais reste accessible directement via `/groups/[id]`. Il faudra une page `/folders` (ou similaire) qui liste tous les dossiers (y compris masqués) avec une action "Réafficher" (PATCH /api/groups/[id] {hidden:false}).

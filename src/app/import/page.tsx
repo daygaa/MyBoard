@@ -37,11 +37,12 @@ export default function ImportPage() {
         </h1>
         <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
           Glissez-déposez vos fichiers ou dossiers, ou cliquez sur{" "}
-          <strong className="text-foreground">Parcourir</strong>. Configurez la
-          compression, la conversion d&apos;images (JPG/PNG/WebP/AVIF…), le
-          transcodage vidéo (MP4/WebM/AV1…) et ajoutez des tags par défaut,
-          puis lancez l&apos;import. Les doublons (sha256) sont automatiquement
-          ignorés.
+          <strong className="text-foreground">Importer un fichier</strong> /
+          <strong className="text-foreground"> Importer un dossier</strong>.
+          Configurez la compression, la conversion d&apos;images
+          (JPG/PNG/WebP/AVIF…), le transcodage vidéo (MP4/WebM/AV1…) et ajoutez
+          des tags par défaut, puis lancez l&apos;import. Les doublons (sha256)
+          sont automatiquement ignorés.
         </p>
       </header>
 

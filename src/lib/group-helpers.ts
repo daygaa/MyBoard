@@ -7,10 +7,16 @@
 //
 // Toutes les opérations "business" sur les groupes passent par ici pour
 // garantir la cohérence (INSERT OR IGNORE sur MediaGroup, batch efficace, etc.).
+//
+// P6 — "Masquer" un dossier : le schema Group n'a pas de champ `hidden` (et on
+// ne touche pas à prisma/schema.prisma), on utilise donc AppMeta avec la clé
+// `group_hidden_<id>` = "1" pour masquer un groupe du menu burger. Le groupe
+// reste accessible via /groups/[id] directement.
 
-import type { PrismaClient } from "@prisma/client";
+import type { PrismaClient, Prisma } from "@prisma/client";
 import { mediaFileUrl, mediaThumbUrl } from "./shared";
-import type { MediaListItem } from "./types";
+import { buildWhere, parseQuery } from "./search";
+import type { MediaListItem, TagDTO } from "./types";
 
 // ---------------------------------------------------------------------------
 // Couleurs proposées pour les groupes (palette dorée + accents chauds/froids
@@ -62,6 +68,49 @@ export function normalizeColor(raw: string | undefined | null): string {
 }
 
 // ---------------------------------------------------------------------------
+// Visibilité (AppMeta) — P6
+// ---------------------------------------------------------------------------
+
+/** Clé AppMeta pour masquer un groupe du menu burger. */
+export function hiddenMetaKey(id: number): string {
+  return `group_hidden_${id}`;
+}
+
+/** Masque ou ré-affiche un groupe dans le menu burger (AppMeta). */
+export async function setGroupHidden(
+  db: PrismaClient,
+  id: number,
+  hidden: boolean
+): Promise<void> {
+  const key = hiddenMetaKey(id);
+  if (hidden) {
+    await db.appMeta.upsert({
+      where: { key },
+      create: { key, value: "1" },
+      update: { value: "1" },
+    });
+  } else {
+    try {
+      await db.appMeta.delete({ where: { key } });
+    } catch {
+      /* déjà absent — ok */
+    }
+  }
+}
+
+/** Indique si un groupe est masqué du menu burger. */
+export async function isGroupHidden(
+  db: PrismaClient,
+  id: number
+): Promise<boolean> {
+  const m = await db.appMeta.findUnique({
+    where: { key: hiddenMetaKey(id) },
+    select: { value: true },
+  });
+  return m?.value === "1";
+}
+
+// ---------------------------------------------------------------------------
 // CRUD Group
 // ---------------------------------------------------------------------------
 
@@ -92,25 +141,48 @@ export async function getGroup(
   });
 }
 
-/** Liste tous les groupes avec le nombre de médias dans chacun. Tri alpha. */
-export async function listGroups(db: PrismaClient): Promise<GroupDTO[]> {
-  const rows = await db.group.findMany({
-    orderBy: { name: "asc" },
-    select: {
-      id: true,
-      name: true,
-      color: true,
-      createdAt: true,
-      _count: { select: { media: true } },
-    },
-  });
-  return rows.map((r) => ({
-    id: r.id,
-    name: r.name,
-    color: r.color,
-    count: r._count.media,
-    createdAt: r.createdAt instanceof Date ? r.createdAt.toISOString() : String(r.createdAt),
-  }));
+/** Liste tous les groupes (visibles) avec le nombre de médias dans chacun.
+ *  Tri alpha. Si `includeHidden` est true, les groupes masqués du menu burger
+ *  (AppMeta `group_hidden_<id>`) sont inclus. */
+export async function listGroups(
+  db: PrismaClient,
+  options: { includeHidden?: boolean } = {}
+): Promise<GroupDTO[]> {
+  const { includeHidden = false } = options;
+  const [rows, hiddenRows] = await Promise.all([
+    db.group.findMany({
+      orderBy: { name: "asc" },
+      select: {
+        id: true,
+        name: true,
+        color: true,
+        createdAt: true,
+        _count: { select: { media: true } },
+      },
+    }),
+    includeHidden
+      ? Promise.resolve([] as { key: string }[])
+      : db.appMeta.findMany({
+          where: { key: { startsWith: "group_hidden_" } },
+          select: { key: true },
+        }),
+  ]);
+  const hiddenIds = new Set(
+    hiddenRows.map((r) => {
+      const m = r.key.match(/^group_hidden_(\d+)$/);
+      return m ? Number(m[1]) : NaN;
+    }).filter((n) => Number.isFinite(n))
+  );
+
+  return rows
+    .filter((r) => includeHidden || !hiddenIds.has(r.id))
+    .map((r) => ({
+      id: r.id,
+      name: r.name,
+      color: r.color,
+      count: r._count.media,
+      createdAt: r.createdAt instanceof Date ? r.createdAt.toISOString() : String(r.createdAt),
+    }));
 }
 
 /** Met à jour le nom et/ou la couleur d'un groupe. */
@@ -292,4 +364,151 @@ export async function mediaForGroup(
   });
 
   return { items, total };
+}
+
+// ---------------------------------------------------------------------------
+// Médias d'un groupe FILTRÉS par tags (P6 — sidebar tags dans /groups/[id])
+// ---------------------------------------------------------------------------
+
+/**
+ * Récupère les MediaListItem pour un groupe, FILTRÉS par une requête booru
+ * (tags inclus/exclus, type:, ext:, order:…). Pagination + total.
+ *
+ * Combine la clause WHERE du groupe (MediaGroup.groupId) avec celle de la
+ * recherche tag (buildWhere) via un AND Prisma.
+ *
+ * Tri : order:newest/oldest supporté (id-based). Pour les autres tris, on
+ * retombe sur newest. Le tri se fait sur Media directement (pas sur MediaGroup)
+ * car on filtre par Media.
+ */
+export async function mediaForGroupFiltered(
+  db: PrismaClient,
+  groupId: number,
+  q: string,
+  page: number,
+  pageSize: number
+): Promise<{ items: MediaListItem[]; total: number; parsed: ReturnType<typeof parseQuery> }> {
+  const pq = parseQuery(q);
+  const tagWhere = await buildWhere(db, pq);
+  // buildWhere renvoie null si la requête tag garantit un résultat vide
+  // (e.g. tag inexistant). Dans ce cas, on short-circuit.
+  if (tagWhere === null) {
+    return { items: [], total: 0, parsed: pq };
+  }
+
+  // Clause Where combinant groupe + recherche tag.
+  // On doit passer par MediaGroup pour rester cohérent avec la relation N↔N.
+  const groupWhere: Prisma.MediaGroupWhereInput = {
+    groupId,
+    media: tagWhere,
+  };
+
+  // Tri : seuls newest/oldest sont id-based. Pour les autres, on ordonne sur
+  // la relation media.
+  const isNewest = pq.order === "newest" || pq.order === "favorite" || pq.order === "random";
+  const orderByMedia: Prisma.MediaOrderByWithRelationInput =
+    pq.order === "oldest"
+      ? { id: "asc" }
+      : pq.order === "size"
+        ? { size: "desc" }
+        : pq.order === "size_asc"
+          ? { size: "asc" }
+          : pq.order === "tagcount"
+            ? { tagCount: "desc" }
+            : pq.order === "tagcount_asc"
+              ? { tagCount: "asc" }
+              : pq.order === "favorite"
+                ? { favorite: "desc" }
+                : { id: isNewest ? "desc" : "desc" };
+
+  const skip = (Math.max(1, page) - 1) * pageSize;
+
+  const [rows, total] = await Promise.all([
+    db.mediaGroup.findMany({
+      where: groupWhere,
+      orderBy: { media: orderByMedia },
+      skip,
+      take: pageSize,
+      include: {
+        media: {
+          include: {
+            tags: { include: { tag: { select: { id: true, name: true, category: true } } } },
+          },
+        },
+      },
+    }),
+    db.mediaGroup.count({ where: groupWhere }),
+  ]);
+
+  const items: MediaListItem[] = rows.map((r) => {
+    const m = r.media;
+    return {
+      id: m.id,
+      kind: m.kind as MediaListItem["kind"],
+      ext: m.ext,
+      mime: m.mime,
+      originalName: m.originalName,
+      size: m.size,
+      width: m.width,
+      height: m.height,
+      duration: m.duration,
+      hasThumb: m.hasThumb,
+      thumbUrl: mediaThumbUrl({
+        id: m.id,
+        storage: m.storage,
+        remoteThumbUrl: m.remoteThumbUrl,
+        hasThumb: m.hasThumb,
+      }),
+      fileUrl: mediaFileUrl({ id: m.id, storage: m.storage, remoteUrl: m.remoteUrl }),
+      tags: m.tags
+        .map((mt) => ({
+          id: mt.tag.id,
+          name: mt.tag.name,
+          category: mt.tag.category,
+        }))
+        .sort((a, b) => a.name.localeCompare(b.name)),
+      tagCount: m.tagCount,
+      favorite: m.favorite,
+      score: m.score,
+      views: m.views,
+      importedAt:
+        m.importedAt instanceof Date ? m.importedAt.toISOString() : String(m.importedAt),
+    };
+  });
+
+  return { items, total, parsed: pq };
+}
+
+/**
+ * Récupère tous les tags présents sur les médias d'un groupe (avec leur
+ * postCount global). Tri par postCount desc, puis name asc. P6 — sidebar.
+ *
+ * Délègue à tagsForGroup (tag-helpers) pour la logique.
+ */
+export async function tagsForGroup(
+  db: PrismaClient,
+  groupId: number
+): Promise<TagDTO[]> {
+  // 1. TagIds distincts présents sur les médias du groupe
+  const rows = await db.mediaTag.findMany({
+    where: { media: { groups: { some: { groupId } } } },
+    select: { tagId: true },
+    distinct: ["tagId"],
+  });
+  const tagIds = rows.map((r) => r.tagId);
+  if (tagIds.length === 0) return [];
+
+  const tags = await db.tag.findMany({
+    where: { id: { in: tagIds } },
+    select: { id: true, name: true, category: true, postCount: true },
+  });
+
+  return tags
+    .sort((a, b) => b.postCount - a.postCount || a.name.localeCompare(b.name))
+    .map((t) => ({
+      id: t.id,
+      name: t.name,
+      category: t.category,
+      postCount: t.postCount,
+    }));
 }

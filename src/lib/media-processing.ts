@@ -6,9 +6,66 @@
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import { spawn } from "node:child_process";
+import { spawn, execSync } from "node:child_process";
 import sharp from "sharp";
 import { ensureShardDirs, absOriginalPath, absThumbPath } from "./storage";
+
+/** Cache pour éviter de repérer ffmpeg/ffprobe à chaque appel. */
+const binCache = new Map<string, string | null>();
+
+/**
+ * Localise un binaire (ffmpeg / ffprobe) sur le système.
+ * Stratégie (dans l'ordre) :
+ *  1. `which <bin>` (POSIX)
+ *  2. `command -v <bin>` (fallback POSIX)
+ *  3. Recherche explicite dans les chemins courants (Linux/macOS/Windows)
+ *  4. Si toujours KO → renvoie null et le caller fait un fallback placeholder.
+ */
+function which(bin: string): string | null {
+  if (binCache.has(bin)) return binCache.get(bin) ?? null;
+  let found: string | null = null;
+
+  // 1 & 2 — which / command -v via sh
+  try {
+    const p = execSync(`which ${bin} 2>/dev/null || command -v ${bin} 2>/dev/null`, {
+      encoding: "utf-8",
+      stdio: ["ignore", "pipe", "ignore"],
+    }).trim();
+    if (p && fs.existsSync(p)) found = p;
+  } catch {
+    // ignore
+  }
+
+  // 3 — chemins courants (utile quand le serveur tourne sans PATH utilisateur)
+  if (!found) {
+    const candidates = [
+      "/usr/bin/" + bin,
+      "/usr/local/bin/" + bin,
+      "/opt/homebrew/bin/" + bin,
+      "/snap/bin/" + bin,
+      // Windows (Git Bash / Scoop)
+      `C:\\Program Files\\ffmpeg\\bin\\${bin}.exe`,
+    ];
+    for (const c of candidates) {
+      try {
+        if (fs.existsSync(c)) {
+          found = c;
+          break;
+        }
+      } catch {
+        // ignore
+      }
+    }
+  }
+
+  if (found) {
+    binCache.set(bin, found);
+    return found;
+  }
+  console.warn(`[myboard] binaire « ${bin} » introuvable — fallback activé`);
+  binCache.set(bin, null);
+  return null;
+}
 
 /** Hash SHA-256 d'un fichier (stream pour gros fichiers). */
 export function sha256File(p: string): Promise<string> {
@@ -42,11 +99,16 @@ export function videoDuration(p: string): Promise<number | null> {
       "-show_entries", "format=duration",
       "-of", "default=noprint_wrappers=1:nokey=1",
       p,
-    ]);
+    ], { stdio: ["ignore", "pipe", "pipe"] });
     let out = "";
+    let stderr = "";
     proc.stdout.on("data", (d) => (out += d.toString()));
+    proc.stderr.on("data", (d) => (stderr += d.toString()));
     proc.on("close", () => {
       const n = parseFloat(out.trim());
+      if (!isFinite(n) && stderr) {
+        console.warn(`[myboard] ffprobe échoué pour ${path.basename(p)}: ${stderr.split("\n").slice(-2).join(" | ").trim()}`);
+      }
       resolve(isFinite(n) ? n : null);
     });
     proc.on("error", () => resolve(null));
@@ -57,6 +119,9 @@ export function videoDuration(p: string): Promise<number | null> {
  * Génère une miniature JPEG (max 420×420) pour un fichier donné.
  * - Images : sharp (redimensionne + convertit en JPEG q85).
  * - Vidéos : ffmpeg (première frame, scale 420 de large).
+ *   Commande : ffmpeg -y -i input -frames:v 1 -vf scale=420:-1 -q:v 3 -update 1 output.jpg
+ *   Le flag `-update 1` est OBLIGATOIRE pour ffmpeg 7+ (sinon warning
+ *   « specified filename does not contain an image sequence pattern »).
  * - Autres : placeholder SVG → JPEG.
  * Renvoie le chemin absolu de la miniature, ou null si échec.
  */
@@ -81,20 +146,38 @@ export async function makeThumb(
 
     if (kind === "video") {
       const ff = which("ffmpeg");
-      if (!ff) return makePlaceholder(dest, ext);
+      if (!ff) {
+        console.warn(`[myboard] ffmpeg introuvable — placeholder utilisé pour ${path.basename(srcPath)}`);
+        return makePlaceholder(dest, ext);
+      }
       return new Promise((resolve) => {
+        // -update 1 : indispensable pour ffmpeg 7+ (élimine le warning image2).
         const proc = spawn(ff, [
-          "-y", "-i", srcPath,
+          "-y",
+          "-i", srcPath,
           "-frames:v", "1",
           "-vf", "scale=420:-1",
           "-q:v", "3",
+          "-update", "1",
           dest,
-        ]);
-        proc.on("close", () => {
-          if (fs.existsSync(dest) && fs.statSync(dest).size > 0) resolve(dest);
-          else resolve(makePlaceholder(dest, ext));
+        ], { stdio: ["ignore", "pipe", "pipe"] });
+        let stderr = "";
+        proc.stderr.on("data", (d: Buffer) => {
+          stderr += d.toString();
         });
-        proc.on("error", () => resolve(makePlaceholder(dest, ext)));
+        proc.on("close", (code) => {
+          if (fs.existsSync(dest) && fs.statSync(dest).size > 0) {
+            resolve(dest);
+          } else {
+            const tail = stderr.split("\n").slice(-3).join(" | ").trim();
+            console.warn(`[myboard] ffmpeg échoué (exit ${code}) pour ${path.basename(srcPath)}${tail ? ` : ${tail}` : ""}`);
+            resolve(makePlaceholder(dest, ext));
+          }
+        });
+        proc.on("error", () => {
+          console.warn(`[myboard] ffmpeg spawn échoué pour ${path.basename(srcPath)}`);
+          resolve(makePlaceholder(dest, ext));
+        });
       });
     }
 
@@ -124,20 +207,6 @@ async function makePlaceholder(dest: string, ext: string): Promise<string> {
     fs.writeFileSync(dest, Buffer.alloc(0));
   }
   return dest;
-}
-
-/** Helper : quel binaire utiliser (PATH ou chemin explicite). */
-function which(bin: string): string | null {
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { execSync } = require("node:child_process");
-    const p = execSync(`which ${bin} 2>/dev/null || command -v ${bin} 2>/dev/null`, {
-      encoding: "utf-8",
-    }).trim();
-    return p || null;
-  } catch {
-    return null;
-  }
 }
 
 /** Copie un fichier source vers son emplacement shardé définitif. */

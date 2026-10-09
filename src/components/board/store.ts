@@ -97,6 +97,15 @@ type BoardUIState = {
   closeLightbox: () => void;
   setLightboxIndex: (i: number) => void;
 
+  // Cartes masquées (optimistic UI pour la suppression).
+  // Quand l'utilisateur confirme la suppression (single ou bulk), on ajoute
+  // les ids ici AVANT d'attendre la réponse serveur. La grille filtre ces ids
+  // pour qu'ils disparaissent immédiatement. router.refresh() à la fin
+  // resynchronise depuis la DB et on clear le Set.
+  hiddenIds: Set<number>;
+  addHidden: (ids: number[]) => void;
+  clearHidden: () => void;
+
   // Densité grille (4 = très aéré, 30 = très compact). Persistance localStorage.
   gridDensity: number;
   setGridDensity: (n: number) => void;
@@ -170,6 +179,16 @@ export const useBoardUI = create<BoardUIState>((set, get) => ({
     set((s) =>
       s.lightbox ? { lightbox: { ...s.lightbox, index: i } } : { lightbox: null }
     ),
+
+  hiddenIds: new Set(),
+  addHidden: (ids) =>
+    set((s) => {
+      if (ids.length === 0) return {};
+      const next = new Set(s.hiddenIds);
+      for (const id of ids) next.add(id);
+      return { hiddenIds: next };
+    }),
+  clearHidden: () => set({ hiddenIds: new Set() }),
 
   // Densité grille — DEFAULT au 1er render (SSR-safe), hydratée après mount.
   gridDensity: DEFAULT_GRID_DENSITY,

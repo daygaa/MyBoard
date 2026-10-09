@@ -273,3 +273,140 @@ export async function mediaDetail(
     storage: m.storage,
   };
 }
+
+// ---------------------------------------------------------------------------
+// CRUD Tag (gestionnaire de tags : /tags page)
+// ---------------------------------------------------------------------------
+
+/**
+ * Met à jour un tag : renomme et/ou change sa catégorie.
+ * - Vérifie l'unicité du nom en cas de renommage.
+ * - Renvoie le tag mis à jour, ou null si introuvable / conflit.
+ */
+export async function updateTag(
+  db: PrismaClient,
+  id: number,
+  patch: { name?: string; category?: string }
+): Promise<{ id: number; name: string; category: string; postCount: number } | null> {
+  const data: { name?: string; category?: string } = {};
+
+  if (patch.name !== undefined) {
+    const norm = normalizeTag(patch.name);
+    if (!norm) throw new Error("Nom de tag vide après normalisation");
+    if (norm.length > 255) throw new Error("Nom de tag trop long (max 255)");
+    // Vérifie l'unicité (un autre tag avec ce nom existe déjà)
+    const existing = await db.tag.findFirst({
+      where: { name: norm, NOT: { id } },
+      select: { id: true },
+    });
+    if (existing) throw new Error("UNIQUE_VIOLATION");
+    data.name = norm;
+  }
+
+  if (patch.category !== undefined) {
+    // Catégorie validée (default general) — on accepte n'importe quelle string
+    // non vide mais on normalise vers les catégories connues si possible.
+    const cat = patch.category && patch.category.length ? patch.category : "general";
+    data.category = cat;
+  }
+
+  if (Object.keys(data).length === 0) {
+    // Rien à mettre à jour : renvoie l'état courant
+    const t = await db.tag.findUnique({
+      where: { id },
+      select: { id: true, name: true, category: true, postCount: true },
+    });
+    return t;
+  }
+
+  try {
+    return await db.tag.update({
+      where: { id },
+      data,
+      select: { id: true, name: true, category: true, postCount: true },
+    });
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Supprime un tag.
+ * - Pour chaque média attaché : décrémente Media.tagCount.
+ * - Supprime toutes les liaisons MediaTag (cascade gérée par Prisma/SQLite).
+ * - Supprime la ligne Tag.
+ * Renvoie true si supprimé, false si introuvable.
+ */
+export async function deleteTag(
+  db: PrismaClient,
+  id: number
+): Promise<boolean> {
+  const tag = await db.tag.findUnique({
+    where: { id },
+    select: { id: true, postCount: true },
+  });
+  if (!tag) return false;
+
+  // Récupère tous les médias liés pour décrémenter leur tagCount
+  const links = await db.mediaTag.findMany({
+    where: { tagId: id },
+    select: { mediaId: true },
+  });
+
+  // Décrémente tagCount sur chaque média (best-effort, en parallèle)
+  if (links.length > 0) {
+    await Promise.all(
+      links.map((l) =>
+        db.media.update({
+          where: { id: l.mediaId },
+          data: { tagCount: { decrement: 1 } },
+        }).catch(() => {})
+      )
+    );
+  }
+
+  // Supprime les liaisons MediaTag (la suppression du Tag va cascader mais
+  // on le fait explicitement pour être sûr quel que soit le mode onDelete)
+  await db.mediaTag.deleteMany({ where: { tagId: id } }).catch(() => {});
+
+  // Supprime le tag
+  try {
+    await db.tag.delete({ where: { id } });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Récupère tous les tags présents sur les médias d'un groupe, avec leur
+ * postCount global. Tri par postCount desc puis name asc.
+ */
+export async function tagsForGroup(
+  db: PrismaClient,
+  groupId: number
+): Promise<TagDTO[]> {
+  // 1. TagIds distincts présents sur les médias du groupe
+  const rows = await db.mediaTag.findMany({
+    where: { media: { groups: { some: { groupId } } } },
+    select: { tagId: true },
+    distinct: ["tagId"],
+  });
+  const tagIds = rows.map((r) => r.tagId);
+  if (tagIds.length === 0) return [];
+
+  // 2. Tags complets (postCount global)
+  const tags = await db.tag.findMany({
+    where: { id: { in: tagIds } },
+    select: { id: true, name: true, category: true, postCount: true },
+  });
+
+  return tags
+    .sort((a, b) => b.postCount - a.postCount || a.name.localeCompare(b.name))
+    .map((t) => ({
+      id: t.id,
+      name: t.name,
+      category: t.category,
+      postCount: t.postCount,
+    }));
+}

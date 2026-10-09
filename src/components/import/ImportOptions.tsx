@@ -31,7 +31,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import {
   Popover,
   PopoverContent,
@@ -94,26 +93,29 @@ const VIDEO_FORMATS: {
   },
 ];
 
-const VIDEO_QUALITIES: { value: string; label: string }[] = [
-  { value: "0", label: "Minimale" },
-  { value: "1", label: "Basse" },
-  { value: "2", label: "Moyenne" },
-  { value: "3", label: "Haute" },
-  { value: "4", label: "Maximale" },
+const VIDEO_QUALITIES: { value: number; label: string; short: string }[] = [
+  { value: 0, label: "Minimale", short: "Min" },
+  { value: 1, label: "Basse", short: "Basse" },
+  { value: 2, label: "Moyenne", short: "Moy." },
+  { value: 3, label: "Haute", short: "Haute" },
+  { value: 4, label: "Maximale", short: "Max" },
 ];
 
 // ---------------------------------------------------------------------------
-// InfoPopover : icône ⓘ qui ouvre un Popover avec un texte d'aide.
-// On stoppe la propagation des events pointer/click pour éviter que le clic
-// sur l'icône ne déclenche la sélection de l'option parente (SelectItem).
+// InfoPopover : icône ⓘ qui ouvre un Popover au clic avec un texte d'aide.
+// Rendu HORS du Select (à côté du SelectTrigger) pour éviter le conflit
+// Popover-dans-Popover : le Select est lui-même un Popover Radix, et un Popover
+// enfant se ferme instantanément quand le Select parent perd le focus.
 // ---------------------------------------------------------------------------
 
 function InfoPopover({
   text,
   label,
+  side = "top",
 }: {
   text: string;
   label: string;
+  side?: "top" | "bottom" | "left" | "right";
 }) {
   return (
     <Popover>
@@ -121,23 +123,15 @@ function InfoPopover({
         <button
           type="button"
           aria-label={label}
-          // Empêche le Select parent de capter le clic comme une sélection
-          onPointerDown={(e) => {
-            e.stopPropagation();
-            e.preventDefault();
-          }}
-          onClick={(e) => e.stopPropagation()}
-          className="ml-auto inline-flex shrink-0 items-center text-muted-foreground transition hover:text-[#d9a94e]"
+          className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition hover:bg-secondary hover:text-[#d9a94e] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d9a94e]/40"
         >
           <Info className="h-3.5 w-3.5" />
         </button>
       </PopoverTrigger>
       <PopoverContent
-        side="left"
+        side={side}
         align="center"
-        className="w-64 text-xs leading-relaxed text-popover-foreground"
-        // Empêche le Select de se fermer quand le Popover s'ouvre
-        onOpenAutoFocus={(e) => e.preventDefault()}
+        className="w-72 text-xs leading-relaxed text-popover-foreground"
       >
         {text}
       </PopoverContent>
@@ -160,7 +154,7 @@ export function ImportOptions({ options, onChange, disabled = false }: Props) {
   const imgSelectValue = options.convertImageFormat ?? "__none__";
 
   return (
-    <Card className="border-border bg-card/60">
+    <Card className="flex h-full flex-col border-border bg-card/60">
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
           <Settings2 className="h-4 w-4 text-[#d9a94e]" />
@@ -295,39 +289,44 @@ export function ImportOptions({ options, onChange, disabled = false }: Props) {
           </div>
           {options.transcodeVideo && (
             <div className="mt-3 space-y-3 pl-7">
-              <Select
-                value={options.videoFormat}
-                onValueChange={(v) => set("videoFormat", v)}
-                disabled={disabled}
-              >
-                <SelectTrigger className="h-9 w-full bg-background/60">
-                  <SelectValue placeholder="Format vidéo" />
-                </SelectTrigger>
-                <SelectContent>
-                  {VIDEO_FORMATS.map((f) => (
-                    <SelectItem
-                      key={f.value}
-                      value={f.value}
-                      className="pr-8"
-                    >
-                      <span className="flex flex-1 items-center gap-1.5 truncate">
-                        <span className="truncate">{f.label}</span>
-                        {f.default && (
-                          <span className="rounded bg-[#d9a94e]/15 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wider text-[#d9a94e]">
-                            défaut
-                          </span>
-                        )}
-                      </span>
-                      <InfoPopover
-                        text={f.tooltip}
-                        label={`Aide sur ${f.label}`}
-                      />
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {/* Ligne : Select format + InfoPopover (à côté, pas à l'intérieur du Select) */}
+              <div className="flex items-center gap-1.5">
+                <Select
+                  value={options.videoFormat}
+                  onValueChange={(v) => set("videoFormat", v)}
+                  disabled={disabled}
+                >
+                  <SelectTrigger className="h-9 min-w-0 flex-1 bg-background/60">
+                    <SelectValue placeholder="Format vidéo" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {VIDEO_FORMATS.map((f) => (
+                      <SelectItem key={f.value} value={f.value}>
+                        <span className="flex flex-1 items-center gap-1.5 truncate">
+                          <span className="truncate">{f.label}</span>
+                          {f.default && (
+                            <span className="rounded bg-[#d9a94e]/15 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wider text-[#d9a94e]">
+                              défaut
+                            </span>
+                          )}
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <InfoPopover
+                  text={
+                    VIDEO_FORMATS.find((f) => f.value === options.videoFormat)
+                      ?.tooltip ?? "Sélectionnez un format vidéo pour afficher son aide."
+                  }
+                  label={`Aide sur ${
+                    VIDEO_FORMATS.find((f) => f.value === options.videoFormat)?.label ?? "format vidéo"
+                  }`}
+                  side="bottom"
+                />
+              </div>
 
-              {/* imp-6 : Qualité vidéo — 5 paliers (segmented control) */}
+              {/* imp-5 (P4) : Slider qualité vidéo — 5 paliers avec snapping */}
               <div>
                 <div className="mb-1.5 flex items-center justify-between">
                   <Label className="text-xs text-muted-foreground">
@@ -337,29 +336,35 @@ export function ImportOptions({ options, onChange, disabled = false }: Props) {
                     {VIDEO_QUALITIES[options.videoQuality]?.label ?? "Moyenne"}
                   </span>
                 </div>
-                <ToggleGroup
-                  type="single"
-                  value={String(options.videoQuality)}
+                <Slider
+                  value={[options.videoQuality]}
+                  min={0}
+                  max={4}
+                  step={1}
                   onValueChange={(v) => {
-                    if (!v) return;
-                    const n = Number.parseInt(v, 10);
-                    if (Number.isFinite(n)) set("videoQuality", n);
+                    const n = v[0];
+                    if (typeof n === "number" && Number.isFinite(n)) {
+                      set("videoQuality", Math.max(0, Math.min(4, Math.round(n))));
+                    }
                   }}
                   disabled={disabled}
-                  variant="outline"
-                  className="grid w-full grid-cols-5 gap-1 rounded-md border-border bg-background/40 p-1"
-                >
+                  className="[&_[data-slot=slider-range]]:bg-[#d9a94e] [&_[data-slot=slider-thumb]]:border-[#d9a94e]"
+                />
+                {/* Libellés des 5 paliers sous le slider */}
+                <div className="mt-1.5 flex justify-between text-[10px] text-muted-foreground">
                   {VIDEO_QUALITIES.map((q) => (
-                    <ToggleGroupItem
+                    <span
                       key={q.value}
-                      value={q.value}
-                      aria-label={q.label}
-                      className="h-8 rounded text-[11px] font-medium data-[state=on]:border-[#d9a94e] data-[state=on]:bg-[#d9a94e]/15 data-[state=on]:text-[#d9a94e]"
+                      className={
+                        options.videoQuality === q.value
+                          ? "font-semibold text-[#d9a94e]"
+                          : ""
+                      }
                     >
-                      {q.label}
-                    </ToggleGroupItem>
+                      {q.short}
+                    </span>
                   ))}
-                </ToggleGroup>
+                </div>
               </div>
             </div>
           )}

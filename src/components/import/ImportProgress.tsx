@@ -1,10 +1,19 @@
 "use client";
 
-// MyBoard — Affichage de la progression d'import.
-// - Barre de progression globale (% fichiers traités / total)
-// - Fichier en cours d'affichage
-// - Liste des fichiers avec statut : pending / processing / imported / duplicate / error
-// - Logs en temps réel (console-like, scrollable max-h-64)
+// MyBoard — Affichage de la progression d'import (P4 refonte).
+//
+// Refonte P4 (4.4) : l'élément de progression est désormais RENDU À L'INTÉRIEUR
+// de la barre d'actions (div `flex flex-wrap items-center justify-between gap-3
+// rounded-xl border border-border bg-card/40 px-4 py-3`) par ImportFlow.
+// Il n'est plus une Card à part entière mais un bloc inline compact qui
+// s'insère au-dessus de la liste des fichiers sélectionnés.
+//
+// Contenu :
+// - Stats inline (Importés / Doublons / Erreurs / %)
+// - Barre de progression
+// - Fichier en cours + total
+// - Liste compacte des fichiers (max-h-48, scroll fin)
+// - Console logs (h-32, scroll fin)
 // - Boutons contextuels : Annuler (running) / Fermer (done) / Voir les médias (lien /?tags=defaultTags)
 
 import Link from "next/link";
@@ -18,12 +27,6 @@ import {
   Circle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import type {
   DefaultTag,
@@ -67,8 +70,6 @@ export function ImportProgress({
   const errors = results.filter((r) => r.status === "error").length;
 
   // Index → map vers un résultat si déjà traité, sinon "processing" ou "pending"
-  // (les fichiers ne sont PAS connus individuellement côté UI — on utilise l'index)
-  // NOTE: results.length correspond à `processed`, donc les fichiers d'index >= processed sont pending/processing.
   const rows = Array.from({ length: total }, (_, i) => {
     if (i < results.length) {
       return { idx: i, result: results[i], state: results[i].status as State };
@@ -89,125 +90,122 @@ export function ImportProgress({
   const browseHref = tagsQuery ? searchHref(tagsQuery) : "/";
 
   return (
-    <Card className="border-border bg-card/60">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+    <div className="w-full space-y-3 border-t border-border/70 pt-3">
+      {/* Ligne 1 : titre + stats inline + % */}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs">
+        <span className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
           {status === "running" ? (
-            <Loader2 className="h-4 w-4 animate-spin text-[#d9a94e]" />
+            <Loader2 className="h-3.5 w-3.5 animate-spin text-[#d9a94e]" />
           ) : (
-            <Check className="h-4 w-4 text-emerald-400" />
+            <Check className="h-3.5 w-3.5 text-emerald-400" />
           )}
           Progression
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-5">
-        {/* Stats globales */}
-        <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 text-sm">
-          <StatBadge label="Importés" value={imported} variant="emerald" />
-          <StatBadge label="Doublons" value={duplicates} variant="amber" />
-          <StatBadge label="Erreurs" value={errors} variant="rose" />
-          <span className="ml-auto text-xs text-muted-foreground tabular-nums">
-            {processed} / {total} · {pct}%
-          </span>
-        </div>
+        </span>
+        <StatBadge label="Importés" value={imported} variant="emerald" />
+        <StatBadge label="Doublons" value={duplicates} variant="amber" />
+        <StatBadge label="Erreurs" value={errors} variant="rose" />
+        <span className="ml-auto text-[11px] text-muted-foreground tabular-nums">
+          {processed} / {total} · {pct}%
+        </span>
+      </div>
 
-        {/* Barre de progression */}
-        <div>
-          <Progress
-            value={pct}
-            className="h-2.5 bg-secondary [&_[data-slot=progress-indicator]]:bg-[#d9a94e]"
-          />
-          <p className="mt-1.5 truncate text-xs text-muted-foreground">
-            {status === "running"
-              ? currentIdx !== null && rows[currentIdx]
-                ? `Traitement en cours… (fichier ${currentIdx + 1}/${total})`
-                : "Traitement en cours…"
-              : status === "done"
-                ? `Terminé — ${imported} importé${imported > 1 ? "s" : ""}${
-                    duplicates > 0 ? `, ${duplicates} doublon${duplicates > 1 ? "s" : ""} ignoré${duplicates > 1 ? "s" : ""}` : ""
-                  }${errors > 0 ? `, ${errors} erreur${errors > 1 ? "s" : ""}` : ""}`
-                : ""}
-          </p>
-        </div>
+      {/* Barre de progression */}
+      <Progress
+        value={pct}
+        className="h-2 bg-secondary [&_[data-slot=progress-indicator]]:bg-[#d9a94e]"
+      />
+      <p className="-mt-1.5 truncate text-[11px] text-muted-foreground">
+        {status === "running"
+          ? currentIdx !== null && rows[currentIdx]
+            ? `Traitement en cours… (fichier ${currentIdx + 1}/${total})`
+            : "Traitement en cours…"
+          : status === "done"
+            ? `Terminé — ${imported} importé${imported > 1 ? "s" : ""}${
+                duplicates > 0 ? `, ${duplicates} doublon${duplicates > 1 ? "s" : ""} ignoré${duplicates > 1 ? "s" : ""}` : ""
+              }${errors > 0 ? `, ${errors} erreur${errors > 1 ? "s" : ""}` : ""}`
+            : ""}
+      </p>
 
-        {/* Liste des fichiers */}
+      {/* Liste des fichiers (compacte) */}
+      {total > 0 && (
         <div>
-          <p className="mb-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
             Fichiers
           </p>
-          <ul className="max-h-64 space-y-1 overflow-y-auto pr-1">
+          <ul
+            className="max-h-44 space-y-1 overflow-y-auto pr-1"
+            style={{ scrollbarWidth: "thin" }}
+          >
             {rows.map((row) => (
               <FileRow key={row.idx} row={row} total={total} />
             ))}
           </ul>
         </div>
+      )}
 
-        {/* Console logs */}
-        <div>
-          <p className="mb-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Logs
-          </p>
-          <div className="h-44 overflow-y-auto rounded-md border border-border bg-black/40 p-2.5 font-mono text-[11px] leading-relaxed">
-            {logs.length === 0 ? (
-              <span className="text-muted-foreground/60">
-                En attente de logs…
-              </span>
-            ) : (
-              logs.map((log, i) => (
-                <LogLine key={i} text={log} />
-              ))
-            )}
-          </div>
+      {/* Console logs */}
+      <div>
+        <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+          Logs
+        </p>
+        <div className="h-28 overflow-y-auto rounded-md border border-border bg-black/40 p-2 font-mono text-[10px] leading-relaxed">
+          {logs.length === 0 ? (
+            <span className="text-muted-foreground/60">
+              En attente de logs…
+            </span>
+          ) : (
+            logs.map((log, i) => <LogLine key={i} text={log} />)
+          )}
         </div>
+      </div>
 
-        {/* Actions */}
-        <div className="flex flex-wrap items-center gap-2">
-          {status === "running" && (
+      {/* Actions */}
+      <div className="flex flex-wrap items-center gap-2">
+        {status === "running" && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onCancel}
+            className="border-rose-500/40 text-rose-300 hover:bg-rose-500/10 hover:text-rose-200"
+          >
+            <X className="h-4 w-4" />
+            Annuler
+          </Button>
+        )}
+        {status === "done" && (
+          <>
             <Button
               variant="outline"
               size="sm"
-              onClick={onCancel}
-              className="border-rose-500/40 text-rose-300 hover:bg-rose-500/10 hover:text-rose-200"
+              onClick={onClose}
+              className="border-border text-muted-foreground hover:text-foreground"
             >
-              <X className="h-4 w-4" />
-              Annuler
+              Fermer
             </Button>
-          )}
-          {status === "done" && (
-            <>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={onClose}
-                className="border-border text-muted-foreground hover:text-foreground"
-              >
-                Fermer
-              </Button>
-              <Button
-                asChild
-                size="sm"
-                className="bg-[#d9a94e] text-[#1a1408] hover:bg-[#e3b75f]"
-              >
-                <Link href={browseHref} className="gap-1.5">
-                  {tagsQuery ? (
-                    <>
-                      <Eye className="h-4 w-4" />
-                      Voir les médias
-                      <ArrowRight className="h-3.5 w-3.5" />
-                    </>
-                  ) : (
-                    <>
-                      <Eye className="h-4 w-4" />
-                      Voir la bibliothèque
-                    </>
-                  )}
-                </Link>
-              </Button>
-            </>
-          )}
-        </div>
-      </CardContent>
-    </Card>
+            <Button
+              asChild
+              size="sm"
+              className="bg-[#d9a94e] text-[#1a1408] hover:bg-[#e3b75f]"
+            >
+              <Link href={browseHref} className="gap-1.5">
+                {tagsQuery ? (
+                  <>
+                    <Eye className="h-4 w-4" />
+                    Voir les médias
+                    <ArrowRight className="h-3.5 w-3.5" />
+                  </>
+                ) : (
+                  <>
+                    <Eye className="h-4 w-4" />
+                    Voir la bibliothèque
+                  </>
+                )}
+              </Link>
+            </Button>
+          </>
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -235,7 +233,7 @@ function StatBadge({
   return (
     <span className="inline-flex items-baseline gap-1.5">
       <span className={`font-semibold tabular-nums ${color}`}>{value}</span>
-      <span className="text-xs text-muted-foreground">{label}</span>
+      <span className="text-[10px] text-muted-foreground">{label}</span>
     </span>
   );
 }
@@ -252,15 +250,15 @@ function FileRow({ row }: { row: Row; total: number }) {
   const icon = (() => {
     switch (state) {
       case "imported":
-        return <Check className="h-4 w-4 text-emerald-400" />;
+        return <Check className="h-3.5 w-3.5 text-emerald-400" />;
       case "duplicate":
-        return <AlertTriangle className="h-4 w-4 text-amber-400" />;
+        return <AlertTriangle className="h-3.5 w-3.5 text-amber-400" />;
       case "error":
-        return <X className="h-4 w-4 text-rose-400" />;
+        return <X className="h-3.5 w-3.5 text-rose-400" />;
       case "processing":
-        return <Loader2 className="h-4 w-4 animate-spin text-[#d9a94e]" />;
+        return <Loader2 className="h-3.5 w-3.5 animate-spin text-[#d9a94e]" />;
       case "pending":
-        return <Circle className="h-3 w-3 text-muted-foreground/40" />;
+        return <Circle className="h-2.5 w-2.5 text-muted-foreground/40" />;
     }
   })();
 
@@ -294,32 +292,31 @@ function FileRow({ row }: { row: Row; total: number }) {
     }
   })();
 
-  // Si pending et qu'on n'a pas encore de nom de fichier, on affiche un placeholder
   const displayName =
     result?.file ?? (state === "processing" ? "Fichier en cours…" : `Fichier ${row.idx + 1}`);
 
   return (
-    <li className="flex items-center gap-2.5 rounded-md border border-border bg-background/40 px-2.5 py-1.5">
-      <span className="grid h-5 w-5 place-items-center">{icon}</span>
-      <span className="min-w-0 flex-1 truncate text-sm text-foreground" title={displayName}>
+    <li className="flex items-center gap-2 rounded-md border border-border bg-background/40 px-2 py-1.5">
+      <span className="grid h-4 w-4 place-items-center">{icon}</span>
+      <span className="min-w-0 flex-1 truncate text-xs text-foreground" title={displayName}>
         {displayName}
       </span>
       {result?.size !== undefined &&
         result.originalSize !== undefined &&
         result.size !== result.originalSize && (
-          <span className="text-[11px] text-emerald-300 tabular-nums">
+          <span className="text-[10px] text-emerald-300 tabular-nums">
             {formatBytes(result.originalSize)} →{" "}
             <span className="font-medium">{formatBytes(result.size)}</span>
           </span>
         )}
       {result?.warning && (
-        <span className="text-[11px] text-amber-300/80" title={result.warning}>
+        <span className="text-[10px] text-amber-300/80" title={result.warning}>
           ⚠
         </span>
       )}
-      <span className={`text-[11px] font-medium ${labelColor}`}>{label}</span>
+      <span className={`text-[10px] font-medium ${labelColor}`}>{label}</span>
       {result?.error && (
-        <span className="max-w-[40%] truncate text-[11px] text-rose-300/80" title={result.error}>
+        <span className="max-w-[40%] truncate text-[10px] text-rose-300/80" title={result.error}>
           {result.error}
         </span>
       )}
@@ -328,7 +325,6 @@ function FileRow({ row }: { row: Row; total: number }) {
 }
 
 function LogLine({ text }: { text: string }) {
-  // Coloration légère par préfixe
   let cls = "text-zinc-300";
   if (/^\[\d+\/\d+\]/.test(text)) cls = "text-[#d9a94e]";
   else if (text.startsWith("  ✓")) cls = "text-emerald-400";

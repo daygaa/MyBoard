@@ -1,18 +1,55 @@
 "use client";
 
-// MyBoard — Visionneuse plein écran (Lightbox) — Phase 3 refonte.
+// MyBoard — Visionneuse plein écran (Lightbox) — Phase 3 + P2 (refonte zoom wikifeet).
 //
-// - Overlay fixed inset-0, fond noir 95%.
-// - Zoom/pan image via wheel :
-//     * v-1 : transition CSS duration-150 ease-out + rAF pour lisser le zoom
-//             molette (batche les wheel events < 16ms en une seule update).
-//     * v-2 : zoom au curseur — la position sous la souris reste fixe pendant le
-//             zoom. Formule : tx_new = cx - (s_new/s_old) * (cx - tx_old).
-//             Au retour à zoom=1, tx/ty reviennent à 0 (centre).
-//     * v-3 : clic gauche sans drag (< 3px de mouvement) bascule entre zoom 1
-//             et zoom 2 (centré, tx=ty=0). Distingue clic vs drag via la
-//             distance parcourue entre pointerdown et pointerup.
-// - Pan via pointer events (drag, uniquement si zoom > 1).
+// Reproduction fidèle du système AnchorZoom de wikifeet (wfc.js) :
+//
+// ÉTAT GLOBAL (mirroir des useState via *Ref pour accès synchrone dans rAF) :
+//   zoom    = gscale (échelle absolue ; 1 = taille réelle 1:1, minScale = fit)
+//   tx/ty   = gpos[0..1] (translation px par rapport au centre du stage)
+//   minScale = calculé dynamiquement (recalc sur img.onLoad + window.resize)
+//
+// CALCUL MINSCALE (wikifeet) :
+//   wscale = min(stageW/naturalW, stageH/naturalH)
+//   minscale = wscale > 1 ? 1 : wscale
+//   (si image plus petite que le stage → minscale=1 = taille réelle)
+//
+// MAXSCALE = 2 (maxscale par défaut wikifeet ; mode comparaison = 5, hors périmètre).
+//
+// ZOOM MOLETTE (wikifeet) :
+//   nextscale = currentScale + wheelDeltaY/600   (wheelDeltaY > 0 = zoom in)
+//   clamp [minscale, 2]
+//   Anchor au curseur :  ax = (cx - tx)/scale ;  tx_new = cx - ax*nextscale
+//     où cx = clientX - stage.center.x  (curseur relatif au centre du stage)
+//   rAF batch : accumulation des wheelDelta + position curseur tant qu'un frame
+//   est en attente, pour éviter le lag quand l'utilisateur scroll vite.
+//
+// CLIC SUR IMAGE (sans drag < 3px) — toggle minscale <-> 1 (taille réelle) :
+//   minscale → 1   : nextscale=1, tx = -cx/minscale, ty = -cy/minscale
+//                    (recentre l'image sur le point cliqué : le pixel image
+//                     sous le curseur devient le centre du viewport)
+//   zoomé → minscale : tx=0, ty=0 (recentré)
+//
+// CLIC SUR FOND GRIS (hors image) :
+//   |cx| > 0.5*pw*minscale || |cy| > 0.5*ph*minscale → closeAndSync()
+//
+// PAN (drag bouton gauche, uniquement si scale > minscale) :
+//   wikifeet: tx = old_tx + movementX, ty = old_ty + movementY
+//   (movementX/Y = delta depuis le dernier pointermove — équivalent à
+//    baseTx + (currentX - startX) mais reflète exactement le code wfc.js)
+//
+// CLAMP PARTIAL-AXIS (point 5.5) :
+//   - Image plus petite que le viewport sur un axe (rendered ≤ viewport) →
+//     tx/ty = 0 sur cet axe (image centrée, pas de pan possible).
+//   - Image plus grande sur un axe (rendered > viewport) → tx/ty clampeé à
+//     [-max, +max] où max = (rendered - viewport)/2. Le zoom/pan suit le
+//     curseur sur cet axe, mais empêche de sortir de l'image (point 10).
+//   - Au dézoom, l'axe qui « rentre » dans le viewport se recentre en premier.
+//
+// DÉZOOM AU MINSCALE : tx=0, ty=0 (recentrer), gzoom=null.
+//
+// ANIMATION : transition CSS 200ms UNIQUEMENT pour le toggle click (pas pour
+// wheel/pan, sinon lag). Fade-in opacity 150ms au chargement de l'image.
 // - Navigation cross-page :
 //     * v-13 : goPrev/goNext fetchent le média voisin via /api/media/:id si
 //             l'id n'est pas dans lightbox.items (page courante) et l'ajoutent
@@ -49,6 +86,8 @@ import {
   Plus,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -85,20 +124,41 @@ import {
   formatBytes,
   formatDuration,
   normalizeTagName,
+  pageSizeForDensity,
   searchHref,
 } from "@/lib/shared";
 import type { TagCategory } from "@/lib/shared";
 import type { MediaDetail, MediaListItem, TagDTO } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 
-const MIN_ZOOM = 1;
-const MAX_ZOOM = 12;
-const ZOOM_FACTOR = 1.2;
-const CLICK_TOGGLE_ZOOM = 2;
+// P2 (refonte zoom wikifeet) — constantes.
+// - MIN_WHEEL_DIVISOR : wikifeet utilise `nextscale = currentScale + wheelDeltaY/600`.
+//   Avec un deltaY standard ~100 par notch, ça fait ~0.17 par tick (wikifeet
+//   utilisait wheelDeltaY ~120 → ~0.2 par tick, équivalent).
+// - MAX_ZOOM = 2 : maxscale wikifeet (mode comparaison = 5, mais on reste à 2).
+// - CLICK_DRAG_THRESHOLD_PX : seuil pour distinguer clic vs drag (3px comme wikifeet).
+// - ANIM_DURATION_MS : durée de la transition CSS pour le toggle click (pas pour wheel/pan).
+const MIN_WHEEL_DIVISOR = 600;
+const MAX_ZOOM = 2;
 const CLICK_DRAG_THRESHOLD_PX = 3;
+const ANIM_DURATION_MS = 200;
 
-function clampZoom(z: number): number {
-  return Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, z));
+// Calcule minScale selon wikifeet : `wscale = min(vw/pw, vh/ph); minscale = wscale > 1 ? 1 : wscale`.
+// Si l'image est plus petite que le viewport → minScale = 1 (taille réelle).
+// Sinon → minScale = wscale (fit).
+function computeMinScale(pw: number, ph: number, vw: number, vh: number): number {
+  if (!pw || !ph || !vw || !vh) return 1;
+  const wscale = Math.min(vw / pw, vh / ph);
+  return wscale > 1 ? 1 : wscale;
+}
+
+// Clamp partial-axis (5.5) : si l'image dépasse le viewport sur cet axe
+// (rendered > viewport), on clamp tx dans [-max, +max] où max = (rendered - viewport)/2.
+// Sinon (image plus petite que le viewport sur cet axe) → on force tx = 0 (centré).
+function clampPartialAxis(tx: number, rendered: number, viewport: number): number {
+  if (rendered <= viewport) return 0;
+  const max = (rendered - viewport) / 2;
+  return Math.max(-max, Math.min(max, tx));
 }
 
 export function LightboxViewer() {
@@ -131,28 +191,49 @@ export function LightboxViewer() {
   // v-10 : pop-in suppression (AlertDialog)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleteBusy, setDeleteBusy] = useState(false);
+  const [keepFiles, setKeepFiles] = useState(false); // P3.3 : conserver fichiers
 
-  // Zoom/pan (image uniquement)
+  // Zoom/pan (image uniquement) — système wikifeet (P2).
+  // `zoom` est le gscale (échelle absolue, 1 = taille réelle 1:1, minScale = fit).
+  // `tx`/`ty` sont la translation en px par rapport au centre du stage.
   const [zoom, setZoom] = useState(1);
   const [tx, setTx] = useState(0);
   const [ty, setTy] = useState(0);
-  // Refs miroir des états zoom/tx/ty pour les lire synchroniquement dans les
-  // callbacks rAF (sinon on aurait des stale closures sur les wheel events).
+  // `minScale` = scale minimum calculé pour fitter l'image dans le stage.
+  // Recalculé sur img.onLoad et window.resize.
+  const [minScale, setMinScale] = useState(1);
+  // `imgLoaded` : passe à true sur img.onLoad (évite le flash de l'image non-zoomée).
+  const [imgLoaded, setImgLoaded] = useState(false);
+  // `animateTransform` : active la transition CSS pour le toggle click (pas pour wheel/pan).
+  const [animateTransform, setAnimateTransform] = useState(false);
+
+  // Refs miroir pour les lire synchroniquement dans les callbacks rAF
+  // (sinon stale closures sur les wheel events).
   const zoomRef = useRef(1);
   const txRef = useRef(0);
   const tyRef = useRef(0);
+  const minScaleRef = useRef(1);
+  // Dimensions naturelles de l'image + taille courante du stage.
+  const imgNaturalRef = useRef<{ w: number; h: number }>({ w: 0, h: 0 });
+  const stageSizeRef = useRef<{ w: number; h: number }>({ w: 0, h: 0 });
+
   const stageRef = useRef<HTMLDivElement | null>(null);
   const imgRef = useRef<HTMLImageElement | null>(null);
+  // État drag : pour distinguer clic vs drag (seuil 3px) et capturer le pointer.
+  // Pas besoin de baseTx/baseTy : le pan utilise movementX/Y cumulés sur txRef.
   const dragRef = useRef<{
     id: number;
     startX: number;
     startY: number;
-    baseTx: number;
-    baseTy: number;
     moved: boolean;
   } | null>(null);
-  // rAF id pour lisser le zoom molette (v-1)
+  // rAF id pour lisser le zoom molette. Accumule aussi wheelDelta et position
+  // curseur pour batcher plusieurs wheel events dans le même frame.
   const zoomRafRef = useRef<number | null>(null);
+  const wheelAccumRef = useRef(0);
+  const cursorAccumRef = useRef<{ cx: number; cy: number }>({ cx: 0, cy: 0 });
+  // Timeout pour désactiver `animateTransform` après le toggle click.
+  const animTimeoutRef = useRef<number | null>(null);
 
   // v-14 : pour sync page à la fermeture. Mémorise l'URL d'ouverture + l'offset
   // courant du média visionné.
@@ -171,13 +252,26 @@ export function LightboxViewer() {
     setZoom(1);
     setTx(0);
     setTy(0);
+    setMinScale(1);
+    setImgLoaded(false);
+    setAnimateTransform(false);
     zoomRef.current = 1;
     txRef.current = 0;
     tyRef.current = 0;
+    minScaleRef.current = 1;
+    imgNaturalRef.current = { w: 0, h: 0 };
+    stageSizeRef.current = { w: 0, h: 0 };
+    wheelAccumRef.current = 0;
+    cursorAccumRef.current = { cx: 0, cy: 0 };
     // Annule tout rAF de zoom en attente (changement d'image)
     if (zoomRafRef.current !== null) {
       cancelAnimationFrame(zoomRafRef.current);
       zoomRafRef.current = null;
+    }
+    // Annule le timeout d'animation du toggle click
+    if (animTimeoutRef.current !== null) {
+      clearTimeout(animTimeoutRef.current);
+      animTimeoutRef.current = null;
     }
     try {
       const [dRes, nRes] = await Promise.all([
@@ -233,10 +327,19 @@ export function LightboxViewer() {
     if (origUrl && offset !== null && offset >= 0) {
       try {
         const origPage = parsePageFromUrl(origUrl);
-        const currentPage = Math.floor(offset / PAGE_SIZE) + 1;
+        // P1.5 fix : utilise le pageSize DYNAMIQUE (selon densité dans l'URL)
+        // au lieu du PAGE_SIZE constant. Sinon le calcul de page est faux
+        // quand la densité ≠ 7.
+        const density = parseDensityFromUrl(origUrl);
+        const pageSize = pageSizeForDensity(density);
+        const currentPage = Math.floor(offset / pageSize) + 1;
         if (origPage !== currentPage) {
           const tags = parseTagsFromUrl(origUrl);
-          router.push(searchHref(tags, currentPage));
+          // Préserve la densité dans l'URL de navigation
+          const href = density !== 7
+            ? searchHref(tags, currentPage) + (searchHref(tags, currentPage).includes("?") ? "&" : "?") + "density=" + density
+            : searchHref(tags, currentPage);
+          router.push(href);
         }
       } catch {
         /* ignore — on reste sur la page courante */
@@ -262,6 +365,102 @@ export function LightboxViewer() {
     };
   }, [lightbox?.open]);
 
+  // P2 : recalcule minScale sur window resize. Si l'utilisateur était à minScale
+  // (fit), on suit le nouveau minScale et on recentre ; sinon on conserve le
+  // zoom mais on re-clampe tx/ty aux nouvelles bornes du stage.
+  useEffect(() => {
+    if (!lightbox?.open) return;
+    function onResize() {
+      const stage = stageRef.current;
+      const img = imgRef.current;
+      if (!stage || !img) return;
+      const stageRect = stage.getBoundingClientRect();
+      const pw = img.naturalWidth;
+      const ph = img.naturalHeight;
+      if (!pw || !ph || !stageRect.width || !stageRect.height) return;
+      imgNaturalRef.current = { w: pw, h: ph };
+      stageSizeRef.current = { w: stageRect.width, h: stageRect.height };
+      const newMin = computeMinScale(pw, ph, stageRect.width, stageRect.height);
+      minScaleRef.current = newMin;
+      setMinScale(newMin);
+      const s = zoomRef.current;
+      if (s <= newMin + 0.0001) {
+        // Était à minScale → suit le nouveau minScale, recentre.
+        commitZoom(newMin, 0, 0, false);
+      } else {
+        // Était zoomé → conserve le zoom, re-clampe tx/ty aux nouvelles bornes.
+        const newTx = clampPartialAxis(txRef.current, pw * s, stageRect.width);
+        const newTy = clampPartialAxis(tyRef.current, ph * s, stageRect.height);
+        commitZoom(s, newTx, newTy, false);
+      }
+    }
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, [lightbox?.open]);
+
+  // P2 : nettoyage du timeout d'animation au démontage.
+  useEffect(() => {
+    return () => {
+      if (animTimeoutRef.current !== null) {
+        clearTimeout(animTimeoutRef.current);
+        animTimeoutRef.current = null;
+      }
+    };
+  }, []);
+
+  // ---- Helpers zoom/pan (wikifeet P2) ----
+
+  // Commit une nouvelle transformation zoom/tx/ty avec ou sans animation.
+  // `animate=true` → transition CSS 200ms (pour le toggle click).
+  // `animate=false` → instantané (pour wheel/pan, sinon lag).
+  function commitZoom(z: number, x: number, y: number, animate: boolean) {
+    zoomRef.current = z;
+    txRef.current = x;
+    tyRef.current = y;
+    setZoom(z);
+    setTx(x);
+    setTy(y);
+    if (animTimeoutRef.current !== null) {
+      clearTimeout(animTimeoutRef.current);
+      animTimeoutRef.current = null;
+    }
+    if (animate) {
+      setAnimateTransform(true);
+      animTimeoutRef.current = window.setTimeout(
+        () => setAnimateTransform(false),
+        ANIM_DURATION_MS
+      );
+    } else {
+      setAnimateTransform(false);
+    }
+  }
+
+  // Handler img.onLoad : calcule minScale puis initialise zoom=minScale (fit).
+  function onImgLoad(e: React.SyntheticEvent<HTMLImageElement>) {
+    const img = e.currentTarget;
+    const stage = stageRef.current;
+    const stageRect = stage?.getBoundingClientRect();
+    const pw = img.naturalWidth;
+    const ph = img.naturalHeight;
+    if (!pw || !ph || !stageRect) {
+      setImgLoaded(true);
+      return;
+    }
+    imgNaturalRef.current = { w: pw, h: ph };
+    stageSizeRef.current = { w: stageRect.width, h: stageRect.height };
+    const newMin = computeMinScale(pw, ph, stageRect.width, stageRect.height);
+    minScaleRef.current = newMin;
+    setMinScale(newMin);
+    // Initialise le zoom à minScale (image fittée, centrée).
+    zoomRef.current = newMin;
+    txRef.current = 0;
+    tyRef.current = 0;
+    setZoom(newMin);
+    setTx(0);
+    setTy(0);
+    setImgLoaded(true);
+  }
+
   // Raccourcis clavier : Échap ferme, ←/→ navigue
   useEffect(() => {
     if (!lightbox?.open) return;
@@ -283,17 +482,23 @@ export function LightboxViewer() {
     return () => window.removeEventListener("keydown", onKey);
   }, [lightbox?.open, neighbors, closeAndSync]);
 
-  // v-4 : bouton 4 souris (back/forward) → ferme la lightbox
+  // v-4 / P1.3 : bouton 4 souris (back/forward) → ferme la lightbox.
+  // ATTENTION : on n'active ce listener QUE quand la lightbox est ouverte.
+  // Si elle est fermée, le bouton 4 garde son comportement natif (retour arrière).
+  // On utilise mouseup au lieu de mousedown pour laisser le navigateur gérer
+  // son propre comportement par défaut tant qu'on n'a pas explicitement
+  // intercepté.
   useEffect(() => {
     if (!lightbox?.open) return;
-    function onMouseDown(e: MouseEvent) {
+    function onMouseUp(e: MouseEvent) {
       if (e.button === 3 || e.button === 4) {
         e.preventDefault();
+        e.stopPropagation();
         closeAndSync();
       }
     }
-    window.addEventListener("mousedown", onMouseDown);
-    return () => window.removeEventListener("mousedown", onMouseDown);
+    window.addEventListener("mouseup", onMouseUp, true);
+    return () => window.removeEventListener("mouseup", onMouseUp, true);
   }, [lightbox?.open, closeAndSync]);
 
   // v-13 : navigation cross-page. Si l'id voisin n'est pas dans items, fetch
@@ -326,113 +531,181 @@ export function LightboxViewer() {
     return navigateTo(neighbors.next);
   }
 
-  // ---- Zoom via molette (v-1 fluide + v-2 curseur) ----
+  // ---- Zoom via molette (wikifeet P2 : continu, anchor curseur, partial-axis) ----
   function onWheel(e: React.WheelEvent) {
     if (!item || item.kind !== "image") return;
+    // Ignore si l'image n'est pas encore chargée (pas de dimensions naturelles).
+    if (imgNaturalRef.current.w === 0 || imgNaturalRef.current.h === 0) return;
     e.preventDefault();
 
-    // Position du curseur relative au centre de l'image rendue (v-2).
-    // Le bounding rect reflète la taille post-transform, donc le centre
-    // (r.left + r.width/2) est invariant sous scale (transformOrigin: center).
-    const img = imgRef.current;
-    let cx = 0;
-    let cy = 0;
-    if (img) {
-      const r = img.getBoundingClientRect();
-      cx = e.clientX - (r.left + r.width / 2);
-      cy = e.clientY - (r.top + r.height / 2);
-    }
+    const stage = stageRef.current;
+    if (!stage) return;
+    const stageRect = stage.getBoundingClientRect();
+    // Curseur relatif au centre du stage (wikifeet: cx = clientX - ww/2).
+    const cx = e.clientX - (stageRect.left + stageRect.width / 2);
+    const cy = e.clientY - (stageRect.top + stageRect.height / 2);
+    // wikifeet: `nextscale = currentScale + wheelDeltaY/600`. wheelDeltaY est
+    // positif pour scroll-up (zoom in) — convention legacy. deltaY moderne est
+    // l'inverse, donc on inverse le signe.
+    const wheelDelta = -e.deltaY;
 
-    const dir = e.deltaY < 0 ? 1 : -1;
+    // Accumule les deltas et la position curseur pour le batch rAF.
+    wheelAccumRef.current += wheelDelta;
+    cursorAccumRef.current = { cx, cy };
 
-    // v-1 : rAF pour lisser — si plusieurs wheel events arrivent dans le même
-    // frame, on n'applique qu'un seul zoom (le premier schedulé).
+    // Si un rAF est déjà schedulé, on attend (batch).
     if (zoomRafRef.current !== null) return;
     zoomRafRef.current = requestAnimationFrame(() => {
       zoomRafRef.current = null;
+      const delta = wheelAccumRef.current;
+      wheelAccumRef.current = 0;
+      const { cx, cy } = cursorAccumRef.current;
+
       const sOld = zoomRef.current;
-      const sNew = clampZoom(sOld * (dir > 0 ? ZOOM_FACTOR : 1 / ZOOM_FACTOR));
-      if (sNew === sOld) return; // déjà à min/max
+      const minS = minScaleRef.current;
+      // wikifeet: nextscale = current + wheelDelta/600, clamp [minscale, 2].
+      let sNew = sOld + delta / MIN_WHEEL_DIVISOR;
+      if (sNew < minS) sNew = minS;
+      if (sNew > MAX_ZOOM) sNew = MAX_ZOOM;
+      if (Math.abs(sNew - sOld) < 0.0001) return; // déjà au min/max
 
       let newTx: number;
       let newTy: number;
-      if (sNew === 1) {
-        // Retour à 1 → reset pan (centre)
+      if (Math.abs(sNew - minS) < 0.0001) {
+        // Retour à minScale → recentrer (wikifeet: tx=0, ty=0, gzoom=null).
         newTx = 0;
         newTy = 0;
       } else {
-        // Formule : tx_new = cx - (s_new/s_old) * (cx - tx_old)
-        newTx = cx - (sNew / sOld) * (cx - txRef.current);
-        newTy = cy - (sNew / sOld) * (cy - tyRef.current);
+        // Anchor au curseur (wikifeet: ax = (cx - tx)/scale; tx_new = cx - ax*nextscale).
+        const ax = (cx - txRef.current) / sOld;
+        const ay = (cy - tyRef.current) / sOld;
+        newTx = cx - ax * sNew;
+        newTy = cy - ay * sNew;
+        // Clamp partial-axis (5.5) + empêche de sortir de l'image (10).
+        const { w: pw, h: ph } = imgNaturalRef.current;
+        const { w: vw, h: vh } = stageSizeRef.current;
+        if (pw > 0 && ph > 0 && vw > 0 && vh > 0) {
+          newTx = clampPartialAxis(newTx, pw * sNew, vw);
+          newTy = clampPartialAxis(newTy, ph * sNew, vh);
+        }
       }
-      zoomRef.current = sNew;
-      txRef.current = newTx;
-      tyRef.current = newTy;
-      setZoom(sNew);
-      setTx(newTx);
-      setTy(newTy);
+      commitZoom(sNew, newTx, newTy, false);
     });
   }
 
-  // ---- Pan via pointer events (v-3 : distinguer clic vs drag) ----
+  // ---- Pan via pointer events (wikifeet P2 : que si scale > minScale) ----
   function onPointerDown(e: React.PointerEvent) {
     if (!item || item.kind !== "image") return;
-    // Toujours enregistrer la position de départ pour distinguer clic/drag (v-3),
-    // même à zoom=1 (où on ne capture pas le pointer — pas de drag possible).
+    // Ignore les clics sur boutons (close, nav, etc.) — laisse leur onClick fire.
+    const target = e.target as HTMLElement;
+    if (target.closest("button")) return;
+    // Toujours enregistrer la position de départ pour distinguer clic/drag,
+    // même à minScale (où on ne capture pas le pointer — pas de drag possible).
     dragRef.current = {
       id: e.pointerId,
       startX: e.clientX,
       startY: e.clientY,
-      baseTx: txRef.current,
-      baseTy: tyRef.current,
       moved: false,
     };
-    if (zoomRef.current > 1) {
+    if (zoomRef.current > minScaleRef.current + 0.0001) {
       (e.target as HTMLElement).setPointerCapture(e.pointerId);
       stageRef.current?.classList.add("mb-grabbing");
     }
   }
   function onPointerMove(e: React.PointerEvent) {
     if (!dragRef.current || dragRef.current.id !== e.pointerId) return;
+    // Détecte clic vs drag (seuil 3px). startX/Y servent uniquement à ça ;
+    // le delta de pan utilise movementX/Y (cf. ci-dessous).
     const dx = e.clientX - dragRef.current.startX;
     const dy = e.clientY - dragRef.current.startY;
     if (Math.hypot(dx, dy) > CLICK_DRAG_THRESHOLD_PX) {
       dragRef.current.moved = true;
     }
-    if (zoomRef.current > 1) {
-      const newTx = dragRef.current.baseTx + dx;
-      const newTy = dragRef.current.baseTy + dy;
-      txRef.current = newTx;
-      tyRef.current = newTy;
-      setTx(newTx);
-      setTy(newTy);
+    // Pan uniquement si zoom > minScale (wikifeet: gpan = 1 si scale > minscale).
+    if (zoomRef.current <= minScaleRef.current + 0.0001) return;
+    if (!dragRef.current.moved) return;
+    // wikifeet (wfc.js mousemove) :
+    //   tx = cx - ax * nextscale + touch.movementX
+    // Avec nextscale === currentScale (pas de zoom pendant le pan), cette
+    // formule se simplifie en  tx = old_tx + movementX. On l'applique
+    // directement : movementX/Y sont les deltas depuis le dernier pointermove.
+    let newTx = txRef.current + e.movementX;
+    let newTy = tyRef.current + e.movementY;
+    // Clamp partial-axis (5.5) + empêche de sortir de l'image (10).
+    const { w: pw, h: ph } = imgNaturalRef.current;
+    const { w: vw, h: vh } = stageSizeRef.current;
+    const s = zoomRef.current;
+    if (pw > 0 && ph > 0 && vw > 0 && vh > 0) {
+      newTx = clampPartialAxis(newTx, pw * s, vw);
+      newTy = clampPartialAxis(newTy, ph * s, vh);
     }
+    // Pas d'animation pendant le pan (sinon lag).
+    if (animTimeoutRef.current !== null) {
+      clearTimeout(animTimeoutRef.current);
+      animTimeoutRef.current = null;
+    }
+    setAnimateTransform(false);
+    txRef.current = newTx;
+    tyRef.current = newTy;
+    setTx(newTx);
+    setTy(newTy);
   }
   function onPointerUp(e: React.PointerEvent) {
     const drag = dragRef.current;
     if (drag?.id !== e.pointerId) return;
     dragRef.current = null;
     stageRef.current?.classList.remove("mb-grabbing");
-    // v-3 : si pas bougé > 3px → clic → toggle zoom x2/x1
-    if (!drag.moved) {
-      const sOld = zoomRef.current;
-      if (sOld === 1) {
-        // Zoom à 2 (centré, tx=ty=0)
-        zoomRef.current = CLICK_TOGGLE_ZOOM;
-        txRef.current = 0;
-        tyRef.current = 0;
-        setZoom(CLICK_TOGGLE_ZOOM);
-        setTx(0);
-        setTy(0);
-      } else {
-        // Déjà zoomé → retour à 1
-        zoomRef.current = 1;
-        txRef.current = 0;
-        tyRef.current = 0;
-        setZoom(1);
-        setTx(0);
-        setTy(0);
+    // Si drag (pan) → rien d'autre à faire.
+    if (drag.moved) return;
+
+    // Ignore les clics sur boutons (close, nav, etc.) — laisse leur onClick fire.
+    const target = e.target as HTMLElement;
+    if (target.closest("button")) return;
+
+    // Clic (pas de drag). Calcule la position relative au centre du stage.
+    const stage = stageRef.current;
+    if (!stage) return;
+    const stageRect = stage.getBoundingClientRect();
+    const cx = e.clientX - (stageRect.left + stageRect.width / 2);
+    const cy = e.clientY - (stageRect.top + stageRect.height / 2);
+    const { w: pw, h: ph } = imgNaturalRef.current;
+    const minS = minScaleRef.current;
+
+    // 5. Clic sur fond gris (hors image) → fermer la visionneuse.
+    // wikifeet: |cx| > 0.5 * pw * minscale || |cy| > 0.5 * ph * minscale → close.
+    if (
+      pw > 0 &&
+      ph > 0 &&
+      (Math.abs(cx) > 0.5 * pw * minS || Math.abs(cy) > 0.5 * ph * minS)
+    ) {
+      closeAndSync();
+      return;
+    }
+
+    // 4. Clic sur image → toggle minscale (fit) <-> 1 (taille réelle).
+    // wikifeet (wfc.js mouseup sans pan) : nextscale=1, tx=-cx/minscale,
+    // ty=-cy/minscale. Le pixel image sous le curseur (cx/minscale en
+    // image-space) devient le centre du viewport (position 0 à l'écran après
+    // translation). Au second clic → retour à minscale, tx=0, ty=0.
+    const sOld = zoomRef.current;
+    if (sOld <= minS + 0.0001) {
+      // Au minScale → aller à 1 (taille réelle 1:1), recentré sur le clic.
+      const sNew = 1;
+      if (Math.abs(sNew - minS) < 0.0001) return; // minScale déjà = 1 (image < viewport)
+      let newTx = -cx / minS;
+      let newTy = -cy / minS;
+      // Clamp partial-axis (5.5) : si l'image ne dépasse pas le viewport sur
+      // un axe à l'échelle 1 (rendered ≤ viewport), on force tx/ty = 0 sur cet
+      // axe (image centrée, pas de pan possible sur cet axe).
+      const { w: vw, h: vh } = stageSizeRef.current;
+      if (pw > 0 && ph > 0 && vw > 0 && vh > 0) {
+        newTx = clampPartialAxis(newTx, pw * sNew, vw);
+        newTy = clampPartialAxis(newTy, ph * sNew, vh);
       }
+      commitZoom(sNew, newTx, newTy, true);
+    } else {
+      // Zoomé → retour à minScale, recentré (wikifeet: tx=0, ty=0, gzoom=null).
+      commitZoom(minS, 0, 0, true);
     }
   }
 
@@ -560,11 +833,15 @@ export function LightboxViewer() {
   // v-10 : suppression via AlertDialog. On ouvre la pop-in, l'action confirm
   // exécute le DELETE puis ferme la lightbox (sans sync page, car le média
   // n'existe plus — router.refresh suffit).
+  // P3.3 : supporte keepFiles pour conserver les fichiers sur disque.
   async function confirmDeleteMedia() {
     if (!item) return;
     setDeleteBusy(true);
     try {
-      const res = await fetch(`/api/media/${item.id}`, { method: "DELETE" });
+      const url = keepFiles
+        ? `/api/media/${item.id}?keepFiles=true`
+        : `/api/media/${item.id}`;
+      const res = await fetch(url, { method: "DELETE" });
       if (res.ok) {
         setDeleteDialogOpen(false);
         router.refresh();
@@ -576,6 +853,7 @@ export function LightboxViewer() {
       toast({ title: "Erreur réseau" });
     } finally {
       setDeleteBusy(false);
+      setKeepFiles(false);
     }
   }
 
@@ -596,7 +874,9 @@ export function LightboxViewer() {
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerUp}
-        className="checker relative flex flex-1 items-center justify-center overflow-hidden mb-grab"
+        className={`checker relative flex flex-1 items-center justify-center overflow-hidden ${
+          zoom > minScale + 0.0001 ? "mb-grab" : "cursor-zoom-in"
+        }`}
       >
         {/* Bouton fermer */}
         <button
@@ -639,13 +919,16 @@ export function LightboxViewer() {
             tx={tx}
             ty={ty}
             imgRef={imgRef}
+            onImgLoad={onImgLoad}
+            imgLoaded={imgLoaded}
+            animateTransform={animateTransform}
           />
         )}
 
-        {/* Badge zoom (image) */}
-        {item.kind === "image" && zoom > 1 && (
+        {/* Badge zoom (image) — P2 : affiché quand zoom > minScale (fit) */}
+        {item.kind === "image" && zoom > minScale + 0.0001 && (
           <div className="absolute left-4 top-4 z-20 rounded bg-black/60 px-2 py-1 font-mono text-xs text-white backdrop-blur">
-            {zoom.toFixed(1)}×
+            {zoom.toFixed(2)}×
           </div>
         )}
       </div>
@@ -784,6 +1067,23 @@ export function LightboxViewer() {
               original sera conservé sur disque.
             </AlertDialogDescription>
           </AlertDialogHeader>
+          {/* P3.3 : checkbox "conserver les fichiers sur le disque" */}
+          <div className="flex items-start gap-2.5 rounded-lg border border-border bg-secondary/40 p-3">
+            <Checkbox
+              id="keep-files-single"
+              checked={keepFiles}
+              onCheckedChange={(c) => setKeepFiles(c === true)}
+              className="mt-0.5 data-[state=checked]:border-[#d9a94e] data-[state=checked]:bg-[#d9a94e] data-[state=checked]:text-[#1a1408]"
+            />
+            <div className="min-w-0 flex-1">
+              <Label htmlFor="keep-files-single" className="cursor-pointer text-xs font-medium text-foreground">
+                Conserver le fichier sur le disque
+              </Label>
+              <p className="text-[11px] text-muted-foreground">
+                Si coché, supprime le média de la bibliothèque mais garde le fichier dans {`library/originals/`} (réimportable plus tard).
+              </p>
+            </div>
+          </div>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={deleteBusy}>Annuler</AlertDialogCancel>
             <Button
@@ -894,6 +1194,20 @@ function parseTagsFromUrl(url: string): string {
   }
 }
 
+// P1.5 fix : récupère la densité grille depuis l'URL (?density=N).
+// Défaut = 7 (correspond à PAGE_SIZE).
+function parseDensityFromUrl(url: string): number {
+  try {
+    const idx = url.indexOf("?");
+    if (idx < 0) return 7;
+    const params = new URLSearchParams(url.slice(idx + 1));
+    const d = parseInt(params.get("density") ?? "7", 10);
+    return isFinite(d) && d >= 4 && d <= 30 ? d : 7;
+  } catch {
+    return 7;
+  }
+}
+
 // --- Stage média (image zoomable / video / audio / pdf / placeholder) ---
 function MediaStage({
   item,
@@ -901,30 +1215,49 @@ function MediaStage({
   tx,
   ty,
   imgRef,
+  onImgLoad,
+  imgLoaded,
+  animateTransform,
 }: {
   item: MediaListItem;
   zoom: number;
   tx: number;
   ty: number;
   imgRef: React.RefObject<HTMLImageElement | null>;
+  onImgLoad: (e: React.SyntheticEvent<HTMLImageElement>) => void;
+  imgLoaded: boolean;
+  animateTransform: boolean;
 }) {
   const url = item.fileUrl;
   const ext = item.ext.toLowerCase();
 
   if (item.kind === "image") {
-    // v-1 : transition duration-150 ease-out pour un zoom fluide (au lieu de
-    // duration-75 saccadé). Le drag pan reste instantané car les pointermove
-    // events firent à 60+ Hz et la transition lisse le jitter sans lag visible.
+    // P2 (wikifeet) : positionnement absolu centré + transform combiné.
+    // - `position: absolute; left: 50%; top: 50%` place le top-left au centre du stage.
+    // - `translate(-50%, -50%)` recentre l'image sur son propre centre.
+    // - `translate(tx, ty)` applique le pan en px écran.
+    // - `scale(zoom)` applique l'échelle absolue (1 = taille réelle 1:1, minScale = fit).
+    // Pas de max-w/max-h : l'image prend sa taille naturelle, le transform fait
+    // tout le travail. Le stage overflow-hidden clippe ce qui dépasse.
+    const transition = animateTransform
+      ? `transform ${ANIM_DURATION_MS}ms ease-out, opacity 150ms ease-out`
+      : "opacity 150ms ease-out";
     return (
       <img
         ref={imgRef}
         src={url}
         alt={item.originalName}
         draggable={false}
-        className="max-h-[calc(100vh-12rem)] max-w-full select-none object-contain transition-transform duration-150 ease-out"
+        onLoad={onImgLoad}
+        className="absolute left-1/2 top-1/2 select-none"
         style={{
-          transform: `translate(${tx}px, ${ty}px) scale(${zoom})`,
+          transform: `translate(-50%, -50%) translate(${tx}px, ${ty}px) scale(${zoom})`,
           transformOrigin: "center center",
+          maxWidth: "none",
+          maxHeight: "none",
+          opacity: imgLoaded ? 1 : 0,
+          transition,
+          willChange: "transform",
         }}
       />
     );

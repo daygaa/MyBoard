@@ -1,5 +1,5 @@
 // GET    /api/groups/:id   → détails d'un groupe + ses médias (paginé)
-// PATCH  /api/groups/:id   body {name?, color?} → renomme/recolorise
+// PATCH  /api/groups/:id   body {name?, color?, hidden?} → renomme/recolorise/masque
 // DELETE /api/groups/:id   → supprime le groupe (les médias restent)
 
 import { NextResponse } from "next/server";
@@ -9,6 +9,7 @@ import {
   deleteGroup,
   getGroup,
   mediaForGroup,
+  setGroupHidden,
   updateGroup,
 } from "@/lib/group-helpers";
 import { PAGE_SIZE } from "@/lib/shared";
@@ -62,6 +63,7 @@ export async function GET(req: Request, ctx: Ctx) {
 const PatchBody = z.object({
   name: z.string().min(1).max(80).optional(),
   color: z.string().optional(),
+  hidden: z.boolean().optional(),
 });
 
 export async function PATCH(req: Request, ctx: Ctx) {
@@ -94,10 +96,23 @@ export async function PATCH(req: Request, ctx: Ctx) {
       }
     }
 
-    const updated = await updateGroup(db, id, parsed.data);
-    if (!updated) {
+    // Vérifie que le groupe existe avant toute opération
+    const group = await getGroup(db, id);
+    if (!group) {
       return NextResponse.json({ error: "Groupe introuvable" }, { status: 404 });
     }
+
+    // Gère le flag `hidden` via AppMeta (P6)
+    if (parsed.data.hidden !== undefined) {
+      await setGroupHidden(db, id, parsed.data.hidden);
+    }
+
+    // Met à jour name/color si présents
+    const { hidden: _hidden, ...rest } = parsed.data;
+    const hasNameOrColor = rest.name !== undefined || rest.color !== undefined;
+    const updated = hasNameOrColor
+      ? await updateGroup(db, id, rest)
+      : { id: group.id, name: group.name, color: group.color };
 
     return NextResponse.json(updated, {
       headers: { "Cache-Control": "no-store" },

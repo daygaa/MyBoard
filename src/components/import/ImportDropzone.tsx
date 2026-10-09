@@ -18,6 +18,10 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
+// NOTE: webkitdirectory et directory ne sont pas des propriétés React standard.
+// On les pose via setAttribute dans un callback ref pour garantir qu'ils
+// arrivent jusqu'au DOM (sinon React les ignore / les retire sur re-render).
+
 // ---------------------------------------------------------------------------
 // Extensions acceptées (imp-14)
 // On accepte : images / vidéos / audio + PDF/PPT/PPTX/XLS/XLSX
@@ -155,6 +159,17 @@ export function ImportDropzone({
   const inputRef = useRef<HTMLInputElement>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
 
+  // Pose les attributs non-standard webkitdirectory / directory sur l'input
+  // dédié aux dossiers. setAttribute est la seule méthode fiable (跨-React) pour
+  // garantir la présence de ces attributs dans le DOM final.
+  const setFolderInputRef = (el: HTMLInputElement | null) => {
+    folderInputRef.current = el;
+    if (el) {
+      el.setAttribute("webkitdirectory", "");
+      el.setAttribute("directory", "");
+    }
+  };
+
   function handleDrop(e: DragEvent<HTMLDivElement>) {
     e.preventDefault();
     e.stopPropagation();
@@ -201,7 +216,7 @@ export function ImportDropzone({
   }
 
   return (
-    <Card className="flex min-h-[418px] flex-col border-border bg-card/60">
+    <Card className="flex h-full min-h-[418px] flex-col border-border bg-card/60">
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
           <Upload className="h-4 w-4 text-[#d9a94e]" />
@@ -242,13 +257,11 @@ export function ImportDropzone({
             aria-hidden="true"
             tabIndex={-1}
           />
-          {/* Input dossier (webkitdirectory) */}
+          {/* Input dossier (webkitdirectory) — posé via setAttribute pour
+              garantir la prise en charge navigateur (Chrome/Firefox/Edge). */}
           <input
-            ref={folderInputRef}
+            ref={setFolderInputRef}
             type="file"
-            // @ts-expect-error: webkitdirectory n'est pas dans les types React standard
-            webkitdirectory=""
-            directory=""
             multiple
             className="hidden"
             onChange={handleBrowseChange}
@@ -277,7 +290,7 @@ export function ImportDropzone({
                 disabled={disabled}
               >
                 <Upload className="h-3.5 w-3.5" />
-                Parcourir
+                Importer un fichier
               </Button>
               <Button
                 type="button"
@@ -291,7 +304,7 @@ export function ImportDropzone({
                 disabled={disabled}
               >
                 <FolderOpen className="h-3.5 w-3.5" />
-                Parcourir un dossier
+                Importer un dossier
               </Button>
             </div>
           </div>

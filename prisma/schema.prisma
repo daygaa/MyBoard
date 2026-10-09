@@ -45,6 +45,7 @@ model Media {
 
   tags          MediaTag[]
   groups        MediaGroup[]
+  favorites     Favorite[]
 
   @@index([kind, id])
   @@index([ext, id])
@@ -113,4 +114,22 @@ model MediaGroup {
 
   @@id([mediaId, groupId])
   @@index([groupId, mediaId])
+}
+
+// ---------------------------------------------------------------------------
+// Favoris (P7) — table dédiée N↔1 Media → Favorite.
+// Mono-utilisateur pour l'instant (userId par défaut "local"). Le champ
+// `Media.favorite` (Boolean) est conservé pour compat (tri `order:favorite`
+// côté group-helpers, stats count) mais la source de vérité est cette table.
+// On INSERT/DELETE ici au lieu de toggler un boolean (évite les races,
+// permet plus tard multi-user, async sync, etc.).
+// ---------------------------------------------------------------------------
+model Favorite {
+  mediaId Int
+  userId  String @default("local")
+  media   Media  @relation(fields: [mediaId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@id([mediaId, userId])
+  @@index([userId])
 }

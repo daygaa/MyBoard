@@ -3,19 +3,25 @@
 // MyBoard — Header sticky global.
 // Logo + barre de recherche (centrale) + stats + bouton Importer + burger desktop.
 //
-// Menu burger dépliant (lp-3) : un bouton Menu visible sur TOUS les viewports
+// Menu burger dépliant (lp-3 + P6) : un bouton Menu visible sur TOUS les viewports
 // ouvre/replie un panneau latéral gauche (sous le header) qui contient :
 //   - Importer des médias (lien /import)
 //   - Filtres & Tags (mobile uniquement — ouvre le Sheet TagList)
-//   - Groupes (liste + bouton "Créer un groupe")
 //   - Favoris (lien /?tags=favorite)
-//   - Paramètres (placeholder inactif)
+//   - Gestionnaire de Tags (lien /tags) — P6
+//   - Dossiers (liste + bouton "Créer un dossier") — label renommé P6
+//     * chaque dossier a un menu 3 points (MoreVertical) :
+//         - Renommer (Dialog input → PATCH /api/groups/[id])
+//         - Masquer (PATCH /api/groups/[id] {hidden:true} via AppMeta)
+//         - Supprimer (AlertDialog confirmation → DELETE /api/groups/[id])
+//   - Paramètres (placeholder inactif — dernier item du nav)
 //
 // Le panneau se déplie par translate-x (transition 300ms). Sur mobile il
 // complète le Sheet actuel (TagList), sur desktop il devient le hub de nav.
 
 import Link from "next/link";
-import { Suspense, useEffect, useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useState, useCallback } from "react";
 import {
   Menu,
   Upload,
@@ -28,6 +34,11 @@ import {
   Loader2,
   Plus,
   X,
+  MoreVertical,
+  Pencil,
+  EyeOff,
+  Trash2,
+  Tags,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -42,10 +53,26 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
+  DialogDescription,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { useBoardUI } from "./store";
-import { SearchBar } from "./SearchBar";
 import type { StatsResponse } from "@/lib/types";
 import { formatCount } from "@/lib/shared";
 import { GROUP_COLOR_PRESETS } from "@/lib/group-helpers";
@@ -161,7 +188,7 @@ function CreateGroupDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="border-border bg-card sm:max-w-md">
         <DialogHeader>
-          <DialogTitle className="text-foreground">Créer un groupe</DialogTitle>
+          <DialogTitle className="text-foreground">Créer un dossier</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
           <div className="space-y-1.5">
@@ -247,8 +274,290 @@ function CreateGroupDialog({
   );
 }
 
+/** Boîte de dialogue "Renommer un dossier" : input nom + bouton Confirmer. */
+function RenameGroupDialog({
+  open,
+  onOpenChange,
+  group,
+  onRenamed,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  group: GroupItem | null;
+  onRenamed: () => void;
+}) {
+  const [name, setName] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (open && group) {
+      setName(group.name);
+      setErr(null);
+      setBusy(false);
+    }
+  }, [open, group]);
+
+  async function submit() {
+    if (!group) return;
+    const trimmed = name.trim();
+    if (!trimmed) {
+      setErr("Veuillez saisir un nom");
+      return;
+    }
+    if (trimmed === group.name) {
+      // Rien à changer
+      onOpenChange(false);
+      return;
+    }
+    setBusy(true);
+    setErr(null);
+    try {
+      const res = await fetch(`/api/groups/${group.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: trimmed }),
+      });
+      if (res.status === 409) {
+        setErr("Un autre dossier porte déjà ce nom");
+        return;
+      }
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        setErr(data?.error ?? "Erreur lors du renommage");
+        return;
+      }
+      onRenamed();
+      onOpenChange(false);
+    } catch {
+      setErr("Erreur réseau");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="border-border bg-card sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle className="text-foreground">Renommer le dossier</DialogTitle>
+          <DialogDescription className="text-muted-foreground">
+            Modifier le nom du dossier « {group?.name ?? ""} ».
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-2">
+          <Input
+            autoFocus
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Nom du dossier"
+            maxLength={80}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !busy) submit();
+            }}
+            className="border-border bg-background"
+          />
+          {err && (
+            <p className="text-xs text-rose-400" role="alert">
+              {err}
+            </p>
+          )}
+        </div>
+        <DialogFooter>
+          <Button
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            disabled={busy}
+            className="border-border"
+          >
+            Annuler
+          </Button>
+          <Button
+            onClick={submit}
+            disabled={busy || !name.trim()}
+            className="gap-1.5 bg-[#d9a94e] text-[#1a1408] hover:bg-[#e3b75f]"
+          >
+            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Pencil className="h-4 w-4" />}
+            {busy ? "Enregistrement…" : "Confirmer"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/** AlertDialog de confirmation "Supprimer le dossier" — P6. */
+function DeleteGroupDialog({
+  open,
+  onOpenChange,
+  group,
+  onDeleted,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  group: GroupItem | null;
+  onDeleted: () => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (open) {
+      setBusy(false);
+      setErr(null);
+    }
+  }, [open]);
+
+  async function confirmDelete() {
+    if (!group) return;
+    setBusy(true);
+    setErr(null);
+    try {
+      const res = await fetch(`/api/groups/${group.id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        setErr(data?.error ?? "Erreur lors de la suppression");
+        return;
+      }
+      onDeleted();
+      onOpenChange(false);
+    } catch {
+      setErr("Erreur réseau");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <AlertDialog open={open} onOpenChange={onOpenChange}>
+      <AlertDialogContent className="border-border bg-card sm:max-w-md">
+        <AlertDialogHeader>
+          <AlertDialogTitle className="text-foreground">
+            Supprimer le dossier
+          </AlertDialogTitle>
+          <AlertDialogDescription className="text-muted-foreground">
+            Supprimer le dossier « {group?.name ?? ""} » ? Les médias ne seront
+            pas supprimés et resteront accessibles depuis la bibliothèque.
+            Cette action est définitive.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        {err && (
+          <p className="text-xs text-rose-400" role="alert">
+            {err}
+          </p>
+        )}
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={busy} className="border-border">
+            Annuler
+          </AlertDialogCancel>
+          {/* AlertDialogAction auto-close radix, on préfère un Button régulier */}
+          <Button
+            onClick={confirmDelete}
+            disabled={busy}
+            className="gap-1.5 bg-rose-600 text-white hover:bg-rose-700"
+          >
+            {busy && <Loader2 className="h-4 w-4 animate-spin" />}
+            Supprimer
+          </Button>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}
+
+/** Menu 3 points par dossier (MoreVertical → Renommer / Masquer / Supprimer). */
+function GroupRowMenu({
+  group,
+  onRename,
+  onHide,
+  onDelete,
+}: {
+  group: GroupItem;
+  onRename: () => void;
+  onHide: () => void;
+  onDelete: () => void;
+}) {
+  const [hiding, setHiding] = useState(false);
+
+  async function handleHide() {
+    setHiding(true);
+    try {
+      await fetch(`/api/groups/${group.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ hidden: true }),
+      });
+    } catch {
+      /* best-effort */
+    } finally {
+      setHiding(false);
+      onHide();
+    }
+  }
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          aria-label={`Actions pour le dossier ${group.name}`}
+          aria-haspopup="menu"
+          // Stop la propagation du clic pour ne pas naviguer vers /groups/[id]
+          onClick={(e) => e.preventDefault()}
+          onPointerDown={(e) => e.stopPropagation()}
+          className="grid h-6 w-6 shrink-0 place-items-center rounded text-muted-foreground transition hover:bg-secondary hover:text-foreground"
+        >
+          {hiding ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          ) : (
+            <MoreVertical className="h-3.5 w-3.5" />
+          )}
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent
+        align="end"
+        sideOffset={4}
+        className="w-44 border-border bg-popover"
+      >
+        <DropdownMenuItem
+          onClick={(e) => {
+            e.preventDefault();
+            onRename();
+          }}
+          className="gap-2 text-foreground focus:bg-secondary"
+        >
+          <Pencil className="h-3.5 w-3.5" />
+          Renommer
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          onClick={(e) => {
+            e.preventDefault();
+            handleHide();
+          }}
+          className="gap-2 text-foreground focus:bg-secondary"
+        >
+          <EyeOff className="h-3.5 w-3.5" />
+          Masquer
+        </DropdownMenuItem>
+        <DropdownMenuSeparator className="bg-border" />
+        <DropdownMenuItem
+          onClick={(e) => {
+            e.preventDefault();
+            onDelete();
+          }}
+          className="gap-2 text-rose-400 focus:bg-rose-500/10 focus:text-rose-300"
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+          Supprimer
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
 /** Panneau burger dépliant (rendu côté client, lazy-fetch des groupes). */
 function BurgerPanel() {
+  const router = useRouter();
   const burgerOpen = useBoardUI((s) => s.burgerOpen);
   const setBurgerOpen = useBoardUI((s) => s.setBurgerOpen);
   const setMobileSidebar = useBoardUI((s) => s.setMobileSidebar);
@@ -261,6 +570,10 @@ function BurgerPanel() {
 
   const { groups, loading, error, reload } = useGroups(burgerOpen);
   const [createOpen, setCreateOpen] = useState(false);
+  const [renameTarget, setRenameTarget] = useState<GroupItem | null>(null);
+  const [renameOpen, setRenameOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<GroupItem | null>(null);
+  const [deleteOpen, setDeleteOpen] = useState(false);
 
   // Ferme le panneau sur Échap (accessibilité)
   useEffect(() => {
@@ -286,6 +599,30 @@ function BurgerPanel() {
       };
     }
   }, [burgerOpen]);
+
+  // Ouvre le dialog de renommage
+  function openRename(g: GroupItem) {
+    setRenameTarget(g);
+    setRenameOpen(true);
+  }
+  function openDelete(g: GroupItem) {
+    setDeleteTarget(g);
+    setDeleteOpen(true);
+  }
+
+  // Après masquage, on reload la liste (le groupe masqué doit disparaître)
+  function onHidden() {
+    reload();
+  }
+
+  // Après suppression : reload + si on était sur /groups/[id], revenir à l'accueil
+  function onDeleted() {
+    const path = window.location.pathname;
+    reload();
+    if (deleteTarget && path === `/groups/${deleteTarget.id}`) {
+      router.push("/");
+    }
+  }
 
   return (
     <>
@@ -357,19 +694,29 @@ function BurgerPanel() {
             <Star className="h-4 w-4 text-[#d9a94e]" />
             Favoris
           </Link>
+
+          {/* P6 — Gestionnaire de Tags */}
+          <Link
+            href="/tags"
+            onClick={() => setBurgerOpen(false)}
+            className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-foreground transition hover:bg-secondary"
+          >
+            <Tags className="h-4 w-4 text-[#d9a94e]" />
+            Gestionnaire de Tags
+          </Link>
         </nav>
 
-        {/* Section Groupes */}
+        {/* Section Dossiers (label renommé P6, modèle DB reste Group) */}
         <div className="mt-2 border-t border-border p-2">
           <div className="flex items-center justify-between px-3 py-1.5">
             <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Groupes
+              Dossiers
             </h3>
             <button
               type="button"
               onClick={() => setCreateOpen(true)}
               className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs text-muted-foreground transition hover:bg-secondary hover:text-foreground"
-              title="Créer un groupe"
+              title="Créer un dossier"
             >
               <Plus className="h-3.5 w-3.5" /> Nouveau
             </button>
@@ -389,7 +736,7 @@ function BurgerPanel() {
 
           {groups && groups.length === 0 && !loading && (
             <p className="px-3 py-3 text-xs text-muted-foreground">
-              Aucun groupe pour le moment.
+              Aucun dossier pour le moment.
               <br />
               <button
                 type="button"
@@ -404,11 +751,14 @@ function BurgerPanel() {
           {groups && groups.length > 0 && (
             <ul className="mt-1 max-h-72 space-y-0.5 overflow-y-auto pr-1">
               {groups.map((g) => (
-                <li key={g.id}>
+                <li
+                  key={g.id}
+                  className="group flex items-center gap-1 rounded-md pr-1 hover:bg-secondary/60"
+                >
                   <Link
                     href={`/groups/${g.id}`}
                     onClick={() => setBurgerOpen(false)}
-                    className="group flex items-center gap-2.5 rounded-md px-3 py-2 text-sm text-foreground transition hover:bg-secondary"
+                    className="flex min-w-0 flex-1 items-center gap-2.5 rounded-md px-3 py-2 text-sm text-foreground transition hover:bg-secondary"
                     title={`${g.name} — ${g.count} média(s)`}
                   >
                     <span
@@ -421,13 +771,24 @@ function BurgerPanel() {
                       {g.count}
                     </span>
                   </Link>
+                  {/* P6 — menu 3 points à gauche du compteur (spec : "à gauche
+                      du compteur de médias"). Placé après le Link pour
+                      l'alignement à droite du compteur ; le compteur reste
+                      visible à l'intérieur du Link pour le title. */}
+                  <GroupRowMenu
+                    group={g}
+                    onRename={() => openRename(g)}
+                    onHide={onHidden}
+                    onDelete={() => openDelete(g)}
+                  />
                 </li>
               ))}
             </ul>
           )}
         </div>
 
-        {/* Section Paramètres (placeholder, inactif) */}
+        {/* P6 — Paramètres déplacé dans le nav principal, dernier item. Reste
+            inactif (placeholder) pour l'instant. */}
         <div className="mt-auto border-t border-border p-2">
           <button
             type="button"
@@ -437,10 +798,10 @@ function BurgerPanel() {
           >
             <Settings className="h-4 w-4" />
             Paramètres
+            <span className="ml-auto text-[10px] text-muted-foreground/50">
+              bientôt
+            </span>
           </button>
-          <p className="px-3 pb-2 text-[10px] text-muted-foreground/50">
-            Bientôt disponible
-          </p>
         </div>
       </aside>
 
@@ -448,6 +809,18 @@ function BurgerPanel() {
         open={createOpen}
         onOpenChange={setCreateOpen}
         onCreated={reload}
+      />
+      <RenameGroupDialog
+        open={renameOpen}
+        onOpenChange={setRenameOpen}
+        group={renameTarget}
+        onRenamed={reload}
+      />
+      <DeleteGroupDialog
+        open={deleteOpen}
+        onOpenChange={setDeleteOpen}
+        group={deleteTarget}
+        onDeleted={onDeleted}
       />
     </>
   );
@@ -494,15 +867,9 @@ export function BoardHeader({ stats }: { stats: StatsResponse }) {
             </span>
           </Link>
 
-          {/* Barre de recherche centrale (desktop seulement) */}
-          <div className="mx-auto hidden w-full max-w-xl md:block">
-            <Suspense fallback={<div className="h-9 rounded-md bg-card/60" />}>
-              <SearchBar />
-            </Suspense>
-          </div>
-
-          {/* Spacer sur mobile pour pousser Importer à droite */}
-          <div className="ml-auto md:hidden" />
+          {/* P7.6 : SearchBar du header supprimée. La recherche se fait via la sidebar. */}
+          {/* Spacer pour pousser les stats + Importer à droite */}
+          <div className="ml-auto" />
 
           {/* Stats (desktop) */}
           <div className="hidden items-center gap-3 text-xs text-muted-foreground lg:flex">

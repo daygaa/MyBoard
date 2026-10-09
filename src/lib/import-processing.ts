@@ -96,16 +96,50 @@ async function ensureTmpDir(): Promise<void> {
   await fs.promises.mkdir(TMP_DIR, { recursive: true });
 }
 
-/** Localise un binaire (ffmpeg / ffprobe) sur le PATH. */
+/**
+ * Localise un binaire (ffmpeg / ffprobe) sur le système.
+ * Stratégie : which / command -v, puis chemins courants (Linux/macOS/Windows).
+ * Cache en mémoire pour éviter de re-faire la détection à chaque import.
+ */
+const binCache = new Map<string, string | null>();
 function which(bin: string): string | null {
+  if (binCache.has(bin)) return binCache.get(bin) ?? null;
+  let found: string | null = null;
   try {
     const p = execSync(`which ${bin} 2>/dev/null || command -v ${bin} 2>/dev/null`, {
       encoding: "utf-8",
+      stdio: ["ignore", "pipe", "ignore"],
     }).trim();
-    return p || null;
+    if (p && existsSync(p)) found = p;
   } catch {
-    return null;
+    // ignore
   }
+  if (!found) {
+    const candidates = [
+      "/usr/bin/" + bin,
+      "/usr/local/bin/" + bin,
+      "/opt/homebrew/bin/" + bin,
+      "/snap/bin/" + bin,
+      `C:\\Program Files\\ffmpeg\\bin\\${bin}.exe`,
+    ];
+    for (const c of candidates) {
+      try {
+        if (existsSync(c)) {
+          found = c;
+          break;
+        }
+      } catch {
+        // ignore
+      }
+    }
+  }
+  if (found) {
+    binCache.set(bin, found);
+    return found;
+  }
+  console.warn(`[myboard] binaire « ${bin} » introuvable — transcodage désactivé`);
+  binCache.set(bin, null);
+  return null;
 }
 
 /** Clamp numérique dans [min, max]. */

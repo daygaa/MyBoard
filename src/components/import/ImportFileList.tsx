@@ -9,7 +9,7 @@
 // - Icône par type sinon (document, audio…)
 // Cap à 100 entrées affichées + "et X de plus…" pour éviter un DOM trop lourd.
 
-import { useEffect, useMemo, useRef } from "react";
+import { useMemo, useRef, useState } from "react";
 import {
   X,
   Trash2,
@@ -17,6 +17,7 @@ import {
   FileAudio,
   FileText,
   File as FileIcon,
+  ChevronDown,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -28,6 +29,8 @@ import {
 } from "@/lib/shared";
 
 const DISPLAY_CAP = 100;
+/** Incrément du cap à chaque clic sur « voir plus ». */
+const LOAD_MORE_STEP = 100;
 
 /** Extrait l'extension (avec le point, en minuscules). */
 function extOf(name: string): string {
@@ -132,10 +135,16 @@ export function ImportFileList({
     [files]
   );
   const listRef = useRef<HTMLUListElement>(null);
+  // Nombre d'éléments affichés — augmente par clic sur « voir plus ».
+  // Non réinitialisé quand `files` change : si l'utilisateur a déjà demandé à
+  // voir plus, on conserve ce niveau de détail même après ajout de fichiers.
+  // Si `files` raccourcit sous le cap, on clamp à la nouvelle longueur.
+  const [visibleCount, setVisibleCount] = useState(DISPLAY_CAP);
 
   if (files.length === 0) return null;
 
-  const shown = files.slice(0, DISPLAY_CAP);
+  const cap = Math.min(visibleCount, files.length);
+  const shown = files.slice(0, cap);
   const remaining = files.length - shown.length;
 
   return (
@@ -209,9 +218,26 @@ export function ImportFileList({
             );
           })}
           {remaining > 0 && (
-            <li className="px-2.5 py-3 text-center text-xs italic text-muted-foreground">
-              et {remaining} de plus…
-            </li>
+            <>
+              <li className="px-2.5 py-2 text-center text-xs italic text-muted-foreground">
+                et {remaining} supplémentaire{remaining > 1 ? "s" : ""}
+              </li>
+              <li className="flex justify-center pb-1">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  disabled={disabled}
+                  onClick={() =>
+                    setVisibleCount((c) => c + LOAD_MORE_STEP)
+                  }
+                  className="h-7 gap-1.5 text-xs text-muted-foreground hover:text-[#d9a94e]"
+                >
+                  <ChevronDown className="h-3.5 w-3.5" />
+                  voir plus
+                </Button>
+              </li>
+            </>
           )}
         </ul>
       </CardContent>

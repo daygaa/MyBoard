@@ -53,6 +53,8 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import { MediaCard, gridIdsRef } from "./MediaCard";
 import { TagAutocomplete } from "./TagAutocomplete";
 import { useBoardUI } from "./store";
@@ -230,6 +232,7 @@ function BulkActionsMenu({
 }) {
   const router = useRouter();
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [keepFiles, setKeepFiles] = useState(false); // P3.3 : checkbox conserver fichiers
   const [createGroupOpen, setCreateGroupOpen] = useState(false);
   const [groups, setGroups] = useState<GroupItem[] | null>(null);
   const [busy, setBusy] = useState(false);
@@ -264,32 +267,36 @@ function BulkActionsMenu({
     if (disabled) return;
     setBusy(true);
     setMsg(null);
+    // P3.4 : masquage immédiat (optimistic) — onDone() cache les cartes
+    setDeleteOpen(false);
+    onDone();
     try {
       const ids = [...selected];
-      const results = await Promise.allSettled(
-        ids.map((id) =>
-          fetch(`/api/media/${id}`, { method: "DELETE" }).then((r) => {
-            if (!r.ok) throw new Error(`HTTP ${r.status}`);
-          })
-        )
-      );
-      const ok = results.filter((r) => r.status === "fulfilled").length;
-      const failed = results.length - ok;
+      // P3.1/P3.2 : route bulk-delete dédiée (batch de 10 côté serveur)
+      const res = await fetch("/api/media/bulk-delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids, keepFiles }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      const ok = data.deleted ?? 0;
+      const failed = data.failed ?? 0;
       if (failed === 0) {
-        setMsg({ kind: "ok", text: `${ok} média(s) supprimé(s)` });
+        setMsg({ kind: "ok", text: `${ok} média(s) supprimé(s)${keepFiles ? " (fichiers conservés)" : ""}` });
       } else {
         setMsg({
           kind: "err",
           text: `${ok} supprimé(s), ${failed} en échec`,
         });
       }
-      setDeleteOpen(false);
-      onDone();
       router.refresh();
     } catch {
       setMsg({ kind: "err", text: "Erreur réseau" });
+      router.refresh();
     } finally {
       setBusy(false);
+      setKeepFiles(false); // reset checkbox pour la prochaine fois
     }
   }
 
@@ -489,6 +496,23 @@ function BulkActionsMenu({
               miniatures seront supprimés du disque.
             </AlertDialogDescription>
           </AlertDialogHeader>
+          {/* P3.3 : checkbox "conserver les fichiers sur le disque" */}
+          <div className="flex items-start gap-2.5 rounded-lg border border-border bg-secondary/40 p-3">
+            <Checkbox
+              id="keep-files-bulk"
+              checked={keepFiles}
+              onCheckedChange={(c) => setKeepFiles(c === true)}
+              className="mt-0.5 data-[state=checked]:border-[#d9a94e] data-[state=checked]:bg-[#d9a94e] data-[state=checked]:text-[#1a1408]"
+            />
+            <div className="min-w-0 flex-1">
+              <Label htmlFor="keep-files-bulk" className="cursor-pointer text-xs font-medium text-foreground">
+                Conserver les fichiers sur le disque
+              </Label>
+              <p className="text-[11px] text-muted-foreground">
+                Si coché, supprime les médias de la bibliothèque mais garde les fichiers dans {`library/originals/`} (réimportables plus tard).
+              </p>
+            </div>
+          </div>
           <AlertDialogFooter>
             <AlertDialogCancel
               className="border-border"

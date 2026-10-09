@@ -237,8 +237,9 @@ export function ImportFlow() {
         disabled={status === "running"}
       />
 
-      {/* 3. Barre d'action principale */}
+      {/* 3. Barre d'action principale — contient désormais aussi la progression (P4 4.4) */}
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card/40 px-4 py-3">
+        {/* Ligne d'actions (toujours visible) */}
         <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
           {status === "running" ? (
             <span className="inline-flex items-center gap-2 text-[#d9a94e]">
@@ -283,6 +284,23 @@ export function ImportFlow() {
             ? "Import en cours…"
             : `Importer${files.length > 0 ? ` (${files.length})` : ""}`}
         </Button>
+
+        {/* Progression — intégrée à la barre d'actions (P4 4.4)
+            Cachée au repos, s'affiche pendant l'import, placée au-dessus de la
+            liste des fichiers sélectionnés. Ne remplace PAS la zone d'options. */}
+        {status !== "idle" && (
+          <ImportProgress
+            status={status}
+            total={files.length}
+            processed={results.length}
+            currentIdx={currentIdx}
+            results={results}
+            logs={logs}
+            defaultTags={options.defaultTags}
+            onCancel={cancelImport}
+            onClose={closeProgress}
+          />
+        )}
       </div>
 
       {/* Notification : fichiers rejetés (extensions non supportées) */}
@@ -311,19 +329,6 @@ export function ImportFlow() {
         onRemove={removeFile}
         onClear={clearFiles}
         disabled={status === "running"}
-      />
-
-      {/* 5. Progression */}
-      <ImportProgress
-        status={status}
-        total={files.length}
-        processed={results.length}
-        currentIdx={currentIdx}
-        results={results}
-        logs={logs}
-        defaultTags={options.defaultTags}
-        onCancel={cancelImport}
-        onClose={closeProgress}
       />
     </div>
   );
