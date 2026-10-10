@@ -9,7 +9,7 @@
 // - Icône par type sinon (document, audio…)
 // Cap à 100 entrées affichées + "et X de plus…" pour éviter un DOM trop lourd.
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   X,
   Trash2,

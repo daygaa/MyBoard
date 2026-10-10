@@ -9,7 +9,7 @@
 // - La liste des fichiers sélectionnés n'est plus dans cette carte (imp-12) :
 //   elle est rendue par ImportFileList dans ImportFlow, sous la barre d'actions.
 
-import { useRef, useState, type DragEvent } from "react";
+import { useEffect, useRef, useState, type DragEvent } from "react";
 import {
   Upload,
   FolderOpen,
@@ -160,15 +160,17 @@ export function ImportDropzone({
   const folderInputRef = useRef<HTMLInputElement>(null);
 
   // Pose les attributs non-standard webkitdirectory / directory sur l'input
-  // dédié aux dossiers. setAttribute est la seule méthode fiable (跨-React) pour
-  // garantir la présence de ces attributs dans le DOM final.
-  const setFolderInputRef = (el: HTMLInputElement | null) => {
-    folderInputRef.current = el;
-    if (el) {
-      el.setAttribute("webkitdirectory", "");
-      el.setAttribute("directory", "");
-    }
-  };
+  // dédié aux dossiers. Utilisé via useEffect (plus fiable que callback ref
+  // qui peut être appelé avec null lors d'un re-render, retirant les attributs).
+  useEffect(() => {
+    const el = folderInputRef.current;
+    if (!el) return;
+    el.setAttribute("webkitdirectory", "");
+    el.setAttribute("directory", "");
+    // Note: mozdirectory n'existe pas officiellement mais certains navigateurs
+    // anciens le supportent. On l'ajoute pour compat.
+    el.setAttribute("mozdirectory", "");
+  }, []);
 
   function handleDrop(e: DragEvent<HTMLDivElement>) {
     e.preventDefault();
@@ -257,10 +259,9 @@ export function ImportDropzone({
             aria-hidden="true"
             tabIndex={-1}
           />
-          {/* Input dossier (webkitdirectory) — posé via setAttribute pour
-              garantir la prise en charge navigateur (Chrome/Firefox/Edge). */}
+          {/* Input dossier (webkitdirectory) — attributs posés via useEffect */}
           <input
-            ref={setFolderInputRef}
+            ref={folderInputRef}
             type="file"
             multiple
             className="hidden"
