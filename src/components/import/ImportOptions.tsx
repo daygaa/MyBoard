@@ -73,23 +73,23 @@ const VIDEO_FORMATS: {
   {
     value: "mp4-h264",
     label: "MP4 standard (H.264 + AAC)",
-    tooltip: "Compatible partout, lecture native Windows/Mac/navigateurs",
+    tooltip: "Conseillé - Compatibilité totale",
     default: true,
   },
   {
     value: "mp4-h265",
     label: "MP4 - H.265 (HEVC + AAC)",
-    tooltip: "Nécessite extension HEVC sur Windows (-40% taille)",
+    tooltip: "Meilleure compression, nécésite une extension HEVC pour les lecteurs Windows",
   },
   {
     value: "webm",
     label: "WebM (VP9 + Opus)",
-    tooltip: "OK navigateurs, pas sur lecteurs Windows natifs (-30%)",
+    tooltip: "Meilleure compression, compatible sur navigateur mais pas sur les lecteurs Windows",
   },
   {
     value: "av1",
     label: "AV1 (AV1 + Opus)",
-    tooltip: "Très lent à encoder, futur (-50%)",
+    tooltip: "Compression maximale, lent à encoder, peu de compatibilité disponible",
   },
 ];
 

@@ -524,7 +524,7 @@ function GroupRowMenu({
             e.preventDefault();
             onRename();
           }}
-          className="gap-2 text-foreground focus:bg-secondary"
+          className="gap-2 text-foreground focus:bg-[#d9a94e]/10 focus:text-[#d9a94e]"
         >
           <Pencil className="h-3.5 w-3.5" />
           Renommer
@@ -534,7 +534,7 @@ function GroupRowMenu({
             e.preventDefault();
             handleHide();
           }}
-          className="gap-2 text-foreground focus:bg-secondary"
+          className="gap-2 text-foreground focus:bg-[#d9a94e]/10 focus:text-[#d9a94e]"
         >
           <EyeOff className="h-3.5 w-3.5" />
           Masquer
@@ -704,6 +704,21 @@ function BurgerPanel() {
             <Tags className="h-4 w-4 text-[#d9a94e]" />
             Gestionnaire de Tags
           </Link>
+
+          {/* P6.4 — Paramètres déplacé dans le nav, dernier item. Reste
+              inactif (placeholder) pour l'instant. Style harmonisé avec les autres. */}
+          <button
+            type="button"
+            disabled
+            className="flex w-full cursor-not-allowed items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground/60 transition hover:bg-secondary"
+            title="Bientôt disponible"
+          >
+            <Settings className="h-4 w-4 text-[#d9a94e]/60" />
+            Paramètres
+            <span className="ml-auto text-[10px] text-muted-foreground/50">
+              bientôt
+            </span>
+          </button>
         </nav>
 
         {/* Section Dossiers (label renommé P6, modèle DB reste Group) */}
@@ -786,23 +801,6 @@ function BurgerPanel() {
             </ul>
           )}
         </div>
-
-        {/* P6 — Paramètres déplacé dans le nav principal, dernier item. Reste
-            inactif (placeholder) pour l'instant. */}
-        <div className="mt-auto border-t border-border p-2">
-          <button
-            type="button"
-            disabled
-            className="flex w-full cursor-not-allowed items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground/60"
-            title="Bientôt disponible"
-          >
-            <Settings className="h-4 w-4" />
-            Paramètres
-            <span className="ml-auto text-[10px] text-muted-foreground/50">
-              bientôt
-            </span>
-          </button>
-        </div>
       </aside>
 
       <CreateGroupDialog
@@ -853,7 +851,11 @@ export function BoardHeader({ stats }: { stats: StatsResponse }) {
             <Menu className="h-5 w-5" />
           </Button>
 
-          {/* Logo + wordmark */}
+          {/* P7.6 : Logo centré (la SearchBar du header a été supprimée). */}
+          {/* Spacer gauche pour pousser le logo vers le centre */}
+          <div className="flex-1" />
+
+          {/* Logo + wordmark (centré) */}
           <Link
             href="/"
             className="flex shrink-0 items-center gap-2.5"
@@ -867,9 +869,8 @@ export function BoardHeader({ stats }: { stats: StatsResponse }) {
             </span>
           </Link>
 
-          {/* P7.6 : SearchBar du header supprimée. La recherche se fait via la sidebar. */}
-          {/* Spacer pour pousser les stats + Importer à droite */}
-          <div className="ml-auto" />
+          {/* Spacer droite pour équilibrer (stats + Importer à droite) */}
+          <div className="flex-1" />
 
           {/* Stats (desktop) */}
           <div className="hidden items-center gap-3 text-xs text-muted-foreground lg:flex">

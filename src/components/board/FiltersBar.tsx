@@ -61,6 +61,16 @@ export function FiltersBar({ query, kindTerm, sortTerm, total }: Props) {
   const setGridDensity = useBoardUI((s) => s.setGridDensity);
   const [densityOpen, setDensityOpen] = useState(false);
 
+  // Helper : construit une URL en préservant le density courant (sauf si = 7, défaut)
+  function buildHref(tags: string): string {
+    const base = searchHref(tags);
+    if (gridDensity !== 7) {
+      const sep = base.includes("?") ? "&" : "?";
+      return base + sep + "density=" + gridDensity;
+    }
+    return base;
+  }
+
   // Trouve le preset actif (le plus proche à ±1)
   const activePreset = DENSITY_PRESETS.find(
     (p) => Math.abs(p.value - gridDensity) <= 1
@@ -78,7 +88,7 @@ export function FiltersBar({ query, kindTerm, sortTerm, total }: Props) {
           return (
             <Link
               key={f.label}
-              href={searchHref(q)}
+              href={buildHref(q)}
               className={`rounded-md px-2.5 py-1 text-xs font-medium transition ${
                 active
                   ? "bg-[#d9a94e]/15 text-[#d9a94e]"
@@ -115,7 +125,7 @@ export function FiltersBar({ query, kindTerm, sortTerm, total }: Props) {
             return (
               <DropdownMenuItem key={s.label} asChild>
                 <Link
-                  href={searchHref(q)}
+                  href={buildHref(q)}
                   className={`flex w-full items-center justify-between gap-3 ${
                     active ? "text-[#d9a94e]" : ""
                   }`}

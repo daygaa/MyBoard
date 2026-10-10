@@ -135,11 +135,11 @@ import { useToast } from "@/hooks/use-toast";
 // - MIN_WHEEL_DIVISOR : wikifeet utilise `nextscale = currentScale + wheelDeltaY/600`.
 //   Avec un deltaY standard ~100 par notch, ça fait ~0.17 par tick (wikifeet
 //   utilisait wheelDeltaY ~120 → ~0.2 par tick, équivalent).
-// - MAX_ZOOM = 2 : maxscale wikifeet (mode comparaison = 5, mais on reste à 2).
+// - MAX_ZOOM = 4 (modifUIUX3.txt : augmenté de 2 à 4 pour permettre plus de zoom).
 // - CLICK_DRAG_THRESHOLD_PX : seuil pour distinguer clic vs drag (3px comme wikifeet).
 // - ANIM_DURATION_MS : durée de la transition CSS pour le toggle click (pas pour wheel/pan).
 const MIN_WHEEL_DIVISOR = 600;
-const MAX_ZOOM = 2;
+const MAX_ZOOM = 4;
 const CLICK_DRAG_THRESHOLD_PX = 3;
 const ANIM_DURATION_MS = 200;
 
@@ -485,11 +485,16 @@ export function LightboxViewer() {
   // v-4 / P1.3 : bouton 4 souris (back/forward) → ferme la lightbox.
   // ATTENTION : on n'active ce listener QUE quand la lightbox est ouverte.
   // Si elle est fermée, le bouton 4 garde son comportement natif (retour arrière).
-  // On utilise mouseup au lieu de mousedown pour laisser le navigateur gérer
-  // son propre comportement par défaut tant qu'on n'a pas explicitement
-  // intercepté.
+  // On intercepte sur mousedown ET mouseup pour empêcher le navigateur de faire
+  // son retour arrière natif avant qu'on ait eu le temps de fermer la lightbox.
   useEffect(() => {
     if (!lightbox?.open) return;
+    function onMouseDown(e: MouseEvent) {
+      if (e.button === 3 || e.button === 4) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    }
     function onMouseUp(e: MouseEvent) {
       if (e.button === 3 || e.button === 4) {
         e.preventDefault();
@@ -497,8 +502,12 @@ export function LightboxViewer() {
         closeAndSync();
       }
     }
+    window.addEventListener("mousedown", onMouseDown, true);
     window.addEventListener("mouseup", onMouseUp, true);
-    return () => window.removeEventListener("mouseup", onMouseUp, true);
+    return () => {
+      window.removeEventListener("mousedown", onMouseDown, true);
+      window.removeEventListener("mouseup", onMouseUp, true);
+    };
   }, [lightbox?.open, closeAndSync]);
 
   // v-13 : navigation cross-page. Si l'id voisin n'est pas dans items, fetch
@@ -1067,20 +1076,20 @@ export function LightboxViewer() {
               original sera conservé sur disque.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          {/* P3.3 : checkbox "conserver les fichiers sur le disque" */}
-          <div className="flex items-start gap-2.5 rounded-lg border border-border bg-secondary/40 p-3">
+          {/* P3.3 : checkbox "conserver le fichier sur le disque" */}
+          <div className="flex items-center gap-2.5 rounded-lg border border-border bg-secondary/40 p-3">
             <Checkbox
               id="keep-files-single"
               checked={keepFiles}
               onCheckedChange={(c) => setKeepFiles(c === true)}
-              className="mt-0.5 data-[state=checked]:border-[#d9a94e] data-[state=checked]:bg-[#d9a94e] data-[state=checked]:text-[#1a1408]"
+              className="data-[state=checked]:border-[#d9a94e] data-[state=checked]:bg-[#d9a94e] data-[state=checked]:text-[#1a1408]"
             />
             <div className="min-w-0 flex-1">
               <Label htmlFor="keep-files-single" className="cursor-pointer text-xs font-medium text-foreground">
                 Conserver le fichier sur le disque
               </Label>
               <p className="text-[11px] text-muted-foreground">
-                Si coché, supprime le média de la bibliothèque mais garde le fichier dans {`library/originals/`} (réimportable plus tard).
+                Supprime le média de la bibliothèque mais garde le fichier dans library/originals/
               </p>
             </div>
           </div>

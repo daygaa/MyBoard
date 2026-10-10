@@ -497,19 +497,19 @@ function BulkActionsMenu({
             </AlertDialogDescription>
           </AlertDialogHeader>
           {/* P3.3 : checkbox "conserver les fichiers sur le disque" */}
-          <div className="flex items-start gap-2.5 rounded-lg border border-border bg-secondary/40 p-3">
+          <div className="flex items-center gap-2.5 rounded-lg border border-border bg-secondary/40 p-3">
             <Checkbox
               id="keep-files-bulk"
               checked={keepFiles}
               onCheckedChange={(c) => setKeepFiles(c === true)}
-              className="mt-0.5 data-[state=checked]:border-[#d9a94e] data-[state=checked]:bg-[#d9a94e] data-[state=checked]:text-[#1a1408]"
+              className="data-[state=checked]:border-[#d9a94e] data-[state=checked]:bg-[#d9a94e] data-[state=checked]:text-[#1a1408]"
             />
             <div className="min-w-0 flex-1">
               <Label htmlFor="keep-files-bulk" className="cursor-pointer text-xs font-medium text-foreground">
                 Conserver les fichiers sur le disque
               </Label>
               <p className="text-[11px] text-muted-foreground">
-                Si coché, supprime les médias de la bibliothèque mais garde les fichiers dans {`library/originals/`} (réimportables plus tard).
+                Supprime les médias de la bibliothèque mais garde les fichiers dans library/originals/
               </p>
             </div>
           </div>
