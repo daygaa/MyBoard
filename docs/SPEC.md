@@ -1,0 +1,270 @@
+# MyBoard — Cahier des charges
+
+> **Document de référence unique** : tout ce que l'application doit faire.
+> Il remplace le flowchart, les fichiers `modif_UI*.txt`, le BACKLOG Python et le worklog GLM.
+> Une demande = un identifiant stable (`ZONE-NN`). On ne renumérote jamais : une demande
+> abandonnée passe en `[-]`, elle n'est pas effacée.
+
+## Comment lire ce document
+
+**Statuts**
+
+| Marque | Sens |
+|---|---|
+| `[ ]` | à faire |
+| `[~]` | en cours |
+| `[x]` | fait **et validé par l'utilisateur** (Claude ne coche jamais seul) |
+| `[?]` | à préciser avec l'utilisateur avant de coder |
+| `[>]` | reporté à une phase ultérieure |
+| `[-]` | abandonné (raison indiquée) |
+
+**`(v8 ✓)`** = comportement déjà validé par l'utilisateur dans la version GLM v8 → à reproduire à l'identique.
+
+**Sources** : `FC` flowchart · `R1` modif_UI.txt · `R2` modifUI-UX2.txt · `R3` modifUIUX3.txt ·
+`R4` modifUI-UX4.txt · `IDEES` « UI-UX Ideas to do after » · `BUG` bugs_alreadysent.txt ·
+`PY` PROJECT_STATE/BACKLOG de la version Python · `D` décision prise avec Claude (date).
+Les fichiers sources sont dans `Versions historiques/` (lecture seule).
+
+**Phases de développement** (détail dans `docs/DECISIONS.md`) :
+1 Socle · 2 Visionneuse + tags + recherche · 3 Favoris, dossiers, sélection, suppression ·
+4 Options d'import · 5+ Doublons, paramètres, scanner, IA…
+
+---
+
+## GEN — Principes généraux
+
+- [ ] **GEN-01** Application de bureau **locale**, hors ligne, Windows en priorité (Tauri 2). `D 11/10`
+- [ ] **GEN-02** L'interface reprend **l'apparence de la v8** (couleurs, disposition, composants). Seuls la plomberie, le découpage du code et les performances changent. `D 11/10`
+- [ ] **GEN-03** Thème sombre froid `#111214`, accent doré `#d9a94e`, **pas d'indigo ni de bleu vif**. `PY`
+- [ ] **GEN-04** **Aucun emoji** dans l'interface : icônes uniquement (Lucide). `PY`
+- [ ] **GEN-05** Pied de page collé en bas de la fenêtre. `R1`
+- [ ] **GEN-06** Interface en français.
+- [ ] **GEN-07** Fluidité à grande échelle : bibliothèque de **100 000+ médias**, grille **sans lag jusqu'à 30 colonnes**. L'utilisateur a 100k+ fichiers réels (C: SSD, D: HDD) pour tester. `R2 R3 R4 D 11/10`
+- [ ] **GEN-08** Chaque zone de l'interface porte un **nom court et stable** (attribut `data-zone`, ex. `visionneuse.barre-tags`) pour que l'utilisateur puisse la désigner dans ses retours sans copier de classes HTML. Remplace la demande « nettoyer les noms des div ». `R1 R2 D 11/10`
+- [ ] **GEN-09** Marges et alignements cohérents au pixel près (pas de décalages de 1–2 px). `R1`
+- [ ] **GEN-10** Les pop-ins de confirmation sont des fenêtres de l'application (style maison), jamais les boîtes natives du navigateur. `R1`
+
+## LIB — Bibliothèque et stockage
+
+- [ ] **LIB-01** Par défaut, les médias sont **référencés sur place** : l'application indexe les fichiers là où ils sont, sans les copier. `D 11/10`
+- [>] **LIB-02** Option dans les paramètres : **importer dans la bibliothèque gérée** (copie dans `originals/<2 hex>/<reste>.<ext>`, 256 sous-dossiers par hash). `D 11/10` `PY`
+- [ ] **LIB-03** Détection des doublons exacts par empreinte du contenu (hash) : un fichier déjà indexé n'est pas ré-ajouté, même renommé. `PY FC`
+- [ ] **LIB-04** Les tags sont liés au média (identifiant interne), jamais au nom de fichier. `PY`
+- [?] **LIB-05** Comportement quand un fichier référencé est **déplacé, renommé ou supprimé hors de l'application** (signaler « fichier introuvable », retrouver automatiquement par hash lors d'un nouveau scan…). → Q-01
+- [?] **LIB-06** Stratégie des **miniatures** (générées à l'import ou à la demande, taille, emplacement du cache, nettoyage). → Q-02
+- [ ] **LIB-07** Base de données et miniatures sur un disque rapide (SSD) même si les médias sont sur HDD. `D 11/10`
+- [ ] **LIB-08** Sauvegarde simple : copier le dossier de données de l'application suffit. `PY`
+
+## IMP — Import
+
+### Sélection des fichiers
+- [ ] **IMP-01** Importer **un ou plusieurs fichiers** via la fenêtre de sélection Windows. `FC R2`
+- [ ] **IMP-02** Importer **un dossier** via la fenêtre de sélection Windows (bouton distinct « Importer un dossier » qui fonctionne réellement). `FC R2 R3 R4`
+- [ ] **IMP-03** Glisser-déposer de fichiers **et** de dossiers (récursif). `FC R1` (v8 ✓)
+- [ ] **IMP-04** Option « Importer le contenu des sous-dossiers ». `FC`
+- [ ] **IMP-05** Formats acceptés : images, vidéos, audio, + PDF, PowerPoint/Slides, Excel/Sheets. Les autres fichiers sont ignorés (avec compteur « X fichiers ignorés »). `R1`
+- [ ] **IMP-06** Lecture adaptée au disque : en parallèle sur SSD, séquentielle sur HDD. `D 11/10`
+
+### Aperçu avant import
+- [ ] **IMP-10** Liste des fichiers sélectionnés **sous** la barre d'actions, avec miniature d'aperçu, nom, poids, format. `R1` (v8 ✓)
+- [ ] **IMP-11** Liste plafonnée à 100 aperçus + texte « et X supplémentaires » + bouton « voir plus » (+100 par clic). `R2` (v8 ✓)
+- [ ] **IMP-12** Rester fluide même avec 10 000 – 100 000 fichiers sélectionnés. `R1`
+- [?] **IMP-13** Réutiliser les miniatures déjà calculées par l'explorateur Windows si c'est possible et plus rapide. `FC`
+
+### Options
+- [ ] **IMP-20** « Compresser les images » + curseur de qualité **20–95**. `R1` (v8 ✓)
+- [ ] **IMP-21** « Convertir les images en : [menu] » — JPG (défaut), PNG, WebP, puis JFIF, AVIF, HEIF. Compression et conversion **cumulables** (la qualité s'applique au format cible). `R1` (v8 ✓)
+- [ ] **IMP-22** « Convertir les vidéos en : [menu] » — MP4 standard (H.264, défaut), MP4 H.265, WebM, AV1. `R1` (v8 ✓)
+- [ ] **IMP-23** Bulle ⓘ à côté du menu vidéo, textes exacts : MP4 standard « Conseillé - Compatibilité totale » · MP4 H.265 « Meilleure compression, nécessite une extension HEVC pour les lecteurs Windows » · WebM « Meilleure compression, compatible sur navigateur mais pas sur les lecteurs Windows » · AV1 « Compression maximale, lent à encoder, peu de compatibilité disponible ». `R3`
+- [ ] **IMP-24** « Qualité vidéo » : **curseur à 5 crans** Minimale / Basse / Moyenne (défaut) / Haute / Maximale. `R2` (v8 ✓)
+- [ ] **IMP-25** Compression vidéo : conserver la résolution et le nombre d'images par seconde ; images : conserver la résolution. Moteur : ffmpeg, **fourni avec l'application**. `FC R2`
+- [ ] **IMP-26** Pas d'option « Générer miniatures » (toujours actif). `R1`
+- [?] **IMP-27** Avec le référencement sur place (LIB-01), où vont les fichiers **convertis / compressés** ? (remplacer l'original, créer un fichier à côté, ou réservé au mode bibliothèque gérée LIB-02). → Q-03
+- [>] **IMP-28** Option « Supprimer les originaux » (n'a de sens qu'en mode bibliothèque gérée). `FC`
+- [ ] **IMP-29** Les réglages par défaut des options viennent des Paramètres (SET-05). `FC`
+
+### Tags par défaut
+- [ ] **IMP-30** Éditeur placé sous la grille des cartes d'options : [champ texte] → [menu catégorie à droite] → Entrée ou bouton « Ajouter » → **badge coloré** selon la catégorie, sous le champ. `R1` (v8 ✓)
+- [ ] **IMP-31** Les espaces deviennent automatiquement des `_`. Autocomplétion avec les tags existants (même moteur que la barre latérale) ; choisir un tag existant ignore le menu catégorie (il a déjà la sienne). `R1`
+
+### Déroulement
+- [ ] **IMP-40** La progression s'affiche **dans** la barre d'actions d'import (cachée au repos), au-dessus de la liste des fichiers. `R2` (v8 ✓)
+- [ ] **IMP-41** Progression : barre 0–100 % globale, fraction « X / Y », et pendant une compression : barre du fichier en cours + sa miniature + son nom. `FC`
+- [ ] **IMP-42** Boutons **Pause** et **Arrêter**. `IDEES`
+- [ ] **IMP-43** Annuler (avec confirmation) arrête proprement : supprime les fichiers résiduels, aucun processus ne reste en arrière-plan. `FC`
+- [ ] **IMP-44** Le bouton « Importer » est bloqué une fois l'import terminé (jusqu'à une nouvelle sélection). `IDEES`
+- [ ] **IMP-45** Pop-in de fin : « X importés sur Y », nombre d'erreurs + noms des fichiers en erreur ; si compression : taux moyen %, place gagnée, poids avant/après, détail images/vidéos au survol. `FC`
+- [ ] **IMP-46** Les vidéos importées ont une miniature. `R2 R3 R4`
+- [ ] **IMP-47** Un fichier converti s'affiche avec sa **vraie extension** (nom affiché mis à jour). `R4`
+
+## GRID — Page d'accueil et grille
+
+- [ ] **GRID-01** Bibliothèque vide : message d'accueil spécifique (« Bienvenue… commencez par importer ») + bouton Importer fonctionnel. Recherche sans résultat : message distinct. `R1` (v8 ✓)
+- [ ] **GRID-02** Densité **4 à 30 colonnes, limites fixes** quelle que soit la résolution d'écran ; les vignettes s'adaptent en largeur. `R1` (v8 ✓)
+- [ ] **GRID-03** Bouton « Disposition » : préréglages + curseur ; aucun texte explicatif sous le curseur. `R1` (v8 ✓)
+- [ ] **GRID-04** Ctrl + molette change la densité (comme l'explorateur Windows). `FC`
+- [ ] **GRID-05** Nombre de médias par page **adapté à la densité** : 50 à 4 colonnes → 500 à 30 colonnes. `R1` (v8 ✓)
+- [ ] **GRID-06** **Aucun lag** en changeant de densité ni à 30 colonnes (voir GEN-07). `R2 R3 R4`
+- [ ] **GRID-07** Changer de filtre ou de tri ne réinitialise pas la densité / le nombre par page. `BUG`
+- [ ] **GRID-08** Vignette : pas de badge d'extension, pas d'icône plein écran, pas de mini-tags. Restent : badge durée vidéo, badge GIF, étoile favori, case de sélection, infos au survol (nom, poids, dimensions). `R1` (v8 ✓)
+
+## PAGE — Pagination
+
+- [ ] **PAGE-01** Pagination en haut et en bas de la grille : numéros autour de la page courante, flèches précédent/suivant, champ « aller à la page », impossible d'aller à une page inexistante. `FC`
+- [ ] **PAGE-02** Ctrl + ← / → change de page. `FC` (v8 ✓)
+- [-] **PAGE-03** ~~Menu 50/100/200/500/1000 par page~~ → remplacé par GRID-05. `R1`
+
+## FILT — Filtres et tri
+
+- [ ] **FILT-01** Filtres par type (Images, Vidéos, Audio, Documents…) **à sélection multiple** (ex. Images + Vidéos). `R2`
+- [ ] **FILT-02** Filtres et tri sont **totalement indépendants du système de tags** : jamais de `type:` / `order:` en interne, jamais de pastille de tag pour eux. `R3 R4`
+- [ ] **FILT-03** Changer de filtre ne retire jamais les tags recherchés. `R3`
+- [ ] **FILT-04** Tris : récents / anciens, **poids** + / −, **taille (résolution)** + / −, nombre de tags + / −, aléatoire. Pas de « favoris » dans le menu de tri. `FC IDEES`
+- [ ] **FILT-05** Tri par **date de création** du fichier (en plus de la date d'import). `FC`
+- [ ] **FILT-06** Le tri et les filtres sont **mémorisés** (retour de la visionneuse, redémarrage). `R2`
+- [ ] **FILT-07** Corriger : le filtre revient parfois tout seul sur « Tout » ; médias non affichés tant qu'on ne change pas de filtre. `BUG`
+
+## SRCH — Recherche et barre latérale des tags
+
+- [ ] **SRCH-01** Barre de recherche dans la barre latérale (plus de barre de recherche dans l'en-tête). Entrée ou bouton pour lancer. `FC R2`
+- [ ] **SRCH-02** Plusieurs tags = **ET** (tous présents). `FC`
+- [ ] **SRCH-03** Exclusion d'un tag avec `-tag`. `FC`
+- [ ] **SRCH-04** Joker `tag*` (commence par). `D` (bug GLM : plantait)
+- [ ] **SRCH-05** Tag avec espace : s'écrit avec `_` (`la_mer`). `FC`
+- [ ] **SRCH-06** Autocomplétion dès la première lettre (tags existants). `FC`
+- [ ] **SRCH-07** Termes actifs affichés en pastilles sous la barre de recherche (et uniquement là). `R2`
+- [ ] **SRCH-10** La barre latérale affiche **les tags présents sur les médias de la page affichée**, chacun avec le **nombre total de médias de la bibliothèque** qui le portent. Valable sur l'accueil, dans une recherche, dans les favoris et dans un dossier. `FC BUG R4 D 11/10`
+- [ ] **SRCH-11** Tags groupés par catégorie, chaque catégorie avec sa couleur, dans l'ordre défini (TAGM). `FC`
+- [ ] **SRCH-12** Clic sur un tag = lancer la recherche sur ce tag ; bouton « + » = l'ajouter à la recherche ; bouton « − » = l'exclure. `FC` (v8 ✓)
+- [ ] **SRCH-13** Compteurs **toujours exacts** (aucune dérive après imports / suppressions / ré-imports). `R3 R4`
+- [ ] **SRCH-14** Mise à jour **en temps réel** de la barre latérale quand on ajoute ou retire un tag (y compris depuis la visionneuse) : 52 → 51 au retrait, etc. `R2 R3 R4`
+
+## VIEW — Visionneuse
+
+### Ouverture, fermeture, navigation
+- [ ] **VIEW-01** Clic sur une vignette = visionneuse plein écran (image au niveau de zoom « ajusté »). `FC`
+- [ ] **VIEW-02** Fermer : Échap, bouton croix, clic sur le fond (hors image, non zoomé — voir ZOOM-05). `R1 R2`
+- [ ] **VIEW-03** **Bouton 4 de la souris** (retour) = même action qu'Échap tant qu'Échap a une action (visionneuse, dialogue, mode sélection) ; sinon retour arrière normal. `R1 R2 R3 R4`
+- [ ] **VIEW-04** Précédent / suivant (flèches écran et clavier) **sans couture entre les pages**. `R1` (v8 ✓)
+- [ ] **VIEW-05** En fermant, la grille affiche **la page du média regardé** (dès le 1er média d'une nouvelle page, sans décalage). `R1 R2`
+- [ ] **VIEW-06** Le défilement de la page derrière est bloqué pendant la visionneuse. `R1` (v8 ✓)
+- [ ] **VIEW-07** Aucun blocage de l'interface par une fenêtre de dialogue invisible (bug critique v5). `R2`
+
+### Barre d'informations (bas)
+- [ ] **VIEW-10** Nom du fichier, date de création, poids, dimensions, durée (vidéo). `FC`
+- [ ] **VIEW-11** Bouton « Ajouter aux favoris » (étoile, dorée si favori). `R1` (v8 ✓)
+- [ ] **VIEW-12** Pas de bouton « Télécharger ». `R1`
+- [ ] **VIEW-13** Bouton « Ouvrir dans l'explorateur » (sélectionne le fichier). `FC R1`
+- [ ] **VIEW-14** Bouton « Supprimer » (rouge) avec pop-in de confirmation maison. `FC R1` (v8 ✓)
+- [ ] **VIEW-15** Bouton « Ajouter à un dossier ». `IDEES`
+- [>] **VIEW-16** Ouvrir dans l'app Photos de Windows. `FC PY`
+- [>] **VIEW-17** Imprimer (grisé pour une vidéo). `FC PY`
+- [>] **VIEW-18** Plein écran total (masque bordures et barre des tâches, barres réapparaissant au survol). `FC`
+- [>] **VIEW-19** Zone « Notes » (texte libre par média). `FC`
+
+### Tags dans la visionneuse
+- [ ] **VIEW-20** Champ d'ajout de tag placé **le plus à gauche possible**, juste à droite des infos du fichier. `R2 R3 R4`
+- [ ] **VIEW-21** Le menu d'autocomplétion s'ouvre **au-dessus** du champ. `R1` (v8 ✓)
+- [ ] **VIEW-22** Tag inexistant : proposer de le créer en choisissant sa catégorie. `R1` (v8 ✓)
+- [ ] **VIEW-23** Tags du média en pastilles colorées, retirables ; clic sur une pastille = recherche de ce tag. `R1` (v8 ✓)
+
+## ZOOM — Zoom de la visionneuse (façon wikifeet) — (v8 ✓ sauf mention)
+
+- [ ] **ZOOM-01** Niveau minimal « ajusté » : `min(largeur écran / largeur image, hauteur écran / hauteur image)`, plafonné à 1 (une petite image reste en taille réelle).
+- [ ] **ZOOM-02** Zoom maximal **×4**. `R3`
+- [ ] **ZOOM-03** Molette : zoom **continu** (`échelle + delta/600`), ancré sous le curseur, lissé image par image.
+- [ ] **ZOOM-04** Tant qu'un axe de l'image tient dans l'écran, l'image reste centrée sur cet axe ; dès qu'il dépasse, le zoom suit le curseur sur cet axe ; on ne peut jamais sortir de l'image. Au dézoom, chaque axe se recentre dès qu'il rentre dans l'écran. `R2 5.5`
+- [ ] **ZOOM-05** Clic sur l'image (sans glisser, seuil 3 px) : ajusté → taille réelle **centrée sur le point cliqué** ; zoomé → retour à « ajusté » centré. Clic sur le fond gris : si zoomé → dézoom ; si non zoomé → fermer. (Un double clic sur le fond = dézoom puis fermeture.) `R2 5.3 5.4`
+- [ ] **ZOOM-06** Glisser pour se déplacer, uniquement si zoomé.
+- [ ] **ZOOM-07** Animation 200 ms uniquement pour le clic (pas pour molette / glisser) ; badge « 1.50× » affiché quand zoomé.
+- [>] **ZOOM-08** Même zoom sur les vidéos (lecteur vidéo personnalisé). `R2 5.7`
+
+## SEL — Sélection multiple et actions groupées
+
+- [ ] **SEL-01** Bouton « Sélection multiple » ; **Échap** quitte le mode (comme « Terminer »). `R1 R2` (v8 ✓)
+- [ ] **SEL-02** Menu **⋮** juste à droite de « Tout sélectionner », dans le même bloc ; pas de texte d'aide en bas. `R2` (v8 ✓)
+- [ ] **SEL-03** Menu ⋮ : Supprimer (confirmation avec le nombre) · Ajouter aux favoris · Ajouter au dossier ▸ (liste + « Créer un dossier ») · **Ajouter des tags à la sélection** · **Sélectionner tous les résultats** (toutes les pages de la vue courante : accueil, recherche, favoris ou dossier). `R1 IDEES`
+- [ ] **SEL-04** La sélection est conservée en changeant de page ; « Tout » sur la page Y **ajoute** à la sélection existante. `R1` (v8 ✓)
+- [ ] **SEL-05** Case de sélection 24×24 alignée avec l'étoile favori (coin opposé) ; les deux réduites de 25 % à partir de 20 colonnes. `R2` (v8 ✓)
+- [ ] **SEL-06** **Sélection par cliquer-glisser** (rectangle, comme l'explorateur Windows). `R2`
+- [ ] **SEL-07** Barre d'actions du bas pour ajouter / retirer des tags à la sélection. `R1` (v8 ✓)
+
+## DEL — Suppression
+
+- [ ] **DEL-01** Les médias **disparaissent de l'écran à l'instant du clic** sur « Supprimer ». `R2 R3 R4`
+- [ ] **DEL-02** Suppression réelle en arrière-plan, rapide, faible usage processeur (300 médias : quasi instantané). `R2`
+- [ ] **DEL-03** La suppression **reprend au redémarrage** si l'application est fermée en cours (aucun média « bloqué » masqué mais non supprimé). `R2`
+- [?] **DEL-04** Avec le référencement sur place (LIB-01) : « Supprimer » retire-t-il seulement le média de la bibliothèque, ou supprime-t-il aussi le fichier du disque (corbeille Windows ?) ? La case « Conserver les fichiers sur le disque » (centrée verticalement) doit être redéfinie en conséquence. `R2 R3` → Q-04
+
+## FAV — Favoris
+
+- [ ] **FAV-01** Favoris = **système dédié** (comme un dossier), pas un tag ; une seule source de vérité. `R2 R3 R4`
+- [ ] **FAV-02** Vue « Favoris » = interface normale filtrée sur les favoris, toutes les fonctions disponibles. `FC`
+- [ ] **FAV-03** L'étoile se met à jour **partout en temps réel** (vignette ↔ visionneuse). `R1 R2 R3 R4`
+
+## FOLD — Dossiers (anciennement « groupes »)
+
+- [ ] **FOLD-01** Dossiers manuels, indépendants des tags ; nommés « Dossiers » dans l'interface. `R1 R2` (v8 ✓)
+- [ ] **FOLD-02** Dans le menu burger, menu ⋮ par dossier : Renommer · Masquer · Supprimer (confirmation). Survol lisible (même effet que « Supprimer »). `R2 R3`
+- [ ] **FOLD-03** Retirer un ou plusieurs médias d'un dossier. `IDEES`
+- [ ] **FOLD-04** Page d'un dossier avec la barre latérale des tags (SRCH-10) et la recherche à l'intérieur du dossier. `R2` (v8 ✓)
+- [>] **FOLD-05** Gestionnaire de dossiers (réafficher les dossiers masqués, etc.). `R2`
+
+## TAGM — Tags, catégories et gestionnaire de tags
+
+- [ ] **TAGM-01** Catégories = **données** (table en base, avec nom, couleur, ordre), pas figées dans le code. `D 11/10`
+- [ ] **TAGM-02** Catégories initiales : Safebooru (général, artiste, personnage, copyright, méta) **et** flowchart (personnes, date, lieu). `D 11/10` `FC`
+- [?] **TAGM-03** Ordre d'affichage et couleurs des catégories. → Q-05
+- [ ] **TAGM-04** Page « Gestionnaire de tags » : voir tous les tags, filtrer, renommer, changer de catégorie, supprimer (confirmation avec nombre de médias), masquer. `R2` (v8 ✓ partiel)
+- [ ] **TAGM-05** Tag **masqué** : n'apparaît plus dans les suggestions, mais une recherche explicite fonctionne toujours. `FC`
+- [>] **TAGM-06** Créer des catégories personnalisées depuis le gestionnaire. `D 11/10`
+- [ ] **TAGM-07** Un tag créé n'importe où est enregistré et proposé partout ensuite. `FC`
+
+## NAV — En-tête et menu burger
+
+- [ ] **NAV-01** Logo au **centre** de l'en-tête, centré **horizontalement et verticalement** ; clic = accueil. `R2 R3 R4`
+- [ ] **NAV-02** Menu burger dépliant (à gauche). Ordre : **Bibliothèque** (accueil) · Importer · Favoris · Gestionnaire de tags · Dossiers (liste + « Nouveau ») · … · **Paramètres en dernier**, même style que les autres. `FC R1 R2 IDEES`
+- [ ] **NAV-03** Statistiques (images / vidéos / tags) dans l'en-tête. (v8 ✓)
+
+## SET — Paramètres (phase ultérieure sauf mention)
+
+- [>] **SET-01** Thème de couleurs (plusieurs thèmes, import de thèmes ?). `FC PY`
+- [>] **SET-02** Langue de l'application. `FC`
+- [>] **SET-03** Format d'heure 12 h / 24 h. `FC`
+- [>] **SET-04** Format de date. `FC`
+- [>] **SET-05** Réglages par défaut de compression / conversion de la fenêtre d'import. `FC`
+- [>] **SET-06** Mode de bibliothèque (référencement sur place / bibliothèque gérée, LIB-02). `D 11/10`
+
+## DUP — Doublons (phase ultérieure)
+
+- [>] **DUP-01** Détection des quasi-doublons (photo retouchée, redimensionnée…) par empreinte visuelle. `PY`
+- [>] **DUP-02** Page « Doublons » : chaque image à côté de ses doublons ; ouverture en grand pour comparer, flèches pour passer d'un doublon à l'autre. `FC`
+- [>] **DUP-03** Case sous chaque image pour choisir lesquelles garder ; bouton « Supprimer les images restantes » (grisé si rien de sélectionné) + confirmation. `FC`
+- [>] **DUP-04** Bouton rouge « Supprimer tous les doublons » + confirmation. `FC`
+
+## FUT — Fonctions futures
+
+- [>] **FUT-01** Scanner : import direct depuis le scanner de l'imprimante (Windows Image Acquisition). `FC PY`
+- [>] **FUT-02** Tags automatiques par IA (WD tagger / JoyTag / CLIP) avec file de validation manuelle. `PY`
+- [>] **FUT-03** Reconnaissance de personnes (étiquetage manuel puis suggestions). `PY`
+- [>] **FUT-04** Exporter un fichier avec son nom d'affichage ; renommer le nom d'affichage. `PY`
+- [>] **FUT-05** Échanges PC ↔ mobile (app compagnon). `résumé GLM`
+- [>] **FUT-06** Portage macOS / Linux. `PY`
+- [>] **FUT-07** Pools / collections ordonnées, recherche avancée. `PY`
+
+## DEV — Outils de développement (hors version finale)
+
+- [ ] **DEV-01** Commande PowerShell d'import de tags depuis des fichiers JSON (format Safebooru) : on indique le dossier des `.json` ; pour chaque `ABC.json`, les tags sont ajoutés au média `ABC.*` de la bibliothèque. Idempotente (relancer ne crée pas de doublons ni de compteurs faux). `R1 R4`
+- [ ] **DEV-02** Générateur de bibliothèque de test (10 000 – 100 000 entrées) pour mesurer la fluidité. `D 11/10`
+
+---
+
+## Questions ouvertes
+
+| ID | Question | Statut |
+|---|---|---|
+| Q-01 | Fichier référencé déplacé / renommé / supprimé hors de l'app : que faire ? | ouverte |
+| Q-02 | Miniatures : à l'import, à la demande, ou hybride ? taille ? nettoyage du cache ? | en discussion (11/10) |
+| Q-03 | Conversion / compression avec le référencement sur place : où écrire le résultat ? | ouverte |
+| Q-04 | « Supprimer » avec le référencement sur place : retirer de la bibliothèque seulement, ou aussi le fichier ? | ouverte |
+| Q-05 | Ordre et couleurs des 8 catégories initiales | ouverte |

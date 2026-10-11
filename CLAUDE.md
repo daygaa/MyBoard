@@ -1,0 +1,62 @@
+# MyBoard — règles de travail pour Claude
+
+Application de bureau locale pour trier photos / vidéos / documents par tags (style booru).
+Stack : **Tauri 2** (backend Rust + SQLite) + **React / TypeScript / Vite / Tailwind / shadcn**.
+
+Documents de référence (à lire avant toute tâche) :
+- `docs/SPEC.md` — cahier des charges : toutes les demandes, avec un ID stable et un statut.
+- `docs/DECISIONS.md` — décisions d'architecture et leurs raisons.
+- `CHANGELOG.md` — ce qui a changé à chaque version livrée.
+- `docs/reference-ui/` — captures de l'ancienne interface v8 (apparence à reproduire ; non versionné).
+
+## L'utilisateur
+
+- Francophone : toujours répondre en français et expliquer simplement (débutant en code,
+  mais avec de bonnes bases techniques). Définir tout terme technique utilisé.
+- Teste tout personnellement sous **Windows 10**. A quitté l'IA précédente parce qu'elle
+  sautait des demandes, en inventait et faisait des modifications non demandées.
+
+## Règles de travail (non négociables)
+
+1. **Faire exactement ce qui est demandé.** Pas de modification non sollicitée. Si je repère
+   autre chose à corriger, je le **propose**, je ne le fais pas.
+2. **Chaque demande a un ID** (`ZONE-NN` dans `docs/SPEC.md`). Une nouvelle demande → nouvelle
+   ligne dans SPEC (sans renuméroter). Demande ambiguë → je pose la question avant de coder.
+3. **Ne jamais annoncer « corrigé » sans l'avoir vérifié** réellement sous Windows
+   (compilation + lancement + vérification du comportement). Si je n'ai pas pu vérifier, je le dis.
+4. **Statuts SPEC** : je passe une demande en `[~]` quand je la livre ; **seul l'utilisateur la
+   passe en `[x]`** après son test.
+5. **Compte rendu** à chaque livraison : liste de chaque ID traité → fait / pas fait / partiel,
+   et comment le tester.
+6. **Après chaque tâche livrée** : mettre à jour `CHANGELOG.md`, commit Git (message en
+   français citant les IDs), puis sauvegarde :
+   `powershell -File "..\backup.ps1" -Label "<résumé court>"` (crée `Backups/vX`).
+
+## Données et sécurité
+
+- **Ne jamais modifier, déplacer ni supprimer les fichiers médias de l'utilisateur** sans
+  demande explicite. Les tests sur ses vrais fichiers (C: et D:) se font en lecture seule.
+- `../../Versions historiques/` est en **lecture seule** (référence uniquement).
+- Dépôt GitHub **public** (`daygaa/MyBoard`) : jamais de médias, de base de données, de
+  captures contenant des images tierces, ni de secrets dans Git (voir `.gitignore`).
+- Jamais de `push --force` sur `main` sans accord explicite. La branche `old_GLM` ne se touche pas.
+
+## Règles de code
+
+- **Apparence** : reproduire la v8 (thème sombre `#111214`, accent doré `#d9a94e`, jamais
+  d'indigo / bleu vif, **aucun emoji** dans l'interface — icônes Lucide).
+- Chaque zone d'interface porte un attribut `data-zone="zone.sous-zone"` (nom court, stable,
+  en français) — c'est ainsi que l'utilisateur désigne les éléments dans ses retours.
+- **Pas de duplication** : on modifie le composant partagé, on ne le recopie pas.
+- Fichiers courts et lisibles (viser < 300 lignes ; découper au-delà).
+- Aucune erreur de typage ou de compilation ignorée ; aucune dépendance inutilisée.
+- Commentaires en français, brefs, qui expliquent le *pourquoi*.
+- Toute opération multiple en base = **une transaction**. Compteurs tenus par la base, jamais
+  recalculés à la main côté application.
+- Performance (D-008) : grille virtualisée, aucun effet coûteux par vignette, cocher une
+  vignette ne redessine qu'elle, mesurer sur 10k–100k médias.
+- Code compatible Windows d'abord (chemins, commandes) ; ne jamais supposer Linux.
+
+## Commandes
+
+_À compléter quand le projet Tauri sera créé (phase 1)._

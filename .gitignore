@@ -1,0 +1,39 @@
+# MyBoard — fichiers jamais envoyés sur GitHub (dépôt PUBLIC)
+
+# Dépendances et compilation (régénérables)
+node_modules/
+dist/
+target/
+src-tauri/target/
+src-tauri/gen/schemas/
+*.tsbuildinfo
+
+# Données de l'utilisateur : base, miniatures, médias, caches
+library/
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+thumbs/
+cache/
+
+# Médias de test (jamais versionnés)
+test-media/
+demo_assets/
+
+# Captures de référence de l'ancienne interface (contiennent des images tierces)
+docs/reference-ui/
+
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Divers
+*.log
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/*
+!.vscode/extensions.json
+.idea/
