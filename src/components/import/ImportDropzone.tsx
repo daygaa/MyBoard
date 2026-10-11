@@ -226,23 +226,18 @@ export function ImportDropzone({
         </CardTitle>
       </CardHeader>
       <CardContent className="flex flex-1 flex-col">
-        {/* Drop zone (remplit l'espace restant de la carte) */}
+        {/* Drop zone (remplit l'espace restant de la carte).
+            D1 fix : la dropzone ne déclenche PLUS le clic sur l'input fichier.
+            Le drag-drop fonctionne toujours. Pour parcourir, l'utilisateur doit
+            cliquer explicitement sur "Importer un fichier" ou "Importer un dossier". */}
         <div
-          role="button"
-          tabIndex={0}
-          aria-label="Zone de dépôt de fichiers — glissez-déposez ou cliquez pour parcourir"
+          role="region"
+          aria-label="Zone de dépôt de fichiers — glissez-déposez vos fichiers ou dossiers ici"
           onDrop={handleDrop}
           onDragOver={handleDragOver}
           onDragEnter={handleDragEnter}
           onDragLeave={handleDragLeave}
-          onClick={() => !disabled && inputRef.current?.click()}
-          onKeyDown={(e) => {
-            if ((e.key === "Enter" || e.key === " ") && !disabled) {
-              e.preventDefault();
-              inputRef.current?.click();
-            }
-          }}
-          className={`group relative flex flex-1 cursor-pointer flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed px-6 py-8 text-center transition-colors ${
+          className={`group relative flex flex-1 cursor-default flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed px-6 py-8 text-center transition-colors ${
             isDragging
               ? "border-[#d9a94e] bg-[#d9a94e]/5 ring-2 ring-[#d9a94e]/20"
               : "border-border bg-background/40 hover:border-[#d9a94e]/50 hover:bg-[#d9a94e]/[0.03]"

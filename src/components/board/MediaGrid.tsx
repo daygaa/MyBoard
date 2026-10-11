@@ -617,6 +617,16 @@ export function MediaGrid({ items, query }: Props) {
   const gridDensity = useBoardUI((s) => s.gridDensity);
   const hydrateGridDensity = useBoardUI((s) => s.hydrateGridDensity);
 
+  // D4 : hiddenIds pour masquage instantané (optimistic) — les médias supprimés
+  // sont retirés de l'affichage DÈS LE CLIC, avant même que le serveur réponde.
+  const [hiddenIds, setHiddenIds] = useState<Set<number>>(new Set());
+
+  // Filtrer les items masqués (suppression optimistic)
+  const visibleItems = useMemo(
+    () => items.filter((i) => !hiddenIds.has(i.id)),
+    [items, hiddenIds]
+  );
+
   // Hydrate gridDensity depuis localStorage APRÈS mount (fix hydration mismatch
   // issue2.txt : "Confort" server / "Standard" client).
   useEffect(() => {
@@ -673,7 +683,7 @@ export function MediaGrid({ items, query }: Props) {
   // minmax(0, 1fr) au lieu de 1fr pur pour éviter l'overflow sur très petite largeur.
 
   // Tient à jour la ref partagée pour le shift+clic plage (MediaCard)
-  const ids = useMemo(() => items.map((i) => i.id), [items]);
+  const ids = useMemo(() => visibleItems.map((i) => i.id), [visibleItems]);
   useEffect(() => {
     gridIdsRef.current = ids;
     return () => {
@@ -724,8 +734,18 @@ export function MediaGrid({ items, query }: Props) {
     openLightbox(items, index, query);
   }
 
-  // Callback "action effectuée" pour le menu 3 points : clear sélection + exit batch
+  // Callback "action effectuée" pour le menu 3 points : masquer les médias
+  // sélectionnés DÈS MAINTENANT (optimistic), puis clear sélection + exit batch.
+  // D4 : les médias disparaissent de l'écran à l'instant du clic.
   function handleBulkActionDone() {
+    // Masquer immédiatement les médias sélectionnés
+    if (selected.size > 0) {
+      setHiddenIds((prev) => {
+        const next = new Set(prev);
+        for (const id of selected) next.add(id);
+        return next;
+      });
+    }
     clearSelection();
     setBatchMode(false);
   }
@@ -772,7 +792,7 @@ export function MediaGrid({ items, query }: Props) {
         {/* P5.1 : Menu 3 points juste à droite des boutons (même div) */}
         {batchMode && (
           <BulkActionsMenu
-            items={items}
+            items={visibleItems}
             selected={selected}
             onDone={handleBulkActionDone}
           />
@@ -787,7 +807,7 @@ export function MediaGrid({ items, query }: Props) {
           gridTemplateColumns: `repeat(${gridDensity}, minmax(0, 1fr))`,
         }}
       >
-        {items.map((m, idx) => (
+        {visibleItems.map((m, idx) => (
           <LazyCard
             key={m.id}
             item={m}
