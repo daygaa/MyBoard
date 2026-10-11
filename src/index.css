@@ -1,0 +1,111 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/* MyBoard — thème sombre froid (repris de la v8) : fond #111214, accent doré #d9a94e. */
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+:root {
+  --radius: 0.625rem;
+
+  --background: #111214;
+  --foreground: #ececef;
+  --card: #17181b;
+  --card-foreground: #ececef;
+  --popover: #1f2126;
+  --popover-foreground: #ececef;
+
+  /* L'accent doré est la signature visuelle de MyBoard */
+  --accent: #d9a94e;
+  --accent-foreground: #1a1408;
+  --primary: #d9a94e;
+  --primary-foreground: #1a1408;
+
+  --secondary: #1f2126;
+  --secondary-foreground: #ececef;
+  --muted: #1f2126;
+  --muted-foreground: #8b8d96;
+
+  --destructive: #e5636b;
+  --border: #2a2c33;
+  --input: #1f2126;
+  --ring: #d9a94e;
+
+  color-scheme: dark;
+}
+
+@layer base {
+  /* Place de la barre de défilement toujours réservée : sinon, une page « juste à la limite »
+     fait apparaître puis disparaître la barre, la largeur de la grille change à chaque fois
+     et la grille se recalcule sans fin (bogue mesuré le 11/10/2026). */
+  html {
+    scrollbar-gutter: stable;
+  }
+
+  * {
+    @apply border-border outline-ring/50;
+    scrollbar-width: thin;
+    scrollbar-color: #343741 transparent;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial,
+      sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  ::selection {
+    background: var(--accent);
+    color: var(--accent-foreground);
+  }
+
+  ::-webkit-scrollbar {
+    width: 11px;
+    height: 11px;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #343741;
+    border: 3px solid var(--background);
+    border-radius: 8px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #43464f;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  /* Les champs numériques n'affichent pas les petites flèches du navigateur. */
+  input[type="number"]::-webkit-inner-spin-button,
+  input[type="number"]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+}

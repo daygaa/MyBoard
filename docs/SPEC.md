@@ -33,27 +33,27 @@ Les fichiers sources sont dans `Versions historiques/` (lecture seule).
 
 ## GEN — Principes généraux
 
-- [ ] **GEN-01** Application de bureau **locale**, hors ligne, Windows en priorité (Tauri 2). `D 11/10`
-- [ ] **GEN-02** L'interface reprend **l'apparence de la v8** (couleurs, disposition, composants). Seuls la plomberie, le découpage du code et les performances changent. `D 11/10`
-- [ ] **GEN-03** Thème sombre froid `#111214`, accent doré `#d9a94e`, **pas d'indigo ni de bleu vif**. `PY`
-- [ ] **GEN-04** **Aucun emoji** dans l'interface : icônes uniquement (Lucide). `PY`
-- [ ] **GEN-05** Pied de page collé en bas de la fenêtre. `R1`
-- [ ] **GEN-06** Interface en français.
-- [ ] **GEN-07** Fluidité à grande échelle : bibliothèque de **100 000+ médias**, grille **sans lag jusqu'à 30 colonnes**. L'utilisateur a 100k+ fichiers réels (C: SSD, D: HDD) pour tester. `R2 R3 R4 D 11/10`
-- [ ] **GEN-08** Chaque zone de l'interface porte un **nom court et stable** (attribut `data-zone`, ex. `visionneuse.barre-tags`) pour que l'utilisateur puisse la désigner dans ses retours sans copier de classes HTML. Remplace la demande « nettoyer les noms des div ». `R1 R2 D 11/10`
+- [~] **GEN-01** Application de bureau **locale**, hors ligne, Windows en priorité (Tauri 2). `D 11/10`
+- [~] **GEN-02** L'interface reprend **l'apparence de la v8** (couleurs, disposition, composants). Seuls la plomberie, le découpage du code et les performances changent. `D 11/10` — Phase 1 : en-tête, menu, barre latérale, grille, filtres, import.
+- [~] **GEN-03** Thème sombre froid `#111214`, accent doré `#d9a94e`, **pas d'indigo ni de bleu vif**. `PY`
+- [~] **GEN-04** **Aucun emoji** dans l'interface : icônes uniquement (Lucide). `PY`
+- [~] **GEN-05** Pied de page collé en bas de la fenêtre. `R1`
+- [~] **GEN-06** Interface en français.
+- [~] **GEN-07** Fluidité à grande échelle : bibliothèque de **100 000+ médias**, grille **sans lag jusqu'à 30 colonnes**. L'utilisateur a 100k+ fichiers réels (C: SSD, D: HDD) pour tester. `R2 R3 R4 D 11/10` — Phase 1 : mesuré sur 100 000 médias (CHANGELOG, D-014).
+- [~] **GEN-08** Chaque zone de l'interface porte un **nom court et stable** (attribut `data-zone`, ex. `visionneuse.barre-tags`) pour que l'utilisateur puisse la désigner dans ses retours sans copier de classes HTML. Remplace la demande « nettoyer les noms des div ». `R1 R2 D 11/10`
 - [ ] **GEN-09** Marges et alignements cohérents au pixel près (pas de décalages de 1–2 px). `R1`
 - [ ] **GEN-10** Les pop-ins de confirmation sont des fenêtres de l'application (style maison), jamais les boîtes natives du navigateur. `R1`
 
 ## LIB — Bibliothèque et stockage
 
-- [ ] **LIB-01** Par défaut, les médias sont **référencés sur place** : l'application indexe les fichiers là où ils sont, sans les copier. `D 11/10`
+- [~] **LIB-01** Par défaut, les médias sont **référencés sur place** : l'application indexe les fichiers là où ils sont, sans les copier. `D 11/10`
 - [>] **LIB-02** Option dans les paramètres : **importer dans la bibliothèque gérée** (copie dans `originals/<2 hex>/<reste>.<ext>`, 256 sous-dossiers par hash). `D 11/10` `PY`
-- [ ] **LIB-03** Détection des doublons exacts par empreinte du contenu (hash) : un fichier déjà indexé n'est pas ré-ajouté, même renommé. `PY FC`
+- [~] **LIB-03** Détection des doublons exacts par empreinte du contenu (hash) : un fichier déjà indexé n'est pas ré-ajouté, même renommé. `PY FC`
 - [ ] **LIB-04** Les tags sont liés au média (identifiant interne), jamais au nom de fichier. `PY`
 - [?] **LIB-05** Comportement quand un fichier référencé est **déplacé, renommé ou supprimé hors de l'application** (signaler « fichier introuvable », retrouver automatiquement par hash lors d'un nouveau scan…). → Q-01
-- [ ] **LIB-06** **Petites miniatures** (~320 px, format WebP) générées **en arrière-plan après l'import**, stockées sur le SSD ; l'import n'attend pas leur génération, elles apparaissent au fur et à mesure. `D 11/10` (Q-02, D-011)
-- [ ] **LIB-07** Base de données et miniatures sur un disque rapide (SSD) même si les médias sont sur HDD. `D 11/10`
-- [ ] **LIB-08** Sauvegarde simple : copier le dossier de données de l'application suffit. `PY`
+- [~] **LIB-06** **Petites miniatures** (~320 px, format WebP) générées **en arrière-plan après l'import**, stockées sur le SSD ; l'import n'attend pas leur génération, elles apparaissent au fur et à mesure. `D 11/10` (Q-02, D-011) — Phase 1 : rangées dans `thumbs.db` (D-014).
+- [~] **LIB-07** Base de données et miniatures sur un disque rapide (SSD) même si les médias sont sur HDD. `D 11/10`
+- [~] **LIB-08** Sauvegarde simple : copier le dossier de données de l'application suffit. `PY` — Phase 1 : copier `%LOCALAPPDATA%\MyBoard`, application fermée.
 - [ ] **LIB-09** **Grands aperçus** (~640 px) pour les densités 4–6 colonnes, **générés à la demande** : la petite miniature s'affiche immédiatement puis est remplacée par le grand aperçu ; un aperçu n'est demandé que si la vignette reste visible ~150 ms ; les demandes des vignettes sorties de l'écran sont annulées ; génération en arrière-plan sans jamais bloquer l'interface. `D 11/10` (D-011)
 - [ ] **LIB-10** Cache des grands aperçus **de taille limitée** : les moins récemment utilisés sont supprimés en premier. `D 11/10`
 - [>] **LIB-11** Paramètres du cache : taille maximale, bouton « Vider le cache », emplacement. `D 11/10`
@@ -62,11 +62,12 @@ Les fichiers sources sont dans `Versions historiques/` (lecture seule).
 
 ### Sélection des fichiers
 - [ ] **IMP-01** Importer **un ou plusieurs fichiers** via la fenêtre de sélection Windows. `FC R2`
-- [ ] **IMP-02** Importer **un dossier** via la fenêtre de sélection Windows (bouton distinct « Importer un dossier » qui fonctionne réellement). `FC R2 R3 R4`
+- [~] **IMP-02** Importer **un dossier** via la fenêtre de sélection Windows (bouton distinct « Importer un dossier » qui fonctionne réellement). `FC R2 R3 R4`
 - [ ] **IMP-03** Glisser-déposer de fichiers **et** de dossiers (récursif). `FC R1` (v8 ✓)
-- [ ] **IMP-04** Option « Importer le contenu des sous-dossiers ». `FC`
-- [ ] **IMP-05** Formats acceptés : images, vidéos, audio, + PDF, PowerPoint/Slides, Excel/Sheets. Les autres fichiers sont ignorés (avec compteur « X fichiers ignorés »). `R1`
+- [~] **IMP-04** Option « Importer le contenu des sous-dossiers ». `FC`
+- [~] **IMP-05** Formats acceptés : images, vidéos, audio, + PDF, PowerPoint/Slides, Excel/Sheets. Les autres fichiers sont ignorés (avec compteur « X fichiers ignorés »). `R1`
 - [ ] **IMP-06** Lecture adaptée au disque : en parallèle sur SSD, séquentielle sur HDD. `D 11/10`
+- [~] **IMP-07** Documents Word acceptés en plus de IMP-05 : `.doc`, `.docx`, `.odt` (les `.txt` restent ignorés). `D 11/10`
 
 ### Aperçu avant import
 - [ ] **IMP-10** Liste des fichiers sélectionnés **sous** la barre d'actions, avec miniature d'aperçu, nom, poids, format. `R1` (v8 ✓)
@@ -81,7 +82,7 @@ Les fichiers sources sont dans `Versions historiques/` (lecture seule).
 - [ ] **IMP-23** Bulle ⓘ à côté du menu vidéo, textes exacts : MP4 standard « Conseillé - Compatibilité totale » · MP4 H.265 « Meilleure compression, nécessite une extension HEVC pour les lecteurs Windows » · WebM « Meilleure compression, compatible sur navigateur mais pas sur les lecteurs Windows » · AV1 « Compression maximale, lent à encoder, peu de compatibilité disponible ». `R3`
 - [ ] **IMP-24** « Qualité vidéo » : **curseur à 5 crans** Minimale / Basse / Moyenne (défaut) / Haute / Maximale. `R2` (v8 ✓)
 - [ ] **IMP-25** Compression vidéo : conserver la résolution et le nombre d'images par seconde ; images : conserver la résolution. Moteur : ffmpeg (voir IMP-48 / IMP-49). `FC R2`
-- [ ] **IMP-26** Pas d'option « Générer miniatures » (toujours actif). `R1`
+- [~] **IMP-26** Pas d'option « Générer miniatures » (toujours actif). `R1`
 - [?] **IMP-27** Avec le référencement sur place (LIB-01), où vont les fichiers **convertis / compressés** ? (remplacer l'original, créer un fichier à côté, ou réservé au mode bibliothèque gérée LIB-02). → Q-03
 - [>] **IMP-28** Option « Supprimer les originaux » (n'a de sens qu'en mode bibliothèque gérée). `FC`
 - [ ] **IMP-29** Les réglages par défaut des options viennent des Paramètres (SET-05). `FC`
@@ -91,43 +92,43 @@ Les fichiers sources sont dans `Versions historiques/` (lecture seule).
 - [ ] **IMP-31** Les espaces deviennent automatiquement des `_`. Autocomplétion avec les tags existants (même moteur que la barre latérale) ; choisir un tag existant ignore le menu catégorie (il a déjà la sienne). `R1`
 
 ### Déroulement
-- [ ] **IMP-40** La progression s'affiche **dans** la barre d'actions d'import (cachée au repos), au-dessus de la liste des fichiers. `R2` (v8 ✓)
-- [ ] **IMP-41** Progression : barre 0–100 % globale, fraction « X / Y », et pendant une compression : barre du fichier en cours + sa miniature + son nom. `FC`
-- [ ] **IMP-42** Boutons **Pause** et **Arrêter**. `IDEES`
+- [~] **IMP-40** La progression s'affiche **dans** la barre d'actions d'import (cachée au repos), au-dessus de la liste des fichiers. `R2` (v8 ✓)
+- [~] **IMP-41** Progression : barre 0–100 % globale, fraction « X / Y », et pendant une compression : barre du fichier en cours + sa miniature + son nom. `FC` — Phase 1 : barre globale + « X / Y » + nom du fichier en cours ; barre et miniature du fichier en compression : phase 4.
+- [~] **IMP-42** Boutons **Pause** et **Arrêter**. `IDEES` — Phase 1 : « Arrêter » fait (avancé à ta demande, `D 11/10`) ; « Pause » plus tard.
 - [ ] **IMP-43** Annuler (avec confirmation) arrête proprement : supprime les fichiers résiduels, aucun processus ne reste en arrière-plan. `FC`
-- [ ] **IMP-44** Le bouton « Importer » est bloqué une fois l'import terminé (jusqu'à une nouvelle sélection). `IDEES`
+- [~] **IMP-44** Le bouton « Importer » est bloqué une fois l'import terminé (jusqu'à une nouvelle sélection). `IDEES`
 - [ ] **IMP-45** Pop-in de fin : « X importés sur Y », nombre d'erreurs + noms des fichiers en erreur ; si compression : taux moyen %, place gagnée, poids avant/après, détail images/vidéos au survol. `FC`
-- [ ] **IMP-46** Les vidéos importées ont une miniature. `R2 R3 R4`
+- [~] **IMP-46** Les vidéos importées ont une miniature. `R2 R3 R4`
 - [ ] **IMP-47** Un fichier converti s'affiche avec sa **vraie extension** (nom affiché mis à jour). `R4`
-- [ ] **IMP-48** Pendant le développement : utiliser le **ffmpeg installé sur le PC**, détecté de façon fiable sous Windows (PATH et emplacements connus), avec un message clair s'il est absent. `D 11/10` (D-012)
+- [~] **IMP-48** Pendant le développement : utiliser le **ffmpeg installé sur le PC**, détecté de façon fiable sous Windows (PATH et emplacements connus), avec un message clair s'il est absent. `D 11/10` (D-012)
 - [>] **IMP-49** Version finale : **ffmpeg fourni avec l'application** (téléchargement du binaire uniquement avec l'accord de l'utilisateur, au moment venu). `D 11/10` (D-007, D-012)
 
 ## GRID — Page d'accueil et grille
 
-- [ ] **GRID-01** Bibliothèque vide : message d'accueil spécifique (« Bienvenue… commencez par importer ») + bouton Importer fonctionnel. Recherche sans résultat : message distinct. `R1` (v8 ✓)
-- [ ] **GRID-02** Densité **4 à 30 colonnes, limites fixes** quelle que soit la résolution d'écran ; les vignettes s'adaptent en largeur. `R1` (v8 ✓)
-- [ ] **GRID-03** Bouton « Disposition » : préréglages + curseur ; aucun texte explicatif sous le curseur. `R1` (v8 ✓)
-- [ ] **GRID-04** Ctrl + molette change la densité (comme l'explorateur Windows). `FC`
-- [ ] **GRID-05** Nombre de médias par page **adapté à la densité** : 50 à 4 colonnes → 500 à 30 colonnes. `R1` (v8 ✓)
-- [ ] **GRID-06** **Aucun lag** en changeant de densité ni à 30 colonnes (voir GEN-07). `R2 R3 R4`
-- [ ] **GRID-07** Changer de filtre ou de tri ne réinitialise pas la densité / le nombre par page. `BUG`
-- [ ] **GRID-08** Vignette : pas de badge d'extension, pas d'icône plein écran, pas de mini-tags. Restent : badge durée vidéo, badge GIF, étoile favori, case de sélection, infos au survol (nom, poids, dimensions). `R1` (v8 ✓)
+- [~] **GRID-01** Bibliothèque vide : message d'accueil spécifique (« Bienvenue… commencez par importer ») + bouton Importer fonctionnel. Recherche sans résultat : message distinct. `R1` (v8 ✓)
+- [~] **GRID-02** Densité **4 à 30 colonnes, limites fixes** quelle que soit la résolution d'écran ; les vignettes s'adaptent en largeur. `R1` (v8 ✓)
+- [~] **GRID-03** Bouton « Disposition » : préréglages + curseur ; aucun texte explicatif sous le curseur. `R1` (v8 ✓)
+- [~] **GRID-04** Ctrl + molette change la densité (comme l'explorateur Windows). `FC`
+- [~] **GRID-05** Nombre de médias par page **adapté à la densité** : 50 à 4 colonnes → 500 à 30 colonnes. `R1` (v8 ✓)
+- [~] **GRID-06** **Aucun lag** en changeant de densité ni à 30 colonnes (voir GEN-07). `R2 R3 R4`
+- [~] **GRID-07** Changer de filtre ou de tri ne réinitialise pas la densité / le nombre par page. `BUG`
+- [~] **GRID-08** Vignette : pas de badge d'extension, pas d'icône plein écran, pas de mini-tags. Restent : badge durée vidéo, badge GIF, étoile favori, case de sélection, infos au survol (nom, poids, dimensions). `R1` (v8 ✓) — Phase 1 : badges durée et GIF, infos au survol ; étoile et case de sélection : phase 3.
 
 ## PAGE — Pagination
 
-- [ ] **PAGE-01** Pagination en haut et en bas de la grille : numéros autour de la page courante, flèches précédent/suivant, champ « aller à la page », impossible d'aller à une page inexistante. `FC`
-- [ ] **PAGE-02** Ctrl + ← / → change de page. `FC` (v8 ✓)
+- [~] **PAGE-01** Pagination en haut et en bas de la grille : numéros autour de la page courante, flèches précédent/suivant, champ « aller à la page », impossible d'aller à une page inexistante. `FC`
+- [~] **PAGE-02** Ctrl + ← / → change de page. `FC` (v8 ✓)
 - [-] **PAGE-03** ~~Menu 50/100/200/500/1000 par page~~ → remplacé par GRID-05. `R1`
 
 ## FILT — Filtres et tri
 
-- [ ] **FILT-01** Filtres par type (Images, Vidéos, Audio, Documents…) **à sélection multiple** (ex. Images + Vidéos). `R2`
-- [ ] **FILT-02** Filtres et tri sont **totalement indépendants du système de tags** : jamais de `type:` / `order:` en interne, jamais de pastille de tag pour eux. `R3 R4`
+- [~] **FILT-01** Filtres par type (Images, Vidéos, Audio, Documents…) **à sélection multiple** (ex. Images + Vidéos). `R2`
+- [~] **FILT-02** Filtres et tri sont **totalement indépendants du système de tags** : jamais de `type:` / `order:` en interne, jamais de pastille de tag pour eux. `R3 R4`
 - [ ] **FILT-03** Changer de filtre ne retire jamais les tags recherchés. `R3`
-- [ ] **FILT-04** Tris : récents / anciens, **poids** + / −, **taille (résolution)** + / −, nombre de tags + / −, aléatoire. Pas de « favoris » dans le menu de tri. `FC IDEES`
-- [ ] **FILT-05** Tri par **date de création** du fichier (en plus de la date d'import). `FC`
-- [ ] **FILT-06** Le tri et les filtres sont **mémorisés** (retour de la visionneuse, redémarrage). `R2`
-- [ ] **FILT-07** Corriger : le filtre revient parfois tout seul sur « Tout » ; médias non affichés tant qu'on ne change pas de filtre. `BUG`
+- [~] **FILT-04** Tris : récents / anciens, **poids** + / −, **taille (résolution)** + / −, nombre de tags + / −, aléatoire. Pas de « favoris » dans le menu de tri. `FC IDEES`
+- [~] **FILT-05** Tri par **date de création** du fichier (en plus de la date d'import). `FC`
+- [~] **FILT-06** Le tri et les filtres sont **mémorisés** (retour de la visionneuse, redémarrage). `R2`
+- [~] **FILT-07** Corriger : le filtre revient parfois tout seul sur « Tout » ; médias non affichés tant qu'on ne change pas de filtre. `BUG`
 
 ## SRCH — Recherche et barre latérale des tags
 
@@ -217,8 +218,8 @@ Les fichiers sources sont dans `Versions historiques/` (lecture seule).
 
 ## TAGM — Tags, catégories et gestionnaire de tags
 
-- [ ] **TAGM-01** Catégories = **données** (table en base, avec nom, couleur, ordre), pas figées dans le code. `D 11/10`
-- [ ] **TAGM-02** Catégories initiales : Safebooru (général, artiste, personnage, copyright, méta) **et** flowchart (personnes, date, lieu). `D 11/10` `FC`
+- [~] **TAGM-01** Catégories = **données** (table en base, avec nom, couleur, ordre), pas figées dans le code. `D 11/10` — Phase 1 : table en base ; visible dans l'interface en phase 2.
+- [~] **TAGM-02** Catégories initiales : Safebooru (général, artiste, personnage, copyright, méta) **et** flowchart (personnes, date, lieu). `D 11/10` `FC` — Phase 1 : 8 catégories créées en base (couleurs provisoires, Q-05).
 - [?] **TAGM-03** Ordre d'affichage et couleurs des catégories. → Q-05
 - [ ] **TAGM-04** Page « Gestionnaire de tags » : voir tous les tags, filtrer, renommer, changer de catégorie, supprimer (confirmation avec nombre de médias), masquer. `R2` (v8 ✓ partiel)
 - [ ] **TAGM-05** Tag **masqué** : n'apparaît plus dans les suggestions, mais une recherche explicite fonctionne toujours. `FC`
@@ -227,9 +228,9 @@ Les fichiers sources sont dans `Versions historiques/` (lecture seule).
 
 ## NAV — En-tête et menu burger
 
-- [ ] **NAV-01** Logo au **centre** de l'en-tête, centré **horizontalement et verticalement** ; clic = accueil. `R2 R3 R4`
-- [ ] **NAV-02** Menu burger dépliant (à gauche). Ordre : **Bibliothèque** (accueil) · Importer · Favoris · Gestionnaire de tags · Dossiers (liste + « Nouveau ») · … · **Paramètres en dernier**, même style que les autres. `FC R1 R2 IDEES`
-- [ ] **NAV-03** Statistiques (images / vidéos / tags) dans l'en-tête. (v8 ✓)
+- [~] **NAV-01** Logo au **centre** de l'en-tête, centré **horizontalement et verticalement** ; clic = accueil. `R2 R3 R4`
+- [~] **NAV-02** Menu burger dépliant (à gauche). Ordre : **Bibliothèque** (accueil) · Importer · Favoris · Gestionnaire de tags · Dossiers (liste + « Nouveau ») · … · **Paramètres en dernier**, même style que les autres. `FC R1 R2 IDEES` — Phase 1 : ordre en place ; Favoris, Gestionnaire, Dossiers, Paramètres grisés « bientôt ».
+- [~] **NAV-03** Statistiques (images / vidéos / tags) dans l'en-tête. (v8 ✓)
 
 ## SET — Paramètres (phase ultérieure sauf mention)
 
@@ -260,7 +261,7 @@ Les fichiers sources sont dans `Versions historiques/` (lecture seule).
 ## DEV — Outils de développement (hors version finale)
 
 - [ ] **DEV-01** Commande PowerShell d'import de tags depuis des fichiers JSON (format Safebooru) : on indique le dossier des `.json` ; pour chaque `ABC.json`, les tags sont ajoutés au média `ABC.*` de la bibliothèque. Idempotente (relancer ne crée pas de doublons ni de compteurs faux). `R1 R4`
-- [ ] **DEV-02** Générateur de bibliothèque de test (10 000 – 100 000 entrées) pour mesurer la fluidité. `D 11/10`
+- [~] **DEV-02** Générateur de bibliothèque de test (10 000 – 100 000 entrées) pour mesurer la fluidité. `D 11/10`
 
 ---
 

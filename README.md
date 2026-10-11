@@ -4,7 +4,7 @@ Application de bureau **locale** pour trier ses photos, vidéos et documents par
 à la manière des image boards « booru » (Safebooru, Danbooru, Hydrus Network) —
 sans dossiers, sans cloud, sur son propre PC.
 
-> **État : réécriture en cours (phase 0 — fondations).** L'ancienne version web (Next.js,
+> **État : réécriture en cours (phase 1 — socle : import d'un dossier, miniatures, grille).** L'ancienne version web (Next.js,
 > écrite avec GLM 5.2) est conservée sur la branche [`old_GLM`](https://github.com/daygaa/MyBoard/tree/old_GLM).
 
 ## Technologies
@@ -22,4 +22,15 @@ sans dossiers, sans cloud, sur son propre PC.
 
 ## Lancer l'application
 
-_Les instructions arriveront avec la phase 1 (socle)._
+Prérequis (Windows 10/11) : [Node.js](https://nodejs.org/) 22+, [Rust](https://rustup.rs/)
+(MSVC), les « Build Tools » C++ de Visual Studio, WebView2 (déjà présent sous Windows), et
+ffmpeg pour les miniatures vidéo (ex. `winget install Gyan.FFmpeg`).
+
+```bash
+npm install
+npm run tauri dev
+```
+
+Version finale (exécutable seul) : `npm run tauri build -- --no-bundle`, puis
+`src-tauri\target\release\myboard.exe`. Les données (base + miniatures) sont rangées dans
+`%LOCALAPPDATA%\MyBoard` ; les médias restent à leur place et ne sont jamais modifiés.

@@ -1,0 +1,62 @@
+//! MyBoard — partie Rust : base de données, import, miniatures.
+//! L'interface (React) appelle les commandes déclarées ici via `invoke`.
+
+pub mod db;
+pub mod ffmpeg;
+pub mod formats;
+pub mod import;
+pub mod library;
+pub mod paths;
+pub mod thumbs;
+
+use std::sync::Mutex;
+
+use rusqlite::Connection;
+use tauri::Manager;
+
+use import::ImportManager;
+use paths::DataPaths;
+use thumbs::ThumbService;
+
+/// État partagé par toutes les commandes.
+pub struct AppState {
+    pub paths: DataPaths,
+    /// Connexion réservée aux lectures de l'interface.
+    pub db: Mutex<Connection>,
+    pub thumbs: ThumbService,
+    pub import: ImportManager,
+}
+
+#[cfg_attr(mobile, tauri::mobile_entry_point)]
+pub fn run() {
+    tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
+        .register_asynchronous_uri_scheme_protocol("thumb", |ctx, request, responder| {
+            thumbs::protocol::handle(ctx.app_handle(), request, responder)
+        })
+        .setup(|app| {
+            let handle = app.handle().clone();
+            let paths = DataPaths::resolve(app.path().local_data_dir()?)?;
+            let db = db::open_and_migrate(&paths.db)?;
+            let thumbs = ThumbService::start(handle.clone(), &paths.db, &paths.thumbs_db)?;
+            app.manage(AppState {
+                paths,
+                db: Mutex::new(db),
+                thumbs,
+                import: ImportManager::new(handle),
+            });
+            Ok(())
+        })
+        .invoke_handler(tauri::generate_handler![
+            library::list_media,
+            library::library_stats,
+            library::prioritize_thumbs,
+            library::ffmpeg_status,
+            import::import_snapshot,
+            import::scan_folder,
+            import::start_import,
+            import::cancel_import,
+        ])
+        .run(tauri::generate_context!())
+        .expect("erreur au lancement de MyBoard");
+}

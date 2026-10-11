@@ -9,17 +9,17 @@ src-tauri/gen/schemas/
 *.tsbuildinfo
 
 # Données de l'utilisateur : base, miniatures, médias, caches
-library/
+/library/
 *.db
 *.db-shm
 *.db-wal
 *.sqlite
-thumbs/
-cache/
+/thumbs/
+/cache/
 
 # Médias de test (jamais versionnés)
-test-media/
-demo_assets/
+/test-media/
+/demo_assets/
 
 # Captures de référence de l'ancienne interface (contiennent des images tierces)
 docs/reference-ui/

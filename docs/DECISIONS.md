@@ -125,3 +125,59 @@ Pendant le développement, l'application utilise le ffmpeg déjà installé sur 
 l'utilisateur, **détecté de façon fiable sous Windows** (c'était la cause du bug
 « ffmpeg introuvable » de la v8 : une commande Linux). Le binaire ffmpeg sera embarqué dans
 l'application finale (D-007) ; son téléchargement se fera avec l'accord de l'utilisateur.
+
+## D-013 — Choix techniques de la phase 1 (11/10/2026)
+
+**Données de l'application.** Base `myboard.db` et miniatures `thumbs.db` (D-014) dans
+`%LOCALAPPDATA%\MyBoard` (disque système = SSD, LIB-07). Copier ce dossier, application
+fermée, suffit à tout sauvegarder (LIB-08). La variable `MYBOARD_DATA_DIR` permet d'ouvrir
+une autre bibliothèque (tests, mesures) sans toucher à la vraie.
+
+**Import.**
+- Empreinte BLAKE3 du contenu complet (LIB-03) : plusieurs fois plus rapide que SHA-256 ;
+  c'est la lecture du disque qui limite, pas le calcul.
+- Un fichier déjà indexé (même chemin, même taille, même date de modification) n'est pas
+  relu : relancer l'import d'un dossier déjà importé est quasi instantané.
+- Fichiers lus un par un (adapté au disque dur) ; la lecture parallèle sur SSD (IMP-06) sera
+  ajoutée si les mesures sur de vrais dossiers la justifient.
+- Enregistrement en base par lots de 200 fichiers (une transaction par lot, D-005).
+- L'état de l'import est tenu par le cœur Rust : quitter la page d'import ne l'interrompt pas.
+
+**Miniatures.**
+- Recadrées au centre en **carré 320 × 320** : c'est exactement ce que montre la vignette
+  carrée de la grille ; moins de pixels à décoder = grille plus fluide à 30 colonnes.
+  Une image plus petite n'est jamais agrandie. Rotation EXIF appliquée.
+- Vidéos : image prise à **10 % de la durée** (la v8 prenait la première image, souvent noire).
+- Images que Rust ne sait pas lire (AVIF, HEIC…) : passées à ffmpeg.
+- Fils de travail et ffmpeg en **priorité basse**, sans fenêtre console : l'interface reste
+  fluide pendant la génération. La page affichée passe en premier, puis les plus récents.
+- Rangement et service des miniatures : voir D-014.
+
+**Grille.**
+- Changer de densité redessine immédiatement les colonnes (simple calcul, D-008) ; le nombre
+  de médias par page (GRID-05) s'adapte 250 ms après le dernier cran de molette, en gardant à
+  l'écran la page qui contient le premier média affiché (la v8 revenait à la page 1).
+- En-tête, menu et badges : fond opaque au lieu du flou d'arrière-plan (D-008).
+
+## D-014 — Miniatures dans un seul fichier, servies par le protocole `thumb://` (11/10/2026)
+
+**Mesures** (bibliothèque de test de 100 000 médias, écran 2560×1377, version compilée) :
+- Sous Windows, la **première** ouverture d'un fichier par MyBoard (programme non signé)
+  coûte ~7,7 ms : c'est l'analyse antivirus en temps réel. 475 miniatures rangées en fichiers
+  séparés : **3,6 s** la première fois (75 ms ensuite). Rangées dans un seul gros fichier :
+  **17 ms**, dès la première fois.
+- Pour livrer les miniatures à la fenêtre, comparaison dans la même version :
+  protocole Tauri `thumb://` ≈ **400 ms** pour une page de 500 vignettes (30 colonnes),
+  ≈ 115 ms pour 223 vignettes (14 colonnes) ; petit serveur HTTP local ≈ **1 100 ms** et
+  ≈ 140 ms (le moteur WebView2 le gère mal, alors que le serveur seul répond en ~60 ms).
+
+**Décision.**
+- Toutes les petites miniatures sont rangées dans **`thumbs.db`** (une base SQLite à part,
+  à côté de `myboard.db`) : plus d'analyse antivirus fichier par fichier, sauvegarde et copie
+  bien plus rapides (1 fichier au lieu de 100 000). ~1,75 Go pour 95 000 miniatures.
+- Elles sont servies par le protocole `thumb://` (lecture hors du fil principal).
+- Si `thumbs.db` est supprimé, toutes les miniatures sont recréées au lancement suivant.
+
+**Piste non retenue pour l'instant** (proposée à l'utilisateur) : une troisième taille,
+plus petite (~128 px), pour les densités élevées : décodage 2,3 fois plus rapide
+(145 ms → 62 ms pour 500 images), au prix d'un peu de place disque.

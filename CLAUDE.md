@@ -59,4 +59,22 @@ Documents de référence (à lire avant toute tâche) :
 
 ## Commandes
 
-_À compléter quand le projet Tauri sera créé (phase 1)._
+Depuis le Workspace (Rust : `cargo` est dans `%USERPROFILE%\.cargo\bin`) :
+
+- `npm install` — dépendances de l'interface (une fois, puis à chaque changement de `package.json`).
+- `npm run tauri dev` — lance l'application en développement (rechargement automatique de l'interface).
+- `npm run tauri build -- --no-bundle` — version finale : `src-tauri\target\release\myboard.exe`.
+- `npx tsc` — vérification des types TypeScript ; dans `src-tauri` : `cargo check`, `cargo clippy`.
+- Bibliothèque de test (DEV-02), dans `src-tauri` :
+  `cargo run --release --example gen_test_library -- "<dossier vide>" 100000`.
+- Mesure de fluidité (D-008) : `node scripts/bench-grid.mjs "<dossier de la bibliothèque de test>"`.
+
+Variables d'environnement utiles :
+- `MYBOARD_DATA_DIR` — autre dossier de données (défaut `%LOCALAPPDATA%\MyBoard`). Toujours
+  l'utiliser pour les tests : la bibliothèque réelle de l'utilisateur ne doit pas être polluée.
+- `MYBOARD_FFMPEG` — chemin de ffmpeg (dossier ou `.exe`) si la détection automatique échoue.
+- `WEBVIEW2_USER_DATA_FOLDER` / `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=--remote-debugging-port=9333`
+  — profil WebView2 séparé et port de débogage (pilotage et captures pendant les tests).
+
+Structure : `src-tauri/src` (Rust : `db/`, `import/`, `thumbs/`, `library.rs`, `ffmpeg.rs`) ·
+`src/` (React : `components/{layout,library,import,ui}`, `stores/`, `hooks/`, `lib/`).
