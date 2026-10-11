@@ -19,10 +19,18 @@ import { normalizeTagName, isCategory } from "./shared";
 export type ParsedQuery = {
   include: string[]; // tags à inclure (peuvent contenir *)
   exclude: string[]; // tags à exclure
-  kinds: string[]; // filtres type:
+  kinds: string[]; // filtres type: (ancien format, pour compat)
   exts: string[]; // filtres ext:
   order: string; // tri
   tagCount: { op: "=" | "<" | ">"; n: number } | null;
+};
+
+/** Options de recherche séparées des tags (B1 refactor).
+ *  kind, sort, favorites sont des paramètres URL indépendants. */
+export type SearchOptions = {
+  kind?: string; // "" | "image" | "video" | "audio" | "document"
+  sort?: string; // "" | "oldest" | "size" | "tagcount" | "random" | "favorite" etc.
+  favorites?: boolean;
 };
 
 const ORDERS = ["newest", "oldest", "size", "size_asc", "random", "tagcount", "tagcount_asc", "favorite"];
@@ -44,16 +52,14 @@ export function parseQuery(q: string): ParsedQuery {
     if (idx > 0) {
       const key = raw.slice(0, idx);
       const val = raw.slice(idx + 1);
-      if (key === "type" || key === "kind") {
-        if (val) res.kinds.push(val);
+      // B1 : type:/order: ne sont plus gérés via tags (séparés en URL params)
+      // On les ignore ici (compat : si l'utilisateur tape manuellement type:image,
+      // on l'ignore pour éviter les conflits).
+      if (key === "type" || key === "kind" || key === "order" || key === "sort") {
         continue;
       }
       if (key === "ext") {
         if (val) res.exts.push(val.replace(/^\./, ""));
-        continue;
-      }
-      if (key === "order" || key === "sort") {
-        if (ORDERS.includes(val)) res.order = val;
         continue;
       }
       if (key === "tagcount") {
@@ -93,10 +99,12 @@ async function resolveTerm(db: PrismaClient, term: string): Promise<number[]> {
   return tag ? [tag.id] : [];
 }
 
-/** Construit la clause WHERE Prisma pour une requête parsed. Renvoie null si résultat vide garanti. */
+/** Construit la clause WHERE Prisma pour une requête parsed + options séparées.
+ *  Renvoie null si résultat vide garanti. */
 export async function buildWhere(
   db: PrismaClient,
-  pq: ParsedQuery
+  pq: ParsedQuery,
+  opts?: SearchOptions
 ): Promise<Prisma.MediaWhereInput | null> {
   const conds: Prisma.MediaWhereInput[] = [];
 
@@ -117,11 +125,21 @@ export async function buildWhere(
         tags: { none: { tagId: { in: ids } } },
       });
     }
-    // si le tag exclu n'existe pas du tout, inutile d'ajouter une clause (tout matche)
   }
 
+  // B1 : kind (filtre par type de média) — paramètre URL séparé
+  if (opts?.kind) {
+    conds.push({ kind: opts.kind });
+  }
+  // Ancien format (compat : si kinds est dans parsedQuery)
   if (pq.kinds.length) conds.push({ kind: { in: pq.kinds } });
+
   if (pq.exts.length) conds.push({ ext: { in: pq.exts } });
+
+  // B1 : favorites — paramètre URL séparé (table Favorite)
+  if (opts?.favorites) {
+    conds.push({ favorites: { some: { userId: "local" } } });
+  }
 
   if (pq.tagCount) {
     const { op, n } = pq.tagCount;
@@ -161,10 +179,13 @@ export async function searchMedia(
   db: PrismaClient,
   q: string,
   page: number,
-  pageSize: number
+  pageSize: number,
+  opts?: SearchOptions
 ): Promise<{ items: any[]; total: number; parsed: ParsedQuery }> {
   const pq = parseQuery(q);
-  const where = await buildWhere(db, pq);
+  // B1 : le tri vient des opts (URL param séparé), pas du parsedQuery
+  const sortOrder = opts?.sort || "newest";
+  const where = await buildWhere(db, pq, opts);
   if (where === null) return { items: [], total: 0, parsed: pq };
 
   const skip = (Math.max(1, page) - 1) * pageSize;
@@ -172,7 +193,7 @@ export async function searchMedia(
   const [items, total] = await Promise.all([
     db.media.findMany({
       where,
-      orderBy: orderBy(pq.order),
+      orderBy: orderBy(sortOrder),
       take: pageSize,
       skip,
       include: {
@@ -189,14 +210,16 @@ export async function searchMedia(
 export async function neighbours(
   db: PrismaClient,
   q: string,
-  id: number
+  id: number,
+  opts?: SearchOptions
 ): Promise<{ prev: number | null; next: number | null }> {
   const pq = parseQuery(q);
-  if (!["newest", "oldest"].includes(pq.order)) return { prev: null, next: null };
-  const where = await buildWhere(db, pq);
+  const sortOrder = opts?.sort || "newest";
+  if (!["newest", "oldest"].includes(sortOrder)) return { prev: null, next: null };
+  const where = await buildWhere(db, pq, opts);
   if (where === null) return { prev: null, next: null };
 
-  const newest = pq.order === "newest";
+  const newest = sortOrder === "newest";
 
   const prev = await db.media.findFirst({
     where: { ...where, id: newest ? { gt: id } : { lt: id } },

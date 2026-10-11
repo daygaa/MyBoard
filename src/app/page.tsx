@@ -1,10 +1,11 @@
 // MyBoard — Page browse principale (server component).
-// Lit searchParams, appelle searchMedia + db directement (pas de boucle HTTP),
-// passe les données aux composants client (MediaGrid, TagList, FiltersBar, etc.).
+// B1 refactor : filtres (kind), tri (sort), favoris (favorites) sont des
+// paramètres URL SÉPARÉS, indépendants du système de tags.
 
 import Link from "next/link";
 import { db } from "@/lib/db";
 import { searchMedia } from "@/lib/search";
+import type { SearchOptions } from "@/lib/search";
 import {
   PAGE_SIZE,
   pageSizeForDensity,
@@ -22,30 +23,33 @@ import { MobileSidebarInjector } from "@/components/board/MobileSidebarInjector"
 
 export const dynamic = "force-dynamic";
 
-function parseTerms(q: string) {
-  const terms = q.split(/\s+/).filter(Boolean);
-  const kindTerm =
-    terms.find((t) => /^(type|kind):/i.test(t))?.toLowerCase() ?? "";
-  const sortTerm =
-    terms.find((t) => /^(order|sort):/i.test(t))?.toLowerCase() ?? "";
-  return { kindTerm, sortTerm };
-}
-
 export default async function BrowsePage({
   searchParams,
 }: {
-  searchParams: Promise<{ tags?: string; page?: string; density?: string }>;
+  searchParams: Promise<{
+    tags?: string;
+    page?: string;
+    density?: string;
+    kind?: string;
+    sort?: string;
+    favorites?: string;
+  }>;
 }) {
   const sp = await searchParams;
   const query = (sp.tags ?? "").trim().replace(/\s+/g, " ");
   const page = Math.max(1, Number(sp.page) || 1);
-  // Densité grille depuis l'URL (sync depuis le client). Defaut = PAGE_SIZE si absent
-  // (premier load, avant hydratation du store).
   const density = Number(sp.density) || 7;
   const pageSize = pageSizeForDensity(density);
 
+  // B1 : kind, sort, favorites sont des params URL séparés
+  const opts: SearchOptions = {
+    kind: sp.kind || undefined,
+    sort: sp.sort || undefined,
+    favorites: sp.favorites === "1" || sp.favorites === "true",
+  };
+
   // Recherche (server-side direct, pas de fetch HTTP)
-  const { items: rawItems, total } = await searchMedia(db, query, page, pageSize);
+  const { items: rawItems, total } = await searchMedia(db, query, page, pageSize, opts);
 
   // Compteur total de médias en DB (pour distinguer "DB vide" d'"aucun résultat")
   const dbTotal = await db.media.count();
@@ -92,24 +96,20 @@ export default async function BrowsePage({
     };
   });
 
-  // Récupère les tags présents sur la page courante, avec postCount global
-  const ids = items.map((i) => i.id);
-  let pageTags: TagDTO[] = [];
-  if (ids.length > 0) {
-    const tagRows = await db.tag.findMany({
-      where: { media: { some: { mediaId: { in: ids } } } },
-      orderBy: { postCount: "desc" },
-    });
-    pageTags = tagRows.map((t) => ({
-      id: t.id,
-      name: t.name,
-      category: t.category,
-      postCount: t.postCount,
-    }));
-  }
+  // D8 : sidebar tags = postCount GLOBAL (tous les tags de la DB, pas juste de la page)
+  // Comportement original restauré selon modifUI-UX4.txt
+  const allTags = await db.tag.findMany({
+    orderBy: { postCount: "desc" },
+    take: 500, // limite pour éviter une sidebar trop longue
+  });
+  const pageTags: TagDTO[] = allTags.map((t) => ({
+    id: t.id,
+    name: t.name,
+    category: t.category,
+    postCount: t.postCount,
+  }));
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
-  const { kindTerm, sortTerm } = parseTerms(query);
 
   return (
     <div className="flex flex-1">
@@ -126,7 +126,7 @@ export default async function BrowsePage({
           <h3 className="mb-2 flex items-center justify-between px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             Tags
             <span className="font-normal normal-case tracking-normal text-muted-foreground/60">
-              {pageTags.length} sur cette page
+              {pageTags.length} au total
             </span>
           </h3>
           <TagList tags={pageTags} query={query} />
@@ -140,11 +140,12 @@ export default async function BrowsePage({
           <SearchBar />
         </div>
 
-        {/* Filtres + tri + compteur */}
+        {/* Filtres + tri + compteur — B1 : kind/sort passés séparément */}
         <FiltersBar
           query={query}
-          kindTerm={kindTerm}
-          sortTerm={sortTerm}
+          kind={opts.kind ?? ""}
+          sort={opts.sort ?? ""}
+          favorites={opts.favorites}
           total={total}
         />
 

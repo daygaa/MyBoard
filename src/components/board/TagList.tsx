@@ -2,17 +2,19 @@
 
 // MyBoard — Sidebar de tags (façon Danbooru).
 // Tags groupés par catégorie, + / - à côté de chaque tag, compteur postCount.
-// Tri par postCount descendant au sein de chaque catégorie.
+// B1 : préserve les params URL séparés (kind, sort, favorites, density) lors
+// de la navigation par tag.
 
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import {
   CATEGORIES,
   CATEGORY_LABELS,
   CATEGORY_TEXT,
   addTermToQuery,
+  browseHref,
   displayTag,
   formatCount,
-  searchHref,
   type TagCategory,
 } from "@/lib/shared";
 import type { TagDTO } from "@/lib/types";
@@ -24,10 +26,18 @@ type Props = {
 };
 
 export function TagList({ tags, query, grouped = true }: Props) {
+  const searchParams = useSearchParams();
+
+  // B1 : lit les params URL séparés pour les préserver dans les liens de tags
+  const kind = searchParams.get("kind") ?? undefined;
+  const sort = searchParams.get("sort") ?? undefined;
+  const favorites = searchParams.get("favorites") === "1" || undefined;
+  const density = Number(searchParams.get("density")) || undefined;
+
   if (tags.length === 0) {
     return (
       <p className="px-1 text-sm text-muted-foreground">
-        Aucun tag sur cette page.
+        Aucun tag.
       </p>
     );
   }
@@ -43,6 +53,17 @@ export function TagList({ tags, query, grouped = true }: Props) {
         items: sorted.filter((t) => t.category === c),
       })).filter((g) => g.items.length > 0)
     : [{ c: "general" as TagCategory, items: sorted }];
+
+  // B1 : helper pour construire une URL en préservant tous les params séparés
+  function tagHref(tags: string): string {
+    return browseHref({
+      tags: tags || undefined,
+      kind,
+      sort,
+      favorites,
+      density,
+    });
+  }
 
   return (
     <div className="space-y-4">
@@ -63,7 +84,7 @@ export function TagList({ tags, query, grouped = true }: Props) {
                 className="group flex items-center gap-1 rounded-md px-1 py-[3px] text-[13px] hover:bg-secondary"
               >
                 <Link
-                  href={searchHref(addTermToQuery(query, t.name))}
+                  href={tagHref(addTermToQuery(query, t.name))}
                   title={`Ajouter « ${t.name} » à la recherche (ET)`}
                   className="grid h-5 w-5 shrink-0 place-items-center rounded text-muted-foreground transition hover:bg-emerald-500/15 hover:text-emerald-300"
                   aria-label={`Ajouter ${t.name}`}
@@ -71,7 +92,7 @@ export function TagList({ tags, query, grouped = true }: Props) {
                   +
                 </Link>
                 <Link
-                  href={searchHref(addTermToQuery(query, `-${t.name}`))}
+                  href={tagHref(addTermToQuery(query, `-${t.name}`))}
                   title={`Exclure « ${t.name} » de la recherche`}
                   className="grid h-5 w-5 shrink-0 place-items-center rounded text-muted-foreground transition hover:bg-rose-500/15 hover:text-rose-300"
                   aria-label={`Exclure ${t.name}`}
@@ -79,7 +100,7 @@ export function TagList({ tags, query, grouped = true }: Props) {
                   −
                 </Link>
                 <Link
-                  href={searchHref(t.name)}
+                  href={tagHref(t.name)}
                   className={`min-w-0 flex-1 truncate pl-0.5 transition hover:underline ${
                     CATEGORY_TEXT[t.category] ?? "text-foreground"
                   }`}

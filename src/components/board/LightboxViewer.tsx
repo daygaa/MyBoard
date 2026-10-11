@@ -73,7 +73,7 @@
 // - v-15 : scroll du body verrouillé pendant l'ouverture (Phase 1).
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
   X,
@@ -125,7 +125,7 @@ import {
   formatDuration,
   normalizeTagName,
   pageSizeForDensity,
-  searchHref,
+  browseHref,
 } from "@/lib/shared";
 import type { TagCategory } from "@/lib/shared";
 import type { MediaDetail, MediaListItem, TagDTO } from "@/lib/types";
@@ -163,6 +163,12 @@ function clampPartialAxis(tx: number, rendered: number, viewport: number): numbe
 
 export function LightboxViewer() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  // B1 : lit les params URL séparés pour les passer à l'API neighbors
+  const urlKind = searchParams.get("kind") ?? "";
+  const urlSort = searchParams.get("sort") ?? "";
+  const urlFavorites = searchParams.get("favorites") === "1";
   const { toast } = useToast();
   const lightbox = useBoardUI((s) => s.lightbox);
   const closeLightbox = useBoardUI((s) => s.closeLightbox);
@@ -279,7 +285,7 @@ export function LightboxViewer() {
         fetch(
           `/api/media/${item.id}/neighbors?tags=${encodeURIComponent(
             lightbox?.query ?? ""
-          )}`
+          )}${urlKind ? `&kind=${urlKind}` : ""}${urlSort ? `&sort=${urlSort}` : ""}${urlFavorites ? `&favorites=1` : ""}`
         ),
       ]);
       if (dRes.ok) setDetail((await dRes.json()) as MediaDetail);
@@ -335,11 +341,17 @@ export function LightboxViewer() {
         const currentPage = Math.floor(offset / pageSize) + 1;
         if (origPage !== currentPage) {
           const tags = parseTagsFromUrl(origUrl);
-          // Préserve la densité dans l'URL de navigation
-          const href = density !== 7
-            ? searchHref(tags, currentPage) + (searchHref(tags, currentPage).includes("?") ? "&" : "?") + "density=" + density
-            : searchHref(tags, currentPage);
-          router.push(href);
+          // B1 : utilise browseHref pour préserver kind/sort/favorites/density
+          router.push(
+            browseHref({
+              tags: tags || undefined,
+              page: currentPage,
+              kind: urlKind || undefined,
+              sort: urlSort || undefined,
+              favorites: urlFavorites || undefined,
+              density: density !== 7 ? density : undefined,
+            })
+          );
         }
       } catch {
         /* ignore — on reste sur la page courante */
@@ -1043,7 +1055,7 @@ export function LightboxViewer() {
               title={t.name}
             >
               <Link
-                href={searchHref(t.name)}
+                href={browseHref({ tags: t.name, kind: urlKind || undefined, sort: urlSort || undefined, favorites: urlFavorites || undefined })}
                 onClick={closePlain}
                 className={CATEGORY_TEXT[t.category] ?? ""}
               >

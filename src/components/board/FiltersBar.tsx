@@ -1,9 +1,12 @@
 "use client";
 
 // MyBoard — Barre filtres + tri + densité grille + compteur total.
+// B1 refactor : kind, sort, favorites sont des params URL SÉPARÉS
+// (indépendants du système de tags). Aucun chip type:xxx ou order:xxx.
+//
 // - Filtres type : segmented control (Tout/Images/Vidéos/Audio/Documents)
-// - Tri : dropdown (Récents/Anciens/Taille ↓/Taille ↑/Nb.tags ↓/Nb.tags ↑/Aléatoire/Favoris)
-// - Densité grille : 3 presets (Confort/Standard/Compact) + slider custom 4-30
+// - Tri : dropdown (Récents/Anciens/Taille ↓/↑/Nb.tags ↓/↑/Aléatoire/Favoris)
+// - Densité grille : 3 presets + slider custom 4-30
 // - Compteur total à droite.
 
 import Link from "next/link";
@@ -12,7 +15,8 @@ import { ArrowDownWideNarrow, LayoutGrid } from "lucide-react";
 import {
   KIND_FILTERS,
   SORTS,
-  searchHref,
+  browseHref,
+  type BrowseOpts,
 } from "@/lib/shared";
 import {
   DropdownMenu,
@@ -31,17 +35,11 @@ import { useBoardUI } from "./store";
 
 type Props = {
   query: string;
-  kindTerm: string;
-  sortTerm: string;
+  kind: string;
+  sort: string;
+  favorites?: boolean;
   total: number;
 };
-
-function withoutPrefix(q: string, prefixes: string[]) {
-  return q
-    .split(/\s+/)
-    .filter((t) => t && !prefixes.some((p) => t.toLowerCase().startsWith(p)))
-    .join(" ");
-}
 
 const DENSITY_PRESETS = [
   { label: "Confort", value: 5 },
@@ -49,46 +47,39 @@ const DENSITY_PRESETS = [
   { label: "Compact", value: 14 },
 ];
 
-// Le label du bouton trigger affiche "Disposition" (renommage lp-5).
 const DENSITY_BUTTON_LABEL = "Disposition";
 
-export function FiltersBar({ query, kindTerm, sortTerm, total }: Props) {
-  const norm = (t: string) => t.toLowerCase().replace(/^sort:/, "order:");
-  const activeSort =
-    SORTS.find((s) => s.value && norm(sortTerm) === s.value) ?? SORTS[0];
-
+export function FiltersBar({ query, kind, sort, favorites, total }: Props) {
   const gridDensity = useBoardUI((s) => s.gridDensity);
   const setGridDensity = useBoardUI((s) => s.setGridDensity);
   const [densityOpen, setDensityOpen] = useState(false);
 
-  // Helper : construit une URL en préservant le density courant (sauf si = 7, défaut)
-  function buildHref(tags: string): string {
-    const base = searchHref(tags);
-    if (gridDensity !== 7) {
-      const sep = base.includes("?") ? "&" : "?";
-      return base + sep + "density=" + gridDensity;
-    }
-    return base;
-  }
-
-  // Trouve le preset actif (le plus proche à ±1)
   const activePreset = DENSITY_PRESETS.find(
     (p) => Math.abs(p.value - gridDensity) <= 1
   );
 
+  // B1 : helper pour construire une URL en préservant tous les params séparés
+  function href(overrides: Partial<BrowseOpts>): string {
+    return browseHref({
+      tags: query || undefined,
+      kind: kind || undefined,
+      sort: sort || undefined,
+      favorites: favorites || undefined,
+      density: gridDensity,
+      ...overrides,
+    });
+  }
+
   return (
     <div className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-2">
-      {/* Segmented control : type */}
+      {/* Segmented control : type (B1 : param kind séparé, pas de type:xxx dans tags) */}
       <div className="flex items-center gap-0.5 rounded-lg border border-border bg-card/60 p-0.5">
         {KIND_FILTERS.map((f) => {
-          const active = norm(kindTerm) === f.value;
-          const q = [withoutPrefix(query, ["type:", "kind:"]), f.value]
-            .filter(Boolean)
-            .join(" ");
+          const active = kind === f.value;
           return (
             <Link
               key={f.label}
-              href={buildHref(q)}
+              href={href({ kind: f.value || undefined, page: 1 })}
               className={`rounded-md px-2.5 py-1 text-xs font-medium transition ${
                 active
                   ? "bg-[#d9a94e]/15 text-[#d9a94e]"
@@ -101,7 +92,7 @@ export function FiltersBar({ query, kindTerm, sortTerm, total }: Props) {
         })}
       </div>
 
-      {/* Tri dropdown */}
+      {/* Tri dropdown (B1 : param sort séparé, pas de order:xxx dans tags) */}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button
@@ -110,7 +101,7 @@ export function FiltersBar({ query, kindTerm, sortTerm, total }: Props) {
             className="gap-1.5 border-border bg-card/60 text-xs hover:bg-secondary hover:text-foreground"
           >
             <ArrowDownWideNarrow className="h-3.5 w-3.5" />
-            {activeSort.label}
+            {SORTS.find((s) => s.value === sort)?.label ?? "Récents"}
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent
@@ -118,14 +109,11 @@ export function FiltersBar({ query, kindTerm, sortTerm, total }: Props) {
           className="border-border bg-popover text-popover-foreground"
         >
           {SORTS.map((s) => {
-            const q = [withoutPrefix(query, ["order:", "sort:"]), s.value]
-              .filter(Boolean)
-              .join(" ");
-            const active = norm(sortTerm) === s.value;
+            const active = sort === s.value;
             return (
               <DropdownMenuItem key={s.label} asChild>
                 <Link
-                  href={buildHref(q)}
+                  href={href({ sort: s.value || undefined, page: 1 })}
                   className={`flex w-full items-center justify-between gap-3 ${
                     active ? "text-[#d9a94e]" : ""
                   }`}

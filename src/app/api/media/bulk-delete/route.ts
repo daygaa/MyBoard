@@ -1,6 +1,10 @@
-// MyBoard — Route API bulk-delete (P3.1, P3.2).
+// MyBoard — Route API bulk-delete (P3.1, P3.2, A2).
 // Supprime plusieurs médias en parallèle (batch de 10) côté serveur.
 // Supporte `keepFiles` pour ne supprimer que la DB (garder les fichiers sur disque).
+//
+// A2 FIX : décrémenter postCount des tags AVANT de supprimer les MediaTag
+// (sinon le cascade Prisma supprime les MediaTag sans mettre à jour postCount,
+// ce qui corrompt les compteurs après plusieurs cycles import/suppression).
 
 import { NextResponse } from "next/server";
 import { z } from "zod";
@@ -36,6 +40,16 @@ export async function POST(req: Request) {
   });
   const mediaMap = new Map(medias.map((m) => [m.id, m]));
 
+  // A2 FIX : récupère tous les tagIds attachés à ces médias AVANT suppression
+  const allMediaTags = await db.mediaTag.findMany({
+    where: { mediaId: { in: ids } },
+    select: { tagId: true },
+  });
+  const tagIdCounts = new Map<number, number>();
+  for (const mt of allMediaTags) {
+    tagIdCounts.set(mt.tagId, (tagIdCounts.get(mt.tagId) ?? 0) + 1);
+  }
+
   // Batch de 10 pour éviter de surcharger le serveur
   const BATCH = 10;
   for (let i = 0; i < ids.length; i += BATCH) {
@@ -63,6 +77,31 @@ export async function POST(req: Request) {
         errors.push({ id: batch[j], error: r.reason?.message ?? "unknown" });
       }
     }
+  }
+
+  // A2 FIX : décrémente postCount pour chaque tag touché + supprime orphelins
+  // On le fait APRÈS la suppression (les MediaTag sont déjà cascade-deleted)
+  // mais on utilise les counts collectés avant.
+  const tagIds = [...tagIdCounts.keys()];
+  if (tagIds.length > 0) {
+    await db.$transaction(
+      tagIds.map((tagId) => {
+        const decrement = tagIdCounts.get(tagId) ?? 0;
+        return db.tag.update({
+          where: { id: tagId },
+          data: { postCount: { decrement } },
+        });
+      })
+    );
+    // Supprime les tags devenus orphelins (postCount <= 0)
+    await db.tag.deleteMany({
+      where: { id: { in: tagIds }, postCount: { lte: 0 } },
+    }).catch(() => {});
+    // Clamp les postCount négatifs à 0 (au cas où)
+    await db.tag.updateMany({
+      where: { id: { in: tagIds }, postCount: { lt: 0 } },
+      data: { postCount: 0 },
+    }).catch(() => {});
   }
 
   return NextResponse.json({

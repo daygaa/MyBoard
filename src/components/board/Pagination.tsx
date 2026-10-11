@@ -7,8 +7,8 @@
 import Link from "next/link";
 import { useEffect } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { useRouter } from "next/navigation";
-import { searchHref } from "@/lib/shared";
+import { useRouter, useSearchParams } from "next/navigation";
+import { browseHref } from "@/lib/shared";
 
 type Props = {
   page: number;
@@ -19,7 +19,23 @@ type Props = {
 
 export function Pagination({ page, totalPages, query, total }: Props) {
   const router = useRouter();
-  const hrefFor = (p: number) => searchHref(query, p);
+  const searchParams = useSearchParams();
+
+  // B1 : préserve les params URL séparés dans les liens de pagination
+  const kind = searchParams.get("kind") ?? undefined;
+  const sort = searchParams.get("sort") ?? undefined;
+  const favorites = searchParams.get("favorites") === "1" || undefined;
+  const density = Number(searchParams.get("density")) || undefined;
+
+  const hrefFor = (p: number) =>
+    browseHref({
+      tags: query || undefined,
+      page: p,
+      kind,
+      sort,
+      favorites,
+      density,
+    });
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {

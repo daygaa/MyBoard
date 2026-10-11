@@ -118,14 +118,36 @@ export function formatDuration(sec: number | null | undefined): string {
 // ---------------------------------------------------------------------------
 // URLs
 // ---------------------------------------------------------------------------
-/** Construit l'URL de browse pour une recherche donnée. */
-export function searchHref(tags: string, page = 1): string {
+
+/** Options pour construire une URL de browse. */
+export type BrowseOpts = {
+  tags?: string;
+  page?: number;
+  kind?: string; // "" | "image" | "video" | "audio" | "document"
+  sort?: string; // "" | "oldest" | "size" | "tagcount" | "random" | "favorite" etc.
+  favorites?: boolean;
+  density?: number; // 4-30, omis si 7 (défaut)
+};
+
+/** Construit l'URL de browse avec des paramètres séparés (B1 refactor).
+ *  Les filtres (kind), le tri (sort), les favoris et la densité sont des
+ *  paramètres URL indépendants, PAS injectés dans la string tags. */
+export function browseHref(opts: BrowseOpts): string {
   const params = new URLSearchParams();
-  const t = tags.trim().replace(/\s+/g, " ");
+  const t = (opts.tags ?? "").trim().replace(/\s+/g, " ");
   if (t) params.set("tags", t);
-  if (page > 1) params.set("page", String(page));
+  if (opts.page && opts.page > 1) params.set("page", String(opts.page));
+  if (opts.kind) params.set("kind", opts.kind);
+  if (opts.sort) params.set("sort", opts.sort);
+  if (opts.favorites) params.set("favorites", "1");
+  if (opts.density && opts.density !== 7) params.set("density", String(opts.density));
   const qs = params.toString();
   return qs ? `/?${qs}` : "/";
+}
+
+/** Ancienne fonction searchHref — conservée pour compat, mais préférez browseHref. */
+export function searchHref(tags: string, page = 1): string {
+  return browseHref({ tags, page });
 }
 
 /** Ajoute un terme à une requête (sans doublons, remplace la polarité opposée). */
@@ -151,21 +173,21 @@ export const KIND_LABEL: Record<string, string> = {
 
 export const KIND_FILTERS = [
   { label: "Tout", value: "" },
-  { label: "Images", value: "type:image" },
-  { label: "Vidéos", value: "type:video" },
-  { label: "Audio", value: "type:audio" },
-  { label: "Documents", value: "type:document" },
+  { label: "Images", value: "image" },
+  { label: "Vidéos", value: "video" },
+  { label: "Audio", value: "audio" },
+  { label: "Documents", value: "document" },
 ];
 
 export const SORTS = [
   { label: "Récents", value: "" },
-  { label: "Anciens", value: "order:oldest" },
-  { label: "Taille ↓", value: "order:size" },
-  { label: "Taille ↑", value: "order:size_asc" },
-  { label: "Nb. tags ↓", value: "order:tagcount" },
-  { label: "Nb. tags ↑", value: "order:tagcount_asc" },
-  { label: "Aléatoire", value: "order:random" },
-  { label: "Favoris", value: "order:favorite" },
+  { label: "Anciens", value: "oldest" },
+  { label: "Taille ↓", value: "size" },
+  { label: "Taille ↑", value: "size_asc" },
+  { label: "Nb. tags ↓", value: "tagcount" },
+  { label: "Nb. tags ↑", value: "tagcount_asc" },
+  { label: "Aléatoire", value: "random" },
+  { label: "Favoris", value: "favorite" },
 ];
 
 /** URL du fichier original (local ou remote). */

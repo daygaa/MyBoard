@@ -1,19 +1,10 @@
-// GET /api/media/:id/neighbors?tags=...
+// GET /api/media/:id/neighbors?tags=...&kind=...&sort=...&favorites=...
+// B1 : kind, sort, favorites sont des params URL SÉPARÉS.
 // Renvoie {prev: number|null, next: number|null, offset: number|null, total: number|null}
-// dans le contexte de recherche courant.
-//
-// v-13/v-14 : `offset` et `total` sont utilisés par la lightbox pour :
-// - calculer la page correspondant au média courant (Math.floor(offset / PAGE_SIZE) + 1)
-// - au moment de fermer la lightbox, naviguer vers cette page si elle diffère
-//   de la page d'origine.
-//
-// `offset` n'est calculé que pour les tris id-based (newest, oldest). Pour les
-// autres tris (size, tagcount, random, favorite), prev/next sont déjà null et
-// offset/total le restent (pas de navigation cross-page possible dans ce cas).
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { buildWhere, neighbours, parseQuery } from "@/lib/search";
+import { buildWhere, neighbours, parseQuery, type SearchOptions } from "@/lib/search";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -31,6 +22,13 @@ export async function GET(req: Request, ctx: Ctx) {
     const url = new URL(req.url);
     const tags = url.searchParams.get("tags") ?? "";
 
+    // B1 : lit les params URL séparés
+    const opts: SearchOptions = {
+      kind: url.searchParams.get("kind") || undefined,
+      sort: url.searchParams.get("sort") || undefined,
+      favorites: url.searchParams.get("favorites") === "1",
+    };
+
     // Vérifie que le média existe
     const exists = await db.media.findUnique({
       where: { id },
@@ -40,24 +38,21 @@ export async function GET(req: Request, ctx: Ctx) {
       return NextResponse.json({ error: "Média introuvable" }, { status: 404 });
     }
 
-    const res = await neighbours(db, tags, id);
+    const res = await neighbours(db, tags, id, opts);
 
-    // v-14 : calcule l'offset (index 0-based) du média courant dans l'ordre de
-    // recherche, pour pouvoir déterminer sa page. Uniquement pour newest/oldest
-    // (les autres tris ne supportent déjà pas la navigation prev/next).
+    // v-14 : calcule l'offset
     let offset: number | null = null;
     let total: number | null = null;
     try {
       const pq = parseQuery(tags);
-      if (["newest", "oldest"].includes(pq.order)) {
-        const where = await buildWhere(db, pq);
+      const sortOrder = opts.sort || "newest";
+      if (["newest", "oldest"].includes(sortOrder)) {
+        const where = await buildWhere(db, pq, opts);
         if (where === null) {
           offset = 0;
           total = 0;
         } else {
-          const newest = pq.order === "newest";
-          // Pour newest (id desc) : offset = nombre de médias avec id > courant
-          // Pour oldest (id asc)  : offset = nombre de médias avec id < courant
+          const newest = sortOrder === "newest";
           const [cnt, tot] = await Promise.all([
             db.media.count({
               where: { ...where, id: newest ? { gt: id } : { lt: id } },
@@ -69,7 +64,6 @@ export async function GET(req: Request, ctx: Ctx) {
         }
       }
     } catch {
-      // On ne casse pas l'API si le calcul d'offset échoue — on renvoie null.
       offset = null;
       total = null;
     }

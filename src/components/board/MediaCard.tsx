@@ -150,11 +150,17 @@ export function MediaCard({ item, index, onOpen }: Props) {
     <button
       type="button"
       onClick={onClick}
+      // C1/C2 : content-visibility:auto + contain pour skip le rendu hors viewport
       className={`group relative block aspect-square w-full overflow-hidden rounded-lg bg-[#0d0e12] ring-1 transition-all duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#d9a94e] ${
         isSel
           ? "ring-2 ring-[#d9a94e]"
           : "ring-border hover:ring-[#d9a94e]/60"
       }`}
+      style={{
+        contentVisibility: "auto",
+        containIntrinsicSize: "200px",
+        contain: "layout style paint",
+      }}
       aria-label={`Média ${item.originalName}`}
       title={item.originalName}
     >

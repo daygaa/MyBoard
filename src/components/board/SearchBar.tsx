@@ -43,9 +43,13 @@ export function SearchBar() {
     setValue("");
   };
 
-  // Termes actifs (depuis l'URL) pour les chips
+  // Termes actifs (depuis l'URL) pour les chips.
+  // B1 : on filtre les type:/order:/favorite qui ne sont plus des tags.
   const currentQuery = searchParams.get("tags") ?? "";
-  const terms = currentQuery.split(/\s+/).filter(Boolean);
+  const terms = currentQuery
+    .split(/\s+/)
+    .filter(Boolean)
+    .filter((t) => !/^(type|kind|order|sort):/i.test(t) && t !== "favorite");
 
   function removeTerm(t: string) {
     const rest = terms.filter((x) => x !== t).join(" ");

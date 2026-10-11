@@ -779,9 +779,10 @@ export function MediaGrid({ items, query }: Props) {
         )}
       </div>
 
-      {/* Grille responsive — densité pilotée par le store (localStorage). */}
+      {/* Grille responsive — densité pilotée par le store (localStorage).
+          C3 : retiré transition-[grid-template-columns] (cause de layout thrashing). */}
       <div
-        className="grid gap-2 transition-[grid-template-columns] duration-150"
+        className="grid gap-2"
         style={{
           gridTemplateColumns: `repeat(${gridDensity}, minmax(0, 1fr))`,
         }}
