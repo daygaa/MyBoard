@@ -16,12 +16,14 @@ import { useUI } from "@/stores/ui";
 function useScrollbarGutter(): number {
   const [gutter, setGutter] = useState(0);
   useEffect(() => {
-    const measure = () => setGutter(window.innerWidth - document.documentElement.clientWidth);
+    // Largeur du corps de page et non `clientWidth` : quand la page ne défile pas, le moteur
+    // annonce une largeur sans la réserve, alors qu'elle est bien là (mesuré le 12/10/2026).
+    const measure = () => setGutter(Math.round(window.innerWidth - document.body.getBoundingClientRect().width));
     measure();
     // La place réservée n'existe qu'après la mise en page : on remesure à chaque changement
     // de largeur de la page (apparition de la réserve, redimensionnement de la fenêtre).
     const observer = new ResizeObserver(measure);
-    observer.observe(document.documentElement);
+    observer.observe(document.body);
     window.addEventListener("resize", measure);
     return () => {
       observer.disconnect();

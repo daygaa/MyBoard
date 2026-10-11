@@ -3,6 +3,15 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Phase 1 — Pagination centrée, icône (12/10/2026) — Backup v5
+
+- PAGE-04 : la page active reste au centre exact de la fenêtre (alignée avec le logo), en
+  haut comme en bas, quelle que soit la page. Mesuré : 1280 px sur 2560 et 960 px sur 1920,
+  pages 1 à 981. Fenêtre trop étroite : centrage sur la grille, sans passer sous la barre latérale.
+- GEN-11 : l'icône dorée est enfin intégrée au programme (barre des tâches, coin de la fenêtre) ;
+  `build.rs` régénère désormais l'icône à chaque changement du dossier `icons/`.
+- NAV-01 : logo bien centré aussi quand la page ne défile pas (mesure de la réserve corrigée).
+
 ## Phase 1 — Corrections après test + aperçus (12/10/2026) — Backup v4
 
 Retours du fichier « Précisions - problèmes 1.txt » (`T1`) et réponses aux questions de livraison.

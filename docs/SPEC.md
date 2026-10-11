@@ -44,7 +44,7 @@ Les fichiers sources sont dans `Versions historiques/` (lecture seule).
 - [~] **GEN-08** Chaque zone de l'interface porte un **nom court et stable** (attribut `data-zone`, ex. `visionneuse.barre-tags`) pour que l'utilisateur puisse la désigner dans ses retours sans copier de classes HTML. Remplace la demande « nettoyer les noms des div ». `R1 R2 D 11/10`
 - [ ] **GEN-09** Marges et alignements cohérents au pixel près (pas de décalages de 1–2 px). `R1`
 - [ ] **GEN-10** Les pop-ins de confirmation sont des fenêtres de l'application (style maison), jamais les boîtes natives du navigateur. `R1`
-- [~] **GEN-11** Icône de l'application = le logo MyBoard doré. `D 12/10`
+- [~] **GEN-11** Icône de l'application = le logo MyBoard doré (barre des tâches, coin de la fenêtre, fichier .exe). `D 12/10`
 
 ## LIB — Bibliothèque et stockage
 
@@ -123,6 +123,7 @@ Les fichiers sources sont dans `Versions historiques/` (lecture seule).
 
 - [~] **PAGE-01** Pagination en haut et en bas de la grille : numéros autour de la page courante, flèches précédent/suivant, champ « aller à la page », impossible d'aller à une page inexistante. `FC`
 - [~] **PAGE-02** Ctrl + ← / → change de page. `FC` (v8 ✓)
+- [~] **PAGE-04** La page active reste toujours au **centre exact de la fenêtre** (alignée avec le logo), dans les paginations du haut et du bas ; les pages précédentes à sa gauche, les suivantes à sa droite. `D 12/10`
 - [-] **PAGE-03** ~~Menu 50/100/200/500/1000 par page~~ → remplacé par GRID-05. `R1`
 
 ## FILT — Filtres et tri
