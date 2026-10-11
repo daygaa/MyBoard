@@ -63,7 +63,7 @@ gestionnaire de tags pourra en créer d'autres plus tard.
 ## D-007 — ffmpeg fourni avec l'application (11/10/2026)
 
 ffmpeg est embarqué dans l'application : il ne peut plus être « introuvable », quelle que
-soit l'installation de l'utilisateur.
+soit l'installation de l'utilisateur. Calendrier précisé par D-012.
 
 ## D-008 — Principes de performance de la grille (11/10/2026)
 
@@ -88,10 +88,40 @@ soit l'installation de l'utilisateur.
 
 0. Fondations : règles, cahier des charges, outils (cette étape).
 1. Socle : base de données, import d'un dossier (référencement), grille virtualisée,
-   miniatures — **test de fluidité à 10k–100k médias**.
+   miniatures — **test de fluidité à 10k–100k médias**. Contenu détaillé validé le 11/10 :
+   - projet Tauri + React avec l'apparence de la v8 (en-tête, barre latérale, grille) ;
+   - schéma complet de la base, compteurs de tags tenus par la base ;
+   - import d'un dossier sur place (sélecteur Windows, sous-dossiers, doublons, progression) ;
+   - petites miniatures en arrière-plan, images et vidéos (D-011, D-012) ;
+   - grille 4–30 colonnes, pagination adaptée à la densité, filtres par type, tri ;
+   - mesure de fluidité chiffrée sur 10 000 à 100 000 médias avant livraison.
 2. Visionneuse (zoom wikifeet), tags, recherche, barre latérale.
 3. Favoris, dossiers, gestionnaire de tags, sélection, suppression.
 4. Options d'import (conversion, compression).
 5. et après : doublons, paramètres, scanner, IA…
 
 Chaque phase : livraison → test par l'utilisateur → retours numérotés → corrections → sauvegarde.
+
+## D-011 — Miniatures hybrides : petites d'avance, grandes à la demande (11/10/2026)
+
+**Contexte.** L'utilisateur se demandait s'il fallait vraiment stocker une miniature par
+média. Coût réel : ~10–20 Ko par miniature WebP, soit ~1 à 2 Go pour 100 000 médias
+(< 1 % de la taille des médias). Tout générer à la demande obligerait à relire et décoder
+l'original (30–100 ms par photo, 200–500 ms par vidéo, plus lent sur HDD) : plusieurs
+secondes de cases vides à chaque page de 500 vignettes. Un effacement « après X jours »
+ferait repayer cette attente en revenant sur d'anciennes photos.
+
+**Décision (validée par l'utilisateur).**
+- Petites miniatures (~320 px, WebP) générées **en arrière-plan après l'import**, sur le SSD.
+- Grands aperçus (~640 px) pour 4–6 colonnes **à la demande** : la petite miniature
+  s'affiche tout de suite puis est remplacée ; demande seulement après ~150 ms de
+  visibilité ; annulation des demandes hors écran ; travail en arrière-plan côté Rust.
+- Cache des grands aperçus de taille limitée (suppression des moins récemment utilisés).
+- Plus tard : réglages du cache dans les paramètres (SPEC LIB-11).
+
+## D-012 — ffmpeg : celui du PC pendant le développement, embarqué en version finale (11/10/2026)
+
+Pendant le développement, l'application utilise le ffmpeg déjà installé sur le PC de
+l'utilisateur, **détecté de façon fiable sous Windows** (c'était la cause du bug
+« ffmpeg introuvable » de la v8 : une commande Linux). Le binaire ffmpeg sera embarqué dans
+l'application finale (D-007) ; son téléchargement se fera avec l'accord de l'utilisateur.

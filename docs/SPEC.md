@@ -51,9 +51,12 @@ Les fichiers sources sont dans `Versions historiques/` (lecture seule).
 - [ ] **LIB-03** Détection des doublons exacts par empreinte du contenu (hash) : un fichier déjà indexé n'est pas ré-ajouté, même renommé. `PY FC`
 - [ ] **LIB-04** Les tags sont liés au média (identifiant interne), jamais au nom de fichier. `PY`
 - [?] **LIB-05** Comportement quand un fichier référencé est **déplacé, renommé ou supprimé hors de l'application** (signaler « fichier introuvable », retrouver automatiquement par hash lors d'un nouveau scan…). → Q-01
-- [?] **LIB-06** Stratégie des **miniatures** (générées à l'import ou à la demande, taille, emplacement du cache, nettoyage). → Q-02
+- [ ] **LIB-06** **Petites miniatures** (~320 px, format WebP) générées **en arrière-plan après l'import**, stockées sur le SSD ; l'import n'attend pas leur génération, elles apparaissent au fur et à mesure. `D 11/10` (Q-02, D-011)
 - [ ] **LIB-07** Base de données et miniatures sur un disque rapide (SSD) même si les médias sont sur HDD. `D 11/10`
 - [ ] **LIB-08** Sauvegarde simple : copier le dossier de données de l'application suffit. `PY`
+- [ ] **LIB-09** **Grands aperçus** (~640 px) pour les densités 4–6 colonnes, **générés à la demande** : la petite miniature s'affiche immédiatement puis est remplacée par le grand aperçu ; un aperçu n'est demandé que si la vignette reste visible ~150 ms ; les demandes des vignettes sorties de l'écran sont annulées ; génération en arrière-plan sans jamais bloquer l'interface. `D 11/10` (D-011)
+- [ ] **LIB-10** Cache des grands aperçus **de taille limitée** : les moins récemment utilisés sont supprimés en premier. `D 11/10`
+- [>] **LIB-11** Paramètres du cache : taille maximale, bouton « Vider le cache », emplacement. `D 11/10`
 
 ## IMP — Import
 
@@ -77,7 +80,7 @@ Les fichiers sources sont dans `Versions historiques/` (lecture seule).
 - [ ] **IMP-22** « Convertir les vidéos en : [menu] » — MP4 standard (H.264, défaut), MP4 H.265, WebM, AV1. `R1` (v8 ✓)
 - [ ] **IMP-23** Bulle ⓘ à côté du menu vidéo, textes exacts : MP4 standard « Conseillé - Compatibilité totale » · MP4 H.265 « Meilleure compression, nécessite une extension HEVC pour les lecteurs Windows » · WebM « Meilleure compression, compatible sur navigateur mais pas sur les lecteurs Windows » · AV1 « Compression maximale, lent à encoder, peu de compatibilité disponible ». `R3`
 - [ ] **IMP-24** « Qualité vidéo » : **curseur à 5 crans** Minimale / Basse / Moyenne (défaut) / Haute / Maximale. `R2` (v8 ✓)
-- [ ] **IMP-25** Compression vidéo : conserver la résolution et le nombre d'images par seconde ; images : conserver la résolution. Moteur : ffmpeg, **fourni avec l'application**. `FC R2`
+- [ ] **IMP-25** Compression vidéo : conserver la résolution et le nombre d'images par seconde ; images : conserver la résolution. Moteur : ffmpeg (voir IMP-48 / IMP-49). `FC R2`
 - [ ] **IMP-26** Pas d'option « Générer miniatures » (toujours actif). `R1`
 - [?] **IMP-27** Avec le référencement sur place (LIB-01), où vont les fichiers **convertis / compressés** ? (remplacer l'original, créer un fichier à côté, ou réservé au mode bibliothèque gérée LIB-02). → Q-03
 - [>] **IMP-28** Option « Supprimer les originaux » (n'a de sens qu'en mode bibliothèque gérée). `FC`
@@ -96,6 +99,8 @@ Les fichiers sources sont dans `Versions historiques/` (lecture seule).
 - [ ] **IMP-45** Pop-in de fin : « X importés sur Y », nombre d'erreurs + noms des fichiers en erreur ; si compression : taux moyen %, place gagnée, poids avant/après, détail images/vidéos au survol. `FC`
 - [ ] **IMP-46** Les vidéos importées ont une miniature. `R2 R3 R4`
 - [ ] **IMP-47** Un fichier converti s'affiche avec sa **vraie extension** (nom affiché mis à jour). `R4`
+- [ ] **IMP-48** Pendant le développement : utiliser le **ffmpeg installé sur le PC**, détecté de façon fiable sous Windows (PATH et emplacements connus), avec un message clair s'il est absent. `D 11/10` (D-012)
+- [>] **IMP-49** Version finale : **ffmpeg fourni avec l'application** (téléchargement du binaire uniquement avec l'accord de l'utilisateur, au moment venu). `D 11/10` (D-007, D-012)
 
 ## GRID — Page d'accueil et grille
 
@@ -264,7 +269,7 @@ Les fichiers sources sont dans `Versions historiques/` (lecture seule).
 | ID | Question | Statut |
 |---|---|---|
 | Q-01 | Fichier référencé déplacé / renommé / supprimé hors de l'app : que faire ? | ouverte |
-| Q-02 | Miniatures : à l'import, à la demande, ou hybride ? taille ? nettoyage du cache ? | en discussion (11/10) |
+| Q-02 | Miniatures : à l'import, à la demande, ou hybride ? taille ? nettoyage du cache ? | **résolue 11/10** : hybride → LIB-06, LIB-09 à LIB-11, D-011 |
 | Q-03 | Conversion / compression avec le référencement sur place : où écrire le résultat ? | ouverte |
 | Q-04 | « Supprimer » avec le référencement sur place : retirer de la bibliothèque seulement, ou aussi le fichier ? | ouverte |
 | Q-05 | Ordre et couleurs des 8 catégories initiales | ouverte |
