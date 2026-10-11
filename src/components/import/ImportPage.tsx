@@ -1,4 +1,4 @@
-// Page d'import (phase 1) : import d'un dossier sur place.
+// Page d'import (phase 1) : import sur place de fichiers et de dossiers.
 // Les options de conversion / compression et les tags par défaut arrivent en phase 4.
 
 import { useQuery } from "@tanstack/react-query";
@@ -7,7 +7,7 @@ import { AlertTriangle, ArrowLeft, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
 import { navigate } from "@/lib/router";
-import { FolderCard } from "./FolderCard";
+import { FilesCard } from "./FilesCard";
 import { ImportActionBar } from "./ImportActionBar";
 
 /** ffmpeg sert aux miniatures vidéo (IMP-48) : message clair s'il est absent. */
@@ -58,13 +58,16 @@ export function ImportPage() {
           Importer des médias
         </h1>
         <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-          Choisissez un dossier : MyBoard référence vos photos, vidéos, musiques et documents là où ils sont. Les doublons
-          (même contenu, même sous un autre nom) sont automatiquement ignorés, et les miniatures sont créées en arrière-plan.
+          Glissez-déposez vos fichiers ou dossiers, ou cliquez sur{" "}
+          <strong className="text-foreground">Importer un fichier</strong> /{" "}
+          <strong className="text-foreground">Importer un dossier</strong>. MyBoard référence vos photos, vidéos, musiques et
+          documents là où ils sont. Les doublons (même contenu, même sous un autre nom) sont automatiquement ignorés, et les
+          miniatures sont créées en arrière-plan.
         </p>
       </header>
 
       <div className="space-y-5">
-        <FolderCard />
+        <FilesCard />
         <FfmpegNotice />
         <ImportActionBar />
       </div>

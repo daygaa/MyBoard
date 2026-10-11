@@ -53,8 +53,9 @@ fn fake(index: u64) -> Fake {
     Fake { hash, kind, ext }
 }
 
-/// Miniature synthétique unique : dégradé coloré + motif + grain, proche du poids d'une vraie.
-fn thumbnail(index: u64) -> Vec<u8> {
+/// Image synthétique unique (320 × 320) : dégradé coloré + motif + grain, proche d'une vraie
+/// miniature ; passée ensuite par le même encodage que l'application (320 et 128 px).
+fn thumbnail(index: u64) -> image::DynamicImage {
     let size = thumbs::THUMB_SIZE as usize;
     let mut rng = Rng(index.wrapping_mul(7919) + 1);
     let (r0, g0, b0) = (rng.range(20, 235) as f32, rng.range(20, 235) as f32, rng.range(20, 235) as f32);
@@ -78,7 +79,7 @@ fn thumbnail(index: u64) -> Vec<u8> {
             }
         }
     }
-    webp::Encoder::from_rgb(&pixels, size as u32, size as u32).encode(78.0).to_vec()
+    image::DynamicImage::ImageRgb8(image::RgbImage::from_raw(size as u32, size as u32, pixels).expect("taille"))
 }
 
 fn main() -> anyhow::Result<()> {
@@ -139,7 +140,7 @@ fn main() -> anyhow::Result<()> {
     let threads = std::thread::available_parallelism().map_or(4, |n| n.get()) as u64;
     let mut store = thumbs::store::open_writer(&data.thumbs_db)?;
     let tx = store.transaction()?;
-    let (sender, receiver) = std::sync::mpsc::sync_channel::<(String, Vec<u8>)>(1024);
+    let (sender, receiver) = std::sync::mpsc::sync_channel::<(String, thumbs::Thumb)>(1024);
     std::thread::scope(|scope| -> anyhow::Result<()> {
         for t in 0..threads {
             let sender = sender.clone();
@@ -147,14 +148,15 @@ fn main() -> anyhow::Result<()> {
                 for index in (t..count).step_by(threads as usize) {
                     let f = fake(index);
                     if f.kind == "image" || f.kind == "video" {
-                        let _ = sender.send((f.hash, thumbnail(index)));
+                        let made = thumbs::thumbs_of(thumbnail(index)).expect("encodage d'une miniature");
+                        let _ = sender.send((f.hash, made));
                     }
                 }
             });
         }
         drop(sender);
-        for (hash, webp) in receiver {
-            thumbs::store::put(&tx, &hash, &webp)?;
+        for (hash, made) in receiver {
+            thumbs::store::put_thumbs(&tx, &hash, &made.webp, &made.small)?;
         }
         Ok(())
     })?;

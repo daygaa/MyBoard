@@ -91,7 +91,8 @@ export type ImportPhase = "idle" | "scanning" | "ready" | "importing" | "finishe
 /** Photo complète de l'état de l'import (événement `import-state`). */
 export type ImportSnapshot = {
   phase: ImportPhase;
-  folder: string | null;
+  /** Fichiers et dossiers choisis (bouton ou glisser-déposer). */
+  sources: string[];
   recursive: boolean;
   scan: ScanSummary | null;
   progress: ImportProgress | null;
@@ -102,9 +103,11 @@ export const api = {
   listMedia: (query: ListQuery) => invoke<ListPage>("list_media", { query }),
   stats: () => invoke<Stats>("library_stats"),
   prioritizeThumbs: (ids: number[]) => invoke<void>("prioritize_thumbs", { ids }),
+  requestPreviews: (want: number[], cancel: number[]) => invoke<void>("request_previews", { want, cancel }),
   ffmpegStatus: () => invoke<FfmpegStatus>("ffmpeg_status"),
   importSnapshot: () => invoke<ImportSnapshot>("import_snapshot"),
-  scanFolder: (path: string, recursive: boolean) => invoke<void>("scan_folder", { path, recursive }),
+  scanPaths: (paths: string[], recursive: boolean) => invoke<void>("scan_paths", { paths, recursive }),
+  supportedExtensions: () => invoke<string[]>("supported_extensions"),
   startImport: () => invoke<void>("start_import"),
   cancelImport: () => invoke<void>("cancel_import"),
 };
@@ -113,10 +116,20 @@ export const api = {
 export const EVENTS = {
   libraryChanged: "library-changed",
   thumbsReady: "thumbs-ready",
+  previewsReady: "previews-ready",
   importState: "import-state",
 } as const;
 
-/** Adresse de la petite miniature d'un média (protocole `thumb://`, servi par Rust). */
-export function thumbUrl(hash: string): string {
-  return convertFileSrc(`${hash}.webp`, "thumb");
+/** Tailles servies par le protocole `thumb://` : 320 px, 128 px (LIB-12), aperçu 640 px (LIB-09). */
+export type ThumbTier = "normal" | "small" | "preview";
+
+const TIER_PREFIX: Record<ThumbTier, string> = { normal: "", small: "s/", preview: "p/" };
+
+/** Racine du protocole (`http://thumb.localhost/` sous Windows). On ajoute le chemin
+ *  nous-mêmes : `convertFileSrc` encoderait le « / » de « s/… » en « %2F ». */
+const THUMB_ROOT = convertFileSrc("", "thumb");
+
+/** Adresse d'une miniature d'un média. */
+export function thumbUrl(hash: string, tier: ThumbTier = "normal"): string {
+  return `${THUMB_ROOT}${TIER_PREFIX[tier]}${hash}.webp`;
 }

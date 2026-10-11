@@ -24,7 +24,7 @@ function StatusText({ snapshot }: { snapshot: ImportSnapshot | null }) {
           {plural(scan.total, "fichier")}
         </span>
       ) : (
-        <span>Aucun fichier à importer dans ce dossier</span>
+        <span>Aucun fichier à importer dans cette sélection</span>
       );
     case "importing":
       return (
@@ -34,9 +34,9 @@ function StatusText({ snapshot }: { snapshot: ImportSnapshot | null }) {
         </span>
       );
     case "finished":
-      return <span>Import terminé. Choisissez un dossier pour importer à nouveau.</span>;
+      return <span>Import terminé. Choisissez des fichiers ou un dossier pour importer à nouveau.</span>;
     default:
-      return <span>Aucun dossier sélectionné</span>;
+      return <span>Aucun fichier sélectionné</span>;
   }
 }
 

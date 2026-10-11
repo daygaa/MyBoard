@@ -1,4 +1,5 @@
-//! Import d'un dossier sur place (IMP-02, IMP-04, IMP-40, IMP-41, IMP-42 « Arrêter », IMP-44).
+//! Import sur place de fichiers et de dossiers (IMP-01, IMP-02, IMP-03, IMP-04, IMP-40,
+//! IMP-41, IMP-42 « Arrêter », IMP-44).
 //!
 //! L'état de l'import vit ici, côté Rust : l'interface reçoit une photo complète de
 //! cet état (`import-state`) à chaque changement. Changer de page puis revenir, ou
@@ -73,7 +74,8 @@ pub struct ImportResult {
 #[serde(rename_all = "camelCase")]
 pub struct Snapshot {
     pub phase: Phase,
-    pub folder: Option<String>,
+    /// Fichiers et dossiers choisis (bouton ou glisser-déposer).
+    pub sources: Vec<String>,
     pub recursive: bool,
     pub scan: Option<ScanSummary>,
     pub progress: Option<Progress>,
@@ -101,7 +103,7 @@ impl ImportManager {
             inner: Mutex::new(Inner {
                 snapshot: Snapshot {
                     phase: Phase::Idle,
-                    folder: None,
+                    sources: Vec::new(),
                     recursive: true,
                     scan: None,
                     progress: None,
@@ -139,19 +141,22 @@ pub fn import_snapshot(state: State<'_, AppState>) -> Snapshot {
     state.import.snapshot()
 }
 
-/// Parcourt le dossier choisi et prépare la liste des fichiers à importer.
+/// Parcourt les fichiers et dossiers choisis et prépare la liste des fichiers à importer.
 #[tauri::command]
-pub fn scan_folder(app: AppHandle, state: State<'_, AppState>, path: String, recursive: bool) -> Result<(), String> {
+pub fn scan_paths(app: AppHandle, state: State<'_, AppState>, paths: Vec<String>, recursive: bool) -> Result<(), String> {
     let manager = &state.import;
     if manager.snapshot().phase == Phase::Importing {
         return Err("Un import est déjà en cours.".into());
+    }
+    if paths.is_empty() {
+        return Err("Aucun fichier choisi.".into());
     }
     let generation = manager.generation.fetch_add(1, Ordering::SeqCst) + 1;
     manager.update(false, |inner| {
         inner.files.clear();
         inner.snapshot = Snapshot {
             phase: Phase::Scanning,
-            folder: Some(path.clone()),
+            sources: paths.clone(),
             recursive,
             scan: Some(ScanSummary::default()),
             progress: None,
@@ -164,7 +169,8 @@ pub fn scan_folder(app: AppHandle, state: State<'_, AppState>, path: String, rec
         .spawn(move || {
             let manager = &app.state::<AppState>().import;
             let current = || manager.generation.load(Ordering::SeqCst) == generation;
-            let found = scan::scan(&PathBuf::from(&path), recursive, || !current(), |summary| {
+            let roots: Vec<PathBuf> = paths.iter().map(PathBuf::from).collect();
+            let found = scan::scan(&roots, recursive, || !current(), |summary| {
                 let summary = summary.clone();
                 manager.update(true, |inner| inner.snapshot.scan = Some(summary));
             });

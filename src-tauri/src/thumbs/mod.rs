@@ -9,6 +9,7 @@
 mod image;
 mod video;
 
+pub mod preview;
 pub mod protocol;
 pub mod store;
 
@@ -23,7 +24,7 @@ use tauri::{AppHandle, Emitter};
 
 use crate::ffmpeg::{self, Ffmpeg};
 
-pub use image::THUMB_SIZE;
+pub use image::{THUMB_SIZE, Thumb, thumbs_of};
 
 /// Valeurs de `media.thumb_status`.
 pub mod status {
@@ -129,6 +130,7 @@ impl ThumbService {
                     .name(format!("miniatures-{index}"))
                     .spawn(move || worker_loop(&shared));
             }
+            backfill_small(&shared);
         })?;
         Ok(service)
     }
@@ -242,7 +244,8 @@ fn process(shared: &Shared, job: &Job) -> Option<ThumbUpdate> {
     let mut update = ThumbUpdate { id: job.id, status: status::ERROR, width: None, height: None, duration_ms: None };
 
     let made = match job.kind.as_str() {
-        "image" => image::from_image_file(&job.path)
+        "image" => image::open_image(&job.path)
+            .and_then(image::thumbs_of)
             .or_else(|e| match ff {
                 Some(ff) => video::image_thumb(ff, &job.path),
                 None => Err(e),
@@ -262,7 +265,7 @@ fn process(shared: &Shared, job: &Job) -> Option<ThumbUpdate> {
     };
 
     match made.and_then(|(thumb, duration)| {
-        store::put(&shared.store.lock().unwrap(), &job.hash, &thumb.webp)?;
+        store::put_thumbs(&shared.store.lock().unwrap(), &job.hash, &thumb.webp, &thumb.small)?;
         Ok((thumb.width, thumb.height, duration))
     }) {
         Ok((w, h, duration)) => {
@@ -274,6 +277,35 @@ fn process(shared: &Shared, job: &Job) -> Option<ThumbUpdate> {
         Err(e) => eprintln!("[miniatures] {} : {e:#}", job.path.display()),
     }
     Some(update)
+}
+
+/// Grand aperçu 640 px d'un média (LIB-09) ; utilisé par le service des aperçus.
+pub fn make_preview(ff: Option<&Ffmpeg>, kind: &str, path: &Path) -> anyhow::Result<Vec<u8>> {
+    match (kind, ff) {
+        ("image", ff) => image::open_image(path).and_then(image::preview_of).or_else(|e| match ff {
+            Some(ff) => video::image_preview(ff, path),
+            None => Err(e),
+        }),
+        ("video", Some(ff)) => video::video_preview(ff, path),
+        _ => anyhow::bail!("pas d'aperçu pour ce type de média"),
+    }
+}
+
+/// Bibliothèques créées avant les miniatures 128 px (LIB-12) : on les fabrique à partir des
+/// miniatures 320 px déjà rangées, sans relire les fichiers originaux.
+fn backfill_small(shared: &Shared) {
+    lower_thread_priority();
+    let hashes = store::hashes_without_small(&shared.store.lock().unwrap()).unwrap_or_default();
+    for hash in hashes {
+        let normal = store::get(&shared.store.lock().unwrap(), store::Tier::Normal, &hash);
+        let Ok(Some(bytes)) = normal else { continue };
+        match image::decode(&bytes).and_then(image::small_of) {
+            Ok(small) => {
+                let _ = store::put_small(&shared.store.lock().unwrap(), &hash, &small);
+            }
+            Err(e) => eprintln!("[miniatures] 128 px de {hash} : {e:#}"),
+        }
+    }
 }
 
 fn finish(shared: &Shared, id: i64, update: Option<ThumbUpdate>) {

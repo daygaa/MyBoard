@@ -17,6 +17,7 @@ use tauri::Manager;
 use import::ImportManager;
 use paths::DataPaths;
 use thumbs::ThumbService;
+use thumbs::preview::PreviewService;
 
 /// État partagé par toutes les commandes.
 pub struct AppState {
@@ -24,6 +25,7 @@ pub struct AppState {
     /// Connexion réservée aux lectures de l'interface.
     pub db: Mutex<Connection>,
     pub thumbs: ThumbService,
+    pub previews: PreviewService,
     pub import: ImportManager,
 }
 
@@ -39,10 +41,12 @@ pub fn run() {
             let paths = DataPaths::resolve(app.path().local_data_dir()?)?;
             let db = db::open_and_migrate(&paths.db)?;
             let thumbs = ThumbService::start(handle.clone(), &paths.db, &paths.thumbs_db)?;
+            let previews = PreviewService::start(handle.clone(), thumbs.clone(), &paths.db, &paths.thumbs_db)?;
             app.manage(AppState {
                 paths,
                 db: Mutex::new(db),
                 thumbs,
+                previews,
                 import: ImportManager::new(handle),
             });
             Ok(())
@@ -51,9 +55,11 @@ pub fn run() {
             library::list_media,
             library::library_stats,
             library::prioritize_thumbs,
+            library::request_previews,
             library::ffmpeg_status,
             import::import_snapshot,
-            import::scan_folder,
+            import::scan_paths,
+            formats::supported_extensions,
             import::start_import,
             import::cancel_import,
         ])

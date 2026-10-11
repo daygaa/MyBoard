@@ -68,6 +68,8 @@ Depuis le Workspace (Rust : `cargo` est dans `%USERPROFILE%\.cargo\bin`) :
 - Bibliothèque de test (DEV-02), dans `src-tauri` :
   `cargo run --release --example gen_test_library -- "<dossier vide>" 100000`.
 - Mesure de fluidité (D-008) : `node scripts/bench-grid.mjs "<dossier de la bibliothèque de test>"`.
+- Pilotage de la fenêtre pour vérifier (clics, clavier, captures) : `node scripts/cdp.mjs …`
+  (voir l'en-tête du fichier). Le glisser-déposer natif ne peut pas être simulé : à faire tester.
 
 Variables d'environnement utiles :
 - `MYBOARD_DATA_DIR` — autre dossier de données (défaut `%LOCALAPPDATA%\MyBoard`). Toujours

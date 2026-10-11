@@ -7,6 +7,7 @@ import { useQueryClient } from "@tanstack/react-query";
 
 import { EVENTS, api, type ImportSnapshot, type ThumbUpdate } from "@/lib/api";
 import { useImport } from "@/stores/import";
+import { usePreviews } from "@/stores/previews";
 import { useThumbs } from "@/stores/thumbs";
 
 export function useBackendEvents() {
@@ -20,6 +21,7 @@ export function useBackendEvents() {
         void queryClient.invalidateQueries({ queryKey: ["stats"] });
       }),
       listen<ThumbUpdate[]>(EVENTS.thumbsReady, (event) => useThumbs.getState().apply(event.payload)),
+      listen<number[]>(EVENTS.previewsReady, (event) => usePreviews.getState().markReady(event.payload)),
       listen<ImportSnapshot>(EVENTS.importState, (event) => useImport.getState().setSnapshot(event.payload)),
     ];
     // État de l'import au démarrage (un import peut déjà tourner).

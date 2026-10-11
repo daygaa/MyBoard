@@ -62,3 +62,10 @@ pub fn kind_of_ext(ext: &str) -> Option<Kind> {
         None
     }
 }
+
+/// Toutes les extensions acceptées, pour le filtre de la fenêtre « Importer des fichiers » :
+/// la liste n'existe qu'ici, l'interface la demande au cœur Rust.
+#[tauri::command]
+pub fn supported_extensions() -> Vec<&'static str> {
+    [IMAGES, VIDEOS, AUDIO, DOCUMENTS].concat()
+}

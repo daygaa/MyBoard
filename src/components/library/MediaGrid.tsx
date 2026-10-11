@@ -6,7 +6,7 @@ import { useLayoutEffect, useRef, useState } from "react";
 import { useWindowVirtualizer } from "@tanstack/react-virtual";
 
 import type { MediaItem } from "@/lib/api";
-import { COMPACT_DENSITY, GRID_GAP } from "@/lib/grid";
+import { COMPACT_DENSITY, GRID_GAP, PREVIEW_MAX_DENSITY, SMALL_THUMB_DENSITY } from "@/lib/grid";
 import { MediaTile } from "./MediaTile";
 
 /** Largeur de la grille et sa position dans la page, tenues à jour. */
@@ -39,6 +39,8 @@ export function MediaGrid({ items, density }: { items: MediaItem[]; density: num
   const rowHeight = tile + GRID_GAP;
   const rowCount = Math.ceil(items.length / density);
   const compact = density >= COMPACT_DENSITY;
+  const small = density >= SMALL_THUMB_DENSITY;
+  const preview = density <= PREVIEW_MAX_DENSITY;
 
   const virtualizer = useWindowVirtualizer({
     count: rowCount,
@@ -70,7 +72,7 @@ export function MediaGrid({ items, density }: { items: MediaItem[]; density: num
             }}
           >
             {items.slice(row.index * density, (row.index + 1) * density).map((item) => (
-              <MediaTile key={item.id} item={item} compact={compact} />
+              <MediaTile key={item.id} item={item} compact={compact} small={small} preview={preview} />
             ))}
           </div>
         ))}

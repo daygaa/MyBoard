@@ -22,7 +22,8 @@
 
 **Sources** : `FC` flowchart · `R1` modif_UI.txt · `R2` modifUI-UX2.txt · `R3` modifUIUX3.txt ·
 `R4` modifUI-UX4.txt · `IDEES` « UI-UX Ideas to do after » · `BUG` bugs_alreadysent.txt ·
-`PY` PROJECT_STATE/BACKLOG de la version Python · `D` décision prise avec Claude (date).
+`PY` PROJECT_STATE/BACKLOG de la version Python · `D` décision prise avec Claude (date) ·
+`T1` « txt post-test/Précisions - problèmes 1.txt » (retours du test de la phase 1).
 Les fichiers sources sont dans `Versions historiques/` (lecture seule).
 
 **Phases de développement** (détail dans `docs/DECISIONS.md`) :
@@ -43,6 +44,7 @@ Les fichiers sources sont dans `Versions historiques/` (lecture seule).
 - [~] **GEN-08** Chaque zone de l'interface porte un **nom court et stable** (attribut `data-zone`, ex. `visionneuse.barre-tags`) pour que l'utilisateur puisse la désigner dans ses retours sans copier de classes HTML. Remplace la demande « nettoyer les noms des div ». `R1 R2 D 11/10`
 - [ ] **GEN-09** Marges et alignements cohérents au pixel près (pas de décalages de 1–2 px). `R1`
 - [ ] **GEN-10** Les pop-ins de confirmation sont des fenêtres de l'application (style maison), jamais les boîtes natives du navigateur. `R1`
+- [~] **GEN-11** Icône de l'application = le logo MyBoard doré. `D 12/10`
 
 ## LIB — Bibliothèque et stockage
 
@@ -54,16 +56,17 @@ Les fichiers sources sont dans `Versions historiques/` (lecture seule).
 - [~] **LIB-06** **Petites miniatures** (~320 px, format WebP) générées **en arrière-plan après l'import**, stockées sur le SSD ; l'import n'attend pas leur génération, elles apparaissent au fur et à mesure. `D 11/10` (Q-02, D-011) — Phase 1 : rangées dans `thumbs.db` (D-014).
 - [~] **LIB-07** Base de données et miniatures sur un disque rapide (SSD) même si les médias sont sur HDD. `D 11/10`
 - [~] **LIB-08** Sauvegarde simple : copier le dossier de données de l'application suffit. `PY` — Phase 1 : copier `%LOCALAPPDATA%\MyBoard`, application fermée.
-- [ ] **LIB-09** **Grands aperçus** (~640 px) pour les densités 4–6 colonnes, **générés à la demande** : la petite miniature s'affiche immédiatement puis est remplacée par le grand aperçu ; un aperçu n'est demandé que si la vignette reste visible ~150 ms ; les demandes des vignettes sorties de l'écran sont annulées ; génération en arrière-plan sans jamais bloquer l'interface. `D 11/10` (D-011)
-- [ ] **LIB-10** Cache des grands aperçus **de taille limitée** : les moins récemment utilisés sont supprimés en premier. `D 11/10`
+- [~] **LIB-09** **Grands aperçus** (~640 px) pour les densités 4–6 colonnes, **générés à la demande** : la petite miniature s'affiche immédiatement puis est remplacée par le grand aperçu ; un aperçu n'est demandé que si la vignette reste visible ~150 ms ; les demandes des vignettes sorties de l'écran sont annulées ; génération en arrière-plan sans jamais bloquer l'interface. `D 11/10` (D-011)
+- [~] **LIB-10** Cache des grands aperçus **de taille limitée** : les moins récemment utilisés sont supprimés en premier. `D 11/10` — Phase 1 : limite 1 Go (D-015).
 - [>] **LIB-11** Paramètres du cache : taille maximale, bouton « Vider le cache », emplacement. `D 11/10`
+- [~] **LIB-12** **Miniatures 128 px** pour les grilles denses (à partir de 16 colonnes) : décodage plus rapide, sans perte visible. `D 12/10` (D-015)
 
 ## IMP — Import
 
 ### Sélection des fichiers
-- [ ] **IMP-01** Importer **un ou plusieurs fichiers** via la fenêtre de sélection Windows. `FC R2`
+- [~] **IMP-01** Importer **un ou plusieurs fichiers** via la fenêtre de sélection Windows. `FC R2`
 - [~] **IMP-02** Importer **un dossier** via la fenêtre de sélection Windows (bouton distinct « Importer un dossier » qui fonctionne réellement). `FC R2 R3 R4`
-- [ ] **IMP-03** Glisser-déposer de fichiers **et** de dossiers (récursif). `FC R1` (v8 ✓)
+- [~] **IMP-03** Glisser-déposer de fichiers **et** de dossiers (récursif). `FC R1` (v8 ✓)
 - [~] **IMP-04** Option « Importer le contenu des sous-dossiers ». `FC`
 - [~] **IMP-05** Formats acceptés : images, vidéos, audio, + PDF, PowerPoint/Slides, Excel/Sheets. Les autres fichiers sont ignorés (avec compteur « X fichiers ignorés »). `R1`
 - [ ] **IMP-06** Lecture adaptée au disque : en parallèle sur SSD, séquentielle sur HDD. `D 11/10`
@@ -102,6 +105,7 @@ Les fichiers sources sont dans `Versions historiques/` (lecture seule).
 - [ ] **IMP-47** Un fichier converti s'affiche avec sa **vraie extension** (nom affiché mis à jour). `R4`
 - [~] **IMP-48** Pendant le développement : utiliser le **ffmpeg installé sur le PC**, détecté de façon fiable sous Windows (PATH et emplacements connus), avec un message clair s'il est absent. `D 11/10` (D-012)
 - [>] **IMP-49** Version finale : **ffmpeg fourni avec l'application** (téléchargement du binaire uniquement avec l'accord de l'utilisateur, au moment venu). `D 11/10` (D-007, D-012)
+- [~] **IMP-50** Après un import, l'encadré de dépôt revient à son état de départ (plus de chemin affiché ni de résumé du choix précédent). `T1`
 
 ## GRID — Page d'accueil et grille
 
@@ -113,6 +117,7 @@ Les fichiers sources sont dans `Versions historiques/` (lecture seule).
 - [~] **GRID-06** **Aucun lag** en changeant de densité ni à 30 colonnes (voir GEN-07). `R2 R3 R4`
 - [~] **GRID-07** Changer de filtre ou de tri ne réinitialise pas la densité / le nombre par page. `BUG`
 - [~] **GRID-08** Vignette : pas de badge d'extension, pas d'icône plein écran, pas de mini-tags. Restent : badge durée vidéo, badge GIF, étoile favori, case de sélection, infos au survol (nom, poids, dimensions). `R1` (v8 ✓) — Phase 1 : badges durée et GIF, infos au survol ; étoile et case de sélection : phase 3.
+- [~] **GRID-09** Au survol d'une vignette, le badge durée (vidéo) ou GIF remonte sur la ligne du nom de fichier : il ne cache plus les dimensions. `T1`
 
 ## PAGE — Pagination
 
@@ -129,6 +134,7 @@ Les fichiers sources sont dans `Versions historiques/` (lecture seule).
 - [~] **FILT-05** Tri par **date de création** du fichier (en plus de la date d'import). `FC`
 - [~] **FILT-06** Le tri et les filtres sont **mémorisés** (retour de la visionneuse, redémarrage). `R2`
 - [~] **FILT-07** Corriger : le filtre revient parfois tout seul sur « Tout » ; médias non affichés tant qu'on ne change pas de filtre. `BUG`
+- [~] **FILT-08** Ouvrir le menu de tri (ou tout menu déroulant) ne décale pas l'interface de quelques pixels. `T1`
 
 ## SRCH — Recherche et barre latérale des tags
 
@@ -228,7 +234,7 @@ Les fichiers sources sont dans `Versions historiques/` (lecture seule).
 
 ## NAV — En-tête et menu burger
 
-- [~] **NAV-01** Logo au **centre** de l'en-tête, centré **horizontalement et verticalement** ; clic = accueil. `R2 R3 R4`
+- [~] **NAV-01** Logo au **centre** de l'en-tête, centré **horizontalement et verticalement** ; clic = accueil. `R2 R3 R4` — Corrigé le 12/10 (`T1`) : centré sur la fenêtre (il l'était sur l'en-tête, décalé de 5 px).
 - [~] **NAV-02** Menu burger dépliant (à gauche). Ordre : **Bibliothèque** (accueil) · Importer · Favoris · Gestionnaire de tags · Dossiers (liste + « Nouveau ») · … · **Paramètres en dernier**, même style que les autres. `FC R1 R2 IDEES` — Phase 1 : ordre en place ; Favoris, Gestionnaire, Dossiers, Paramètres grisés « bientôt ».
 - [~] **NAV-03** Statistiques (images / vidéos / tags) dans l'en-tête. (v8 ✓)
 

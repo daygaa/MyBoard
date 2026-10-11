@@ -2,6 +2,7 @@
 // statistiques (NAV-03) et bouton Importer à droite.
 // Fond opaque (la v8 utilisait un flou d'arrière-plan, coûteux pendant le défilement : D-008).
 
+import { useEffect, useState } from "react";
 import { Film, Image as ImageIcon, Menu, Tag, Upload } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -10,7 +11,28 @@ import { formatCount } from "@/lib/format";
 import { navigate } from "@/lib/router";
 import { useUI } from "@/stores/ui";
 
+/** Largeur réservée à la barre de défilement (index.css) : l'en-tête s'arrête avant elle,
+ *  le logo doit donc être décalé de la moitié pour être au centre de la FENÊTRE (NAV-01). */
+function useScrollbarGutter(): number {
+  const [gutter, setGutter] = useState(0);
+  useEffect(() => {
+    const measure = () => setGutter(window.innerWidth - document.documentElement.clientWidth);
+    measure();
+    // La place réservée n'existe qu'après la mise en page : on remesure à chaque changement
+    // de largeur de la page (apparition de la réserve, redimensionnement de la fenêtre).
+    const observer = new ResizeObserver(measure);
+    observer.observe(document.documentElement);
+    window.addEventListener("resize", measure);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", measure);
+    };
+  }, []);
+  return gutter;
+}
+
 export function Header() {
+  const gutter = useScrollbarGutter();
   const burgerOpen = useUI((s) => s.burgerOpen);
   const toggleBurger = useUI((s) => s.toggleBurger);
   const { data: stats } = useStats();
@@ -38,6 +60,7 @@ export function Header() {
           data-zone="entete.logo"
           onClick={() => navigate("library")}
           className="flex items-center gap-2.5"
+          style={{ transform: `translateX(${gutter / 2}px)` }}
           aria-label="MyBoard — accueil"
         >
           <span className="grid h-7 w-7 place-items-center rounded-full bg-gradient-to-br from-[#e3b75f] to-[#b88838] shadow-sm ring-2 ring-[#d9a94e]/40">

@@ -170,6 +170,12 @@ pub async fn prioritize_thumbs(state: State<'_, AppState>, ids: Vec<i64>) -> Res
     state.thumbs.prioritize(&ids).map_err(|e| e.to_string())
 }
 
+/// Grands aperçus (LIB-09) : `want` = vignettes visibles depuis ~150 ms, `cancel` = sorties de l'écran.
+#[tauri::command]
+pub async fn request_previews(state: State<'_, AppState>, want: Vec<i64>, cancel: Vec<i64>) -> Result<(), String> {
+    state.previews.request(&want, &cancel).map_err(|e| e.to_string())
+}
+
 #[tauri::command]
 pub async fn ffmpeg_status(state: State<'_, AppState>) -> Result<FfmpegStatus, String> {
     Ok(FfmpegStatus::from(state.thumbs.ffmpeg()))

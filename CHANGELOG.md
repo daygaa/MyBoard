@@ -3,6 +3,26 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Phase 1 — Corrections après test + aperçus (12/10/2026) — Backup v4
+
+Retours du fichier « Précisions - problèmes 1.txt » (`T1`) et réponses aux questions de livraison.
+
+- GRID-09 : au survol, le badge durée / GIF remonte sur la ligne du nom (ne cache plus les dimensions).
+- IMP-01, IMP-03 : bouton « Importer un fichier » (plusieurs à la fois) et glisser-déposer de
+  fichiers et de dossiers, mélangés ou non, sur la page d'import.
+- IMP-50 : après un import, l'encadré de dépôt revient à son état de départ.
+- FILT-08 : ouvrir le menu de tri ne décale plus l'interface (menus déroulants non bloquants).
+- NAV-01 : logo centré sur la fenêtre (il était centré sur l'en-tête, 5 px trop à gauche).
+- GEN-11 : icône de l'application = logo doré.
+- LIB-09, LIB-10, LIB-12 (D-015) : miniatures 128 px dès 16 colonnes, grands aperçus 640 px à la
+  demande de 4 à 6 colonnes, cache des aperçus limité à 1 Go.
+- Outil `scripts/cdp.mjs` (pilotage de la fenêtre pendant les vérifications).
+
+**Mesures** (version compilée, 2560×1377) : page suivante à 20 colonnes 207 ms (226 avant),
+à 30 colonnes 386 ms (442 avant) ; défilement 148–177 images/s sans saccade ; grands aperçus à
+4 colonnes : premier affiché ~0,3 s après le changement de page, les 12 visibles en 0,6–0,8 s
+(échantillon réel) ; miniatures 128 px rattrapées au lancement pour 3 359 médias en ~19 s.
+
 ## Phase 1 — Socle : import d'un dossier, miniatures, grille (11/10/2026) — Backup v3
 
 Application Tauri 2 (Rust) + React, apparence de la v8. À tester par l'utilisateur.

@@ -17,6 +17,16 @@ export const DENSITY_PRESETS = [
 /** À partir de cette densité, les petits boutons des vignettes sont réduits de 25 % (SEL-05). */
 export const COMPACT_DENSITY = 20;
 
+/** À partir de cette densité, la grille utilise les miniatures 128 px (LIB-12) :
+ *  6 fois moins de pixels à décoder, sans perte visible (vignettes de ~130 px et moins). */
+export const SMALL_THUMB_DENSITY = 16;
+
+/** Jusqu'à cette densité, les grands aperçus 640 px remplacent les miniatures (LIB-09). */
+export const PREVIEW_MAX_DENSITY = 6;
+
+/** Une vignette doit rester visible ce temps avant de demander son grand aperçu (LIB-09). */
+export const PREVIEW_DELAY_MS = 150;
+
 /** Écart entre vignettes, en pixels (classe `gap-2`). */
 export const GRID_GAP = 8;
 

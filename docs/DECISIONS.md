@@ -178,6 +178,25 @@ une autre bibliothèque (tests, mesures) sans toucher à la vraie.
 - Elles sont servies par le protocole `thumb://` (lecture hors du fil principal).
 - Si `thumbs.db` est supprimé, toutes les miniatures sont recréées au lancement suivant.
 
-**Piste non retenue pour l'instant** (proposée à l'utilisateur) : une troisième taille,
-plus petite (~128 px), pour les densités élevées : décodage 2,3 fois plus rapide
-(145 ms → 62 ms pour 500 images), au prix d'un peu de place disque.
+**Piste proposée** : une troisième taille, plus petite (~128 px), pour les densités élevées :
+décodage 2,3 fois plus rapide (145 ms → 62 ms pour 500 images). Acceptée → D-015.
+
+## D-015 — Trois tailles de miniatures et grands aperçus, dès la phase 1 (12/10/2026)
+
+Décidé avec l'utilisateur après son test de la phase 1 (LIB-09, LIB-10, LIB-12 avancés en
+phase 1). Toutes rangées dans `thumbs.db` (D-014) :
+
+| Taille | Quand | Création |
+|---|---|---|
+| 128 px | grilles de **16 colonnes et plus** | en même temps que la 320 px, après l'import |
+| 320 px | de 7 à 15 colonnes | après l'import (D-011) |
+| 640 px (grand aperçu) | de **4 à 6 colonnes** | à la demande |
+
+- Les 128 et 320 px viennent d'un seul décodage de l'original. Pour une bibliothèque qui
+  n'a que des 320 px, les 128 px sont fabriquées au lancement à partir des 320 px, sans
+  relire les fichiers originaux.
+- Grand aperçu : la miniature 320 px s'affiche tout de suite ; l'aperçu n'est demandé que si
+  la vignette reste visible **150 ms**, la demande est annulée si elle sort de l'écran avant,
+  et il apparaît en fondu par-dessus une fois prêt. Deux fils de travail en priorité basse.
+- Cache des grands aperçus limité à **1 Go** ; au-delà, les moins récemment demandés sont
+  supprimés jusqu'à 90 % de la limite. Réglages du cache : plus tard (LIB-11).

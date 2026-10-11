@@ -8,7 +8,7 @@ use std::time::{Duration, Instant};
 use anyhow::{Context, bail};
 use serde_json::Value;
 
-use super::image::{Thumb, decode, encode_square};
+use super::image::{PREVIEW_SIZE, THUMB_SIZE, Thumb, decode, preview_of, thumbs_of};
 use crate::ffmpeg::{self, Ffmpeg};
 
 /// Au-delà, le fichier est considéré comme bloquant (fichier corrompu, disque lent…).
@@ -26,37 +26,52 @@ struct Probe {
     duration_ms: Option<i64>,
 }
 
-/// Miniature d'une vidéo : image prise à 10 % de la durée (la première image
-/// est souvent noire), avec repli sur le début si la vidéo est trop courte.
+/// Miniatures d'une vidéo : image prise à 10 % de la durée (la première image est souvent
+/// noire), avec repli sur le début si la vidéo est trop courte.
 pub fn video_thumb(ff: &Ffmpeg, path: &Path) -> anyhow::Result<VideoThumb> {
     let probe = probe(ff, path)?;
+    let frame = decode(&video_frame(ff, path, &probe, THUMB_SIZE * 3 / 2)?)?;
+    let (frame_w, frame_h) = (frame.width(), frame.height());
+    let mut thumb = thumbs_of(frame)?;
+    // Dimensions de la vidéo elle-même, pas de l'image réduite.
+    thumb.width = probe.width.unwrap_or(frame_w);
+    thumb.height = probe.height.unwrap_or(frame_h);
+    Ok(VideoThumb { thumb, duration_ms: probe.duration_ms })
+}
+
+/// Grand aperçu 640 px d'une vidéo (LIB-09).
+pub fn video_preview(ff: &Ffmpeg, path: &Path) -> anyhow::Result<Vec<u8>> {
+    let probe = probe(ff, path)?;
+    preview_of(decode(&video_frame(ff, path, &probe, PREVIEW_SIZE * 3 / 2)?)?)
+}
+
+/// Miniatures d'une image que le décodeur Rust ne gère pas (AVIF, HEIC…).
+pub fn image_thumb(ff: &Ffmpeg, path: &Path) -> anyhow::Result<Thumb> {
+    let probe = probe(ff, path)?;
+    let frame = decode(&frame_png(ff, path, 0.0, THUMB_SIZE * 3 / 2)?)?;
+    let (frame_w, frame_h) = (frame.width(), frame.height());
+    let mut thumb = thumbs_of(frame)?;
+    thumb.width = probe.width.unwrap_or(frame_w);
+    thumb.height = probe.height.unwrap_or(frame_h);
+    Ok(thumb)
+}
+
+/// Grand aperçu d'une image passée par ffmpeg.
+pub fn image_preview(ff: &Ffmpeg, path: &Path) -> anyhow::Result<Vec<u8>> {
+    preview_of(decode(&frame_png(ff, path, 0.0, PREVIEW_SIZE * 3 / 2)?)?)
+}
+
+/// Image de la vidéo à 10 % de la durée (ou au début si elle est trop courte).
+fn video_frame(ff: &Ffmpeg, path: &Path, probe: &Probe, short_side: u32) -> anyhow::Result<Vec<u8>> {
     let seek = probe
         .duration_ms
         .map(|ms| (ms as f64 / 1000.0 * 0.10).min(ms as f64 / 1000.0 - 0.5).max(0.0))
         .unwrap_or(0.0);
-    let png = match frame_png(ff, path, seek) {
-        Ok(png) => png,
-        Err(_) if seek > 0.0 => frame_png(ff, path, 0.0)?,
-        Err(e) => return Err(e),
-    };
-    let frame = decode(&png)?;
-    let (width, height) = match (probe.width, probe.height) {
-        (Some(w), Some(h)) => (w, h),
-        _ => (frame.width(), frame.height()),
-    };
-    Ok(VideoThumb {
-        thumb: Thumb { webp: encode_square(frame)?, width, height },
-        duration_ms: probe.duration_ms,
-    })
-}
-
-/// Miniature d'une image que le décodeur Rust ne gère pas (AVIF, HEIC…).
-pub fn image_thumb(ff: &Ffmpeg, path: &Path) -> anyhow::Result<Thumb> {
-    let probe = probe(ff, path)?;
-    let frame = decode(&frame_png(ff, path, 0.0)?)?;
-    let width = probe.width.unwrap_or(frame.width());
-    let height = probe.height.unwrap_or(frame.height());
-    Ok(Thumb { webp: encode_square(frame)?, width, height })
+    match frame_png(ff, path, seek, short_side) {
+        Ok(png) => Ok(png),
+        Err(_) if seek > 0.0 => frame_png(ff, path, 0.0, short_side),
+        Err(e) => Err(e),
+    }
 }
 
 fn probe(ff: &Ffmpeg, path: &Path) -> anyhow::Result<Probe> {
@@ -92,8 +107,8 @@ fn rotation(stream: &Value) -> i64 {
         .unwrap_or(0)
 }
 
-/// Une image de la vidéo, en PNG, côté court ramené à 480 px (recadrée ensuite en Rust).
-fn frame_png(ff: &Ffmpeg, path: &Path, seek_seconds: f64) -> anyhow::Result<Vec<u8>> {
+/// Une image de la vidéo, en PNG, côté court ramené à `short_side` px (recadrée ensuite en Rust).
+fn frame_png(ff: &Ffmpeg, path: &Path, seek_seconds: f64, short_side: u32) -> anyhow::Result<Vec<u8>> {
     let mut cmd = ffmpeg::command(&ff.ffmpeg);
     cmd.args(["-hide_banner", "-loglevel", "error", "-nostdin", "-threads", "2"]);
     if seek_seconds > 0.0 {
@@ -102,7 +117,7 @@ fn frame_png(ff: &Ffmpeg, path: &Path, seek_seconds: f64) -> anyhow::Result<Vec<
     cmd.arg("-i")
         .arg(path)
         .args(["-map", "0:v:0", "-frames:v", "1", "-an", "-sn", "-dn"])
-        .args(["-vf", "scale=480:480:force_original_aspect_ratio=increase"])
+        .args(["-vf", &format!("scale={short_side}:{short_side}:force_original_aspect_ratio=increase")])
         .args(["-f", "image2pipe", "-c:v", "png", "-"]);
     let output = run(cmd)?;
     if output.stdout.is_empty() {
