@@ -1,6 +1,6 @@
 // Barre de commandes du lecteur vidéo personnalisé (VIEW-29), aux couleurs de MyBoard :
-// lecture / pause, temps, barre de progression cliquable (temps au survol), volume + muet,
-// vitesse, boucle (VIEW-26).
+// lecture / pause, temps, barre de progression cliquable (temps au survol), volume + muet
+// (curseur continu), vitesse, boucle (VIEW-26), plein écran tout à droite (VIEW-18).
 
 import { useEffect, useReducer, useState, type PointerEvent, type RefObject } from "react";
 import { Pause, Play, Repeat, Volume1, Volume2, VolumeX } from "lucide-react";
@@ -9,6 +9,7 @@ import { useEscape } from "@/lib/escape";
 import { formatDuration } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { SPEEDS, usePlayer } from "@/stores/player";
+import { FullscreenButton } from "./FullscreenButton";
 
 const BUTTON = "grid h-8 w-8 shrink-0 place-items-center rounded-md text-zinc-200 transition hover:bg-white/10 hover:text-white";
 
@@ -165,7 +166,7 @@ export function VideoControls({ videoRef, docked = false }: { videoRef: RefObjec
         type="range"
         min={0}
         max={1}
-        step={0.05}
+        step="any"
         value={silent ? 0 : volume}
         onChange={(e) => setVolume(Number(e.target.value))}
         aria-label="Volume"
@@ -182,6 +183,7 @@ export function VideoControls({ videoRef, docked = false }: { videoRef: RefObjec
       >
         <Repeat className="h-4 w-4" />
       </button>
+      <FullscreenButton className={BUTTON} />
     </div>
   );
 }

@@ -1,14 +1,17 @@
 // Visionneuse plein écran (VIEW-01 à VIEW-07), apparence v8.
-// - Fermer : Échap, bouton 4 de la souris, croix, clic sur le fond (VIEW-02, VIEW-03).
+// - Fermer : Échap, bouton 4 de la souris, croix, clic sur le fond (VIEW-02, VIEW-03) ; le
+//   bouton 5 fait l'inverse du bouton 4 (VIEW-30, chemin tenu par stores/viewer.ts).
 // - Précédent / suivant (flèches écran et clavier) sans couture entre les pages (VIEW-04).
 // - En fermant, la grille montre la page du média regardé (VIEW-05).
 // - La page derrière ne défile pas (VIEW-06).
-// - Plein écran total (VIEW-18) : la fenêtre couvre tout l'écran ; la barre du bas apparaît au
-//   survol ; la croix, Échap et le bouton 4 quittent d'abord le plein écran.
+// - Plein écran total (VIEW-18) : la fenêtre couvre tout l'écran ; la barre du bas apparaît à
+//   l'approche de la souris ; touche F ou bouton (barre de lecture, ou en bas à droite) ;
+//   Échap et le bouton 4 quittent d'abord le plein écran, la croix ferme tout.
 // - Note du média (VIEW-19), message d'erreur des ouvertures externes (VIEW-28).
 
 import { useEffect, useRef, useState } from "react";
-import { ChevronLeft, ChevronRight, Maximize2, X } from "lucide-react";
+import { createPortal } from "react-dom";
+import { ChevronLeft, ChevronRight, X } from "lucide-react";
 
 import type { MediaItem } from "@/lib/api";
 import { hasModalLayer, useEscape } from "@/lib/escape";
@@ -17,15 +20,19 @@ import { useSearch } from "@/stores/search";
 import { useViewer, type ListBase } from "@/stores/viewer";
 import { ControlsSlot } from "./controlsSlot";
 import { ErrorBanner } from "./ErrorBanner";
+import { FullscreenButton } from "./FullscreenButton";
 import { InfoBar } from "./InfoBar";
 import { MediaStage } from "./MediaStage";
 import { NotesButton } from "./NotesButton";
 import { isTyping, itemAt, preload, usePageAt } from "./navigation";
 import { removePrintHolder } from "./printMedia";
+import { useBottomBarVisible } from "./useBottomBar";
 
 const NAV_BUTTON =
   "absolute top-1/2 z-20 grid h-12 w-12 -translate-y-1/2 place-items-center rounded-md bg-black/60 text-white transition hover:bg-black/85";
-const ROUND_BUTTON = "absolute top-4 z-20 grid h-10 w-10 place-items-center rounded-full bg-black/60 text-white transition hover:bg-black/85";
+const ROUND_BUTTON = "absolute z-20 grid h-10 w-10 place-items-center rounded-full bg-black/60 text-white transition hover:bg-black/85";
+/** Bouton plein écran des médias sans barre de lecture, quand il est rangé dans la barre du bas. */
+const DOCKED_BUTTON = "grid h-8 w-8 place-items-center rounded-md text-zinc-200 transition hover:bg-white/10 hover:text-white";
 
 function ViewerOverlay({ base }: { base: ListBase }) {
   const index = useViewer((s) => s.index);
@@ -33,13 +40,15 @@ function ViewerOverlay({ base }: { base: ListBase }) {
   const total = useViewer((s) => s.total);
   const fullscreen = useViewer((s) => s.fullscreen);
   const hasError = useViewer((s) => s.error !== null);
-  const { show, close, setFullscreen, closeForSearch } = useViewer.getState();
+  const { show, close, forward, setFullscreen, closeForSearch } = useViewer.getState();
   const pageAt = usePageAt();
   const [slot, setSlot] = useState<HTMLDivElement | null>(null);
+  const barRef = useRef<HTMLDivElement>(null);
+  const barVisible = useBottomBarVisible(barRef, fullscreen);
   // Dernière position demandée : un appui rapide sur → enchaîne sans attendre l'affichage.
   const target = useRef(index);
 
-  useEscape(true, close);
+  useEscape(true, close, { onForward: forward });
   // Inscrit après la visionneuse : en plein écran, Échap et le bouton 4 le quittent d'abord.
   useEscape(fullscreen, () => setFullscreen(false));
   useEffect(() => {
@@ -74,12 +83,13 @@ function ViewerOverlay({ base }: { base: ListBase }) {
     // `pageAt` est recréée à chaque affichage mais ne dépend que du cache partagé.
   }, [base, index]);
 
-  // Flèches du clavier, sauf pendant une saisie ou si une pop-in est ouverte.
+  // Flèches et touche F (plein écran), sauf pendant une saisie ou si une pop-in est ouverte.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (isTyping(e.target) || hasModalLayer()) return;
+      if (isTyping(e.target) || hasModalLayer() || e.ctrlKey || e.altKey || e.metaKey) return;
       if (e.key === "ArrowLeft") void go(-1);
       else if (e.key === "ArrowRight") void go(1);
+      else if (e.key === "f" || e.key === "F") setFullscreen(!useViewer.getState().fullscreen);
       else return;
       e.preventDefault();
     };
@@ -121,25 +131,26 @@ function ViewerOverlay({ base }: { base: ListBase }) {
           <MediaStage key={item.id} item={item} onClose={close} />
         </ControlsSlot.Provider>
         <NotesButton key={`note-${item.id}`} mediaId={item.id} />
-        {!fullscreen && (
-          <button
-            type="button"
-            data-zone="visionneuse.plein-ecran"
-            onClick={() => setFullscreen(true)}
-            aria-label="Plein écran"
-            title="Plein écran"
-            className={cn(ROUND_BUTTON, "right-16")}
-          >
-            <Maximize2 className="h-4 w-4" />
-          </button>
-        )}
+        {/* Médias sans barre de lecture : bouton plein écran en bas à droite, rangé dans la barre
+            du bas en plein écran (sinon la barre, en apparaissant, le recouvrirait). */}
+        {item.kind !== "video" &&
+          (fullscreen && slot ? (
+            createPortal(
+              <div className="flex justify-end border-t border-white/5 bg-black/80 px-3 py-1.5">
+                <FullscreenButton className={DOCKED_BUTTON} />
+              </div>,
+              slot,
+            )
+          ) : (
+            <FullscreenButton className={cn(ROUND_BUTTON, "right-4 bottom-4")} />
+          ))}
         <button
           type="button"
           data-zone="visionneuse.fermer"
-          onClick={fullscreen ? () => setFullscreen(false) : close}
-          aria-label={fullscreen ? "Quitter le plein écran (Échap)" : "Fermer (Échap)"}
-          title={fullscreen ? "Quitter le plein écran (Échap)" : "Fermer (Échap)"}
-          className={cn(ROUND_BUTTON, "right-4")}
+          onClick={close}
+          aria-label={fullscreen ? "Quitter le plein écran et la visionneuse" : "Fermer (Échap)"}
+          title={fullscreen ? "Quitter le plein écran et la visionneuse" : "Fermer (Échap)"}
+          className={cn(ROUND_BUTTON, "top-4 right-4")}
         >
           <X className="h-5 w-5" />
         </button>
@@ -154,14 +165,14 @@ function ViewerOverlay({ base }: { base: ListBase }) {
           </button>
         )}
       </div>
-      {/* Plein écran : la barre passe par-dessus le média, visible seulement au survol (ou pendant
-          une saisie, ou s'il y a un message d'erreur). */}
+      {/* Plein écran : la barre passe par-dessus le média, visible quand la souris s'en approche
+          (ou pendant une saisie, ou s'il y a un message d'erreur). */}
       <div
+        ref={barRef}
         data-zone="visionneuse.bas"
         className={cn(
-          fullscreen &&
-            "absolute inset-x-0 bottom-0 z-30 opacity-0 transition-opacity duration-200 focus-within:opacity-100 hover:opacity-100",
-          fullscreen && hasError && "opacity-100",
+          fullscreen && "absolute inset-x-0 bottom-0 z-30 transition-opacity duration-200 focus-within:opacity-100",
+          fullscreen && !barVisible && !hasError && "pointer-events-none opacity-0 focus-within:pointer-events-auto",
         )}
       >
         <div ref={setSlot} />

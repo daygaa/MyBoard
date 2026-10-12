@@ -1,18 +1,20 @@
 // Échap et bouton 4 de la souris (« retour ») font la même chose (VIEW-03, SEL-01) : fermer
-// ce qui est ouvert au premier plan (dialogue, puis visionneuse…). Quand rien n'est ouvert,
-// le bouton 4 rouvre d'abord la visionneuse qu'on vient de fermer (VIEW-27), sinon il garde
-// son rôle normal de retour arrière.
+// ce qui est ouvert au premier plan (dialogue, puis visionneuse…). Le bouton 5 (« avance »)
+// fait l'inverse (VIEW-30). Quand rien n'est ouvert, les boutons 4 et 5 rouvrent d'abord la
+// visionneuse le long du chemin qu'ils ont parcouru (VIEW-27, VIEW-30), sinon ils gardent
+// leur rôle normal de retour arrière / avance.
 //
 // Chaque élément ouvert s'inscrit sur une pile ; seul le dernier inscrit réagit.
 
 import { useEffect, useLayoutEffect, useRef } from "react";
 
 type Handler = () => void;
-type Entry = { current: Handler; modal: boolean };
+type Entry = { current: Handler; forward: Handler | null; modal: boolean };
 const stack: Entry[] = [];
 
-/** Bouton « retour » de la souris (bouton 4) : `button === 3` dans les événements souris. */
+/** Boutons latéraux de la souris : 4 = « retour » (`button === 3`), 5 = « avance » (`button === 4`). */
 const MOUSE_BACK = 3;
+const MOUSE_FORWARD = 4;
 
 function top() {
   return stack[stack.length - 1];
@@ -25,34 +27,37 @@ function onKeyDown(e: KeyboardEvent) {
   top()?.current();
 }
 
-/** Action du bouton 4 quand rien n'est ouvert, avant le retour arrière normal : rouvrir la
- *  visionneuse qu'on vient de fermer (VIEW-27). `can` dit si elle s'applique. */
-type BackFallback = { can: () => boolean; run: () => void };
-let fallback: BackFallback | null = null;
-let fallbackArmed = false;
+/** Action d'un bouton latéral quand rien n'est ouvert, avant le retour / l'avance normal de la
+ *  fenêtre : rouvrir la visionneuse (VIEW-27, VIEW-30). `can` dit si elle s'applique. */
+type Fallback = { can: () => boolean; run: () => void };
+const fallbacks: Record<number, Fallback | null> = { [MOUSE_BACK]: null, [MOUSE_FORWARD]: null };
+const armed: Record<number, boolean> = { [MOUSE_BACK]: false, [MOUSE_FORWARD]: false };
 
-export function setBackFallback(f: BackFallback) {
-  fallback = f;
+export function setMouseFallbacks(back: Fallback, forward: Fallback) {
+  fallbacks[MOUSE_BACK] = back;
+  fallbacks[MOUSE_FORWARD] = forward;
 }
 
 function onMouse(e: MouseEvent) {
-  if (e.button !== MOUSE_BACK) return;
+  if (e.button !== MOUSE_BACK && e.button !== MOUSE_FORWARD) return;
   if (!top()) {
-    // Décidé à l'appui : c'est là qu'il faut empêcher le retour arrière de la fenêtre.
-    if (e.type === "mousedown") fallbackArmed = fallback?.can() ?? false;
-    if (!fallbackArmed) return;
+    // Décidé à l'appui : c'est là qu'il faut empêcher le retour / l'avance de la fenêtre.
+    if (e.type === "mousedown") armed[e.button] = fallbacks[e.button]?.can() ?? false;
+    if (!armed[e.button]) return;
     e.preventDefault();
     e.stopPropagation();
     if (e.type === "mouseup") {
-      fallbackArmed = false;
-      fallback?.run();
+      armed[e.button] = false;
+      fallbacks[e.button]?.run();
     }
     return;
   }
-  // Empêche le retour arrière de la fenêtre : le bouton sert à fermer.
+  // Quelque chose est ouvert : la fenêtre ne change jamais de page sous lui.
   e.preventDefault();
   e.stopPropagation();
-  if (e.type === "mouseup") top()?.current();
+  if (e.type !== "mouseup") return;
+  if (e.button === MOUSE_BACK) top()?.current();
+  else top()?.forward?.();
 }
 
 // Phase de capture : réagit avant tout autre élément (menus, champs de saisie…).
@@ -61,18 +66,30 @@ window.addEventListener("mousedown", onMouse, true);
 window.addEventListener("mouseup", onMouse, true);
 window.addEventListener("auxclick", onMouse, true);
 
-/** Inscrit `handler` sur la pile tant que `active` est vrai. `modal` : pop-in qui bloque le
- *  reste (les flèches de la visionneuse se taisent tant qu'elle est ouverte). Renvoie une
+type Options = {
+  /** Pop-in qui bloque le reste (les flèches de la visionneuse se taisent tant qu'elle est ouverte). */
+  modal?: boolean;
+  /** Action du bouton 5 de la souris quand cet élément est au premier plan. */
+  onForward?: Handler;
+};
+
+/** Inscrit `handler` (Échap, bouton 4) sur la pile tant que `active` est vrai. Renvoie une
  *  fonction qui dit si cet élément est au premier plan. */
-export function useEscape(active: boolean, handler: Handler, modal = false): () => boolean {
-  const ref = useRef(handler);
+export function useEscape(active: boolean, handler: Handler, options: Options = {}): () => boolean {
+  const ref = useRef({ handler, onForward: options.onForward });
   const entryRef = useRef<Entry | null>(null);
+  const modal = options.modal ?? false;
+  const hasForward = options.onForward !== undefined;
   useLayoutEffect(() => {
-    ref.current = handler;
+    ref.current = { handler, onForward: options.onForward };
   });
   useEffect(() => {
     if (!active) return;
-    const entry = { current: () => ref.current(), modal };
+    const entry: Entry = {
+      current: () => ref.current.handler(),
+      forward: hasForward ? () => ref.current.onForward?.() : null,
+      modal,
+    };
     entryRef.current = entry;
     stack.push(entry);
     return () => {
@@ -80,7 +97,7 @@ export function useEscape(active: boolean, handler: Handler, modal = false): () 
       if (i >= 0) stack.splice(i, 1);
       entryRef.current = null;
     };
-  }, [active, modal]);
+  }, [active, modal, hasForward]);
   return () => entryRef.current !== null && top() === entryRef.current;
 }
 

@@ -43,7 +43,7 @@ Les fichiers sources sont dans `Versions historiques/` (lecture seule).
 - [~] **GEN-06** Interface en français.
 - [~] **GEN-07** Fluidité à grande échelle : bibliothèque de **100 000+ médias**, grille **sans lag jusqu'à 30 colonnes**. L'utilisateur a 100k+ fichiers réels (C: SSD, D: HDD) pour tester. `R2 R3 R4 D 11/10` — Phase 1 : mesuré sur 100 000 médias (CHANGELOG, D-014).
 - [~] **GEN-08** Chaque zone de l'interface porte un **nom court et stable** (attribut `data-zone`, ex. `visionneuse.barre-tags`) pour que l'utilisateur puisse la désigner dans ses retours sans copier de classes HTML. Remplace la demande « nettoyer les noms des div ». `R1 R2 D 11/10`
-- [ ] **GEN-09** Marges et alignements cohérents au pixel près (pas de décalages de 1–2 px). `R1` — 13/10 : texte des pastilles de tags 1 px trop bas, corrigé (`T2`, capture « Screen 1 »).
+- [~] **GEN-09** Marges et alignements cohérents au pixel près (pas de décalages de 1–2 px). `R1` — 13/10 : texte des pastilles de tags 1 px trop bas, corrigé (`T2`, capture « Screen 1 »).
 - [~] **GEN-10** Les pop-ins de confirmation sont des fenêtres de l'application (style maison), jamais les boîtes natives du navigateur. `R1` — Phase 2 : pop-in « Créer un nouveau tag ».
 - [~] **GEN-11** Icône de l'application = le logo MyBoard doré (barre des tâches, coin de la fenêtre, fichier .exe). `D 12/10`
 
@@ -152,7 +152,7 @@ Les fichiers sources sont dans `Versions historiques/` (lecture seule).
 - [x] **SRCH-12** Clic sur un tag = lancer la recherche sur ce tag ; bouton « + » = l'ajouter à la recherche ; bouton « − » = l'exclure. `FC` (v8 ✓)
 - [x] **SRCH-13** Compteurs **toujours exacts** (aucune dérive après imports / suppressions / ré-imports). `R3 R4`
 - [x] **SRCH-14** Mise à jour **en temps réel** de la barre latérale quand on ajoute ou retire un tag (y compris depuis la visionneuse) : 52 → 51 au retrait, etc. `R2 R3 R4`
-- [~] **SRCH-15** Barre latérale : **10 tags au plus par catégorie** ; le nom de la catégorie est un bouton qui déplie la liste complète vers le bas, un nouveau clic la replie sur les 10 premiers. `T2`
+- [x] **SRCH-15** Barre latérale : **10 tags au plus par catégorie** ; le nom de la catégorie est un bouton qui déplie la liste complète vers le bas, un nouveau clic la replie sur les 10 premiers. `T2`
 
 ## VIEW — Visionneuse
 
@@ -173,13 +173,13 @@ Les fichiers sources sont dans `Versions historiques/` (lecture seule).
 - [~] **VIEW-14** Bouton « Supprimer » (rouge) avec pop-in de confirmation maison. `FC R1` (v8 ✓) — Phase 2 : bouton visible mais grisé « bientôt » (`D 12/10`) ; actif en phase 3 (après Q-04).
 - [~] **VIEW-15** Bouton « Ajouter à un dossier ». `IDEES` — Phase 2 : bouton visible mais grisé « bientôt » (`D 12/10`) ; actif en phase 3.
 - [-] **VIEW-16** ~~Ouvrir dans l'app Photos de Windows~~ → doublon / contradiction avec VIEW-24. `FC PY`
-- [~] **VIEW-17** Imprimer (grisé pour une vidéo). `FC PY` — Avancé en phase 2 (`D 13/10`) : imprime **le média lui-même**, jamais la page de l'application.
-- [~] **VIEW-18** Plein écran total (masque bordures et barre des tâches, barres réapparaissant au survol). `FC` — Avancé en phase 2 (`D 13/10`) : la barre du bas réapparaît au survol et disparaît quand la souris en sort ; en plein écran, la croix en haut à droite, Échap et le bouton 4 de la souris **quittent le plein écran** (ils retrouvent leur rôle normal ensuite).
-- [~] **VIEW-19** Zone « Notes » (texte libre par média). `FC` — Avancé en phase 2 (`D 13/10`) : bouton discret (icône de note autocollante) en haut à gauche de la visionneuse, sous le badge du zoom ; il ouvre une petite zone de texte ; les liens collés sont cliquables ; enregistrement automatique ; Échap ferme la note (puis, de nouveau, la visionneuse).
+- [~] **VIEW-17** Imprimer (grisé pour une vidéo). `FC PY` — Avancé en phase 2 (`D 13/10`) : imprime **le média lui-même**, jamais la page de l'application. — 13/10 : le panneau « Imprimer » de WebView2 passe légèrement sous la barre de titre de la fenêtre (placement décidé par WebView2, pas par MyBoard) ; gardé à la demande de l'utilisateur plutôt que la fenêtre d'impression classique de Windows.
+- [~] **VIEW-18** Plein écran total (masque bordures et barre des tâches, barres réapparaissant au survol). `FC` — Avancé en phase 2 (`D 13/10`) : la barre du bas réapparaît au survol et disparaît quand la souris en sort ; en plein écran, la croix en haut à droite, Échap et le bouton 4 de la souris **quittent le plein écran** (ils retrouvent leur rôle normal ensuite). — Précisé 13/10 : la barre du bas apparaît un peu **avant** que la souris l'atteigne et disparaît un peu après qu'elle en soit sortie (zone tampon) ; le bouton plein écran quitte le haut à droite : **vidéos** = tout à droite de la barre de lecture (à droite de la boucle), **images** = au même endroit, en bas à droite de la scène au-dessus de la barre du bas ; en plein écran il prend une icône aux flèches inversées (vers l'intérieur) et sert à en sortir ; la **touche F** ouvre et ferme le plein écran (images et vidéos) ; en plein écran, la **croix** quitte le plein écran **et** la visionneuse (Échap et le bouton 4 quittent seulement le plein écran).
+- [~] **VIEW-19** Zone « Notes » (texte libre par média). `FC` — Avancé en phase 2 (`D 13/10`) : bouton discret (icône de note autocollante) en haut à gauche de la visionneuse, sous le badge du zoom ; il ouvre une petite zone de texte ; les liens collés sont cliquables ; enregistrement automatique ; Échap ferme la note (puis, de nouveau, la visionneuse). — Précisé 13/10 : un clic en dehors de la note la ferme (comme Échap) ; Entrée termine l'écriture et affiche la note « écrite » (Maj + Entrée = retour à la ligne) ; bouton rond du même style que la croix en haut à droite (accents et point dorés gardés), aligné avec elle en haut à gauche ; le badge du zoom passe juste en dessous.
 
 ### Tags dans la visionneuse
 - [x] **VIEW-20** Champ d'ajout de tag placé **le plus à gauche possible**, juste à droite des infos du fichier. `R2 R3 R4`
-- [~] **VIEW-21** Le menu d'autocomplétion s'ouvre **au-dessus** du champ. `R1` (v8 ✓) — Précisé 13/10 (`T2`) : dans la visionneuse, ordre inversé, le tag le plus utilisé **en bas** (près du champ) ; la barre latérale garde son ordre.
+- [x] **VIEW-21** Le menu d'autocomplétion s'ouvre **au-dessus** du champ. `R1` (v8 ✓) — Précisé 13/10 (`T2`) : dans la visionneuse, ordre inversé, le tag le plus utilisé **en bas** (près du champ) ; la barre latérale garde son ordre.
 - [x] **VIEW-22** Tag inexistant : proposer de le créer en choisissant sa catégorie. `R1` (v8 ✓)
 - [x] **VIEW-23** Tags du média en pastilles colorées, retirables ; clic sur une pastille = recherche de ce tag. `R1` (v8 ✓)
 
@@ -188,8 +188,9 @@ Les fichiers sources sont dans `Versions historiques/` (lecture seule).
 - [>] **VIEW-25** Vidéo que WebView2 ne sait pas lire (HEVC sans l'extension Microsoft, AVI Xvid / DivX, WMV, MPEG-2, ProRes, son PCM ou AC-3…) : **conversion à la volée en H.264** par ffmpeg pendant la lecture, l'original n'est jamais modifié. Phase 4 (mêmes briques que IMP-22 / IMP-25). En attendant : message clair + bouton VIEW-24. `D 12/10`
 - [x] **VIEW-26** Lecteur vidéo comme la v8 : lecture automatique, en boucle, avec le son ; un bouton du lecteur permet de **désactiver la boucle**. `D 12/10`
 - [~] **VIEW-27** Bouton 4 de la souris après la fermeture de la visionneuse : il la **rouvre sur la dernière image vue** si rien d'autre n'a été fait depuis (pas de changement de page, de recherche, de filtre, ni d'autre média ouvert). Séquence : Import → Bibliothèque → image X → bouton 4 = ferme → bouton 4 = rouvre X → bouton 4 = ferme → bouton 4 = page d'Import (pas de va-et-vient sans fin). `T2`
+- [~] **VIEW-30** **Bouton 5 de la souris** (avance) : exact inverse du bouton 4 (VIEW-03, VIEW-27). Il refait dans l'autre sens tout le chemin du bouton 4 — ex. … b4 ferme → b4 rouvre X → b4 ferme → b4 Import, puis b5 = Bibliothèque → b5 = rouvre X → b5 = ferme → b5 = rouvre X → b5 = plus rien ; un b5 juste après un b4 annule ce b4. Tout s'efface si on fait autre chose (page, recherche, filtre, autre média ouvert). `D 13/10`
 - [~] **VIEW-28** Si « Ouvrir dans l'explorateur » ou « Ouvrir avec l'application par défaut » échoue : message d'erreur avec le **code d'erreur Windows** et une explication en clair. `D 13/10`
-- [~] **VIEW-29** **Lecteur vidéo personnalisé** aux couleurs de MyBoard (à la place des commandes de WebView2) : lecture / pause (clic sur la vidéo et touche Espace), barre de progression cliquable avec le temps au survol, temps écoulé / durée, volume + muet (volume retenu d'une vidéo à l'autre), boucle (VIEW-26), vitesse 0,5× à 2×, **image par image** vidéo en pause (touche `,` `?` = reculer, touche `;` `.` = avancer). `T2 D 13/10`
+- [~] **VIEW-29** **Lecteur vidéo personnalisé** aux couleurs de MyBoard (à la place des commandes de WebView2) : lecture / pause (clic sur la vidéo et touche Espace), barre de progression cliquable avec le temps au survol, temps écoulé / durée, volume + muet (volume retenu d'une vidéo à l'autre ; curseur de volume **continu**, sans crans — précisé 13/10), boucle (VIEW-26), vitesse 0,5× à 2×, **image par image** vidéo en pause (touche `,` `?` = reculer, touche `;` `.` = avancer). `T2 D 13/10`
 
 ## ZOOM — Zoom de la visionneuse (façon wikifeet) — (v8 ✓ sauf mention)
 
@@ -200,7 +201,7 @@ Les fichiers sources sont dans `Versions historiques/` (lecture seule).
 - [x] **ZOOM-05** Clic sur l'image (sans glisser, seuil 3 px) : ajusté → taille réelle **centrée sur le point cliqué** ; zoomé → retour à « ajusté » centré. Clic sur le fond gris : si zoomé → dézoom ; si non zoomé → fermer. (Un double clic sur le fond = dézoom puis fermeture.) `R2 5.3 5.4`
 - [x] **ZOOM-06** Glisser pour se déplacer, uniquement si zoomé.
 - [~] **ZOOM-07** Animation 200 ms uniquement pour le clic (pas pour molette / glisser) ; badge « 1.50× » affiché quand zoomé. — Texte du badge : voir ZOOM-09.
-- [~] **ZOOM-08** Même zoom sur les vidéos (lecteur vidéo personnalisé). `R2 5.7` — Avancé en phase 2 (`D 13/10`, VIEW-29) : molette, glisser et ×4 comme les images ; **clic sur la vidéo = lecture / pause** ; Échap revient à la taille d'origine, puis un nouvel Échap ou un clic hors de la vidéo ferme la visionneuse.
+- [x] **ZOOM-08** Même zoom sur les vidéos (lecteur vidéo personnalisé). `R2 5.7` — Avancé en phase 2 (`D 13/10`, VIEW-29) : molette, glisser et ×4 comme les images ; **clic sur la vidéo = lecture / pause** ; Échap revient à la taille d'origine, puis un nouvel Échap ou un clic hors de la vidéo ferme la visionneuse.
 - [~] **ZOOM-09** Le badge du zoom affiche le **pourcentage de la taille réelle** de l'image (13 %… 100 % = taille réelle… 400 %), au lieu de l'échelle « 0.30× ». `T2 D 13/10`
 
 ## SEL — Sélection multiple et actions groupées

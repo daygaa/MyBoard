@@ -3,6 +3,28 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Phase 2 — Corrections après test, suite (13/10/2026) — Backup v8
+
+SPEC : ZOOM-08, VIEW-21, SRCH-15 validés `[x]` ; GEN-09 `[~]`.
+
+- VIEW-30 (nouveau) : le bouton 5 de la souris fait exactement l'inverse du bouton 4 — il refait
+  le chemin dans l'autre sens (Bibliothèque → image → fermée → image → plus rien) et annule le
+  dernier bouton 4.
+- VIEW-18 : la barre du bas apparaît à 60 px de distance et disparaît au-delà (zone tampon) ;
+  bouton plein écran déplacé — vidéos : tout à droite de la barre de lecture, autres médias : en
+  bas à droite (dans la barre en plein écran) — avec une icône aux flèches inversées pour en
+  sortir ; touche F ; en plein écran, la croix ferme le plein écran ET la visionneuse.
+- VIEW-19 : bouton rond comme la croix, aligné avec elle (badge du zoom juste en dessous) ; clic
+  en dehors = ferme la note sans autre effet ; Entrée = note « écrite », Maj + Entrée = retour à
+  la ligne.
+- VIEW-29 : curseur de volume continu (sans crans).
+- VIEW-17 : le panneau d'impression de WebView2 passe sous la barre de titre (limite de
+  WebView2, reproduite) ; gardé tel quel à la demande de l'utilisateur.
+
+Vérifié dans la version compilée (écran 1080p) : séquences des boutons 4 et 5 avec de vrais
+clics Windows ; plein écran (touche F, zone tampon à 40 / 80 px, bouton rangé dans la barre,
+croix) ; notes (Maj + Entrée, Entrée, clic dehors sans zoom) ; volume 0,362 puis 0,588.
+
 ## Phase 2 — Corrections après test (T2) (13/10/2026) — Backup v7
 
 Retours du fichier « Précisions - problèmes 2.txt » (`T2`) et réponses aux questions (D-017).

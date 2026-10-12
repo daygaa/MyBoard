@@ -1,8 +1,9 @@
-// Note libre d'un média (VIEW-19) : bouton discret en haut à gauche de la visionneuse, sous le
-// badge du zoom, avec un point doré quand le média a déjà une note. Il ouvre une petite zone de
-// texte enregistrée automatiquement pendant la frappe. En lecture, les liens collés (http…)
-// sont cliquables et s'ouvrent dans le navigateur ; un clic ailleurs dans le texte le modifie.
-// Échap ferme la note (puis, de nouveau, la visionneuse).
+// Note libre d'un média (VIEW-19) : bouton rond en haut à gauche de la visionneuse, du même
+// style que la croix et aligné avec elle, doré avec un point doré quand le média a déjà une
+// note. Il ouvre une petite zone de texte enregistrée automatiquement pendant la frappe ;
+// Entrée termine l'écriture (Maj + Entrée = retour à la ligne). En lecture, les liens collés
+// (http…) sont cliquables et s'ouvrent dans le navigateur ; un clic ailleurs dans le texte le
+// modifie. Échap, ou un clic en dehors de la note, la ferme (puis Échap ferme la visionneuse).
 
 import { useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -76,9 +77,31 @@ export function NotesButton({ mediaId }: { mediaId: number }) {
   };
   useEscape(open, close);
 
+  // Un clic en dehors de la note la ferme, comme Échap : ce clic ne fait rien d'autre (il ne
+  // zoome pas l'image et ne ferme pas la visionneuse).
+  const panelRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const swallow = (e: Event) => {
+      e.preventDefault();
+      e.stopPropagation();
+    };
+    const onDown = (e: PointerEvent) => {
+      const target = e.target as Node;
+      if (e.button !== 0 || panelRef.current?.contains(target) || buttonRef.current?.contains(target)) return;
+      swallow(e);
+      window.addEventListener("click", swallow, { capture: true, once: true });
+      close();
+    };
+    window.addEventListener("pointerdown", onDown, true);
+    return () => window.removeEventListener("pointerdown", onDown, true);
+  });
+
   return (
     <>
       <button
+        ref={buttonRef}
         type="button"
         data-zone="visionneuse.note"
         onClick={() => {
@@ -89,17 +112,18 @@ export function NotesButton({ mediaId }: { mediaId: number }) {
         aria-label={open ? "Fermer la note" : "Note"}
         title={saved ? "Note de ce média" : "Ajouter une note"}
         className={cn(
-          "absolute top-14 left-4 z-20 grid h-8 w-8 place-items-center rounded-md bg-black/50 transition hover:bg-black/80",
-          open || saved ? "text-[#d9a94e]" : "text-zinc-400 hover:text-zinc-200",
+          "absolute top-4 left-4 z-20 grid h-10 w-10 place-items-center rounded-full bg-black/60 transition hover:bg-black/85",
+          open || saved ? "text-[#d9a94e]" : "text-white",
         )}
       >
         <StickyNote className="h-4 w-4" />
-        {saved && !open && <span className="absolute top-1 right-1 h-1.5 w-1.5 rounded-full bg-[#d9a94e]" />}
+        {saved && !open && <span className="absolute top-2 right-2 h-1.5 w-1.5 rounded-full bg-[#d9a94e]" />}
       </button>
       {open && (
         <div
+          ref={panelRef}
           data-zone="visionneuse.note.zone"
-          className="absolute top-24 left-4 z-30 w-80 rounded-lg border border-border bg-card p-3 shadow-xl"
+          className="absolute top-16 left-4 z-30 w-80 rounded-lg border border-border bg-card p-3 shadow-xl"
         >
           <p className="mb-2 text-[11px] text-muted-foreground">Note — enregistrée automatiquement</p>
           {editing ? (
@@ -111,6 +135,14 @@ export function NotesButton({ mediaId }: { mediaId: number }) {
                 pending.current = e.target.value;
                 clearTimeout(timer.current);
                 timer.current = setTimeout(flush, SAVE_DELAY);
+              }}
+              onKeyDown={(e) => {
+                // Entrée : note terminée, affichée « écrite ». Maj + Entrée : retour à la ligne.
+                if (e.key !== "Enter" || e.shiftKey || e.nativeEvent.isComposing) return;
+                e.preventDefault();
+                flush();
+                if (text.trim()) setEditing(false);
+                else close();
               }}
               onBlur={() => {
                 flush();
