@@ -9,6 +9,7 @@ import { THUMB, mediaUrl, thumbUrl, type MediaItem } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { usePreviews } from "@/stores/previews";
 import { ANIM_MS, useZoom, type Size } from "./useZoom";
+import { ZoomBadge } from "./ZoomBadge";
 
 export function ImageStage({ item, onClose }: { item: MediaItem; onClose: () => void }) {
   const stageRef = useRef<HTMLDivElement>(null);
@@ -67,14 +68,7 @@ export function ImageStage({ item, onClose }: { item: MediaItem; onClose: () => 
           style={{ opacity: loaded ? 1 : 0 }}
         />
       </div>
-      {zoomed && (
-        <div
-          data-zone="visionneuse.facteur-zoom"
-          className="pointer-events-none absolute top-4 left-4 z-20 rounded bg-black/70 px-2 py-1 font-mono text-xs text-white"
-        >
-          {view.scale.toFixed(2)}×
-        </div>
-      )}
+      {zoomed && <ZoomBadge scale={view.scale} />}
     </div>
   );
 }

@@ -1,10 +1,11 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Droits de la fenêtre principale : fonctions de base + fenêtre Windows de choix de dossier",
+  "description": "Droits de la fenêtre principale : fonctions de base, fenêtre Windows de choix de dossier, plein écran de la visionneuse (VIEW-18)",
   "windows": ["main"],
   "permissions": [
     "core:default",
-    "dialog:allow-open"
+    "dialog:allow-open",
+    "core:window:allow-set-fullscreen"
   ]
 }

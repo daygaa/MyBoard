@@ -4,22 +4,29 @@
 // Les compteurs viennent de la base (déclencheurs SQL) : toujours exacts (SRCH-13), relus
 // dès qu'un tag est ajouté ou retiré (SRCH-14).
 // Liste virtualisée (D-008) : une page de 500 médias peut porter des milliers de tags.
+// Chaque catégorie montre ses 10 tags les plus utilisés ; son nom est un bouton qui déplie la
+// liste complète, puis la replie (SRCH-15).
 
-import { useLayoutEffect, useRef } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { Minus, Plus } from "lucide-react";
+import { ChevronDown, Minus, Plus } from "lucide-react";
 
 import { useCategories } from "@/hooks/useCategories";
 import { api, type Category, type MediaItem, type TagInfo } from "@/lib/api";
 import { formatNumber } from "@/lib/format";
+import { cn } from "@/lib/utils";
 import { displayTag } from "@/lib/tags";
 import { useSearch } from "@/stores/search";
 
-type Row = { kind: "category"; category: Category; count: number } | { kind: "tag"; tag: TagInfo; color: string };
+type Row =
+  | { kind: "category"; category: Category; count: number; expandable: boolean; expanded: boolean }
+  | { kind: "tag"; tag: TagInfo; color: string };
 
 const CATEGORY_ROW = 30;
 const TAG_ROW = 26;
+/** Tags montrés par catégorie tant qu'elle n'est pas dépliée (SRCH-15). */
+const FOLDED_COUNT = 10;
 
 function TagRow({ tag, color }: { tag: TagInfo; color: string }) {
   const setTerms = useSearch((s) => s.setTerms);
@@ -67,14 +74,25 @@ export function PageTags({ items }: { items: MediaItem[] }) {
     placeholderData: keepPreviousData,
   });
   const { list: categories } = useCategories();
+  /** Catégories dépliées (gardées en changeant de page). */
+  const [expanded, setExpanded] = useState<ReadonlySet<number>>(new Set());
+  const toggle = (id: number) =>
+    setExpanded((set) => {
+      const next = new Set(set);
+      if (!next.delete(id)) next.add(id);
+      return next;
+    });
 
   // Tags déjà triés par nombre de médias (le plus utilisé en haut, D-016).
   const rows: Row[] = [];
   for (const category of categories) {
     const inCategory = tags.filter((t) => t.categoryId === category.id);
     if (inCategory.length === 0) continue;
-    rows.push({ kind: "category", category, count: inCategory.length });
-    for (const tag of inCategory) rows.push({ kind: "tag", tag, color: category.color });
+    const open = expanded.has(category.id);
+    const expandable = inCategory.length > FOLDED_COUNT;
+    rows.push({ kind: "category", category, count: inCategory.length, expandable, expanded: open });
+    const shown = open ? inCategory : inCategory.slice(0, FOLDED_COUNT);
+    for (const tag of shown) rows.push({ kind: "tag", tag, color: category.color });
   }
 
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -112,13 +130,21 @@ export function PageTags({ items }: { items: MediaItem[] }) {
                 style={{ height: v.size, transform: `translateY(${v.start}px)` }}
               >
                 {row.kind === "category" ? (
-                  <p
+                  <button
+                    type="button"
                     data-zone="barre-laterale.categorie"
-                    className="flex h-full items-end gap-2 px-1 pb-1 text-xs font-semibold tracking-wider text-muted-foreground uppercase"
+                    disabled={!row.expandable}
+                    onClick={() => toggle(row.category.id)}
+                    aria-expanded={row.expandable ? row.expanded : undefined}
+                    title={row.expandable ? (row.expanded ? "Ne montrer que les 10 premiers" : "Afficher tous les tags") : undefined}
+                    className="flex h-full w-full items-end gap-2 px-1 pb-1 text-left text-xs font-semibold tracking-wider text-muted-foreground uppercase enabled:hover:text-foreground"
                   >
                     {row.category.name}
                     <span className="font-normal text-muted-foreground/70 tabular-nums">{formatNumber(row.count)}</span>
-                  </p>
+                    {row.expandable && (
+                      <ChevronDown className={cn("mb-px h-3.5 w-3.5 transition-transform", row.expanded && "rotate-180")} />
+                    )}
+                  </button>
                 ) : (
                   <TagRow tag={row.tag} color={row.color} />
                 )}

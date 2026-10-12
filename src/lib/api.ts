@@ -73,6 +73,8 @@ export type MediaDetail = {
   fileCreatedAt: number | null;
   importedAt: number;
   tags: TagInfo[];
+  /** Note libre (VIEW-19). */
+  notes: string | null;
 };
 
 /** Résultat d'une miniature, envoyé par lots (événement `thumbs-ready`). */
@@ -146,6 +148,8 @@ export const api = {
   mediaDetail: (id: number) => invoke<MediaDetail | null>("media_detail", { id }),
   revealMedia: (id: number) => invoke<void>("reveal_media", { id }),
   openMedia: (id: number) => invoke<void>("open_media", { id }),
+  setMediaNotes: (id: number, notes: string) => invoke<void>("set_media_notes", { id, notes }),
+  openUrl: (url: string) => invoke<void>("open_url", { url }),
 };
 
 /** Événements émis par le cœur Rust. */

@@ -1,4 +1,5 @@
 // Zoom de la visionneuse façon wikifeet (ZOOM-01 à ZOOM-07), repris de la v8 validée (v8 ✓).
+// Sert aussi aux vidéos (ZOOM-08) : seul le clic sur le contenu change (lecture / pause).
 //
 // Échelle absolue : 1 = taille réelle (1 pixel de l'image = 1 pixel de l'écran).
 // `tx`, `ty` = décalage du centre de l'image par rapport au centre de la scène, en pixels.
@@ -51,7 +52,13 @@ function useStageSize(ref: RefObject<HTMLDivElement | null>): Size {
   return size;
 }
 
-export function useZoom(stageRef: RefObject<HTMLDivElement | null>, img: Size, onBackgroundClose: () => void) {
+/** `onContentClick` : action d'un clic sur le contenu à la place du zoom (vidéos : lecture / pause). */
+export function useZoom(
+  stageRef: RefObject<HTMLDivElement | null>,
+  img: Size,
+  onBackgroundClose: () => void,
+  onContentClick?: () => void,
+) {
   const stage = useStageSize(stageRef);
   const minScale = fitScale(img, stage);
   const [zoom, setZoom] = useState<Zoom>({ zoomed: false });
@@ -66,9 +73,9 @@ export function useZoom(stageRef: RefObject<HTMLDivElement | null>, img: Size, o
     : { scale: minScale, tx: 0, ty: 0 };
 
   // Valeurs à jour lues par les gestionnaires d'événements (molette regroupée par image affichée).
-  const live = useRef({ view, img, stage, minScale, onBackgroundClose });
+  const live = useRef({ view, img, stage, minScale, onBackgroundClose, onContentClick });
   useLayoutEffect(() => {
-    live.current = { view, img, stage, minScale, onBackgroundClose };
+    live.current = { view, img, stage, minScale, onBackgroundClose, onContentClick };
   });
 
   /** Nouvelle échelle et nouveau décalage, bornés ; revenir à « ajusté » recentre l'image. */
@@ -154,6 +161,8 @@ export function useZoom(stageRef: RefObject<HTMLDivElement | null>, img: Size, o
       // Fond : zoomé → retour à « ajusté » ; sinon → fermer la visionneuse.
       if (zoom.zoomed) commit(min, 0, 0, true);
       else live.current.onBackgroundClose();
+    } else if (live.current.onContentClick) {
+      live.current.onContentClick();
     } else if (zoom.zoomed) {
       commit(min, 0, 0, true); // zoomé → « ajusté », centré
     } else if (min < 1 - EPS) {
@@ -166,6 +175,8 @@ export function useZoom(stageRef: RefObject<HTMLDivElement | null>, img: Size, o
     view,
     zoomed: zoom.zoomed,
     animate,
+    /** Retour à « ajusté », centré, avec l'animation du clic. */
+    reset: () => commit(live.current.minScale, 0, 0, true),
     // Geste interrompu (fenêtre qui perd le focus…) : ni clic ni déplacement.
     handlers: { onPointerDown, onPointerMove, onPointerUp, onPointerCancel: () => (drag.current = null) },
   };

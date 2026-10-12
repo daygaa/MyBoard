@@ -1,67 +1,47 @@
 // Visionneuse plein écran (VIEW-01 à VIEW-07), apparence v8.
 // - Fermer : Échap, bouton 4 de la souris, croix, clic sur le fond (VIEW-02, VIEW-03).
-// - Précédent / suivant (flèches écran et clavier) sans couture entre les pages (VIEW-04) :
-//   la position du média est comptée sur TOUS les résultats, les pages voisines sont lues
-//   avec la même requête que la grille (même cache).
+// - Précédent / suivant (flèches écran et clavier) sans couture entre les pages (VIEW-04).
 // - En fermant, la grille montre la page du média regardé (VIEW-05).
 // - La page derrière ne défile pas (VIEW-06).
+// - Plein écran total (VIEW-18) : la fenêtre couvre tout l'écran ; la barre du bas apparaît au
+//   survol ; la croix, Échap et le bouton 4 quittent d'abord le plein écran.
+// - Note du média (VIEW-19), message d'erreur des ouvertures externes (VIEW-28).
 
-import { useEffect, useRef } from "react";
-import { useQueryClient } from "@tanstack/react-query";
-import { ChevronLeft, ChevronRight, X } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { ChevronLeft, ChevronRight, Maximize2, X } from "lucide-react";
 
-import { api, mediaUrl, type ListPage, type MediaItem } from "@/lib/api";
-import { useEscape } from "@/lib/escape";
+import type { MediaItem } from "@/lib/api";
+import { hasModalLayer, useEscape } from "@/lib/escape";
+import { cn } from "@/lib/utils";
 import { useSearch } from "@/stores/search";
 import { useViewer, type ListBase } from "@/stores/viewer";
+import { ControlsSlot } from "./controlsSlot";
+import { ErrorBanner } from "./ErrorBanner";
 import { InfoBar } from "./InfoBar";
 import { MediaStage } from "./MediaStage";
+import { NotesButton } from "./NotesButton";
+import { isTyping, itemAt, preload, usePageAt } from "./navigation";
+import { removePrintHolder } from "./printMedia";
 
 const NAV_BUTTON =
   "absolute top-1/2 z-20 grid h-12 w-12 -translate-y-1/2 place-items-center rounded-md bg-black/60 text-white transition hover:bg-black/85";
-
-function isTyping(target: EventTarget | null): boolean {
-  return target instanceof HTMLElement && (["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName) || target.isContentEditable);
-}
-
-/** Page de résultats contenant la position `index` (lue en cache si déjà chargée). */
-function usePageAt() {
-  const queryClient = useQueryClient();
-  return (base: ListBase, index: number): Promise<ListPage> => {
-    const query = { ...base, page: Math.floor(index / base.pageSize) + 1 };
-    return queryClient.ensureQueryData({ queryKey: ["media", query], queryFn: () => api.listMedia(query) });
-  };
-}
-
-function itemAt(page: ListPage, index: number): MediaItem | undefined {
-  return page.items[index - (page.page - 1) * page.pageSize];
-}
-
-/** Garde en mémoire les images voisines déjà décodées : passer à la suivante est immédiat. */
-const preloaded = new Map<number, HTMLImageElement>();
-function preload(items: MediaItem[]) {
-  const keep = new Set(items.map((i) => i.id));
-  for (const id of preloaded.keys()) if (!keep.has(id)) preloaded.delete(id);
-  for (const item of items) {
-    if (item.kind !== "image" || preloaded.has(item.id)) continue;
-    const img = new Image();
-    img.decoding = "async";
-    img.src = mediaUrl(item);
-    preloaded.set(item.id, img);
-  }
-}
+const ROUND_BUTTON = "absolute top-4 z-20 grid h-10 w-10 place-items-center rounded-full bg-black/60 text-white transition hover:bg-black/85";
 
 function ViewerOverlay({ base }: { base: ListBase }) {
   const index = useViewer((s) => s.index);
   const item = useViewer((s) => s.item);
   const total = useViewer((s) => s.total);
-  const show = useViewer((s) => s.show);
-  const close = useViewer((s) => s.close);
+  const fullscreen = useViewer((s) => s.fullscreen);
+  const hasError = useViewer((s) => s.error !== null);
+  const { show, close, setFullscreen, closeForSearch } = useViewer.getState();
   const pageAt = usePageAt();
+  const [slot, setSlot] = useState<HTMLDivElement | null>(null);
   // Dernière position demandée : un appui rapide sur → enchaîne sans attendre l'affichage.
   const target = useRef(index);
 
-  const isTop = useEscape(true, close);
+  useEscape(true, close);
+  // Inscrit après la visionneuse : en plein écran, Échap et le bouton 4 le quittent d'abord.
+  useEscape(fullscreen, () => setFullscreen(false));
   useEffect(() => {
     target.current = index;
   }, [index]);
@@ -94,10 +74,10 @@ function ViewerOverlay({ base }: { base: ListBase }) {
     // `pageAt` est recréée à chaque affichage mais ne dépend que du cache partagé.
   }, [base, index]);
 
-  // Flèches du clavier, sauf pendant la saisie d'un tag ou si une pop-in est ouverte.
+  // Flèches du clavier, sauf pendant une saisie ou si une pop-in est ouverte.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (isTyping(e.target) || !isTop()) return;
+      if (isTyping(e.target) || hasModalLayer()) return;
       if (e.key === "ArrowLeft") void go(-1);
       else if (e.key === "ArrowRight") void go(1);
       else return;
@@ -118,13 +98,14 @@ function ViewerOverlay({ base }: { base: ListBase }) {
     return () => {
       html.style.overflow = previous.overflow;
       html.style.scrollbarGutter = previous.gutter;
+      removePrintHolder();
     };
   }, []);
 
   if (!item) return null;
   const searchTag = (name: string) => {
     useSearch.getState().setTerms([name]);
-    useViewer.setState({ open: false, item: null, base: null }); // nouvelle recherche : page 1
+    closeForSearch(); // nouvelle recherche : page 1
   };
 
   return (
@@ -136,13 +117,29 @@ function ViewerOverlay({ base }: { base: ListBase }) {
       className="mb-zoom-in fixed inset-0 z-[100] flex flex-col bg-black/95"
     >
       <div data-zone="visionneuse.scene" className="checker relative min-h-0 flex-1 overflow-hidden">
-        <MediaStage key={item.id} item={item} onClose={close} />
+        <ControlsSlot.Provider value={slot}>
+          <MediaStage key={item.id} item={item} onClose={close} />
+        </ControlsSlot.Provider>
+        <NotesButton key={`note-${item.id}`} mediaId={item.id} />
+        {!fullscreen && (
+          <button
+            type="button"
+            data-zone="visionneuse.plein-ecran"
+            onClick={() => setFullscreen(true)}
+            aria-label="Plein écran"
+            title="Plein écran"
+            className={cn(ROUND_BUTTON, "right-16")}
+          >
+            <Maximize2 className="h-4 w-4" />
+          </button>
+        )}
         <button
           type="button"
           data-zone="visionneuse.fermer"
-          onClick={close}
-          aria-label="Fermer (Échap)"
-          className="absolute top-4 right-4 z-20 grid h-10 w-10 place-items-center rounded-full bg-black/60 text-white transition hover:bg-black/85"
+          onClick={fullscreen ? () => setFullscreen(false) : close}
+          aria-label={fullscreen ? "Quitter le plein écran (Échap)" : "Fermer (Échap)"}
+          title={fullscreen ? "Quitter le plein écran (Échap)" : "Fermer (Échap)"}
+          className={cn(ROUND_BUTTON, "right-4")}
         >
           <X className="h-5 w-5" />
         </button>
@@ -157,7 +154,20 @@ function ViewerOverlay({ base }: { base: ListBase }) {
           </button>
         )}
       </div>
-      <InfoBar item={item} onSearch={searchTag} />
+      {/* Plein écran : la barre passe par-dessus le média, visible seulement au survol (ou pendant
+          une saisie, ou s'il y a un message d'erreur). */}
+      <div
+        data-zone="visionneuse.bas"
+        className={cn(
+          fullscreen &&
+            "absolute inset-x-0 bottom-0 z-30 opacity-0 transition-opacity duration-200 focus-within:opacity-100 hover:opacity-100",
+          fullscreen && hasError && "opacity-100",
+        )}
+      >
+        <div ref={setSlot} />
+        <ErrorBanner />
+        <InfoBar item={item} onSearch={searchTag} />
+      </div>
     </div>
   );
 }

@@ -6,7 +6,7 @@ use anyhow::Context;
 use rusqlite::Connection;
 
 /// Migrations dans l'ordre : l'indice + 1 = numéro de version (`PRAGMA user_version`).
-const MIGRATIONS: &[&str] = &[include_str!("schema_v1.sql"), include_str!("schema_v2.sql")];
+const MIGRATIONS: &[&str] = &[include_str!("schema_v1.sql"), include_str!("schema_v2.sql"), include_str!("schema_v3.sql")];
 
 /// Ouvre une connexion avec les réglages communs à toute l'application.
 pub fn open(path: &Path) -> anyhow::Result<Connection> {

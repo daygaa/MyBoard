@@ -81,6 +81,8 @@ pub fn run() {
             media::media_detail,
             media::reveal_media,
             media::open_media,
+            media::set_media_notes,
+            media::open_url,
         ])
         .run(tauri::generate_context!())
         .expect("erreur au lancement de MyBoard");

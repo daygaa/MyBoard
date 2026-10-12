@@ -19,7 +19,7 @@ type Props = {
 };
 
 export function Modal({ open, onClose, title, description, children, footer, zone }: Props) {
-  useEscape(open, onClose);
+  useEscape(open, onClose, true);
   if (!open) return null;
   return createPortal(
     <div

@@ -93,12 +93,18 @@ Variables d'environnement utiles :
 - `MYBOARD_MONITOR` (tests uniquement, DEV-05) — écran où s'ouvre la fenêtre, par sa définition
   (`1920x1080`) ou son nom Windows (`DISPLAY1`). Sans la variable, rien ne change.
 
+**Bibliothèques de test (DEV-06)** : `new V2\échantillon test SFW\MyBoard-test\` — `100k`
+(générée, taguée), `booru` (banque Danbooru + tags DEV-01), `echantillon` (échantillon SFW),
+`divers` (fichiers de test `fichiers-divers` : PDF, MP3, TIFF, petite image, AVI illisible),
+et les profils WebView2 de test (`webview-*`). Attention : ce dossier est DANS l'échantillon ;
+réimporter « échantillon test SFW » avec ses sous-dossiers importerait aussi `MyBoard-test`
+et `BooruScrap - 3k demo`.
+
 **Attention (sessions Claude Code, 12/10/2026)** : l'application Claude est une application du
 Microsoft Store ; ce que ses commandes écrivent dans `%LOCALAPPDATA%` est redirigé vers
-`%LOCALAPPDATA%\Packages\Claude_pzs8sxrjxfjjc\LocalCache\Local\`. Les bibliothèques de test
-`MyBoard-test` y sont donc réellement rangées, invisibles à l'adresse habituelle pour
-l'utilisateur et pour l'Explorateur. Tester « Ouvrir dans l'explorateur » sur des fichiers du
-Bureau, pas sur des fichiers de ce dossier.
+`%LOCALAPPDATA%\Packages\Claude_pzs8sxrjxfjjc\LocalCache\Local\`, invisible pour l'utilisateur
+et pour l'Explorateur. Ne rien y ranger de destiné à l'utilisateur (d'où DEV-06), et tester
+« Ouvrir dans l'explorateur » sur des fichiers du Bureau.
 
 Structure : `src-tauri/src` (Rust : `db/`, `import/`, `thumbs/`, `media/` (visionneuse, protocole
 `media://`), `library.rs`, `search.rs`, `tags.rs`, `ffmpeg.rs`, `test_screen.rs`) ·

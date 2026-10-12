@@ -1,17 +1,20 @@
 // Barre du bas de la visionneuse (apparence v8, deux lignes).
 // Ligne 1 : infos du fichier (VIEW-10), juste à droite le champ d'ajout de tag (VIEW-20),
 // puis les actions : Favori (VIEW-11), Dossier (VIEW-15), Explorer (VIEW-13),
-// Ouvrir avec l'application par défaut (VIEW-24), Supprimer (VIEW-14). Pas de « Télécharger »
-// (VIEW-12). Favori, Dossier et Supprimer : grisés « bientôt » jusqu'à la phase 3 (D-016).
+// Ouvrir avec l'application par défaut (VIEW-24), Imprimer (VIEW-17, images seulement),
+// Supprimer (VIEW-14). Pas de « Télécharger » (VIEW-12). Favori, Dossier et Supprimer : grisés
+// « bientôt » jusqu'à la phase 3 (D-016). Échec d'une ouverture : message d'erreur (VIEW-28).
 // Ligne 2 : les tags du média en pastilles (VIEW-23).
 
 import type { ComponentType } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ExternalLink, FolderOpen, FolderPlus, Star, Trash2 } from "lucide-react";
+import { ExternalLink, FolderOpen, FolderPlus, Printer, Star, Trash2 } from "lucide-react";
 
 import { api, type MediaItem } from "@/lib/api";
 import { formatBytes, formatDuration } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { runExternal } from "./externalOpen";
+import { printImage } from "./printMedia";
 import { TagAdder, TagPills } from "./ViewerTags";
 
 const ACTION = "inline-flex h-8 items-center gap-1.5 rounded-md px-2.5 text-sm transition";
@@ -21,6 +24,7 @@ function Action({
   label,
   title,
   onClick,
+  unavailable,
   className,
   zone,
 }: {
@@ -28,20 +32,22 @@ function Action({
   label: string;
   title: string;
   onClick?: () => void;
+  /** Raison pour laquelle l'action est grisée (sinon, sans `onClick` : « bientôt disponible »). */
+  unavailable?: string;
   className?: string;
   zone: string;
 }) {
-  const soon = !onClick;
+  const disabled = !onClick || unavailable !== undefined;
   return (
     <button
       type="button"
       data-zone={zone}
-      disabled={soon}
+      disabled={disabled}
       onClick={onClick}
-      title={soon ? `${title} — bientôt disponible` : title}
+      title={unavailable ?? (onClick ? title : `${title} — bientôt disponible`)}
       className={cn(
         ACTION,
-        soon ? "cursor-not-allowed opacity-45" : "hover:bg-secondary hover:text-foreground",
+        disabled ? "cursor-not-allowed opacity-45" : "hover:bg-secondary hover:text-foreground",
         className ?? "text-muted-foreground",
       )}
     >
@@ -84,14 +90,22 @@ export function InfoBar({ item, onSearch }: { item: MediaItem; onSearch: (name: 
             icon={FolderOpen}
             label="Explorer"
             title="Ouvrir dans l'explorateur (fichier sélectionné)"
-            onClick={() => void api.revealMedia(item.id)}
+            onClick={() => void runExternal("Ouvrir dans l'explorateur", () => api.revealMedia(item.id))}
           />
           <Action
             zone="visionneuse.ouvrir"
             icon={ExternalLink}
             label="Ouvrir avec…"
             title="Ouvrir avec l'application par défaut"
-            onClick={() => void api.openMedia(item.id)}
+            onClick={() => void runExternal("Ouvrir avec l'application par défaut", () => api.openMedia(item.id))}
+          />
+          <Action
+            zone="visionneuse.imprimer"
+            icon={Printer}
+            label="Imprimer"
+            title="Imprimer l'image"
+            onClick={() => void printImage(item)}
+            unavailable={item.kind === "image" ? undefined : "Imprimer : réservé aux images"}
           />
           <Action
             zone="visionneuse.supprimer"

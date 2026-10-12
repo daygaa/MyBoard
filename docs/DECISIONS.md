@@ -258,3 +258,33 @@ tous les fichiers de l'import, y compris ceux déjà présents dans la biblioth�
   très inégale comme dans la réalité, pour mesurer la recherche et la barre latérale.
 - Fenêtre des tests sur l'écran 1920×1080 à 60 Hz (DEV-05) : la fluidité y plafonne à
   60 images/s, on mesure donc les images ratées ; l'ancienne mesure reste disponible.
+
+## D-017 — Corrections après le test de la phase 2 (T2) (13/10/2026)
+
+Réponses de l'utilisateur au fichier « Précisions - problèmes 2.txt » et à mes questions.
+
+- **Bouton 4 (VIEW-27)** : après la fermeture de la visionneuse, il la rouvre sur la dernière
+  image vue, une seule fois et seulement si rien n'a changé depuis (page, filtres, tri, recherche,
+  densité, page de l'application) ; refermée, le bouton 4 suivant fait le retour arrière normal.
+- **Badge du zoom (ZOOM-09)** : pourcentage de la taille réelle (100 % = un pixel du média pour
+  un pixel de l'écran). Plus tard : préférence « toujours afficher en taille réelle » (SET-09).
+- **Lecteur vidéo personnalisé (VIEW-29) et zoom des vidéos (ZOOM-08)** avancés en phase 2 :
+  commandes dessinées par MyBoard (celles de WebView2 sont masquées), même moteur de zoom que les
+  images ; clic sur la vidéo = lecture / pause ; Échap dézoome d'abord. Image par image avec les
+  touches `, ?` (reculer) et `; .` (avancer) du clavier AZERTY, au pas réel de la vidéo mesuré
+  pendant la lecture (1/30 s par défaut).
+- **Impression (VIEW-17)** : le média seul est imprimé, par une feuille de style d'impression
+  qui cache toute la page ; marges de page à zéro pour que le navigateur n'ajoute ni date ni
+  titre ; l'image reste en place tant que la visionneuse est ouverte (la fenêtre d'impression
+  redessine la page quand on change l'orientation). Images seulement (les PDF ont leur propre
+  bouton d'impression dans le lecteur intégré).
+- **Plein écran total (VIEW-18)** : plein écran de la fenêtre (barre des tâches masquée) ; la
+  barre du bas — et, pour une vidéo, ses commandes — n'apparaît qu'au survol ; croix, Échap et
+  bouton 4 quittent d'abord le plein écran.
+- **Notes (VIEW-19)** : colonne `notes` dans `media` (schéma v3) ; liens ouverts dans le
+  navigateur uniquement s'ils commencent par http(s) — une note ne peut jamais lancer un programme.
+- **Erreurs d'ouverture (VIEW-28)** : le cœur Rust renvoie le code d'erreur Windows et le message
+  de Windows ; l'interface ajoute une explication en clair pour les codes courants.
+- **VIEW-16** abandonné (doublon de VIEW-24). **Bibliothèques de test** déplacées dans un dossier
+  visible par l'utilisateur (DEV-06) : `%LOCALAPPDATA%` est redirigé en secret pour les commandes
+  lancées par l'application Claude (application du Microsoft Store).

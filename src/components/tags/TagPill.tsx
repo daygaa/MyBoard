@@ -27,12 +27,14 @@ export function TagPill({ color, children, onClick, onRemove, removeLabel, title
       // Couleur de la base (TAGM-01) : 15 % pour le fond, 30 % pour la bordure (comme la v8).
       style={{ color, backgroundColor: `${color}26`, borderColor: `${color}4d` }}
     >
+      {/* Texte remonté de 1 px : sinon il paraît plus bas que la croix, qui est bien centrée
+          (mesuré au pixel le 13/10, GEN-09). */}
       {onClick ? (
-        <button type="button" onClick={onClick} className="min-w-0 truncate hover:underline">
+        <button type="button" onClick={onClick} className="relative -top-px min-w-0 truncate hover:underline">
           {children}
         </button>
       ) : (
-        <span className="min-w-0 truncate">{children}</span>
+        <span className="relative -top-px min-w-0 truncate">{children}</span>
       )}
       {onRemove && (
         <button

@@ -2,6 +2,8 @@
 // pour la recherche de la barre latérale, la visionneuse et les tags par défaut de l'import.
 // Suggestions dès la première lettre : tags qui commencent par le texte, puis qui le
 // contiennent (D-016). ↑ / ↓ ou Tab pour choisir, Entrée pour valider, Échap pour fermer.
+// Liste ouverte au-dessus du champ (visionneuse) : ordre inversé, le tag le plus utilisé est
+// en bas, au plus près du champ (VIEW-21) ; la flèche ↑ monte donc vers les suivants.
 
 import { useState, type KeyboardEvent, type Ref } from "react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
@@ -67,11 +69,14 @@ export function TagInput({
   };
 
   const onKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "ArrowDown" || (e.key === "Tab" && !e.shiftKey && open)) {
+    const reversed = dropdown === "top";
+    const nextKey = reversed ? "ArrowUp" : "ArrowDown";
+    const previousKey = reversed ? "ArrowDown" : "ArrowUp";
+    if (e.key === nextKey || (e.key === "Tab" && !e.shiftKey && open)) {
       if (!open) return;
       e.preventDefault();
       setHighlight((h) => (h + 1) % suggestions.length);
-    } else if (e.key === "ArrowUp" || (e.key === "Tab" && e.shiftKey && open)) {
+    } else if (e.key === previousKey || (e.key === "Tab" && e.shiftKey && open)) {
       if (!open) return;
       e.preventDefault();
       setHighlight((h) => (h <= 0 ? suggestions.length - 1 : h - 1));
@@ -110,7 +115,8 @@ export function TagInput({
           data-zone={`${zone}.suggestions`}
           className={cn(
             "absolute right-0 left-0 z-50 max-h-72 min-w-56 overflow-y-auto rounded-lg border border-border bg-popover p-1 shadow-lg",
-            dropdown === "top" ? "bottom-full mb-1" : "top-full mt-1",
+            // Au-dessus : liste à l'envers (le plus utilisé en bas), qui s'ouvre défilée en bas.
+            dropdown === "top" ? "bottom-full mb-1 flex flex-col-reverse" : "top-full mt-1",
           )}
         >
           {suggestions.map((tag, i) => (

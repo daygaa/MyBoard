@@ -3,6 +3,37 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Phase 2 — Corrections après test (T2) (13/10/2026) — Backup v7
+
+Retours du fichier « Précisions - problèmes 2.txt » (`T2`) et réponses aux questions (D-017).
+SPEC : 36 demandes validées `[x]` par l'utilisateur ; VIEW-16 abandonné (doublon de VIEW-24).
+
+- VIEW-27 : le bouton 4 rouvre la dernière image vue juste après la fermeture de la visionneuse
+  (une seule fois, si rien n'a changé), puis fait le retour arrière normal.
+- VIEW-28 : si « Explorer » ou « Ouvrir avec » échoue, message avec le code d'erreur Windows,
+  le message de Windows et une explication (ex. 2 = fichier déplacé, 3 = dossier ou disque absent).
+- VIEW-29 + ZOOM-08 : lecteur vidéo aux couleurs de MyBoard (lecture / pause au clic et à
+  l'Espace, temps, progression cliquable avec le temps au survol, volume + muet retenus,
+  vitesse 0,5× à 2×, boucle, image par image avec `, ?` et `; .`) et même zoom que les images
+  (Échap dézoome d'abord).
+- ZOOM-09 : badge du zoom en pourcentage de la taille réelle.
+- VIEW-17 : bouton « Imprimer » (images) qui imprime l'image seule, sans en-tête ni pied de page.
+- VIEW-18 : plein écran total ; barre du bas (et commandes vidéo) au survol ; la croix, Échap et
+  le bouton 4 quittent d'abord le plein écran.
+- VIEW-19 : note par média (bouton en haut à gauche, liens cliquables, enregistrement automatique,
+  Échap ferme la note) ; base en version 3.
+- VIEW-21 : dans la visionneuse, suggestions dans l'ordre inverse (la plus utilisée en bas).
+- SRCH-15 : barre latérale limitée à 10 tags par catégorie, nom de catégorie = déplier / replier.
+- GEN-09 : texte des pastilles de tags remonté de 1 px (mesuré au pixel près).
+- DEV-06 : bibliothèques de test déplacées dans `new V2\échantillon test SFW\MyBoard-test`.
+- Nouvelles demandes notées pour plus tard : TAGM-08 (supprimer les tags non utilisés),
+  SET-09 (préférence « toujours afficher en taille réelle »).
+
+Vérifié dans la version compilée (fenêtre 1920×1080) : séquence du bouton 4 avec de vrais clics
+Windows ; messages d'erreur 2 et 3 (fichier puis dossier de test renommés puis remis) ; vraie
+fenêtre d'impression en portrait et en paysage ; plein écran 1920×1080 avec barre au survol ;
+lecteur (clic, Espace, image par image à 1/30 s, zoom vidéo 167 %, Échap) ; note enregistrée en base.
+
 ## Phase 2 — Visionneuse, tags, recherche, barre latérale (12/10/2026) — Backup v6
 
 Cadrage avec l'utilisateur avant de coder : D-016 (Q-05 tranchée, vidéos, choix par défaut).

@@ -1,0 +1,187 @@
+// Barre de commandes du lecteur vidéo personnalisé (VIEW-29), aux couleurs de MyBoard :
+// lecture / pause, temps, barre de progression cliquable (temps au survol), volume + muet,
+// vitesse, boucle (VIEW-26).
+
+import { useEffect, useReducer, useState, type PointerEvent, type RefObject } from "react";
+import { Pause, Play, Repeat, Volume1, Volume2, VolumeX } from "lucide-react";
+
+import { useEscape } from "@/lib/escape";
+import { formatDuration } from "@/lib/format";
+import { cn } from "@/lib/utils";
+import { SPEEDS, usePlayer } from "@/stores/player";
+
+const BUTTON = "grid h-8 w-8 shrink-0 place-items-center rounded-md text-zinc-200 transition hover:bg-white/10 hover:text-white";
+
+/** Temps en secondes → « 1:05 » (0 s compris). */
+function clock(seconds: number): string {
+  return Number.isFinite(seconds) && seconds > 0 ? formatDuration(seconds * 1000) : "0:00";
+}
+
+/** Redessine la barre à chaque événement de la vidéo (lecture, temps, volume…). */
+function useVideoEvents(ref: RefObject<HTMLVideoElement | null>) {
+  const [, refresh] = useReducer((n: number) => n + 1, 0);
+  useEffect(() => {
+    const video = ref.current;
+    if (!video) return;
+    const events = ["loadedmetadata", "play", "pause", "timeupdate", "durationchange", "volumechange", "ratechange", "progress", "seeked"];
+    for (const name of events) video.addEventListener(name, refresh);
+    return () => {
+      for (const name of events) video.removeEventListener(name, refresh);
+    };
+  }, [ref]);
+}
+
+function ProgressBar({ video }: { video: HTMLVideoElement }) {
+  const [hover, setHover] = useState<{ x: number; time: number } | null>(null);
+  const duration = video.duration || 0;
+  const played = duration ? (video.currentTime / duration) * 100 : 0;
+  const buffered = duration && video.buffered.length ? (video.buffered.end(video.buffered.length - 1) / duration) * 100 : 0;
+
+  const timeAt = (e: PointerEvent<HTMLDivElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const ratio = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
+    return { x: ratio * rect.width, time: ratio * duration };
+  };
+  const seek = (e: PointerEvent<HTMLDivElement>) => {
+    if (duration) video.currentTime = timeAt(e).time;
+  };
+
+  return (
+    <div
+      data-zone="visionneuse.lecteur.progression"
+      className="group relative flex h-8 min-w-0 flex-1 cursor-pointer items-center"
+      onPointerDown={(e) => {
+        e.currentTarget.setPointerCapture(e.pointerId);
+        seek(e);
+      }}
+      onPointerMove={(e) => {
+        setHover(timeAt(e));
+        if (e.currentTarget.hasPointerCapture(e.pointerId)) seek(e);
+      }}
+      onPointerLeave={() => setHover(null)}
+    >
+      <div className="relative h-1 w-full rounded-full bg-white/15 transition-[height] group-hover:h-1.5">
+        <div className="absolute inset-y-0 left-0 rounded-full bg-white/25" style={{ width: `${buffered}%` }} />
+        <div className="absolute inset-y-0 left-0 rounded-full bg-[#d9a94e]" style={{ width: `${played}%` }} />
+        <div
+          className="absolute top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#d9a94e] opacity-0 transition-opacity group-hover:opacity-100"
+          style={{ left: `${played}%` }}
+        />
+      </div>
+      {hover && (
+        <span
+          className="pointer-events-none absolute bottom-full mb-1 -translate-x-1/2 rounded bg-black/85 px-1.5 py-0.5 font-mono text-[11px] text-white"
+          style={{ left: hover.x }}
+        >
+          {clock(hover.time)}
+        </span>
+      )}
+    </div>
+  );
+}
+
+function SpeedMenu() {
+  const speed = usePlayer((s) => s.speed);
+  const setSpeed = usePlayer((s) => s.setSpeed);
+  const [open, setOpen] = useState(false);
+  useEscape(open, () => setOpen(false));
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        data-zone="visionneuse.lecteur.vitesse"
+        onClick={() => setOpen(!open)}
+        title="Vitesse de lecture"
+        className="h-8 min-w-12 rounded-md px-2 font-mono text-xs text-zinc-200 transition hover:bg-white/10 hover:text-white"
+      >
+        {String(speed).replace(".", ",")}×
+      </button>
+      {open && (
+        <ul className="absolute right-0 bottom-full z-30 mb-1 rounded-md border border-border bg-popover p-1 shadow-lg">
+          {[...SPEEDS].reverse().map((s) => (
+            <li key={s}>
+              <button
+                type="button"
+                onClick={() => {
+                  setSpeed(s);
+                  setOpen(false);
+                }}
+                className={cn(
+                  "w-full rounded px-3 py-1 text-right font-mono text-xs hover:bg-secondary",
+                  s === speed ? "text-[#d9a94e]" : "text-foreground",
+                )}
+              >
+                {String(s).replace(".", ",")}×
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+/** `docked` : placée dans la barre du bas (plein écran) au lieu d'être posée sur la scène. */
+export function VideoControls({ videoRef, docked = false }: { videoRef: RefObject<HTMLVideoElement | null>; docked?: boolean }) {
+  useVideoEvents(videoRef);
+  const { volume, muted, loop, setVolume, setMuted, setLoop } = usePlayer();
+  const video = videoRef.current;
+  if (!video) return null;
+  const silent = muted || volume === 0;
+  const VolumeIcon = silent ? VolumeX : volume < 0.5 ? Volume1 : Volume2;
+
+  return (
+    <div
+      data-zone="visionneuse.lecteur"
+      className={cn(
+        "flex h-12 items-center gap-2 border-t border-white/5 bg-black/80 px-3",
+        !docked && "absolute inset-x-0 bottom-0 z-20",
+      )}
+    >
+      <button
+        type="button"
+        className={BUTTON}
+        onClick={() => void (video.paused ? video.play() : video.pause())}
+        aria-label={video.paused ? "Lecture (Espace)" : "Pause (Espace)"}
+        title={video.paused ? "Lecture (Espace)" : "Pause (Espace)"}
+      >
+        {video.paused ? <Play className="h-4 w-4 fill-current" /> : <Pause className="h-4 w-4 fill-current" />}
+      </button>
+      <span className="shrink-0 font-mono text-xs text-zinc-300 tabular-nums">
+        {clock(video.currentTime)} / {clock(video.duration)}
+      </span>
+      <ProgressBar video={video} />
+      <button
+        type="button"
+        className={BUTTON}
+        // Rétablir le son alors que le volume est à zéro : on remet un volume moyen.
+        onClick={() => (silent ? (volume === 0 ? setVolume(0.5) : setMuted(false)) : setMuted(true))}
+        aria-label={silent ? "Rétablir le son" : "Couper le son"}
+        title={silent ? "Rétablir le son" : "Couper le son"}
+      >
+        <VolumeIcon className="h-4 w-4" />
+      </button>
+      <input
+        type="range"
+        min={0}
+        max={1}
+        step={0.05}
+        value={silent ? 0 : volume}
+        onChange={(e) => setVolume(Number(e.target.value))}
+        aria-label="Volume"
+        className="h-1 w-24 shrink-0 cursor-pointer accent-[#d9a94e]"
+      />
+      <SpeedMenu />
+      <button
+        type="button"
+        data-zone="visionneuse.boucle"
+        aria-pressed={loop}
+        onClick={() => setLoop(!loop)}
+        title={loop ? "Lecture en boucle activée : cliquer pour la désactiver" : "Lecture en boucle désactivée : cliquer pour l'activer"}
+        className={cn(BUTTON, loop ? "text-[#d9a94e] hover:text-[#e3b75f]" : "text-zinc-500")}
+      >
+        <Repeat className="h-4 w-4" />
+      </button>
+    </div>
+  );
+}

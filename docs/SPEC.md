@@ -23,7 +23,8 @@
 **Sources** : `FC` flowchart · `R1` modif_UI.txt · `R2` modifUI-UX2.txt · `R3` modifUIUX3.txt ·
 `R4` modifUI-UX4.txt · `IDEES` « UI-UX Ideas to do after » · `BUG` bugs_alreadysent.txt ·
 `PY` PROJECT_STATE/BACKLOG de la version Python · `D` décision prise avec Claude (date) ·
-`T1` « txt post-test/Précisions - problèmes 1.txt » (retours du test de la phase 1).
+`T1` « txt post-test/Précisions - problèmes 1.txt » (retours du test de la phase 1) ·
+`T2` « txt post-test/Précisions - problèmes 2.txt » (retours du test de la phase 2).
 Les fichiers sources sont dans `Versions historiques/` (lecture seule).
 
 **Phases de développement** (détail dans `docs/DECISIONS.md`) :
@@ -42,7 +43,7 @@ Les fichiers sources sont dans `Versions historiques/` (lecture seule).
 - [~] **GEN-06** Interface en français.
 - [~] **GEN-07** Fluidité à grande échelle : bibliothèque de **100 000+ médias**, grille **sans lag jusqu'à 30 colonnes**. L'utilisateur a 100k+ fichiers réels (C: SSD, D: HDD) pour tester. `R2 R3 R4 D 11/10` — Phase 1 : mesuré sur 100 000 médias (CHANGELOG, D-014).
 - [~] **GEN-08** Chaque zone de l'interface porte un **nom court et stable** (attribut `data-zone`, ex. `visionneuse.barre-tags`) pour que l'utilisateur puisse la désigner dans ses retours sans copier de classes HTML. Remplace la demande « nettoyer les noms des div ». `R1 R2 D 11/10`
-- [ ] **GEN-09** Marges et alignements cohérents au pixel près (pas de décalages de 1–2 px). `R1`
+- [ ] **GEN-09** Marges et alignements cohérents au pixel près (pas de décalages de 1–2 px). `R1` — 13/10 : texte des pastilles de tags 1 px trop bas, corrigé (`T2`, capture « Screen 1 »).
 - [~] **GEN-10** Les pop-ins de confirmation sont des fenêtres de l'application (style maison), jamais les boîtes natives du navigateur. `R1` — Phase 2 : pop-in « Créer un nouveau tag ».
 - [~] **GEN-11** Icône de l'application = le logo MyBoard doré (barre des tâches, coin de la fenêtre, fichier .exe). `D 12/10`
 
@@ -51,7 +52,7 @@ Les fichiers sources sont dans `Versions historiques/` (lecture seule).
 - [~] **LIB-01** Par défaut, les médias sont **référencés sur place** : l'application indexe les fichiers là où ils sont, sans les copier. `D 11/10`
 - [>] **LIB-02** Option dans les paramètres : **importer dans la bibliothèque gérée** (copie dans `originals/<2 hex>/<reste>.<ext>`, 256 sous-dossiers par hash). `D 11/10` `PY`
 - [~] **LIB-03** Détection des doublons exacts par empreinte du contenu (hash) : un fichier déjà indexé n'est pas ré-ajouté, même renommé. `PY FC`
-- [~] **LIB-04** Les tags sont liés au média (identifiant interne), jamais au nom de fichier. `PY`
+- [x] **LIB-04** Les tags sont liés au média (identifiant interne), jamais au nom de fichier. `PY`
 - [?] **LIB-05** Comportement quand un fichier référencé est **déplacé, renommé ou supprimé hors de l'application** (signaler « fichier introuvable », retrouver automatiquement par hash lors d'un nouveau scan…). → Q-01
 - [~] **LIB-06** **Petites miniatures** (~320 px, format WebP) générées **en arrière-plan après l'import**, stockées sur le SSD ; l'import n'attend pas leur génération, elles apparaissent au fur et à mesure. `D 11/10` (Q-02, D-011) — Phase 1 : rangées dans `thumbs.db` (D-014).
 - [~] **LIB-07** Base de données et miniatures sur un disque rapide (SSD) même si les médias sont sur HDD. `D 11/10`
@@ -92,7 +93,7 @@ Les fichiers sources sont dans `Versions historiques/` (lecture seule).
 
 ### Tags par défaut
 - [~] **IMP-30** Éditeur placé sous la grille des cartes d'options : [champ texte] → [menu catégorie à droite] → Entrée ou bouton « Ajouter » → **badge coloré** selon la catégorie, sous le champ. `R1` (v8 ✓) — Avancé en phase 2 (`D 12/10`) : placé sous l'encadré de dépôt tant que les cartes d'options n'existent pas (phase 4) ; les tags sont ajoutés à tous les fichiers de l'import, y compris ceux déjà présents dans la bibliothèque.
-- [~] **IMP-31** Les espaces deviennent automatiquement des `_`. Autocomplétion avec les tags existants (même moteur que la barre latérale) ; choisir un tag existant ignore le menu catégorie (il a déjà la sienne). `R1` — Avancé en phase 2 (`D 12/10`).
+- [x] **IMP-31** Les espaces deviennent automatiquement des `_`. Autocomplétion avec les tags existants (même moteur que la barre latérale) ; choisir un tag existant ignore le menu catégorie (il a déjà la sienne). `R1` — Avancé en phase 2 (`D 12/10`).
 
 ### Déroulement
 - [~] **IMP-40** La progression s'affiche **dans** la barre d'actions d'import (cachée au repos), au-dessus de la liste des fichiers. `R2` (v8 ✓)
@@ -130,7 +131,7 @@ Les fichiers sources sont dans `Versions historiques/` (lecture seule).
 
 - [~] **FILT-01** Filtres par type (Images, Vidéos, Audio, Documents…) **à sélection multiple** (ex. Images + Vidéos). `R2`
 - [~] **FILT-02** Filtres et tri sont **totalement indépendants du système de tags** : jamais de `type:` / `order:` en interne, jamais de pastille de tag pour eux. `R3 R4`
-- [~] **FILT-03** Changer de filtre ne retire jamais les tags recherchés. `R3`
+- [x] **FILT-03** Changer de filtre ne retire jamais les tags recherchés. `R3`
 - [~] **FILT-04** Tris : récents / anciens, **poids** + / −, **taille (résolution)** + / −, nombre de tags + / −, aléatoire. Pas de « favoris » dans le menu de tri. `FC IDEES`
 - [~] **FILT-05** Tri par **date de création** du fichier (en plus de la date d'import). `FC`
 - [~] **FILT-06** Le tri et les filtres sont **mémorisés** (retour de la visionneuse, redémarrage). `R2`
@@ -139,63 +140,68 @@ Les fichiers sources sont dans `Versions historiques/` (lecture seule).
 
 ## SRCH — Recherche et barre latérale des tags
 
-- [~] **SRCH-01** Barre de recherche dans la barre latérale (plus de barre de recherche dans l'en-tête). Entrée ou bouton pour lancer. `FC R2`
-- [~] **SRCH-02** Plusieurs tags = **ET** (tous présents). `FC`
-- [~] **SRCH-03** Exclusion d'un tag avec `-tag`. `FC`
-- [~] **SRCH-04** Joker `tag*` (commence par). `D` (bug GLM : plantait)
-- [~] **SRCH-05** Tag avec espace : s'écrit avec `_` (`la_mer`). `FC`
-- [~] **SRCH-06** Autocomplétion dès la première lettre (tags existants). `FC`
-- [~] **SRCH-07** Termes actifs affichés en pastilles sous la barre de recherche (et uniquement là). `R2`
+- [x] **SRCH-01** Barre de recherche dans la barre latérale (plus de barre de recherche dans l'en-tête). Entrée ou bouton pour lancer. `FC R2`
+- [x] **SRCH-02** Plusieurs tags = **ET** (tous présents). `FC`
+- [x] **SRCH-03** Exclusion d'un tag avec `-tag`. `FC`
+- [x] **SRCH-04** Joker `tag*` (commence par). `D` (bug GLM : plantait)
+- [x] **SRCH-05** Tag avec espace : s'écrit avec `_` (`la_mer`). `FC`
+- [x] **SRCH-06** Autocomplétion dès la première lettre (tags existants). `FC`
+- [x] **SRCH-07** Termes actifs affichés en pastilles sous la barre de recherche (et uniquement là). `R2`
 - [~] **SRCH-10** La barre latérale affiche **les tags présents sur les médias de la page affichée**, chacun avec le **nombre total de médias de la bibliothèque** qui le portent. Valable sur l'accueil, dans une recherche, dans les favoris et dans un dossier. `FC BUG R4 D 11/10`
-- [~] **SRCH-11** Tags groupés par catégorie, chaque catégorie avec sa couleur, dans l'ordre défini (TAGM). `FC`
-- [~] **SRCH-12** Clic sur un tag = lancer la recherche sur ce tag ; bouton « + » = l'ajouter à la recherche ; bouton « − » = l'exclure. `FC` (v8 ✓)
-- [~] **SRCH-13** Compteurs **toujours exacts** (aucune dérive après imports / suppressions / ré-imports). `R3 R4`
-- [~] **SRCH-14** Mise à jour **en temps réel** de la barre latérale quand on ajoute ou retire un tag (y compris depuis la visionneuse) : 52 → 51 au retrait, etc. `R2 R3 R4`
+- [x] **SRCH-11** Tags groupés par catégorie, chaque catégorie avec sa couleur, dans l'ordre défini (TAGM). `FC`
+- [x] **SRCH-12** Clic sur un tag = lancer la recherche sur ce tag ; bouton « + » = l'ajouter à la recherche ; bouton « − » = l'exclure. `FC` (v8 ✓)
+- [x] **SRCH-13** Compteurs **toujours exacts** (aucune dérive après imports / suppressions / ré-imports). `R3 R4`
+- [x] **SRCH-14** Mise à jour **en temps réel** de la barre latérale quand on ajoute ou retire un tag (y compris depuis la visionneuse) : 52 → 51 au retrait, etc. `R2 R3 R4`
+- [~] **SRCH-15** Barre latérale : **10 tags au plus par catégorie** ; le nom de la catégorie est un bouton qui déplie la liste complète vers le bas, un nouveau clic la replie sur les 10 premiers. `T2`
 
 ## VIEW — Visionneuse
 
 ### Ouverture, fermeture, navigation
-- [~] **VIEW-01** Clic sur une vignette = visionneuse plein écran (image au niveau de zoom « ajusté »). `FC`
-- [~] **VIEW-02** Fermer : Échap, bouton croix, clic sur le fond (hors image, non zoomé — voir ZOOM-05). `R1 R2`
+- [x] **VIEW-01** Clic sur une vignette = visionneuse plein écran (image au niveau de zoom « ajusté »). `FC`
+- [x] **VIEW-02** Fermer : Échap, bouton croix, clic sur le fond (hors image, non zoomé — voir ZOOM-05). `R1 R2`
 - [~] **VIEW-03** **Bouton 4 de la souris** (retour) = même action qu'Échap tant qu'Échap a une action (visionneuse, dialogue, mode sélection) ; sinon retour arrière normal. `R1 R2 R3 R4`
-- [~] **VIEW-04** Précédent / suivant (flèches écran et clavier) **sans couture entre les pages**. `R1` (v8 ✓)
-- [~] **VIEW-05** En fermant, la grille affiche **la page du média regardé** (dès le 1er média d'une nouvelle page, sans décalage). `R1 R2`
-- [~] **VIEW-06** Le défilement de la page derrière est bloqué pendant la visionneuse. `R1` (v8 ✓)
-- [~] **VIEW-07** Aucun blocage de l'interface par une fenêtre de dialogue invisible (bug critique v5). `R2`
+- [x] **VIEW-04** Précédent / suivant (flèches écran et clavier) **sans couture entre les pages**. `R1` (v8 ✓)
+- [x] **VIEW-05** En fermant, la grille affiche **la page du média regardé** (dès le 1er média d'une nouvelle page, sans décalage). `R1 R2`
+- [x] **VIEW-06** Le défilement de la page derrière est bloqué pendant la visionneuse. `R1` (v8 ✓)
+- [x] **VIEW-07** Aucun blocage de l'interface par une fenêtre de dialogue invisible (bug critique v5). `R2`
 
 ### Barre d'informations (bas)
-- [~] **VIEW-10** Nom du fichier, date de création, poids, dimensions, durée (vidéo). `FC`
-- [ ] **VIEW-11** Bouton « Ajouter aux favoris » (étoile, dorée si favori). `R1` (v8 ✓) — Phase 2 : bouton visible mais grisé « bientôt » (`D 12/10`) ; actif en phase 3.
-- [~] **VIEW-12** Pas de bouton « Télécharger ». `R1`
-- [~] **VIEW-13** Bouton « Ouvrir dans l'explorateur » (sélectionne le fichier). `FC R1`
-- [ ] **VIEW-14** Bouton « Supprimer » (rouge) avec pop-in de confirmation maison. `FC R1` (v8 ✓) — Phase 2 : bouton visible mais grisé « bientôt » (`D 12/10`) ; actif en phase 3 (après Q-04).
-- [ ] **VIEW-15** Bouton « Ajouter à un dossier ». `IDEES` — Phase 2 : bouton visible mais grisé « bientôt » (`D 12/10`) ; actif en phase 3.
-- [>] **VIEW-16** Ouvrir dans l'app Photos de Windows. `FC PY`
-- [>] **VIEW-17** Imprimer (grisé pour une vidéo). `FC PY`
-- [>] **VIEW-18** Plein écran total (masque bordures et barre des tâches, barres réapparaissant au survol). `FC`
-- [>] **VIEW-19** Zone « Notes » (texte libre par média). `FC`
+- [x] **VIEW-10** Nom du fichier, date de création, poids, dimensions, durée (vidéo). `FC`
+- [~] **VIEW-11** Bouton « Ajouter aux favoris » (étoile, dorée si favori). `R1` (v8 ✓) — Phase 2 : bouton visible mais grisé « bientôt » (`D 12/10`) ; actif en phase 3.
+- [x] **VIEW-12** Pas de bouton « Télécharger ». `R1`
+- [x] **VIEW-13** Bouton « Ouvrir dans l'explorateur » (sélectionne le fichier). `FC R1`
+- [~] **VIEW-14** Bouton « Supprimer » (rouge) avec pop-in de confirmation maison. `FC R1` (v8 ✓) — Phase 2 : bouton visible mais grisé « bientôt » (`D 12/10`) ; actif en phase 3 (après Q-04).
+- [~] **VIEW-15** Bouton « Ajouter à un dossier ». `IDEES` — Phase 2 : bouton visible mais grisé « bientôt » (`D 12/10`) ; actif en phase 3.
+- [-] **VIEW-16** ~~Ouvrir dans l'app Photos de Windows~~ → doublon / contradiction avec VIEW-24. `FC PY`
+- [~] **VIEW-17** Imprimer (grisé pour une vidéo). `FC PY` — Avancé en phase 2 (`D 13/10`) : imprime **le média lui-même**, jamais la page de l'application.
+- [~] **VIEW-18** Plein écran total (masque bordures et barre des tâches, barres réapparaissant au survol). `FC` — Avancé en phase 2 (`D 13/10`) : la barre du bas réapparaît au survol et disparaît quand la souris en sort ; en plein écran, la croix en haut à droite, Échap et le bouton 4 de la souris **quittent le plein écran** (ils retrouvent leur rôle normal ensuite).
+- [~] **VIEW-19** Zone « Notes » (texte libre par média). `FC` — Avancé en phase 2 (`D 13/10`) : bouton discret (icône de note autocollante) en haut à gauche de la visionneuse, sous le badge du zoom ; il ouvre une petite zone de texte ; les liens collés sont cliquables ; enregistrement automatique ; Échap ferme la note (puis, de nouveau, la visionneuse).
 
 ### Tags dans la visionneuse
-- [~] **VIEW-20** Champ d'ajout de tag placé **le plus à gauche possible**, juste à droite des infos du fichier. `R2 R3 R4`
-- [~] **VIEW-21** Le menu d'autocomplétion s'ouvre **au-dessus** du champ. `R1` (v8 ✓)
-- [~] **VIEW-22** Tag inexistant : proposer de le créer en choisissant sa catégorie. `R1` (v8 ✓)
-- [~] **VIEW-23** Tags du média en pastilles colorées, retirables ; clic sur une pastille = recherche de ce tag. `R1` (v8 ✓)
+- [x] **VIEW-20** Champ d'ajout de tag placé **le plus à gauche possible**, juste à droite des infos du fichier. `R2 R3 R4`
+- [~] **VIEW-21** Le menu d'autocomplétion s'ouvre **au-dessus** du champ. `R1` (v8 ✓) — Précisé 13/10 (`T2`) : dans la visionneuse, ordre inversé, le tag le plus utilisé **en bas** (près du champ) ; la barre latérale garde son ordre.
+- [x] **VIEW-22** Tag inexistant : proposer de le créer en choisissant sa catégorie. `R1` (v8 ✓)
+- [x] **VIEW-23** Tags du média en pastilles colorées, retirables ; clic sur une pastille = recherche de ce tag. `R1` (v8 ✓)
 
 ### Ouverture externe et lecture des vidéos
-- [~] **VIEW-24** Bouton « Ouvrir avec l'application par défaut » (comme un double-clic dans l'Explorateur Windows) : vidéo illisible dans MyBoard, documents Word / Excel / PowerPoint, ou simplement voir le fichier dans son logiciel habituel. `D 12/10`
+- [x] **VIEW-24** Bouton « Ouvrir avec l'application par défaut » (comme un double-clic dans l'Explorateur Windows) : vidéo illisible dans MyBoard, documents Word / Excel / PowerPoint, ou simplement voir le fichier dans son logiciel habituel. `D 12/10` — Fonctionne pour les images ; à tester / développer pour les autres types de fichiers (`D 13/10`).
 - [>] **VIEW-25** Vidéo que WebView2 ne sait pas lire (HEVC sans l'extension Microsoft, AVI Xvid / DivX, WMV, MPEG-2, ProRes, son PCM ou AC-3…) : **conversion à la volée en H.264** par ffmpeg pendant la lecture, l'original n'est jamais modifié. Phase 4 (mêmes briques que IMP-22 / IMP-25). En attendant : message clair + bouton VIEW-24. `D 12/10`
-- [~] **VIEW-26** Lecteur vidéo comme la v8 : lecture automatique, en boucle, avec le son ; un bouton du lecteur permet de **désactiver la boucle**. `D 12/10`
+- [x] **VIEW-26** Lecteur vidéo comme la v8 : lecture automatique, en boucle, avec le son ; un bouton du lecteur permet de **désactiver la boucle**. `D 12/10`
+- [~] **VIEW-27** Bouton 4 de la souris après la fermeture de la visionneuse : il la **rouvre sur la dernière image vue** si rien d'autre n'a été fait depuis (pas de changement de page, de recherche, de filtre, ni d'autre média ouvert). Séquence : Import → Bibliothèque → image X → bouton 4 = ferme → bouton 4 = rouvre X → bouton 4 = ferme → bouton 4 = page d'Import (pas de va-et-vient sans fin). `T2`
+- [~] **VIEW-28** Si « Ouvrir dans l'explorateur » ou « Ouvrir avec l'application par défaut » échoue : message d'erreur avec le **code d'erreur Windows** et une explication en clair. `D 13/10`
+- [~] **VIEW-29** **Lecteur vidéo personnalisé** aux couleurs de MyBoard (à la place des commandes de WebView2) : lecture / pause (clic sur la vidéo et touche Espace), barre de progression cliquable avec le temps au survol, temps écoulé / durée, volume + muet (volume retenu d'une vidéo à l'autre), boucle (VIEW-26), vitesse 0,5× à 2×, **image par image** vidéo en pause (touche `,` `?` = reculer, touche `;` `.` = avancer). `T2 D 13/10`
 
 ## ZOOM — Zoom de la visionneuse (façon wikifeet) — (v8 ✓ sauf mention)
 
-- [~] **ZOOM-01** Niveau minimal « ajusté » : `min(largeur écran / largeur image, hauteur écran / hauteur image)`, plafonné à 1 (une petite image reste en taille réelle).
-- [~] **ZOOM-02** Zoom maximal **×4**. `R3`
-- [~] **ZOOM-03** Molette : zoom **continu** (`échelle + delta/600`), ancré sous le curseur, lissé image par image.
-- [~] **ZOOM-04** Tant qu'un axe de l'image tient dans l'écran, l'image reste centrée sur cet axe ; dès qu'il dépasse, le zoom suit le curseur sur cet axe ; on ne peut jamais sortir de l'image. Au dézoom, chaque axe se recentre dès qu'il rentre dans l'écran. `R2 5.5`
-- [~] **ZOOM-05** Clic sur l'image (sans glisser, seuil 3 px) : ajusté → taille réelle **centrée sur le point cliqué** ; zoomé → retour à « ajusté » centré. Clic sur le fond gris : si zoomé → dézoom ; si non zoomé → fermer. (Un double clic sur le fond = dézoom puis fermeture.) `R2 5.3 5.4`
-- [~] **ZOOM-06** Glisser pour se déplacer, uniquement si zoomé.
-- [~] **ZOOM-07** Animation 200 ms uniquement pour le clic (pas pour molette / glisser) ; badge « 1.50× » affiché quand zoomé.
-- [>] **ZOOM-08** Même zoom sur les vidéos (lecteur vidéo personnalisé). `R2 5.7`
+- [x] **ZOOM-01** Niveau minimal « ajusté » : `min(largeur écran / largeur image, hauteur écran / hauteur image)`, plafonné à 1 (une petite image reste en taille réelle).
+- [x] **ZOOM-02** Zoom maximal **×4**. `R3`
+- [x] **ZOOM-03** Molette : zoom **continu** (`échelle + delta/600`), ancré sous le curseur, lissé image par image.
+- [x] **ZOOM-04** Tant qu'un axe de l'image tient dans l'écran, l'image reste centrée sur cet axe ; dès qu'il dépasse, le zoom suit le curseur sur cet axe ; on ne peut jamais sortir de l'image. Au dézoom, chaque axe se recentre dès qu'il rentre dans l'écran. `R2 5.5`
+- [x] **ZOOM-05** Clic sur l'image (sans glisser, seuil 3 px) : ajusté → taille réelle **centrée sur le point cliqué** ; zoomé → retour à « ajusté » centré. Clic sur le fond gris : si zoomé → dézoom ; si non zoomé → fermer. (Un double clic sur le fond = dézoom puis fermeture.) `R2 5.3 5.4`
+- [x] **ZOOM-06** Glisser pour se déplacer, uniquement si zoomé.
+- [~] **ZOOM-07** Animation 200 ms uniquement pour le clic (pas pour molette / glisser) ; badge « 1.50× » affiché quand zoomé. — Texte du badge : voir ZOOM-09.
+- [~] **ZOOM-08** Même zoom sur les vidéos (lecteur vidéo personnalisé). `R2 5.7` — Avancé en phase 2 (`D 13/10`, VIEW-29) : molette, glisser et ×4 comme les images ; **clic sur la vidéo = lecture / pause** ; Échap revient à la taille d'origine, puis un nouvel Échap ou un clic hors de la vidéo ferme la visionneuse.
+- [~] **ZOOM-09** Le badge du zoom affiche le **pourcentage de la taille réelle** de l'image (13 %… 100 % = taille réelle… 400 %), au lieu de l'échelle « 0.30× ». `T2 D 13/10`
 
 ## SEL — Sélection multiple et actions groupées
 
@@ -232,11 +238,12 @@ Les fichiers sources sont dans `Versions historiques/` (lecture seule).
 
 - [~] **TAGM-01** Catégories = **données** (table en base, avec nom, couleur, ordre), pas figées dans le code. `D 11/10` — Phase 1 : table en base ; phase 2 : nom, couleur et ordre lus en base par l'interface.
 - [~] **TAGM-02** Catégories initiales : Safebooru (général, artiste, personnage, copyright, méta) **et** flowchart (personnes, date, lieu). `D 11/10` `FC` — Phase 1 : 8 catégories créées en base (ordre et couleurs : TAGM-03).
-- [~] **TAGM-03** Ordre d'affichage et couleurs des catégories. Ordre « personnelles en premier » : Personnes, Lieu, Date, Copyright, Personnage, Artiste, Général, Méta. Couleurs « convention booru » (palette B) : Personnes `#f9a8d4`, Lieu `#5eead4`, Date `#e7d7b0`, Copyright `#d48cf5`, Personnage `#4ade80`, Artiste `#f87171`, Général `#7dd3fc`, Méta `#fb923c`. `D 12/10` (Q-05)
+- [x] **TAGM-03** Ordre d'affichage et couleurs des catégories. Ordre « personnelles en premier » : Personnes, Lieu, Date, Copyright, Personnage, Artiste, Général, Méta. Couleurs « convention booru » (palette B) : Personnes `#f9a8d4`, Lieu `#5eead4`, Date `#e7d7b0`, Copyright `#d48cf5`, Personnage `#4ade80`, Artiste `#f87171`, Général `#7dd3fc`, Méta `#fb923c`. `D 12/10` (Q-05)
 - [ ] **TAGM-04** Page « Gestionnaire de tags » : voir tous les tags, filtrer, renommer, changer de catégorie, supprimer (confirmation avec nombre de médias), masquer. `R2` (v8 ✓ partiel)
 - [ ] **TAGM-05** Tag **masqué** : n'apparaît plus dans les suggestions, mais une recherche explicite fonctionne toujours. `FC`
 - [>] **TAGM-06** Créer des catégories personnalisées depuis le gestionnaire. `D 11/10`
-- [~] **TAGM-07** Un tag créé n'importe où est enregistré et proposé partout ensuite. `FC`
+- [x] **TAGM-07** Un tag créé n'importe où est enregistré et proposé partout ensuite. `FC`
+- [ ] **TAGM-08** Gestionnaire de tags : bouton « **Supprimer les tags non utilisés** » (tags associés à 0 média, qui ne sont jamais supprimés automatiquement). `T2`
 
 ## NAV — En-tête et menu burger
 
@@ -254,6 +261,7 @@ Les fichiers sources sont dans `Versions historiques/` (lecture seule).
 - [>] **SET-06** Mode de bibliothèque (référencement sur place / bibliothèque gérée, LIB-02). `D 11/10`
 - [>] **SET-07** Ordre des catégories de tags au choix : préréglages (« personnelles en premier » par défaut, « petites catégories d'abord »…) et mode « personnalisé » où l'on fait glisser verticalement les pastilles de couleur des catégories pour les réordonner. `D 12/10`
 - [>] **SET-08** Section « Préférences » des paramètres : lecture en boucle des vidéos activée ou non par défaut (voir VIEW-26). `D 12/10`
+- [>] **SET-09** Préférences : « **Toujours afficher en taille réelle** » — la visionneuse ouvre toutes les photos à 100 % par défaut (au lieu de « ajusté »). `D 13/10`
 
 ## DUP — Doublons (phase ultérieure)
 
@@ -279,6 +287,7 @@ Les fichiers sources sont dans `Versions historiques/` (lecture seule).
 - [~] **DEV-03** Banque de test « grandeur nature » téléchargée depuis Danbooru, uniquement « rating:g » (tout public) : ~3 000 images en pleine résolution, ~200 vidéos, ~100 GIF, chacun avec un JSON (tags **et** catégories). Rangée dans `new V2\échantillon test SFW\BooruScrap - 3k demo`, hors du dépôt Git. `D 12/10`
 - [~] **DEV-04** Le générateur (DEV-02) ajoute des tags tirés d'une banque de 100 à 1 000 mots, répartis de façon réaliste : certains sur 50–80 % de la bibliothèque, d'autres sur une dizaine de médias seulement. `D 12/10`
 - [~] **DEV-05** Variable réservée aux tests `MYBOARD_MONITOR` : la fenêtre s'ouvre sur l'écran choisi (le 1920×1080 C24F390 pendant les tests de Claude). Mesure de fluidité adaptée à un écran 60 Hz (images ratées) ; l'ancienne mesure (écran principal 2560×1440 à 180 Hz, images/s) reste disponible telle quelle. Fonctionnement documenté dans `CLAUDE.md`. `D 12/10`
+- [~] **DEV-06** Bibliothèques de test rangées dans `new V2\échantillon test SFW\MyBoard-test` (dossier visible par l'utilisateur, créé par lui) au lieu de `%LOCALAPPDATA%\MyBoard-test` (redirigé en secret par l'application Claude). `D 13/10`
 
 ---
 

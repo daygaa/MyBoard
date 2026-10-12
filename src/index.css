@@ -131,10 +131,43 @@
     animation: mb-zoom-in 180ms ease-out both;
   }
 
+  /* Impression du média seul (VIEW-17) : conteneur ajouté pendant l'impression uniquement. */
+  #impression-media {
+    display: none;
+  }
+
   /* Les champs numériques n'affichent pas les petites flèches du navigateur. */
   input[type="number"]::-webkit-inner-spin-button,
   input[type="number"]::-webkit-outer-spin-button {
     -webkit-appearance: none;
     margin: 0;
+  }
+}
+
+/* Impression (VIEW-17) : seul le média est imprimé, jamais la page de l'application. */
+@media print {
+  /* Marges de page à zéro : le navigateur n'a plus la place d'imprimer sa date et le titre de
+     la page en haut et en bas. La marge autour de l'image est faite par le conteneur. */
+  @page {
+    margin: 0;
+  }
+  body {
+    background: white !important;
+  }
+  body > *:not(#impression-media) {
+    display: none !important;
+  }
+  #impression-media {
+    display: flex !important;
+    box-sizing: border-box;
+    height: 100vh;
+    padding: 10mm;
+    align-items: center;
+    justify-content: center;
+  }
+  #impression-media img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
   }
 }
