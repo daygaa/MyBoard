@@ -61,6 +61,21 @@ pub fn image_preview(ff: &Ffmpeg, path: &Path) -> anyhow::Result<Vec<u8>> {
     preview_of(decode(&frame_png(ff, path, 0.0, PREVIEW_SIZE * 3 / 2)?)?)
 }
 
+/// Image entière en JPEG haute qualité, pleine résolution : pour afficher dans la visionneuse
+/// un format que WebView2 ne sait pas lire (TIFF, HEIC… — D-016).
+pub fn full_image_jpeg(ff: &Ffmpeg, path: &Path) -> anyhow::Result<Vec<u8>> {
+    let mut cmd = ffmpeg::command(&ff.ffmpeg);
+    cmd.args(["-hide_banner", "-loglevel", "error", "-nostdin", "-i"])
+        .arg(path)
+        .args(["-map", "0:v:0", "-frames:v", "1", "-an", "-sn", "-dn"])
+        .args(["-f", "image2pipe", "-c:v", "mjpeg", "-q:v", "2", "-"]);
+    let output = run(cmd)?;
+    if output.stdout.is_empty() {
+        bail!("ffmpeg n'a produit aucune image");
+    }
+    Ok(output.stdout)
+}
+
 /// Image de la vidéo à 10 % de la durée (ou au début si elle est trop courte).
 fn video_frame(ff: &Ffmpeg, path: &Path, probe: &Probe, short_side: u32) -> anyhow::Result<Vec<u8>> {
     let seek = probe

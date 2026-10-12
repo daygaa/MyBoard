@@ -1,4 +1,4 @@
-//! MyBoard — partie Rust : base de données, import, miniatures.
+//! MyBoard — partie Rust : base de données, import, miniatures, tags, recherche, visionneuse.
 //! L'interface (React) appelle les commandes déclarées ici via `invoke`.
 
 pub mod db;
@@ -6,7 +6,11 @@ pub mod ffmpeg;
 pub mod formats;
 pub mod import;
 pub mod library;
+pub mod media;
 pub mod paths;
+pub mod search;
+pub mod tags;
+mod test_screen;
 pub mod thumbs;
 
 use std::sync::Mutex;
@@ -22,7 +26,7 @@ use thumbs::preview::PreviewService;
 /// État partagé par toutes les commandes.
 pub struct AppState {
     pub paths: DataPaths,
-    /// Connexion réservée aux lectures de l'interface.
+    /// Connexion de l'interface : lectures, et petites modifications (tags d'un média).
     pub db: Mutex<Connection>,
     pub thumbs: ThumbService,
     pub previews: PreviewService,
@@ -35,6 +39,9 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .register_asynchronous_uri_scheme_protocol("thumb", |ctx, request, responder| {
             thumbs::protocol::handle(ctx.app_handle(), request, responder)
+        })
+        .register_asynchronous_uri_scheme_protocol("media", |ctx, request, responder| {
+            media::protocol::handle(ctx.app_handle(), request, responder)
         })
         .setup(|app| {
             let handle = app.handle().clone();
@@ -49,6 +56,9 @@ pub fn run() {
                 previews,
                 import: ImportManager::new(handle),
             });
+            if let Some(window) = app.get_webview_window("main") {
+                test_screen::place(&window)?;
+            }
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -62,6 +72,15 @@ pub fn run() {
             formats::supported_extensions,
             import::start_import,
             import::cancel_import,
+            tags::tag_categories,
+            tags::autocomplete_tags,
+            tags::find_tag,
+            tags::page_tags,
+            tags::add_media_tag,
+            tags::remove_media_tag,
+            media::media_detail,
+            media::reveal_media,
+            media::open_media,
         ])
         .run(tauri::generate_context!())
         .expect("erreur au lancement de MyBoard");

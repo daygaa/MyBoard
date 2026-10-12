@@ -33,6 +33,9 @@ webp = "0.3"
 imagesize = "0.15"
 # Recherche de ffmpeg dans le PATH (gère les extensions .exe de Windows).
 which = "8"
+# « Ouvrir avec l'application par défaut » (VIEW-24) : appel Windows natif (ShellExecute),
+# sans passer par une ligne de commande.
+opener = "0.9"
 
 [profile.release]
 codegen-units = 1

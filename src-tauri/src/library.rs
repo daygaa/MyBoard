@@ -1,11 +1,11 @@
-//! Lecture de la bibliothèque pour la grille : pages, filtres, tris, statistiques.
+//! Lecture de la bibliothèque pour la grille : pages, filtres, tris, recherche, statistiques.
 
 use rusqlite::{Connection, params_from_iter, types::Value};
 use serde::{Deserialize, Serialize};
 use tauri::State;
 
-use crate::AppState;
 use crate::ffmpeg::FfmpegStatus;
+use crate::{AppState, search};
 
 const KINDS: [&str; 4] = ["image", "video", "audio", "document"];
 
@@ -15,6 +15,9 @@ const KINDS: [&str; 4] = ["image", "video", "audio", "document"];
 pub struct ListQuery {
     /// Types cochés (FILT-01) ; vide = tous.
     pub kinds: Vec<String>,
+    /// Termes de la recherche par tags (SRCH-02 à SRCH-05) ; vide = toute la bibliothèque.
+    #[serde(default)]
+    pub terms: Vec<String>,
     pub sort: String,
     /// Graine du tri aléatoire : même graine = même ordre d'une page à l'autre.
     pub seed: u32,
@@ -45,6 +48,8 @@ pub struct ListPage {
     /// Page réellement renvoyée : on ne peut jamais tomber sur une page inexistante (PAGE-01).
     pub page: u32,
     pub page_count: u32,
+    /// Médias par page réellement utilisés : position d'un média = (page − 1) × page_size + rang.
+    pub page_size: u32,
 }
 
 #[derive(Debug, Serialize)]
@@ -81,12 +86,14 @@ fn order_by(sort: &str) -> &'static str {
 pub fn list(db: &Connection, query: &ListQuery) -> rusqlite::Result<ListPage> {
     let kinds: Vec<&str> = KINDS.into_iter().filter(|k| query.kinds.iter().any(|q| q == k)).collect();
     let mut filter_params: Vec<Value> = Vec::new();
-    let filter = if kinds.is_empty() || kinds.len() == KINDS.len() {
-        String::new()
-    } else {
+    let mut conditions = Vec::new();
+    if !kinds.is_empty() && kinds.len() < KINDS.len() {
         filter_params.extend(kinds.iter().map(|k| Value::Text((*k).to_string())));
-        format!("WHERE kind IN ({})", vec!["?"; kinds.len()].join(","))
-    };
+        conditions.push(format!("kind IN ({})", vec!["?"; kinds.len()].join(",")));
+    }
+    // Le type et la recherche se cumulent : changer de filtre ne retire jamais les tags (FILT-03).
+    conditions.extend(search::conditions(&query.terms, &mut filter_params));
+    let filter = if conditions.is_empty() { String::new() } else { format!("WHERE {}", conditions.join(" AND ")) };
 
     let total = db.query_row(
         &format!("SELECT COUNT(*) FROM media {filter}"),
@@ -125,7 +132,7 @@ pub fn list(db: &Connection, query: &ListQuery) -> rusqlite::Result<ListPage> {
             })
         })?
         .collect::<Result<Vec<_>, _>>()?;
-    Ok(ListPage { items, total, page, page_count })
+    Ok(ListPage { items, total, page, page_count, page_size })
 }
 
 pub fn stats(db: &Connection) -> rusqlite::Result<Stats> {

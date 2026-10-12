@@ -2,9 +2,10 @@
 // Ordre : Bibliothèque · Importer · Favoris · Gestionnaire de tags · Dossiers · Paramètres (dernier).
 // Les fonctions des phases suivantes sont visibles mais grisées, avec la mention « bientôt ».
 
-import { useEffect, type ComponentType } from "react";
+import type { ComponentType } from "react";
 import { LibraryBig, Plus, Settings, Star, Tags, Upload, X } from "lucide-react";
 
+import { useEscape } from "@/lib/escape";
 import { navigate, useRoute, type Route } from "@/lib/router";
 import { cn } from "@/lib/utils";
 import { useUI } from "@/stores/ui";
@@ -46,13 +47,8 @@ export function BurgerMenu() {
   const setOpen = useUI((s) => s.setBurgerOpen);
   const close = () => setOpen(false);
 
-  // Échap ferme le menu.
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [open, setOpen]);
+  // Échap (et le bouton 4 de la souris, VIEW-03) ferme le menu.
+  useEscape(open, close);
 
   return (
     <>

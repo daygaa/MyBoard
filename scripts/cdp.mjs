@@ -8,6 +8,7 @@
 //   node scripts/cdp.mjs wheel <x> <y> <dy> [ctrl] → vraie molette
 // Les commandes Tauri s'appellent depuis la page : window.__TAURI_INTERNALS__.invoke("…").
 import { writeFileSync } from "node:fs";
+import { pathToFileURL } from "node:url";
 
 const PORT = process.env.CDP_PORT || 9333;
 
@@ -41,7 +42,9 @@ export async function connect() {
   return { send, evaluate, close: () => ws.close() };
 }
 
-if (import.meta.url === `file:///${process.argv[1].replace(/\\/g, "/")}`) {
+// Lancé directement (et non importé) ? `pathToFileURL` encode les espaces (« new V2 » → « new%20V2 »)
+// comme `import.meta.url` : une simple comparaison de textes échouait sans rien dire.
+if (import.meta.url === pathToFileURL(process.argv[1]).href) {
   const [cmd, ...args] = process.argv.slice(2);
   const c = await connect();
   if (cmd === "eval") console.log(JSON.stringify(await c.evaluate(args[0]), null, 1));

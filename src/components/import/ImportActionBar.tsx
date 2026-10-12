@@ -90,7 +90,7 @@ export function ImportActionBar() {
         <Button
           data-zone="import.importer"
           disabled={!canImport}
-          onClick={() => void api.startImport()}
+          onClick={() => void api.startImport(useImport.getState().defaultTags)}
           className="bg-[#d9a94e] text-[#1a1408] hover:bg-[#e3b75f] focus-visible:ring-[#d9a94e]/40"
         >
           <Upload className="h-4 w-4" />

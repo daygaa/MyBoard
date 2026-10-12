@@ -32,7 +32,15 @@ function useGridBox(ref: React.RefObject<HTMLDivElement | null>) {
   return box;
 }
 
-export function MediaGrid({ items, density }: { items: MediaItem[]; density: number }) {
+type Props = {
+  items: MediaItem[];
+  density: number;
+  /** Position du premier média de la page dans tous les résultats, et taille des pages. */
+  firstIndex: number;
+  pageSize: number;
+};
+
+export function MediaGrid({ items, density, firstIndex, pageSize }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const { width, top } = useGridBox(ref);
   const tile = width > 0 ? (width - GRID_GAP * (density - 1)) / density : 0;
@@ -71,8 +79,16 @@ export function MediaGrid({ items, density }: { items: MediaItem[]; density: num
               gap: GRID_GAP,
             }}
           >
-            {items.slice(row.index * density, (row.index + 1) * density).map((item) => (
-              <MediaTile key={item.id} item={item} compact={compact} small={small} preview={preview} />
+            {items.slice(row.index * density, (row.index + 1) * density).map((item, col) => (
+              <MediaTile
+                key={item.id}
+                item={item}
+                index={firstIndex + row.index * density + col}
+                pageSize={pageSize}
+                compact={compact}
+                small={small}
+                preview={preview}
+              />
             ))}
           </div>
         ))}

@@ -1,5 +1,5 @@
 //! Import sur place de fichiers et de dossiers (IMP-01, IMP-02, IMP-03, IMP-04, IMP-40,
-//! IMP-41, IMP-42 « Arrêter », IMP-44).
+//! IMP-41, IMP-42 « Arrêter », IMP-44), avec tags par défaut (IMP-30, IMP-31).
 //!
 //! L'état de l'import vit ici, côté Rust : l'interface reçoit une photo complète de
 //! cet état (`import-state`) à chaque changement. Changer de page puis revenir, ou
@@ -16,6 +16,7 @@ use std::time::{Duration, Instant};
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager, State};
 
+use crate::tags::{self, NewTag};
 use crate::{AppState, db};
 use index::{Indexer, Outcome};
 pub use scan::ScanSummary;
@@ -186,9 +187,10 @@ pub fn scan_paths(app: AppHandle, state: State<'_, AppState>, paths: Vec<String>
     Ok(())
 }
 
-/// Lance l'import des fichiers trouvés par le dernier parcours.
+/// Lance l'import des fichiers trouvés par le dernier parcours. `default_tags` : ajoutés à
+/// tous les fichiers de l'import, y compris ceux déjà présents dans la bibliothèque (IMP-30).
 #[tauri::command]
-pub fn start_import(app: AppHandle, state: State<'_, AppState>) -> Result<(), String> {
+pub fn start_import(app: AppHandle, state: State<'_, AppState>, default_tags: Vec<NewTag>) -> Result<(), String> {
     let manager = &state.import;
     let files = {
         let mut inner = manager.inner.lock().unwrap();
@@ -206,7 +208,7 @@ pub fn start_import(app: AppHandle, state: State<'_, AppState>) -> Result<(), St
 
     std::thread::Builder::new()
         .name("import".into())
-        .spawn(move || run_import(&app, files))
+        .spawn(move || run_import(&app, files, default_tags))
         .map_err(|e| e.to_string())?;
     Ok(())
 }
@@ -217,7 +219,7 @@ pub fn cancel_import(state: State<'_, AppState>) {
     state.import.cancel.store(true, Ordering::SeqCst);
 }
 
-fn run_import(app: &AppHandle, files: Vec<ScanFile>) {
+fn run_import(app: &AppHandle, files: Vec<ScanFile>, default_tags: Vec<NewTag>) {
     let state = app.state::<AppState>();
     let manager = &state.import;
     let start = Instant::now();
@@ -226,7 +228,17 @@ fn run_import(app: &AppHandle, files: Vec<ScanFile>) {
     let mut cancelled = false;
 
     let fatal = (|| -> anyhow::Result<()> {
-        let conn = db::open(&state.paths.db)?;
+        let mut conn = db::open(&state.paths.db)?;
+        // Tags par défaut : créés une fois au départ (ceux qui existent gardent leur catégorie).
+        let tag_ids: Vec<i64> = {
+            let tx = conn.transaction()?;
+            let mut ids = Vec::new();
+            for tag in &default_tags {
+                ids.extend(tags::get_or_create(&tx, tag, db::now_ms())?);
+            }
+            tx.commit()?;
+            ids
+        };
         let mut indexer = Indexer::new();
         let mut in_batch = 0;
         let mut last_commit = Instant::now();
@@ -239,11 +251,19 @@ fn run_import(app: &AppHandle, files: Vec<ScanFile>) {
                 break;
             }
             progress.current_file = file.path.file_name().map(|n| n.to_string_lossy().into_owned());
-            match indexer.index(&conn, file, db::now_ms()) {
-                Ok(Outcome::Imported) => progress.imported += 1,
-                Ok(Outcome::Updated) => progress.updated += 1,
-                Ok(Outcome::AlreadyPresent) => progress.already_present += 1,
-                Ok(Outcome::Duplicate) => progress.duplicates += 1,
+            let outcome = indexer.index(&conn, file, db::now_ms());
+            if let Ok(Outcome::Imported(id) | Outcome::Updated(id) | Outcome::AlreadyPresent(id) | Outcome::Duplicate(id)) =
+                &outcome
+            {
+                for tag_id in &tag_ids {
+                    tags::attach(&conn, *id, *tag_id)?;
+                }
+            }
+            match outcome {
+                Ok(Outcome::Imported(_)) => progress.imported += 1,
+                Ok(Outcome::Updated(_)) => progress.updated += 1,
+                Ok(Outcome::AlreadyPresent(_)) => progress.already_present += 1,
+                Ok(Outcome::Duplicate(_)) => progress.duplicates += 1,
                 Err(e) => {
                     progress.errors += 1;
                     if error_files.len() < MAX_LISTED_ERRORS {

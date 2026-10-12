@@ -4,7 +4,7 @@ Application de bureau **locale** pour trier ses photos, vidéos et documents par
 à la manière des image boards « booru » (Safebooru, Danbooru, Hydrus Network) —
 sans dossiers, sans cloud, sur son propre PC.
 
-> **État : réécriture en cours (phase 1 — socle : import d'un dossier, miniatures, grille).** L'ancienne version web (Next.js,
+> **État : réécriture en cours (phase 2 — visionneuse, tags, recherche).** L'ancienne version web (Next.js,
 > écrite avec GLM 5.2) est conservée sur la branche [`old_GLM`](https://github.com/daygaa/MyBoard/tree/old_GLM).
 
 ## Technologies

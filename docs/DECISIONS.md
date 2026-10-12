@@ -200,3 +200,61 @@ phase 1). Toutes rangées dans `thumbs.db` (D-014) :
   et il apparaît en fondu par-dessus une fois prêt. Deux fils de travail en priorité basse.
 - Cache des grands aperçus limité à **1 Go** ; au-delà, les moins récemment demandés sont
   supprimés jusqu'à 90 % de la limite. Réglages du cache : plus tard (LIB-11).
+
+## D-016 — Cadrage de la phase 2 : visionneuse, tags, recherche (12/10/2026)
+
+Réponses de l'utilisateur aux questions posées avant de coder.
+
+**Catégories (TAGM-03, Q-05).** Ordre « personnelles en premier » : Personnes, Lieu, Date,
+Copyright, Personnage, Artiste, Général, Méta. Couleurs « convention booru » (artiste rouge,
+copyright violet, personnage vert, général bleu ciel, méta orange) : le jaune « méta » de la v8
+se confondait avec le doré des boutons actifs. Plus tard : ordre au choix dans les paramètres
+(SET-07).
+
+**Vidéos.** La visionneuse lit le **fichier original**, servi par un protocole interne limité
+aux médias de la bibliothèque, avec lecture partielle (« requêtes Range ») : avancer à la
+40e minute d'une vidéo de 4 Go est immédiat. WebView2 lit H.264, VP8, VP9 et AV1 ; le HEVC
+(65 % des vidéos de l'échantillon, format des iPhone) seulement si l'extension Microsoft
+« Extensions vidéo HEVC » est installée — vérifié le 12/10 sur le PC de l'utilisateur après
+installation : HEVC et HEVC 10 bits décodés par la carte graphique.
+- Écarté : embarquer l'extension (produit Microsoft payant, redistribution interdite) ;
+  embarquer un autre lecteur (mpv, VLC : image vidéo dans une fenêtre à part, boutons et zoom
+  vidéo ZOOM-08 très difficiles, +30–60 Mo, contraintes de licence).
+- Retenu : conversion à la volée en H.264 par ffmpeg pour ce que WebView2 ne lit pas
+  (VIEW-25), en **phase 4** car elle partage ses briques avec les conversions d'import
+  (encodeur de la carte graphique, réglages de qualité). Mesuré : 20 s de vidéo 4K 60 i/s HEVC
+  10 bits converties en 1080p en 13 s avec NVENC (GTX 1060), 53 s sans la carte graphique.
+- Lecture comme la v8 : automatique, en boucle, avec le son ; bouton pour couper la boucle
+  (VIEW-26), réglage par défaut plus tard (SET-08).
+
+**Choix par défaut validés.**
+1. Noms de tags en minuscules (« Paris » → « paris ») : pas de doublons Paris / paris.
+2. Tags affichés avec des espaces (« long hair »), tapés et enregistrés avec « _ » (SRCH-05).
+3. Autocomplétion : tags qui commencent par le texte, puis ceux qui le contiennent ;
+   10 suggestions au plus, les plus utilisés d'abord, avec couleur et nombre de médias.
+4. Barre latérale : dans chaque catégorie, tags les plus utilisés en haut.
+5. Recherche non mémorisée au redémarrage, conservée en revenant de la visionneuse.
+6. Visionneuse : la miniature s'affiche tout de suite, l'original net la remplace ; médias
+   précédent et suivant préchargés.
+7. Vidéos : voir ci-dessus.
+8. Images que WebView2 n'affiche pas (TIFF, HEIC) : converties par ffmpeg en pleine
+   résolution à l'ouverture.
+9. Audio : petit lecteur ; PDF : lecteur intégré de WebView2 ; Word / Excel / PowerPoint :
+   grande icône et nom (+ « Ouvrir avec l'application par défaut », VIEW-24).
+10. Boutons Favori, Dossier, Supprimer de la visionneuse : visibles mais grisés « bientôt »
+    jusqu'à la phase 3.
+
+**Tags par défaut à l'import (IMP-30, IMP-31) avancés en phase 2** : même champ avec
+autocomplétion que la visionneuse et la barre latérale (un seul composant). Les tags vont à
+tous les fichiers de l'import, y compris ceux déjà présents dans la bibliothèque.
+
+**Données de test.**
+- Banque « grandeur nature » (DEV-03) prise sur **Danbooru** plutôt que Safebooru : chaque
+  média y arrive avec ses tags déjà rangés par catégorie (Safebooru demanderait une requête
+  par tag, ~10 000 pour 3 000 images) et Danbooru propose 41 000 vidéos tout public, contre
+  69 « vidéos » (surtout des GIF) sur Safebooru. Un JSON par média, à côté du fichier : champ
+  `tags` au format Safebooru (lu par DEV-01) + tags rangés par catégorie.
+- Générateur 100 000 médias (DEV-04) : tags tirés d'une banque de mots, répartition
+  très inégale comme dans la réalité, pour mesurer la recherche et la barre latérale.
+- Fenêtre des tests sur l'écran 1920×1080 à 60 Hz (DEV-05) : la fluidité y plafonne à
+  60 images/s, on mesure donc les images ratées ; l'ancienne mesure reste disponible.

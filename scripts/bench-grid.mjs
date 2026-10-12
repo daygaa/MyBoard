@@ -8,6 +8,11 @@
 //
 // Utilisation (depuis le Workspace, après `npm run tauri build -- --no-bundle`) :
 //   node scripts/bench-grid.mjs "C:\...\MyBoard-test\100k" [chemin\vers\myboard.exe]
+//     → mode d'origine : fenêtre sur l'écran que Windows choisit, fluidité en images/s.
+//   node scripts/bench-grid.mjs "C:\...\MyBoard-test\100k" --ecran 1920x1080
+//     → fenêtre forcée sur cet écran (variable MYBOARD_MONITOR, DEV-05). Sur un écran à 60 Hz,
+//       les images/s plafonnent à 60 : on compte en plus les « images ratées » (affichées
+//       avec au moins une demi-image de retard sur le rythme de l'écran).
 // Aucune dépendance : Node 24 fournit fetch et WebSocket.
 
 import { spawn } from "node:child_process";
@@ -15,10 +20,13 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
-const dataDir = process.argv[2];
-const exe = process.argv[3] ?? path.join("src-tauri", "target", "release", "myboard.exe");
-if (!dataDir) {
-  console.error('Usage : node scripts/bench-grid.mjs "<dossier de la bibliothèque de test>" [myboard.exe]');
+const args = process.argv.slice(2);
+const screenIndex = args.indexOf("--ecran");
+const screen = screenIndex >= 0 ? args.splice(screenIndex, 2)[1] : null;
+const dataDir = args[0];
+const exe = args[1] ?? path.join("src-tauri", "target", "release", "myboard.exe");
+if (!dataDir || (screenIndex >= 0 && !screen)) {
+  console.error('Usage : node scripts/bench-grid.mjs "<dossier de la bibliothèque de test>" [myboard.exe] [--ecran 1920x1080]');
   process.exit(1);
 }
 const PORT = 9444;
@@ -33,6 +41,7 @@ const app = spawn(exe, [], {
     MYBOARD_DATA_DIR: dataDir,
     WEBVIEW2_USER_DATA_FOLDER: webviewDir,
     WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: `--remote-debugging-port=${PORT}`,
+    ...(screen ? { MYBOARD_MONITOR: screen } : {}),
   },
   stdio: "ignore",
 });
@@ -206,7 +215,12 @@ async function scrollTest() {
   const deltas = frames.slice(1).map((t, i) => t - frames[i]);
   const fps = deltas.length ? 1000 / (deltas.reduce((a, b) => a + b, 0) / deltas.length) : 0;
   const sorted = [...deltas].sort((a, b) => a - b);
+  // Rythme de l'écran = intervalle le plus courant ; une image « ratée » arrive avec au moins
+  // une demi-image de retard sur ce rythme.
+  const refresh = median(deltas) ?? 16.7;
   return {
+    refreshHz: Math.round(1000 / refresh),
+    missed: deltas.filter((d) => d > refresh * 1.5).length,
     frames: deltas.length,
     fps: Math.round(fps),
     p95: Math.round(sorted[Math.floor(sorted.length * 0.95)] ?? 0),
@@ -248,16 +262,21 @@ try {
     console.log(
       `${d} col. : densité ${densityMs.layout} ms (page complète ${densityMs.full} ms) · page ${median(pages)} ms (${pages.join("/")}) · page ${far.target} ${far.ms} ms · ` +
         `défilement ${scroll.fps} img/s, p95 ${scroll.p95} ms, pire ${scroll.worst} ms, ${scroll.jank} saccades · ` +
+        (screen ? `${scroll.missed} images ratées sur ${scroll.frames} (écran ${scroll.refreshHz} Hz) · ` : "") +
         `${tiles} vignettes dans la page · mémoire JS ${heap} Mo`,
     );
   }
 
-  console.log("\n| Colonnes | Médias/page | Changer de densité | Page suivante (médiane) | Page lointaine | Défilement (images/s) | p95 / pire image | Saccades > 50 ms | Vignettes présentes | Mémoire JS |");
-  console.log("|---|---|---|---|---|---|---|---|---|---|");
+  const missedHeader = screen ? " Images ratées |" : "";
+  console.log(
+    `\n| Colonnes | Médias/page | Changer de densité | Page suivante (médiane) | Page lointaine | Défilement (images/s) | p95 / pire image | Saccades > 50 ms |${missedHeader} Vignettes présentes | Mémoire JS |`,
+  );
+  console.log(`|---|---|---|---|---|---|---|---|${screen ? "---|" : ""}---|---|`);
   for (const r of rows) {
     const perPage = Math.round(50 + (450 * (r.d - 4)) / 26);
+    const missed = screen ? ` ${r.scroll.missed} / ${r.scroll.frames} |` : "";
     console.log(
-      `| ${r.d} | ${perPage} | ${r.densityMs.layout} / ${r.densityMs.full} ms | ${r.pageMs} ms | ${r.far.ms} ms (p. ${r.far.target}) | ${r.scroll.fps} | ${r.scroll.p95} / ${r.scroll.worst} ms | ${r.scroll.jank} | ${r.tiles} | ${r.heap} Mo |`,
+      `| ${r.d} | ${perPage} | ${r.densityMs.layout} / ${r.densityMs.full} ms | ${r.pageMs} ms | ${r.far.ms} ms (p. ${r.far.target}) | ${r.scroll.fps} | ${r.scroll.p95} / ${r.scroll.worst} ms | ${r.scroll.jank} |${missed} ${r.tiles} | ${r.heap} Mo |`,
     );
   }
 } finally {

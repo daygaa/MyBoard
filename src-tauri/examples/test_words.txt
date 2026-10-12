@@ -1,0 +1,68 @@
+# Banque de mots du générateur de bibliothèque de test (DEV-04).
+# Une ligne « [clé de catégorie] » puis les tags de cette catégorie, séparés par des espaces.
+# Les mots « couleur × objet » sont fabriqués par le générateur (voir COLORS / OBJECTS).
+
+[general]
+1girl solo long_hair smile looking_at_viewer outdoors short_hair open_mouth sky cloud
+indoors tree flower water night day sunset beach snow rain city street building window
+door table chair bed book cup food cake fruit apple cat dog bird horse fish car bicycle
+train boat airplane mountain river lake forest grass field ocean wave sun moon star light
+shadow portrait landscape close-up selfie group crowd child baby family friends couple man
+woman glasses scarf coat jacket skirt boots bag umbrella phone camera computer keyboard
+guitar piano music dance sport football running swimming cooking eating drinking sleeping
+reading writing drawing painting holding standing sitting walking laughing crying blush
+closed_eyes wink peace_sign waving hug monochrome sepia blurry bokeh reflection silhouette
+panorama macro text meme screenshot logo sign map flag christmas halloween birthday wedding
+party concert museum church castle bridge tower park garden market restaurant kitchen
+bathroom bedroom office school classroom hospital airport station road highway parking
+fireworks lantern candle mirror stairs balcony roof fence wall_art graffiti statue fountain
+
+[meta]
+highres absurdres lowres jpeg_artifacts photo scan edited cropped duplicate commentary
+translated official_art wallpaper animated video
+
+[artist]
+kuro_art shiro_studio aka_draws ao_photo midori_pix hoshi_art tsuki_studio kaze_draws
+yuki_photo sora_pix umi_art hana_studio kuro_draws shiro_photo aka_pix ao_art midori_studio
+hoshi_draws tsuki_photo kaze_pix yuki_art sora_studio umi_draws hana_photo kuro_pix
+shiro_art aka_studio ao_draws midori_photo hoshi_pix tsuki_art kaze_studio yuki_draws
+sora_photo umi_pix hana_art lumiere_photo atelier_nord pixel_fox studio_lune
+
+[copyright]
+star_voyage magic_academy dragon_legend ocean_tales iron_knights sky_pirates ghost_city
+forest_spirits robot_wars cyber_city desert_kingdom ice_empire shadow_hunters sun_festival
+moon_chronicles crystal_hearts steam_age neon_drift wild_west_story samurai_road
+pixel_heroes haunted_manor deep_sea cosmic_cats little_witch royal_garden rainbow_school
+thunder_racers lost_island paper_dreams
+
+[character]
+aiko_(star_voyage) ren_(star_voyage) mio_(magic_academy) kaito_(magic_academy)
+saki_(dragon_legend) hiro_(dragon_legend) nana_(ocean_tales) sora_(ocean_tales)
+emi_(iron_knights) daichi_(iron_knights) yui_(sky_pirates) takumi_(sky_pirates)
+rin_(ghost_city) kenji_(ghost_city) mai_(forest_spirits) yuto_(forest_spirits)
+hana_(robot_wars) riku_(robot_wars) kana_(cyber_city) shota_(cyber_city)
+miku_(desert_kingdom) haruto_(desert_kingdom) aoi_(ice_empire) sota_(ice_empire)
+yuna_(shadow_hunters) kota_(shadow_hunters) misaki_(sun_festival) ryo_(sun_festival)
+akari_(moon_chronicles) yamato_(moon_chronicles) nozomi_(crystal_hearts) taiga_(crystal_hearts)
+chika_(steam_age) jun_(steam_age) honoka_(neon_drift) kai_(neon_drift)
+mana_(wild_west_story) sho_(wild_west_story) asuka_(samurai_road) ken_(samurai_road)
+momo_(pixel_heroes) yu_(pixel_heroes) sakura_(haunted_manor) tora_(haunted_manor)
+umi_(deep_sea) nagi_(deep_sea) luna_(cosmic_cats) leo_(cosmic_cats)
+lily_(little_witch) noa_(little_witch) rose_(royal_garden) eli_(royal_garden)
+iris_(rainbow_school) ray_(rainbow_school) kira_(thunder_racers) zen_(thunder_racers)
+nami_(lost_island) jiro_(lost_island) fumi_(paper_dreams) sei_(paper_dreams)
+
+[people]
+marie lucas emma hugo lea louis chloe gabriel ines jules manon adam camille arthur sarah
+nathan julie thomas laura paul alice leo zoe raphael lina tom eva noah ambre maxime clara
+antoine lou victor rose ethan anna sacha mia theo
+
+[place]
+paris lyon marseille bordeaux nice lille nantes toulouse strasbourg rennes madrid barcelone
+rome londres berlin lisbonne amsterdam bruxelles geneve new_york tokyo kyoto seoul montreal
+bretagne normandie alpes corse provence cote_d_azur espagne italie japon maison plage
+montagne campagne bureau ecole chez_mamie
+
+[date]
+1998 1999 2000 2001 2002 2003 2004 2005 2006 2007 2008 2009 2010 2011 2012 2013 2014 2015
+2016 2017 2018 2019 2020 2021 2022 2023 2024 2025 2026

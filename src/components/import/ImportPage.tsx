@@ -1,5 +1,5 @@
-// Page d'import (phase 1) : import sur place de fichiers et de dossiers.
-// Les options de conversion / compression et les tags par défaut arrivent en phase 4.
+// Page d'import : import sur place de fichiers et de dossiers, avec tags par défaut (IMP-30).
+// Les options de conversion / compression arrivent en phase 4.
 
 import { useQuery } from "@tanstack/react-query";
 import { AlertTriangle, ArrowLeft, Upload } from "lucide-react";
@@ -7,6 +7,7 @@ import { AlertTriangle, ArrowLeft, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
 import { navigate } from "@/lib/router";
+import { DefaultTagsEditor } from "./DefaultTagsEditor";
 import { FilesCard } from "./FilesCard";
 import { ImportActionBar } from "./ImportActionBar";
 
@@ -68,6 +69,7 @@ export function ImportPage() {
 
       <div className="space-y-5">
         <FilesCard />
+        <DefaultTagsEditor />
         <FfmpegNotice />
         <ImportActionBar />
       </div>

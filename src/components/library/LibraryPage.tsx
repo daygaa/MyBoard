@@ -26,11 +26,15 @@ export function LibraryPage() {
   let content = null;
   if (stats && stats.total === 0) content = <EmptyLibrary />;
   else if (data && data.total === 0) content = <NoResults />;
-  else if (data) content = <MediaGrid items={data.items} density={density} />;
+  else if (data) {
+    content = (
+      <MediaGrid items={data.items} density={density} firstIndex={(data.page - 1) * data.pageSize} pageSize={data.pageSize} />
+    );
+  }
 
   return (
     <div className="flex flex-1">
-      <Sidebar />
+      <Sidebar items={data?.items ?? []} />
       <main data-zone="grille" className="min-w-0 flex-1 px-4 py-5 lg:px-6">
         <FiltersBar total={data?.total ?? 0} />
         {data && data.total > 0 && (

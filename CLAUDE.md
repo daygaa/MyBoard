@@ -65,9 +65,22 @@ Depuis le Workspace (Rust : `cargo` est dans `%USERPROFILE%\.cargo\bin`) :
 - `npm run tauri dev` — lance l'application en développement (rechargement automatique de l'interface).
 - `npm run tauri build -- --no-bundle` — version finale : `src-tauri\target\release\myboard.exe`.
 - `npx tsc` — vérification des types TypeScript ; dans `src-tauri` : `cargo check`, `cargo clippy`.
-- Bibliothèque de test (DEV-02), dans `src-tauri` :
-  `cargo run --release --example gen_test_library -- "<dossier vide>" 100000`.
-- Mesure de fluidité (D-008) : `node scripts/bench-grid.mjs "<dossier de la bibliothèque de test>"`.
+- Bibliothèque de test (DEV-02, avec tags DEV-04), dans `src-tauri` :
+  `cargo run --release --example gen_test_library -- "<dossier vide>" 100000` ;
+  ajouter les tags à une bibliothèque générée qui n'en a pas : `… -- "<dossier>" --tags-seulement`.
+- Banque de test Danbooru (DEV-03) : `node scripts/fetch-booru-bank.mjs "<dossier>" [3000] [200] [100]`
+  (images, vidéos, GIF + un JSON par média ; relancer reprend où on s'était arrêté). Déjà
+  téléchargée dans `new V2\échantillon test SFW\BooruScrap - 3k demo`.
+- Import de tags depuis des JSON (DEV-01), en PowerShell depuis le Workspace :
+  `.\scripts\import-tags-json.ps1 -Dossier "<dossier des .json>" -Donnees "<dossier de données>"`
+  (ou variable `MYBOARD_DATA_DIR` ; la vraie bibliothèque n'est jamais choisie par défaut).
+- Mesure de fluidité (D-008), deux modes :
+  - `node scripts/bench-grid.mjs "<dossier de la bibliothèque de test>"` — mode d'origine : la
+    fenêtre s'ouvre là où Windows la place, fluidité en images/s (mesures de la phase 1 en
+    2560×1440 à 180 Hz) ;
+  - `node scripts/bench-grid.mjs "<dossier>" --ecran 1920x1080` — fenêtre forcée sur l'écran
+    1920×1080 (DEV-05) ; ajoute la colonne « images ratées ». Sous Windows 10, la fenêtre suit
+    le rythme de l'écran PRINCIPAL (180 Hz) même posée sur l'écran à 60 Hz (mesuré le 12/10).
 - Pilotage de la fenêtre pour vérifier (clics, clavier, captures) : `node scripts/cdp.mjs …`
   (voir l'en-tête du fichier). Le glisser-déposer natif ne peut pas être simulé : à faire tester.
 
@@ -77,6 +90,16 @@ Variables d'environnement utiles :
 - `MYBOARD_FFMPEG` — chemin de ffmpeg (dossier ou `.exe`) si la détection automatique échoue.
 - `WEBVIEW2_USER_DATA_FOLDER` / `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=--remote-debugging-port=9333`
   — profil WebView2 séparé et port de débogage (pilotage et captures pendant les tests).
+- `MYBOARD_MONITOR` (tests uniquement, DEV-05) — écran où s'ouvre la fenêtre, par sa définition
+  (`1920x1080`) ou son nom Windows (`DISPLAY1`). Sans la variable, rien ne change.
 
-Structure : `src-tauri/src` (Rust : `db/`, `import/`, `thumbs/`, `library.rs`, `ffmpeg.rs`) ·
-`src/` (React : `components/{layout,library,import,ui}`, `stores/`, `hooks/`, `lib/`).
+**Attention (sessions Claude Code, 12/10/2026)** : l'application Claude est une application du
+Microsoft Store ; ce que ses commandes écrivent dans `%LOCALAPPDATA%` est redirigé vers
+`%LOCALAPPDATA%\Packages\Claude_pzs8sxrjxfjjc\LocalCache\Local\`. Les bibliothèques de test
+`MyBoard-test` y sont donc réellement rangées, invisibles à l'adresse habituelle pour
+l'utilisateur et pour l'Explorateur. Tester « Ouvrir dans l'explorateur » sur des fichiers du
+Bureau, pas sur des fichiers de ce dossier.
+
+Structure : `src-tauri/src` (Rust : `db/`, `import/`, `thumbs/`, `media/` (visionneuse, protocole
+`media://`), `library.rs`, `search.rs`, `tags.rs`, `ffmpeg.rs`, `test_screen.rs`) ·
+`src/` (React : `components/{layout,library,import,search,tags,viewer,ui}`, `stores/`, `hooks/`, `lib/`).

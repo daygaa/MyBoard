@@ -12,14 +12,17 @@ use rusqlite::{Connection, OptionalExtension, params};
 use super::scan::ScanFile;
 use crate::formats::Kind;
 
+/// Résultat de l'indexation, avec l'identifiant du média concerné dans la bibliothèque
+/// (celui du média existant pour un doublon) : les tags par défaut de l'import y sont
+/// ajoutés dans tous les cas (IMP-30).
 pub enum Outcome {
-    Imported,
+    Imported(i64),
     /// Même chemin, même taille, même date de modification : rien à faire.
-    AlreadyPresent,
+    AlreadyPresent(i64),
     /// Même chemin mais contenu modifié : le média garde ses tags, sa miniature est refaite.
-    Updated,
+    Updated(i64),
     /// Contenu identique à un média déjà présent (fichier copié ou renommé).
-    Duplicate,
+    Duplicate(i64),
 }
 
 /// Début du fichier conservé pour lire les dimensions d'une image sans la décoder.
@@ -48,11 +51,11 @@ impl Indexer {
             .prepare_cached("SELECT id, size, file_modified_at FROM media WHERE path = ?1")?
             .query_row([path], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))
             .optional()?;
-        if let Some((_, old_size, old_modified)) = existing
+        if let Some((id, old_size, old_modified)) = existing
             && old_size == size
             && old_modified == modified
         {
-            return Ok(Outcome::AlreadyPresent);
+            return Ok(Outcome::AlreadyPresent(id));
         }
 
         let hash = self.hash(&file.path)?;
@@ -64,9 +67,9 @@ impl Indexer {
             if existing.map(|e| e.0) == Some(other) {
                 // Seule la date a changé (fichier touché sans modification du contenu).
                 conn.execute("UPDATE media SET file_modified_at = ?1 WHERE id = ?2", params![modified, other])?;
-                return Ok(Outcome::AlreadyPresent);
+                return Ok(Outcome::AlreadyPresent(other));
             }
-            return Ok(Outcome::Duplicate);
+            return Ok(Outcome::Duplicate(other));
         }
 
         let (width, height) = match file.kind {
@@ -84,7 +87,7 @@ impl Indexer {
                  WHERE id = ?8",
                 params![hash, size, width, height, created, modified, thumb_status, id],
             )?;
-            return Ok(Outcome::Updated);
+            return Ok(Outcome::Updated(id));
         }
 
         let file_name = file.path.file_name().and_then(|n| n.to_str()).unwrap_or(path);
@@ -107,7 +110,7 @@ impl Indexer {
             now,
             thumb_status
         ])?;
-        Ok(Outcome::Imported)
+        Ok(Outcome::Imported(conn.last_insert_rowid()))
     }
 
     /// Empreinte BLAKE3 du contenu complet ; garde le début du fichier dans `head`.

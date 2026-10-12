@@ -3,6 +3,67 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Phase 2 — Visionneuse, tags, recherche, barre latérale (12/10/2026) — Backup v6
+
+Cadrage avec l'utilisateur avant de coder : D-016 (Q-05 tranchée, vidéos, choix par défaut).
+
+- Visionneuse plein écran (VIEW-01 à VIEW-07) : clic sur une vignette ; fermeture par Échap,
+  croix, clic sur le fond, **bouton 4 de la souris** (vérifié avec un vrai clic Windows : ferme
+  la pop-in, puis la visionneuse, puis seulement fait « retour ») ; flèches écran et clavier
+  **sans couture entre les pages** ; à la fermeture, la grille montre la page du média regardé ;
+  page derrière bloquée ; pop-ins maison sans calque invisible (GEN-10).
+- Zoom façon wikifeet repris de la v8 (ZOOM-01 à ZOOM-07) : « ajusté » plafonné à 1, ×4 maximum,
+  molette continue ancrée sous le curseur, centrage par axe, clic ajusté ↔ taille réelle sur le
+  point cliqué, clic sur le fond (dézoom ou fermeture), glisser si zoomé, animation au clic seul,
+  badge « 1.50× ». La miniature s'affiche tout de suite, l'original net la remplace.
+- Barre du bas (VIEW-10, VIEW-12, VIEW-13, VIEW-20 à VIEW-24) : nom, dimensions, poids, durée,
+  date de création ; champ d'ajout de tag juste après les infos, suggestions au-dessus, pop-in de
+  création avec choix de catégorie ; pastilles colorées retirables, clic = recherche ; « Explorer »
+  (fichier sélectionné) ; **« Ouvrir avec l'application par défaut »** (VIEW-24, nouveau) ;
+  Favori, Dossier, Supprimer grisés « bientôt » (phase 3).
+- Lecture des originaux par un protocole interne avec lecture partielle : images, vidéos (H.264,
+  VP9, AV1, HEVC avec l'extension Microsoft), son, PDF (lecteur intégré), TIFF / HEIC convertis par
+  ffmpeg ; vidéo illisible → message + VIEW-24 (conversion à la volée : VIEW-25, phase 4) ;
+  boucle désactivable (VIEW-26).
+- Recherche (SRCH-01 à SRCH-07) : champ de la barre latérale avec autocomplétion, ET, `-tag`,
+  `tag*`, `_` pour les espaces, pastilles des termes + « Tout effacer », message « aucun résultat »
+  de la v8 ; changer de filtre garde les tags (FILT-03).
+- Barre latérale (SRCH-10 à SRCH-14) : tags de la page affichée avec leur nombre total de médias,
+  groupés par catégorie dans l'ordre et les couleurs choisis (TAGM-03), clic / « + » / « − »,
+  compteurs relus dès qu'un tag change ; liste virtualisée.
+- Tags : noms en minuscules, affichés avec des espaces ; un tag créé est proposé partout (TAGM-07) ;
+  liés à l'identifiant du média (LIB-04) ; migration de la base en version 2 (catégories).
+- Tags par défaut à l'import (IMP-30, IMP-31), avancés en phase 2 : ajoutés à tous les fichiers
+  de l'import, y compris ceux déjà dans la bibliothèque.
+- Outils : import de tags depuis des JSON en PowerShell, idempotent (DEV-01) ; banque de test
+  Danbooru de 3 000 images, 200 vidéos, 100 GIF avec tags et catégories (DEV-03) ; tags réalistes
+  dans le générateur 100 000 médias (DEV-04) ; fenêtre de test sur l'écran choisi et mesure
+  `--ecran` (DEV-05) ; `scripts/cdp.mjs` réparé (ne faisait rien quand le chemin contient un espace).
+
+**Vérifications** (version compilée, fenêtre 1920×1017 sur l'écran 1080p) :
+- DEV-01 sur la banque Danbooru : 3 300 JSON, 13 093 tags, 133 823 liens en 3,2 s ; relancé :
+  0 tag, 0 lien ; compteurs vérifiés exacts en base (aucun écart).
+- Toutes les vidéos de l'échantillon se lisent (22 combinaisons conteneur / codec / son testées,
+  dont HEVC 10 bits en .MOV et son PCM) ; saut aux 3/4 : 2 à 133 ms (1,1 s en 4K HEVC de 382 Mo).
+- Visionneuse sur images Danbooru pleine résolution : ouverture 52 ms, image suivante 23–97 ms,
+  zoom molette 5,6 ms par image affichée (aucune saccade).
+
+**Mesures recherche** (100 000 médias, 586 tags, 1,39 million de liens) : page de résultats
+2–91 ms (`1girl` sur 75 % des médias : 48 ms ; `1girl -solo` : 91 ms) ; tags de la page de 500
+médias : 5 ms ; autocomplétion : 2 ms.
+
+**Mesures grille** (100 000 médias, écran 1920×1080, `--ecran 1920x1080`). Windows 10 cadence la
+fenêtre au rythme de l'écran principal (180 Hz) même sur l'écran à 60 Hz : les images/s restent
+comparables à la phase 1 ; sur l'écran 60 Hz, aucune image ne dépasse 17 ms (une image à 60 Hz).
+
+| Colonnes | Médias/page | Page suivante (médiane) | Page lointaine | Défilement | p95 / pire image | Saccades > 50 ms | Images ratées (à 180 Hz) |
+|---|---|---|---|---|---|---|---|
+| 4 | 50 | 46 ms | 118 ms | 180 images/s | 6 / 6 ms | 0 | 0 / 467 |
+| 7 | 102 | 64 ms | 115 ms | 178 images/s | 6 / 11 ms | 0 | 3 / 309 |
+| 14 | 223 | 143 ms | 193 ms | 159 images/s | 11 / 17 ms | 0 | 17 / 156 |
+| 20 | 327 | 225 ms | 261 ms | 161 images/s | 11 / 17 ms | 0 | 10 / 116 |
+| 30 | 500 | 379 ms | 440 ms | 173 images/s | 6 / 11 ms | 0 | 3 / 74 |
+
 ## Phase 1 — Pagination centrée, icône (12/10/2026) — Backup v5
 
 - PAGE-04 : la page active reste au centre exact de la fenêtre (alignée avec le logo), en

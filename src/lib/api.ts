@@ -1,5 +1,5 @@
 // Appels au cœur Rust (commandes Tauri) et types échangés.
-// Les noms correspondent aux structures Rust de src-tauri/src (library.rs, import/).
+// Les noms correspondent aux structures Rust de src-tauri/src (library.rs, import/, tags.rs, media/).
 
 import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 
@@ -23,6 +23,8 @@ export type MediaItem = {
 
 export type ListQuery = {
   kinds: MediaKind[];
+  /** Termes de la recherche par tags (`tag`, `-tag`, `tag*`) ; vide = toute la bibliothèque. */
+  terms: string[];
   sort: string;
   seed: number;
   page: number;
@@ -34,6 +36,8 @@ export type ListPage = {
   total: number;
   page: number;
   pageCount: number;
+  /** Médias par page réellement utilisés (position d'un média dans tous les résultats). */
+  pageSize: number;
 };
 
 export type Stats = {
@@ -47,6 +51,29 @@ export type Stats = {
 };
 
 export type FfmpegStatus = { found: boolean; path: string | null; version: string | null };
+
+/** Catégorie de tags (TAGM-01) : nom, couleur et ordre viennent de la base. */
+export type Category = { id: number; key: string; name: string; color: string; sortOrder: number };
+
+export type TagInfo = {
+  id: number;
+  name: string;
+  categoryId: number;
+  /** Nombre total de médias de la bibliothèque qui portent ce tag (SRCH-10). */
+  mediaCount: number;
+};
+
+/** Tag à créer s'il n'existe pas ; la catégorie est ignorée pour un tag existant (IMP-31). */
+export type NewTag = { name: string; categoryId: number | null };
+
+/** Fiche détaillée d'un média pour la visionneuse (VIEW-10, VIEW-23). */
+export type MediaDetail = {
+  id: number;
+  path: string;
+  fileCreatedAt: number | null;
+  importedAt: number;
+  tags: TagInfo[];
+};
 
 /** Résultat d'une miniature, envoyé par lots (événement `thumbs-ready`). */
 export type ThumbUpdate = {
@@ -108,8 +135,17 @@ export const api = {
   importSnapshot: () => invoke<ImportSnapshot>("import_snapshot"),
   scanPaths: (paths: string[], recursive: boolean) => invoke<void>("scan_paths", { paths, recursive }),
   supportedExtensions: () => invoke<string[]>("supported_extensions"),
-  startImport: () => invoke<void>("start_import"),
+  startImport: (defaultTags: NewTag[]) => invoke<void>("start_import", { defaultTags }),
   cancelImport: () => invoke<void>("cancel_import"),
+  tagCategories: () => invoke<Category[]>("tag_categories"),
+  autocompleteTags: (text: string) => invoke<TagInfo[]>("autocomplete_tags", { text }),
+  findTag: (name: string) => invoke<TagInfo | null>("find_tag", { name }),
+  pageTags: (ids: number[]) => invoke<TagInfo[]>("page_tags", { ids }),
+  addMediaTag: (mediaId: number, tag: NewTag) => invoke<void>("add_media_tag", { mediaId, tag }),
+  removeMediaTag: (mediaId: number, tagId: number) => invoke<void>("remove_media_tag", { mediaId, tagId }),
+  mediaDetail: (id: number) => invoke<MediaDetail | null>("media_detail", { id }),
+  revealMedia: (id: number) => invoke<void>("reveal_media", { id }),
+  openMedia: (id: number) => invoke<void>("open_media", { id }),
 };
 
 /** Événements émis par le cœur Rust. */
@@ -132,4 +168,12 @@ const THUMB_ROOT = convertFileSrc("", "thumb");
 /** Adresse d'une miniature d'un média. */
 export function thumbUrl(hash: string, tier: ThumbTier = "normal"): string {
   return `${THUMB_ROOT}${TIER_PREFIX[tier]}${hash}.webp`;
+}
+
+const MEDIA_ROOT = convertFileSrc("", "media");
+
+/** Adresse du FICHIER ORIGINAL d'un média (protocole `media://`, visionneuse). L'empreinte
+ *  fait partie de l'adresse : son contenu ne change jamais, la fenêtre peut le garder en cache. */
+export function mediaUrl(item: Pick<MediaItem, "id" | "hash" | "ext">): string {
+  return `${MEDIA_ROOT}${item.id}/${item.hash}.${item.ext}`;
 }

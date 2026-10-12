@@ -1,6 +1,6 @@
 // Vignette de la grille (GRID-08), apparence v8 : carrée, survol = nom, poids, dimensions ;
 // badge durée pour les vidéos, badge GIF. L'étoile favori et la case de sélection
-// arrivent en phase 3, l'ouverture dans la visionneuse en phase 2.
+// arrivent en phase 3. Clic = visionneuse plein écran (VIEW-01).
 //
 // Taille de l'image selon la densité : 128 px pour les grilles denses (LIB-12), 320 px sinon,
 // et grand aperçu 640 px par-dessus pour 4–6 colonnes (LIB-09).
@@ -15,6 +15,7 @@ import { THUMB, thumbUrl, type MediaItem } from "@/lib/api";
 import { formatBytes, formatDuration } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { useThumbs } from "@/stores/thumbs";
+import { useViewer } from "@/stores/viewer";
 
 const SHEETS = ["xls", "xlsx", "xlsm", "ods", "csv", "gsheet"];
 const WORD = ["doc", "docx", "odt"];
@@ -71,6 +72,9 @@ function Badge({ video, duration, className }: { video: boolean; duration: numbe
 
 type TileProps = {
   item: MediaItem;
+  /** Position du média dans tous les résultats (pour la visionneuse, VIEW-04). */
+  index: number;
+  pageSize: number;
   compact: boolean;
   /** Miniatures 128 px (grilles denses, LIB-12). */
   small: boolean;
@@ -78,7 +82,7 @@ type TileProps = {
   preview: boolean;
 };
 
-export const MediaTile = memo(function MediaTile({ item, compact, small, preview }: TileProps) {
+export const MediaTile = memo(function MediaTile({ item, index, pageSize, compact, small, preview }: TileProps) {
   const ref = useRef<HTMLDivElement>(null);
   const update = useThumbs((s) => s.updates[item.id]);
   const [failed, setFailed] = useState(false);
@@ -98,7 +102,8 @@ export const MediaTile = memo(function MediaTile({ item, compact, small, preview
       ref={ref}
       data-zone="grille.vignette"
       title={item.fileName}
-      className="group relative block aspect-square w-full overflow-hidden rounded-lg bg-[#0d0e12] ring-1 ring-border transition-all duration-200 hover:ring-[#d9a94e]/60"
+      onClick={() => useViewer.getState().openAt(index, item, pageSize)}
+      className="group relative block aspect-square w-full cursor-pointer overflow-hidden rounded-lg bg-[#0d0e12] ring-1 ring-border transition-all duration-200 hover:ring-[#d9a94e]/60"
     >
       {ready ? (
         <div className="absolute inset-0 transition-transform duration-300 group-hover:scale-105">
