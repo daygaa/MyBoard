@@ -1,6 +1,8 @@
 // Plein écran (VIEW-18) : la barre du bas apparaît dès que la souris s'en approche à moins de
 // BUFFER pixels, et ne disparaît que quand elle s'en éloigne d'autant (zone tampon) — pas besoin
 // de viser exactement la barre. Aussi : hauteur de la barre, et souris immobile (VIEW-33).
+// Souris sortie de la fenêtre (vers un autre écran, VIEW-37) : barre et commandes se cachent
+// tout de suite ; à son retour, le premier mouvement les fait réapparaître comme d'habitude.
 
 import { useEffect, useState, type RefObject } from "react";
 
@@ -16,9 +18,12 @@ export function useBottomBarVisible(ref: RefObject<HTMLElement | null>, active: 
       const bar = ref.current;
       if (bar) setVisible(e.clientY >= window.innerHeight - bar.offsetHeight - BUFFER);
     };
+    const onLeave = () => setVisible(false);
     window.addEventListener("mousemove", onMove);
+    document.documentElement.addEventListener("mouseleave", onLeave);
     return () => {
       window.removeEventListener("mousemove", onMove);
+      document.documentElement.removeEventListener("mouseleave", onLeave);
       setVisible(false);
     };
   }, [ref, active]);
@@ -39,7 +44,8 @@ export function useHeight(ref: RefObject<HTMLElement | null>): number {
   return height;
 }
 
-/** Vrai quand la souris n'a pas bougé depuis IDLE_DELAY (seulement si `active`). */
+/** Vrai quand la souris n'a pas bougé depuis IDLE_DELAY, ou dès qu'elle sort de la fenêtre
+ *  (seulement si `active`). */
 export function useIdle(active: boolean): boolean {
   const [idle, setIdle] = useState(false);
   useEffect(() => {
@@ -50,12 +56,18 @@ export function useIdle(active: boolean): boolean {
       clearTimeout(timer);
       timer = setTimeout(() => setIdle(true), IDLE_DELAY);
     };
+    const leave = () => {
+      clearTimeout(timer);
+      setIdle(true);
+    };
     window.addEventListener("mousemove", wake);
     window.addEventListener("pointerdown", wake);
+    document.documentElement.addEventListener("mouseleave", leave);
     return () => {
       clearTimeout(timer);
       window.removeEventListener("mousemove", wake);
       window.removeEventListener("pointerdown", wake);
+      document.documentElement.removeEventListener("mouseleave", leave);
       setIdle(false);
     };
   }, [active]);

@@ -3,6 +3,22 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Phase 2 — Masquage en plein écran : badge du zoom, souris sur l'autre écran (13/10/2026) — Backup v13
+
+SPEC : GRID-11 validé `[x]` ; VIEW-33 repasse `[~]` (correction) ; nouvelle demande VIEW-37.
+
+- VIEW-33 : le badge du zoom (pourcentage) se cache maintenant avec les autres commandes après 3 s
+  sans mouvement de la souris.
+- VIEW-37 : vidéo en plein écran, la souris passe sur l'autre écran : tout se cache aussitôt, sans
+  attendre 3 s (barre du bas comprise) ; tout revient dès que la souris revient et bouge (le retour
+  utilise le mécanisme déjà en place pour le mouvement).
+
+Vérifié dans la version compilée, avec le vrai curseur de Windows (fenêtre en plein écran sur
+l'écran 1080p, vidéo zoomée) : après 3,6 s immobile, curseur, barre de lecture, badge du zoom,
+croix et flèches cachés ; 0,3 s après le passage sur l'écran 1440p, tout est caché ; retour et
+mouvement : tout réapparaît ; barre du bas affichée (souris en bas) puis souris sur l'autre écran :
+cachée en 0,4 s.
+
 ## Phase 2 — Vignettes « nom seul » (13/10/2026) — Backup v12
 
 SPEC : VIEW-35 et VIEW-36 validés `[x]` ; nouvelle demande GRID-11. Choix : D-019.
