@@ -53,3 +53,5 @@ opt-level = 3
 # « Copier » (VIEW-35) : le fichier lui-même dans le presse-papiers, comme Ctrl + C dans
 # l'Explorateur (format Windows CF_HDROP).
 clipboard-win = "5"
+# Densité réelle de l'écran (GRID-11) : appels Windows `MonitorFromWindow` et `GetDpiForMonitor`.
+windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_Graphics_Gdi", "Win32_UI_HiDpi"] }

@@ -2,6 +2,7 @@
 //! L'interface (React) appelle les commandes déclarées ici via `invoke`.
 
 pub mod db;
+pub mod display;
 pub mod ffmpeg;
 pub mod formats;
 pub mod import;
@@ -82,6 +83,7 @@ pub fn run() {
             media::reveal_media,
             media::open_media,
             media::copy_media,
+            display::screen_dpi,
             media::set_media_notes,
             media::open_url,
         ])

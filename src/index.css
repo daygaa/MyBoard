@@ -158,6 +158,24 @@
   }
 }
 
+/* Vignettes de moins de ~2,2 cm à l'écran (GRID-11, `data-nom-seul` posé sur la grille) : plus
+   de badge vidéo / GIF ni de poids / dimensions ; au survol, le nom prend toute la largeur, à la
+   taille calculée par la vignette (`--name-size`). Hors des couches Tailwind : passe avant
+   `text-xs`. */
+[data-nom-seul] .tile-chip,
+[data-nom-seul] .tile-meta {
+  display: none;
+}
+[data-nom-seul] .tile-name {
+  font-size: var(--name-size, 12px);
+  line-height: 1.2;
+  /* Une seule ligne terminée par « … », même pour un nom sans espace (« IMG_20191101_000924.jpg »),
+     que la coupure sur une ligne de `line-clamp-1` tronquait sans « … ». */
+  display: block;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
 /* Impression (VIEW-17) : seul le média est imprimé, jamais la page de l'application. */
 @media print {
   /* Marges de page à zéro : le navigateur n'a plus la place d'imprimer sa date et le titre de

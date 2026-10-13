@@ -1,7 +1,8 @@
 // Vignette de la grille (GRID-08), apparence v8 : carrée, survol = nom, poids, dimensions ;
 // badge durée pour les vidéos, badge GIF. L'étoile favori et la case de sélection
 // arrivent en phase 3, dans le calque réduit `tile-overlay` (GRID-10, remplace la réduction
-// de SEL-05). Clic = visionneuse plein écran (VIEW-01).
+// de SEL-05). Vignettes de moins de ~2,2 cm : nom seul, agrandi (GRID-11, index.css).
+// Clic = visionneuse plein écran (VIEW-01).
 //
 // Taille de l'image selon la densité : 128 px pour les grilles denses (LIB-12), 320 px sinon,
 // et grand aperçu 640 px par-dessus pour 4–6 colonnes (LIB-09).
@@ -49,12 +50,35 @@ function Placeholder({ item, status, compact }: { item: MediaItem; status: numbe
   );
 }
 
-/** Badge durée (vidéo) ou GIF. */
+/** Taille normale du nom (classe `text-xs`) et taille maximale en mode « nom seul » (GRID-11) :
+ *  la hauteur libérée par la ligne poids / dimensions (≈ 35 px dans le calque des infos). */
+const NAME_PX = 12;
+const NAME_MAX_PX = 28;
+let ruler: CanvasRenderingContext2D | null = null;
+
+/** Mode « nom seul » (GRID-11) : taille du nom pour qu'il tienne en entier sur une ligne dans
+ *  toute la largeur, jamais plus petit que la taille normale (au-delà, « … »). Calculée au
+ *  survol, pour la seule vignette survolée (D-008). */
+function fitName(name: HTMLElement) {
+  const info = name.closest<HTMLElement>(".tile-info");
+  ruler ??= document.createElement("canvas").getContext("2d");
+  if (!info || !ruler) return;
+  const style = getComputedStyle(name);
+  ruler.font = `${style.fontWeight} ${NAME_PX}px ${style.fontFamily}`;
+  const textWidth = ruler.measureText(name.textContent ?? "").width;
+  const box = getComputedStyle(info);
+  const room = info.clientWidth - parseFloat(box.paddingLeft) - parseFloat(box.paddingRight);
+  // 2 % de marge : un arrondi ne doit pas faire apparaître « … » sur un nom qui tient.
+  const size = Math.min(NAME_MAX_PX, Math.max(NAME_PX, (NAME_PX * room * 0.98) / textWidth));
+  name.style.setProperty("--name-size", `${size.toFixed(2)}px`);
+}
+
+/** Badge durée (vidéo) ou GIF (masqué en mode « nom seul », GRID-11). */
 function Badge({ video, duration, className }: { video: boolean; duration: number | null; className?: string }) {
   return (
     <span
       className={cn(
-        "flex shrink-0 items-center gap-1 rounded bg-black/80 px-1.5 py-0.5 text-[10px] text-white shadow",
+        "tile-chip flex shrink-0 items-center gap-1 rounded bg-black/80 px-1.5 py-0.5 text-[10px] text-white shadow",
         video ? "font-semibold" : "font-bold uppercase",
         className,
       )}
@@ -85,6 +109,7 @@ type TileProps = {
 
 export const MediaTile = memo(function MediaTile({ item, index, pageSize, compact, small, preview }: TileProps) {
   const ref = useRef<HTMLDivElement>(null);
+  const nameRef = useRef<HTMLParagraphElement>(null);
   const update = useThumbs((s) => s.updates[item.id]);
   const [failed, setFailed] = useState(false);
   const [smallFailed, setSmallFailed] = useState(false);
@@ -104,6 +129,7 @@ export const MediaTile = memo(function MediaTile({ item, index, pageSize, compac
       data-zone="grille.vignette"
       title={item.fileName}
       onClick={() => useViewer.getState().openAt(index, item, pageSize)}
+      onMouseEnter={() => nameRef.current && fitName(nameRef.current)}
       className="group relative block aspect-square w-full cursor-pointer overflow-hidden rounded-lg bg-[#0d0e12] ring-1 ring-border transition-all duration-200 hover:ring-[#d9a94e]/60"
     >
       {ready ? (
@@ -150,12 +176,14 @@ export const MediaTile = memo(function MediaTile({ item, index, pageSize, compac
 
         {/* Survol : nom, poids, dimensions. Hors survol, ni affichés ni dessinés (`invisible`) :
             changer de densité est ~20 % plus rapide à 30 colonnes (mesuré le 13/10, D-008). */}
-        <div className="pointer-events-none invisible absolute inset-x-0 bottom-0 space-y-1 px-2 pb-1.5 opacity-0 transition-[opacity,visibility] duration-200 group-hover:visible group-hover:opacity-100">
+        <div className="tile-info pointer-events-none invisible absolute inset-x-0 bottom-0 space-y-1 px-2 pb-1.5 opacity-0 transition-[opacity,visibility] duration-200 group-hover:visible group-hover:opacity-100">
           <div className="flex items-center gap-2">
-            <p className="line-clamp-1 min-w-0 flex-1 text-xs font-medium text-white drop-shadow">{item.fileName}</p>
+            <p ref={nameRef} className="tile-name line-clamp-1 min-w-0 flex-1 text-xs font-medium text-white drop-shadow">
+              {item.fileName}
+            </p>
             {hasBadge && <Badge video={isVideo} duration={duration} />}
           </div>
-          <div className="flex items-center justify-between font-mono text-[10px] text-zinc-300">
+          <div className="tile-meta flex items-center justify-between font-mono text-[10px] text-zinc-300">
             <span>{formatBytes(item.size)}</span>
             {width && height && (
               <span>

@@ -3,6 +3,27 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Phase 2 — Vignettes « nom seul » (13/10/2026) — Backup v12
+
+SPEC : VIEW-35 et VIEW-36 validés `[x]` ; nouvelle demande GRID-11. Choix : D-019.
+
+- GRID-11 : quand une vignette fait moins de ~2,2 cm à l'écran (18 colonnes sur l'écran 24"
+  1080p, 22 sur le 27" 1440p, calcul automatique pour les autres écrans), le badge vidéo / GIF, le
+  poids et les dimensions disparaissent ; au survol, le nom prend toute la largeur, agrandi au
+  maximum sur une ligne ; un nom trop long garde la taille normale et finit par « … ».
+- Nouvelle commande `screen_dpi` (densité réelle de l'écran de la fenêtre, lue auprès de Windows).
+
+Vérifié dans la version compilée :
+- Seuils : écran 1080p (93 points par pouce) 17 colonnes = 2,32 cm → normal, 18 colonnes = 2,18 cm
+  → nom seul ; écran 1440p (108 points par pouce, fenêtre déplacée dessus : densité relue) 21 col.
+  = 2,30 cm → normal, 22 col. = 2,19 cm → nom seul ; jusqu'à 30 colonnes.
+- Survol : badges, poids et dimensions masqués ; « 12363315.mp4 » à ≈ 20 px dans le calque des
+  infos au lieu de 12, entier ; nom de 20 caractères à 13,9 px, entier ; noms de 23 et 26
+  caractères à 12 px, terminés par « … ».
+- Fluidité (100 000 médias, écran 1080p, deux mesures) : revenue au niveau d'avant GRID-10
+  (30 colonnes : changer de densité 656–664 ms contre 659, page suivante 360–365 ms contre 372,
+  0 saccade à la seconde mesure).
+
 ## Phase 2 — Copier, raccourcis, vignettes denses (13/10/2026) — Backup v11
 
 SPEC : VIEW-18 et VIEW-32 validés `[x]` ; nouvelles demandes VIEW-35, VIEW-36, GRID-10, SET-10

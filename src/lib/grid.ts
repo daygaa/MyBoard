@@ -33,6 +33,11 @@ export const PREVIEW_DELAY_MS = 150;
  *  En dessous, ils sont réduits dans la même proportion que la vignette (GRID-10). */
 export const TILE_FULL_WIDTH = 150;
 
+/** Largeur réelle (pouces) sous laquelle une vignette passe en mode « nom seul » (GRID-11) :
+ *  ≈ 2,2 cm. Mesuré le 13/10 : 18 colonnes sur l'écran 24" 1080p = 0,859 pouce (17 col. = 0,915),
+ *  22 colonnes sur l'écran 27" 1440p = 0,861 pouce (21 col. = 0,906). */
+export const NAME_ONLY_TILE_INCHES = 0.88;
+
 /** Écart entre vignettes, en pixels (classe `gap-2`). */
 export const GRID_GAP = 8;
 

@@ -5,8 +5,16 @@
 import { useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { useWindowVirtualizer } from "@tanstack/react-virtual";
 
+import { useScreenDensity } from "@/hooks/useScreenDensity";
 import type { MediaItem } from "@/lib/api";
-import { COMPACT_DENSITY, GRID_GAP, PREVIEW_MAX_DENSITY, SMALL_THUMB_DENSITY, TILE_FULL_WIDTH } from "@/lib/grid";
+import {
+  COMPACT_DENSITY,
+  GRID_GAP,
+  NAME_ONLY_TILE_INCHES,
+  PREVIEW_MAX_DENSITY,
+  SMALL_THUMB_DENSITY,
+  TILE_FULL_WIDTH,
+} from "@/lib/grid";
 import { MediaTile } from "./MediaTile";
 
 /** Largeur de la grille et sa position dans la page, tenues à jour. */
@@ -49,6 +57,9 @@ export function MediaGrid({ items, density, firstIndex, pageSize }: Props) {
   const compact = density >= COMPACT_DENSITY;
   const small = density >= SMALL_THUMB_DENSITY;
   const preview = density <= PREVIEW_MAX_DENSITY;
+  // Vignettes de moins de ~2,2 cm à l'écran : nom seul, agrandi au survol (GRID-11).
+  const pxPerInch = useScreenDensity();
+  const nameOnly = tile > 0 && tile < NAME_ONLY_TILE_INCHES * pxPerInch;
 
   const virtualizer = useWindowVirtualizer({
     count: rowCount,
@@ -65,6 +76,7 @@ export function MediaGrid({ items, density, firstIndex, pageSize }: Props) {
     <div
       ref={ref}
       data-zone="grille.vignettes"
+      data-nom-seul={nameOnly || undefined}
       className="relative w-full"
       style={
         {

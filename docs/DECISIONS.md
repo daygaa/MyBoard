@@ -318,3 +318,21 @@ Choix faits avec l'utilisateur pendant les derniers retours de la phase 2.
   de 1,20 s pour ce même changement. Reste, mesuré avec `bench-grid` : changer de densité ≈ +15 %
   aux fortes densités (≈ +12 ms par cran) ; pages et défilement inchangés. La réduction de 25 %
   prévue par SEL-05 est remplacée par cette règle.
+
+## D-019 — Vignettes « nom seul » selon leur taille réelle à l'écran (13/10/2026)
+
+**Constat.** L'utilisateur voulait l'étape GRID-11 à partir de 18 colonnes sur son écran 24"
+1080p et de 22 colonnes sur son 27" 1440p. En pixels, ces seuils ne correspondent à rien de
+commun (vignette de 80 px contre 93 px) ; en taille réelle, si : Windows donne une densité réelle
+de 93 points par pouce pour le premier et 108 pour le second, soit **≈ 2,2 cm** de large dans les
+deux cas (17 et 21 colonnes : 2,32 et 2,30 cm).
+
+**Décision (choix de l'utilisateur).** Mode « nom seul » quand la vignette fait moins de
+0,88 pouce (≈ 2,2 cm) à l'écran. Le cœur Rust lit la densité réelle de l'écran de la fenêtre
+(`GetDpiForMonitor`, densité « brute » tirée de l'EDID de l'écran) ; l'interface la divise par la
+mise à l'échelle de Windows, et la relit quand la fenêtre change d'écran. Écran qui ne donne pas
+sa taille : 96 points par pouce. Un écran 4K s'adapte seul (27" ≈ 22 colonnes, 32" ≈ 26).
+
+**Nom agrandi.** Une seule ligne, taille calculée au survol pour la seule vignette survolée
+(mesure du texte) : aussi grand que possible dans toute la largeur, jusqu'à la hauteur libérée
+par la ligne poids / dimensions ; jamais plus petit que la taille normale, sinon « … ».

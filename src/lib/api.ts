@@ -149,6 +149,7 @@ export const api = {
   revealMedia: (id: number) => invoke<void>("reveal_media", { id }),
   openMedia: (id: number) => invoke<void>("open_media", { id }),
   copyMedia: (id: number) => invoke<void>("copy_media", { id }),
+  screenDpi: () => invoke<number | null>("screen_dpi"),
   setMediaNotes: (id: number, notes: string) => invoke<void>("set_media_notes", { id, notes }),
   openUrl: (url: string) => invoke<void>("open_url", { url }),
 };
