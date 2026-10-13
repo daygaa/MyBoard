@@ -129,7 +129,7 @@ function SpeedMenu() {
 const FLOAT_GAP = 24;
 
 export function VideoControls({ videoRef }: { videoRef: RefObject<HTMLVideoElement | null> }) {
-  const { bottomInset, idle } = useContext(ViewerChrome);
+  const { bottomInset, idle, lift } = useContext(ViewerChrome);
   useVideoEvents(videoRef);
   const { volume, muted, loop, setVolume, setMuted, setLoop } = usePlayer();
   const video = videoRef.current;
@@ -144,7 +144,8 @@ export function VideoControls({ videoRef }: { videoRef: RefObject<HTMLVideoEleme
         "absolute left-1/2 z-20 flex h-11 w-[45%] max-w-[1100px] min-w-[560px] -translate-x-1/2 items-center gap-2 rounded-xl border border-white/10 bg-black/80 px-3 shadow-lg transition-opacity duration-300",
         idleClass(idle),
       )}
-      style={{ bottom: bottomInset + FLOAT_GAP }}
+      // Glisse avec la barre du bas dépliée (VIEW-39), au même rythme qu'elle.
+      style={{ bottom: bottomInset + FLOAT_GAP, transform: `translateY(${-lift}px)`, transition: "opacity 300ms ease, transform 200ms ease-out" }}
     >
       <button
         type="button"

@@ -364,3 +364,26 @@ tout l'écran. Seul le bas de la fenêtre bouge. Côté interface, la mise en pa
 (barre de titre cachée, barre du bas par-dessus) ne bascule qu'au changement de taille de la
 fenêtre (`fullscreenShown`), jamais avant. Résultat filmé : 5 passages sur 6 sans aucun mouvement,
 une image décalée de 8 px sur le 6e (avant NAV-04 : 5 images décalées de 23 à 31 px).
+
+## D-021 — Barre du bas dépliable, flèches ancrées, pastilles (VIEW-38, VIEW-39, GEN-14, GEN-15) (13/10/2026)
+
+**Flèches (VIEW-38).** Centrées sur la scène telle qu'elle serait avec une barre du bas d'une
+seule ligne de tags (hauteur mesurée barre repliée), et non plus sur la scène réelle : elles ne
+bougent plus d'un média à l'autre. En plein écran : centre de l'écran.
+
+**Barre du bas (VIEW-39).** `BottomPanel` (mesures ; états replié / déplié / en repli) et
+`TagsArea` (tags et bouton « Afficher plus »). La place réservée sous la scène reste celle de la
+barre repliée (3 lignes au plus) ; dépliée, la barre passe par-dessus le média (moitié de la
+visionneuse au plus, puis défilement). Les commandes flottantes reçoivent `lift` (contexte
+`ViewerChrome`) et glissent par `transform` en 200 ms, au rythme de la hauteur de la barre
+(`max-height`), pour bouger ensemble. Avec 2 ou 3 lignes, la barre pousse le média (choix de
+l'utilisateur).
+
+**Bouton plein écran rangé (VIEW-39, précision).** S'il monterait à moins de 8 px de la flèche
+droite, il se range à 16 px à sa gauche, centré sur elle, et la suit si elle monte : le croquis de
+l'utilisateur le place à gauche (son message disait « à droite », mais la flèche touche le bord
+droit de la fenêtre). Rien à ranger s'il n'y a pas de flèche droite (dernier média).
+
+**Pastilles (GEN-14, GEN-15).** Croix avant le texte dans le composant partagé `TagPill`
+(visionneuse, barre latérale, page Importer). Texte remonté de 2 px : mesuré au pixel, les
+lettres sans jambage sont à 1 px du haut et du bas de la croix.

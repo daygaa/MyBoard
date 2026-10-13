@@ -1,5 +1,6 @@
 // Pastille de tag colorée selon sa catégorie (VIEW-23, SRCH-07, IMP-30), apparence v8 :
-// fond et bordure de la couleur en transparence, texte de la couleur.
+// fond et bordure de la couleur en transparence, texte de la couleur. La croix de retrait est à
+// GAUCHE du texte (GEN-14) : toujours au même endroit, quelle que soit la longueur du tag.
 
 import type { ReactNode } from "react";
 import { X } from "lucide-react";
@@ -27,15 +28,6 @@ export function TagPill({ color, children, onClick, onRemove, removeLabel, title
       // Couleur de la base (TAGM-01) : 15 % pour le fond, 30 % pour la bordure (comme la v8).
       style={{ color, backgroundColor: `${color}26`, borderColor: `${color}4d` }}
     >
-      {/* Texte remonté de 1 px : sinon il paraît plus bas que la croix, qui est bien centrée
-          (mesuré au pixel le 13/10, GEN-09). */}
-      {onClick ? (
-        <button type="button" onClick={onClick} className="relative -top-px min-w-0 truncate hover:underline">
-          {children}
-        </button>
-      ) : (
-        <span className="relative -top-px min-w-0 truncate">{children}</span>
-      )}
       {onRemove && (
         <button
           type="button"
@@ -45,6 +37,16 @@ export function TagPill({ color, children, onClick, onRemove, removeLabel, title
         >
           <X className="h-3 w-3" />
         </button>
+      )}
+      {/* Texte remonté de 2 px : sinon il paraît plus bas que la croix, qui est bien centrée
+          (mesuré au pixel le 13/10, GEN-09 puis GEN-14 : lettres sans jambage à 1 px du haut et
+          du bas de la croix). */}
+      {onClick ? (
+        <button type="button" onClick={onClick} className="relative -top-[2px] min-w-0 truncate hover:underline">
+          {children}
+        </button>
+      ) : (
+        <span className="relative -top-[2px] min-w-0 truncate">{children}</span>
       )}
     </span>
   );

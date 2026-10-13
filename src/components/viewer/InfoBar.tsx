@@ -5,9 +5,9 @@
 // seulement), Supprimer (VIEW-14). Pas de « Télécharger » (VIEW-12). Favori, Dossier et
 // Supprimer : grisés « bientôt » jusqu'à la phase 3 (D-016). Échec d'une action : message
 // d'erreur (VIEW-28). Chaque action a son raccourci clavier (VIEW-36, lib/shortcuts.ts).
-// Ligne 2 : les tags du média en pastilles (VIEW-23).
+// Dessous : les tags du média (`children`, zone dépliable de BottomPanel, VIEW-23, VIEW-39).
 
-import { useEffect, type ComponentType } from "react";
+import { useEffect, type ComponentType, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Check, Copy, ExternalLink, FolderOpen, FolderPlus, Printer, Star, Trash2 } from "lucide-react";
 
@@ -20,7 +20,7 @@ import { useViewer } from "@/stores/viewer";
 import { runExternal } from "./externalOpen";
 import { isTyping } from "./navigation";
 import { printImage } from "./printMedia";
-import { TagAdder, TagPills } from "./ViewerTags";
+import { TagAdder } from "./ViewerTags";
 
 const ACTION = "inline-flex h-8 items-center gap-1.5 rounded-md px-2.5 text-sm transition";
 
@@ -80,7 +80,7 @@ function useShortcuts(actions: ActionDef[]) {
   }, [actions]);
 }
 
-export function InfoBar({ item, onSearch }: { item: MediaItem; onSearch: (name: string) => void }) {
+export function InfoBar({ item, children }: { item: MediaItem; children: ReactNode }) {
   const { data: detail } = useQuery({ queryKey: ["media-detail", item.id], queryFn: () => api.mediaDetail(item.id) });
   const copied = useViewer((s) => s.copied === item.id);
   const meta = [
@@ -135,7 +135,7 @@ export function InfoBar({ item, onSearch }: { item: MediaItem; onSearch: (name: 
   useShortcuts(actions);
 
   return (
-    <div data-zone="visionneuse.barre" className="flex flex-col gap-3 border-t border-border bg-card px-4 py-3">
+    <div data-zone="visionneuse.barre" className="flex min-h-0 flex-col gap-3 border-t border-border bg-card px-4 py-3">
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
         <div data-zone="visionneuse.infos" className="max-w-[32rem] min-w-0 shrink">
           <p className="truncate text-sm font-medium text-foreground" title={detail?.path ?? item.fileName}>
@@ -153,9 +153,7 @@ export function InfoBar({ item, onSearch }: { item: MediaItem; onSearch: (name: 
         </div>
       </div>
 
-      <div data-zone="visionneuse.tags" className="flex min-h-6 flex-wrap items-center gap-1.5">
-        {detail && <TagPills mediaId={item.id} tags={detail.tags} onSearch={onSearch} />}
-      </div>
+      {children}
     </div>
   );
 }

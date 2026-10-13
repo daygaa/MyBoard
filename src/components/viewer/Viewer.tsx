@@ -11,8 +11,11 @@
 // - Note du média (VIEW-19), message d'erreur des ouvertures externes (VIEW-28).
 // - Sous la barre de titre MyBoard (NAV-04), qui reste visible ; en plein écran, la mise en page
 //   ne bascule qu'une fois la fenêtre à la taille de l'écran (VIEW-34, stores/viewer).
+// - Flèches précédent / suivant ancrées à leur place « barre du bas d'une ligne de tags »
+//   (VIEW-38) ; barre du bas dépliée par-dessus le média : flèches, bouton plein écran et barre
+//   de lecture glissent avec elle s'ils sont atteints (VIEW-39, BottomPanel).
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
 
 import type { MediaItem } from "@/lib/api";
@@ -21,9 +24,8 @@ import { scroller } from "@/lib/scroller";
 import { cn } from "@/lib/utils";
 import { useSearch } from "@/stores/search";
 import { useViewer, type ListBase } from "@/stores/viewer";
-import { ErrorBanner } from "./ErrorBanner";
+import { BottomPanel, type PanelMetrics } from "./BottomPanel";
 import { FullscreenButton } from "./FullscreenButton";
-import { InfoBar } from "./InfoBar";
 import { MediaStage } from "./MediaStage";
 import { NotesButton } from "./NotesButton";
 import { isTyping, itemAt, preload, usePageAt } from "./navigation";
@@ -32,11 +34,20 @@ import { useBottomBarVisible, useHeight, useIdle } from "./useBottomBar";
 import { idleClass, ViewerChrome } from "./viewerChrome";
 
 const NAV_BUTTON =
-  "absolute top-1/2 z-20 grid h-12 w-12 -translate-y-1/2 place-items-center rounded-md bg-black/60 text-white transition hover:bg-black/85";
+  "absolute z-20 grid h-12 w-12 -translate-y-1/2 place-items-center rounded-md bg-black/60 text-white transition hover:bg-black/85";
 const ROUND_BUTTON = "absolute z-20 grid h-10 w-10 place-items-center rounded-full bg-black/60 text-white transition hover:bg-black/85";
 /** Écart entre le bas de la scène (ou le haut de la barre du bas, en plein écran) et le bouton
- *  plein écran des images. */
+ *  plein écran des images ; aussi l'écart gardé entre les flèches et la barre dépliée. */
 const FLOAT_GAP = 16;
+/** Demi-hauteur des flèches (h-12) et du bouton rond (h-10). */
+const ARROW_HALF = 24;
+const ROUND_HALF = 20;
+/** Écart minimal entre le bouton plein écran qui monte et la flèche droite : en deçà, le bouton
+ *  se range à gauche de la flèche (VIEW-39). */
+const DOCK_GAP = 8;
+/** Glissement des boutons, au même rythme que le dépliage de la barre (BottomPanel) ; garde les
+ *  fondus habituels (survol, masquage VIEW-33). */
+const SLIDE = "transform 200ms ease-out, opacity 150ms ease, background-color 150ms ease";
 
 function ViewerOverlay({ base }: { base: ListBase }) {
   const index = useViewer((s) => s.index);
@@ -50,13 +61,35 @@ function ViewerOverlay({ base }: { base: ListBase }) {
   const copied = useViewer((s) => s.copied !== null);
   const { show, close, forward, canForward, setFullscreen, closeForSearch } = useViewer.getState();
   const pageAt = usePageAt();
+  const rootRef = useRef<HTMLDivElement>(null);
+  const viewerHeight = useHeight(rootRef);
   const barRef = useRef<HTMLDivElement>(null);
   const barVisible = useBottomBarVisible(barRef, shown);
   const barHeight = useHeight(barRef);
+  const [panel, setPanel] = useState<PanelMetrics>({ rise: 0, oneLine: 0 });
   const idle = useIdle(shown && item?.kind === "video");
+  // Barre dépliée (VIEW-39) : de combien elle monte au-dessus de sa place, si elle est visible.
+  const rise = !shown || barVisible || hasError || copied ? panel.rise : 0;
   // En plein écran, la barre du bas passe par-dessus la scène et la barre des tâches disparaît :
-  // les commandes flottantes remontent d'autant pour ne pas bouger à l'écran (VIEW-32).
-  const chrome = { bottomInset: shown ? barHeight + screenGap : 0, idle };
+  // les commandes flottantes remontent d'autant pour ne pas bouger à l'écran (VIEW-32). Elles
+  // glissent encore si la barre dépliée les atteint (en plein écran, elles ont la place de la
+  // barre des tâches d'avance).
+  const lift = shown ? Math.max(0, rise - screenGap) : rise;
+  const chrome = { bottomInset: shown ? barHeight + screenGap : 0, idle, lift };
+  // Flèches (VIEW-38) : centrées comme si la barre du bas n'avait qu'une ligne de tags (plein
+  // écran : centre de l'écran) ; elles montent si la barre dépliée arrive à leur hauteur.
+  const arrowCenter = shown || !panel.oneLine ? (viewerHeight - (shown ? 0 : barHeight)) / 2 : (viewerHeight - panel.oneLine) / 2;
+  const arrowLift = Math.max(0, arrowCenter + ARROW_HALF + FLOAT_GAP - (viewerHeight - barHeight - rise));
+  const arrowStyle = { top: arrowCenter, transform: `translateY(${-arrowLift}px)`, transition: SLIDE };
+  // Bouton plein écran des images : s'il monterait à moins de DOCK_GAP de la flèche droite, il se
+  // range à sa gauche, à sa hauteur, et la suit si elle monte (VIEW-39). Les deux ont le même
+  // centre horizontal : le décalage vaut demi-flèche + écart + demi-bouton.
+  const roundCenter = viewerHeight - (shown ? 0 : barHeight) - chrome.bottomInset - FLOAT_GAP - ROUND_HALF;
+  const arrowY = arrowCenter - arrowLift;
+  const docked = viewerHeight > 0 && index < total - 1 && roundCenter - lift - ROUND_HALF < arrowY + ARROW_HALF + DOCK_GAP;
+  const roundShift = docked
+    ? `translate(${-(ARROW_HALF + FLOAT_GAP + ROUND_HALF)}px, ${arrowY - roundCenter}px)`
+    : `translateY(${-lift}px)`;
   // Dernière position demandée : un appui rapide sur → enchaîne sans attendre l'affichage.
   const target = useRef(index);
 
@@ -130,6 +163,7 @@ function ViewerOverlay({ base }: { base: ListBase }) {
 
   return (
     <div
+      ref={rootRef}
       data-zone="visionneuse"
       role="dialog"
       aria-modal="true"
@@ -149,7 +183,11 @@ function ViewerOverlay({ base }: { base: ListBase }) {
         {/* Médias sans barre de lecture : bouton rond en bas à droite, toujours au même endroit
             (en plein écran, juste au-dessus de la barre du bas qui ne le recouvre jamais). */}
         {item.kind !== "video" && (
-          <FullscreenButton ring className={cn(ROUND_BUTTON, "right-4")} style={{ bottom: chrome.bottomInset + FLOAT_GAP }} />
+          <FullscreenButton
+            ring
+            className={cn(ROUND_BUTTON, "right-4")}
+            style={{ bottom: chrome.bottomInset + FLOAT_GAP, transform: roundShift, transition: SLIDE }}
+          />
         )}
         <button
           type="button"
@@ -168,6 +206,7 @@ function ViewerOverlay({ base }: { base: ListBase }) {
             onClick={() => void go(-1)}
             aria-label="Précédent (←)"
             className={cn(NAV_BUTTON, "left-3", idleClass(idle))}
+            style={arrowStyle}
           >
             <ChevronLeft className="h-6 w-6" />
           </button>
@@ -179,6 +218,7 @@ function ViewerOverlay({ base }: { base: ListBase }) {
             onClick={() => void go(1)}
             aria-label="Suivant (→)"
             className={cn(NAV_BUTTON, "right-3", idleClass(idle))}
+            style={arrowStyle}
           >
             <ChevronRight className="h-6 w-6" />
           </button>
@@ -187,17 +227,16 @@ function ViewerOverlay({ base }: { base: ListBase }) {
       {/* Plein écran : la barre passe par-dessus le média, visible quand la souris s'en approche
           (ou pendant une saisie, s'il y a un message d'erreur, ou le temps du « Copié » d'un
           raccourci, VIEW-35). */}
-      <div
-        ref={barRef}
-        data-zone="visionneuse.bas"
+      <BottomPanel
+        item={item}
+        onSearch={searchTag}
+        barRef={barRef}
+        onMetrics={setPanel}
         className={cn(
           shown && "absolute inset-x-0 bottom-0 z-30 transition-opacity duration-200 focus-within:opacity-100",
           shown && !barVisible && !hasError && !copied && "pointer-events-none opacity-0 focus-within:pointer-events-auto",
         )}
-      >
-        <ErrorBanner />
-        <InfoBar item={item} onSearch={searchTag} />
-      </div>
+      />
     </div>
   );
 }

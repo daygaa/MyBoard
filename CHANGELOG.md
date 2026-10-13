@@ -3,6 +3,36 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Visionneuse — flèches ancrées, barre du bas dépliable, pastilles (13/10/2026) — Backup v15
+
+SPEC : VIEW-38 et GEN-14 validés `[x]` ; VIEW-39 (avec sa précision du jour) et GEN-15 livrés
+`[~]`. Choix : D-021. Le plein écran (VIEW-34) n'est **pas** dans ce commit : l'essai en cours
+(`fullscreen.rs`, zéro tremblement mais une ligne de 2 px sur l'écran voisin) attend le choix de
+l'utilisateur ; la sauvegarde v15 contient cet essai.
+
+- VIEW-38 : hors plein écran, les flèches précédent / suivant restent à la place qu'elles ont avec
+  une barre du bas d'une seule ligne de tags, quel que soit le média.
+- VIEW-39 : barre du bas limitée à 3 lignes de tags ; au-delà, bouton « Afficher plus » (flèche
+  en V) qui déplie la barre vers le haut, par-dessus le média (moitié de la visionneuse au plus,
+  puis barre de défilement), et devient « Réduire ». Flèches, bouton plein écran et barre de
+  lecture glissent avec elle s'ils sont atteints. Précision : si la barre dépliée ferait monter le
+  bouton plein écran (images) à moins de 8 px de la flèche droite, il se range à 16 px à gauche
+  de la flèche, à sa hauteur (croquis de l'utilisateur), puis revient à sa place au repli.
+- GEN-14 : croix des pastilles de tags à gauche du texte (composant partagé : visionneuse, barre
+  latérale et page Importer).
+- GEN-15 : texte des pastilles remonté de 1 px de plus, centré sur la croix.
+
+Vérifié dans la version compilée (écran 1920 × 1080, bibliothèques de test) :
+- Flèches : 14 médias de suite (1 à 7 lignes de tags) : flèche toujours de 464 à 512 px.
+- Dépliage : place réservée (171 px) et scène (837 px) inchangées, barre montée de 112 px, barre
+  de lecture et flèches suivent, puis tout revient au repli.
+- Bouton plein écran : image à 197 tags, barre montée de 308 px : bouton rangé à 16 px à gauche
+  de la flèche droite, centré sur elle (même résultat en plein écran) ; retour à sa place au repli.
+  Images moins taguées (barre montée de 28 et 56 px) : le bouton monte simplement. Dernier média
+  (pas de flèche droite) : il monte sans se ranger.
+- Pastilles, mesurées au pixel avec des lettres sans jambage : 1 px d'écart en haut et 1 px en
+  bas par rapport à la croix, dans la visionneuse, la recherche et la liste de la barre latérale.
+
 ## NAV-04 — Barre de titre MyBoard, plein écran sans saccade (13/10/2026) — Backup v14
 
 SPEC : VIEW-33 et VIEW-37 validés `[x]` ; menus du clic droit (GEN-12) et curseurs (GEN-13) notés,
