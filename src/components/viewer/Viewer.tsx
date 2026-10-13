@@ -42,6 +42,7 @@ function ViewerOverlay({ base }: { base: ListBase }) {
   const fullscreen = useViewer((s) => s.fullscreen);
   const screenGap = useViewer((s) => s.screenGap);
   const hasError = useViewer((s) => s.error !== null);
+  const copied = useViewer((s) => s.copied !== null);
   const { show, close, forward, setFullscreen, closeForSearch } = useViewer.getState();
   const pageAt = usePageAt();
   const barRef = useRef<HTMLDivElement>(null);
@@ -176,13 +177,14 @@ function ViewerOverlay({ base }: { base: ListBase }) {
         )}
       </div>
       {/* Plein écran : la barre passe par-dessus le média, visible quand la souris s'en approche
-          (ou pendant une saisie, ou s'il y a un message d'erreur). */}
+          (ou pendant une saisie, s'il y a un message d'erreur, ou le temps du « Copié » d'un
+          raccourci, VIEW-35). */}
       <div
         ref={barRef}
         data-zone="visionneuse.bas"
         className={cn(
           fullscreen && "absolute inset-x-0 bottom-0 z-30 transition-opacity duration-200 focus-within:opacity-100",
-          fullscreen && !barVisible && !hasError && "pointer-events-none opacity-0 focus-within:pointer-events-auto",
+          fullscreen && !barVisible && !hasError && !copied && "pointer-events-none opacity-0 focus-within:pointer-events-auto",
         )}
       >
         <ErrorBanner />

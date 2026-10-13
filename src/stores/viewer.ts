@@ -1,7 +1,8 @@
 // État de la visionneuse : média affiché et sa position dans TOUS les résultats de la vue
 // courante (filtres, recherche, tri), pour passer d'une page à l'autre sans couture (VIEW-04)
 // et rouvrir la grille sur la page du média regardé (VIEW-05).
-// Aussi : plein écran total (VIEW-18), message d'erreur d'une ouverture externe (VIEW-28) et
+// Aussi : plein écran total (VIEW-18), message d'erreur d'une ouverture externe (VIEW-28),
+// confirmation « Copié » (VIEW-35) et
 // chemin des boutons 4 et 5 de la souris autour de la dernière visionneuse (VIEW-27, VIEW-30).
 
 import { currentMonitor, getCurrentWindow } from "@tauri-apps/api/window";
@@ -38,6 +39,8 @@ type ViewerState = {
   /** Hauteur de la barre des tâches sous la fenêtre agrandie, en px (voir `taskbarGap`). */
   screenGap: number;
   error: ExternalError | null;
+  /** Média dont le fichier vient d'être copié : « Copié » s'affiche ~1,5 s (VIEW-35). */
+  copied: number | null;
   trail: Trail | null;
   openAt: (index: number, item: MediaItem, pageSize: number) => void;
   show: (index: number, item: MediaItem, total: number) => void;
@@ -49,7 +52,12 @@ type ViewerState = {
   closeForSearch: () => void;
   setFullscreen: (on: boolean) => void;
   setError: (error: ExternalError | null) => void;
+  markCopied: (id: number) => void;
 };
+
+/** Durée de la confirmation « Copié » (VIEW-35). */
+const COPIED_MS = 1500;
+let copiedTimer: ReturnType<typeof setTimeout> | undefined;
 
 /** Ce qui doit être resté identique pour que les boutons 4 et 5 rouvrent la visionneuse : page,
  *  filtres, tri, recherche, densité et page de l'application. */
@@ -109,6 +117,7 @@ export const useViewer = create<ViewerState>()((set, get) => {
     fullscreen: false,
     screenGap: 0,
     error: null,
+    copied: null,
     trail: null,
     openAt: (index, item, pageSize) => {
       const { kinds, sort, seed } = useLibrary.getState();
@@ -135,5 +144,10 @@ export const useViewer = create<ViewerState>()((set, get) => {
       if (on) refreshGap();
     },
     setError: (error) => set({ error }),
+    markCopied: (id) => {
+      clearTimeout(copiedTimer);
+      set({ copied: id });
+      copiedTimer = setTimeout(() => set({ copied: null }), COPIED_MS);
+    },
   };
 });

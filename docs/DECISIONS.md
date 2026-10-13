@@ -288,3 +288,33 @@ Réponses de l'utilisateur au fichier « Précisions - problèmes 2.txt » et à
 - **VIEW-16** abandonné (doublon de VIEW-24). **Bibliothèques de test** déplacées dans un dossier
   visible par l'utilisateur (DEV-06) : `%LOCALAPPDATA%` est redirigé en secret pour les commandes
   lancées par l'application Claude (application du Microsoft Store).
+
+## D-018 — Plein écran, copie, raccourcis, vignettes denses (13/10/2026)
+
+Choix faits avec l'utilisateur pendant les derniers retours de la phase 2.
+
+- **Plein écran à la même place sur l'écran (VIEW-32, VIEW-18)** : en plein écran, les commandes
+  flottantes remontent de la hauteur de la barre des tâches, lue dans la zone de travail de
+  l'écran (`currentMonitor().workArea` de Tauri). Fenêtre non agrandie : placement comme si elle
+  l'était.
+- **Saccade de la bascule (VIEW-34) → NAV-04** : mesurée en filmant l'écran (Desktop Duplication,
+  60 i/s). Windows retire / remet sa barre de titre, le haut de la zone de dessin se déplace de 23
+  à 31 px, et WebView2 met 3 à 5 images à redessiner : Windows montre l'ancienne image décalée.
+  Sans barre de titre Windows, le haut ne bouge plus ; mais le plein écran de Tauri ne couvre alors
+  plus la barre des tâches (fenêtre agrandie restée à 1040 px) : NAV-04 devra gérer son propre
+  plein écran. Écarté : masquer les boutons pendant la bascule (choix de l'utilisateur).
+- **Copier (VIEW-35)** : le fichier est mis dans le presse-papiers au format de l'Explorateur
+  (liste de fichiers `CF_HDROP` + « Preferred DropEffect » = copie), après avoir vidé le
+  presse-papiers ; petite bibliothèque Rust `clipboard-win`. Ctrl+C garde son rôle habituel
+  pendant une saisie ou si du texte est sélectionné.
+- **Raccourcis (VIEW-36)** : Copier Ctrl+C, Favoris L, Dossier D, Explorer E, Ouvrir avec O,
+  Imprimer I, Supprimer Suppr. F reste le plein écran (convention des lecteurs vidéo), d'où L
+  (comme l'app Photos de Windows). Réunis dans `src/lib/shortcuts.ts` pour SET-10.
+- **Vignettes denses (GRID-10)** : badges et infos dessinés comme sur une vignette de 150 px (nom
+  courant + badge durée = 147 px, mesuré) puis réduits **selon la largeur réelle de la vignette**
+  (choix de l'utilisateur : la même règle convient au 1080p et au 1440p). Réduction par
+  transformation : avec `zoom`, changer de densité de 20 à 30 colonnes passait de 1,05 s à 1,47 s.
+  Les infos du survol ne sont plus dessinées hors survol (`visibility: hidden`) : 1,05 s au lieu
+  de 1,20 s pour ce même changement. Reste, mesuré avec `bench-grid` : changer de densité ≈ +15 %
+  aux fortes densités (≈ +12 ms par cran) ; pages et défilement inchangés. La réduction de 25 %
+  prévue par SEL-05 est remplacée par cette règle.

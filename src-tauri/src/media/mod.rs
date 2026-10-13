@@ -1,8 +1,9 @@
 //! Un média précis, pour la visionneuse : fiche détaillée (VIEW-10, VIEW-23), notes (VIEW-19),
-//! ouverture dans l'Explorateur (VIEW-13) ou dans l'application par défaut (VIEW-24), avec le
-//! code d'erreur Windows en cas d'échec (VIEW-28). Fichier original servi par le protocole
-//! `media://` (voir `protocol.rs`).
+//! ouverture dans l'Explorateur (VIEW-13) ou dans l'application par défaut (VIEW-24), copie du
+//! fichier dans le presse-papiers (VIEW-35), avec le code d'erreur Windows en cas d'échec
+//! (VIEW-28). Fichier original servi par le protocole `media://` (voir `protocol.rs`).
 
+mod clipboard;
 pub mod protocol;
 
 use std::path::{Path, PathBuf};
@@ -125,6 +126,13 @@ pub async fn reveal_media(state: State<'_, AppState>, id: i64) -> Result<(), Ope
 pub async fn open_media(state: State<'_, AppState>, id: i64) -> Result<(), OpenFailure> {
     let path = existing_path(&state, id)?;
     opener::open(&path).map_err(from_opener)
+}
+
+/// Copie le fichier du média dans le presse-papiers, comme Ctrl + C dans l'Explorateur (VIEW-35).
+#[tauri::command]
+pub async fn copy_media(state: State<'_, AppState>, id: i64) -> Result<(), OpenFailure> {
+    let path = existing_path(&state, id)?;
+    clipboard::copy_file(&path)
 }
 
 /// Enregistre la note d'un média (VIEW-19) ; une note vide est effacée.

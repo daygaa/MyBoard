@@ -2,11 +2,11 @@
 // existent dans la page. N colonnes fixes (GRID-02) : les vignettes s'adaptent en largeur.
 // Changer de densité ne recharge rien : c'est un simple calcul de taille.
 
-import { useLayoutEffect, useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { useWindowVirtualizer } from "@tanstack/react-virtual";
 
 import type { MediaItem } from "@/lib/api";
-import { COMPACT_DENSITY, GRID_GAP, PREVIEW_MAX_DENSITY, SMALL_THUMB_DENSITY } from "@/lib/grid";
+import { COMPACT_DENSITY, GRID_GAP, PREVIEW_MAX_DENSITY, SMALL_THUMB_DENSITY, TILE_FULL_WIDTH } from "@/lib/grid";
 import { MediaTile } from "./MediaTile";
 
 /** Largeur de la grille et sa position dans la page, tenues à jour. */
@@ -66,7 +66,14 @@ export function MediaGrid({ items, density, firstIndex, pageSize }: Props) {
       ref={ref}
       data-zone="grille.vignettes"
       className="relative w-full"
-      style={{ height: Math.max(0, rowCount * rowHeight - GRID_GAP) }}
+      style={
+        {
+          height: Math.max(0, rowCount * rowHeight - GRID_GAP),
+          // Vignettes étroites : badges et infos réduits dans la même proportion (GRID-10).
+          // Variable CSS héritée : les vignettes ne sont pas redessinées par React.
+          "--tile-scale": tile > 0 ? Math.min(1, tile / TILE_FULL_WIDTH) : 1,
+        } as CSSProperties
+      }
     >
       {tile > 0 &&
         virtualizer.getVirtualItems().map((row) => (

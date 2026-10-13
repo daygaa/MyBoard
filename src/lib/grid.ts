@@ -14,7 +14,8 @@ export const DENSITY_PRESETS = [
   { label: "Compact", value: 14 },
 ];
 
-/** À partir de cette densité, les petits boutons des vignettes sont réduits de 25 % (SEL-05). */
+/** À partir de cette densité, l'icône des vignettes sans image (audio, documents…) n'affiche
+ *  plus l'extension. (La réduction des boutons prévue par SEL-05 est remplacée par GRID-10.) */
 export const COMPACT_DENSITY = 20;
 
 /** À partir de cette densité, la grille utilise les miniatures 128 px (LIB-12) :
@@ -26,6 +27,11 @@ export const PREVIEW_MAX_DENSITY = 6;
 
 /** Une vignette doit rester visible ce temps avant de demander son grand aperçu (LIB-09). */
 export const PREVIEW_DELAY_MS = 150;
+
+/** Largeur de vignette (px) où badges et infos tiennent en taille normale : nom courant
+ *  (« 12363315.mp4 ») + badge durée = 147 px, poids + dimensions = 126 px (mesuré le 13/10).
+ *  En dessous, ils sont réduits dans la même proportion que la vignette (GRID-10). */
+export const TILE_FULL_WIDTH = 150;
 
 /** Écart entre vignettes, en pixels (classe `gap-2`). */
 export const GRID_GAP = 8;

@@ -1,6 +1,7 @@
 // Vignette de la grille (GRID-08), apparence v8 : carrée, survol = nom, poids, dimensions ;
 // badge durée pour les vidéos, badge GIF. L'étoile favori et la case de sélection
-// arrivent en phase 3. Clic = visionneuse plein écran (VIEW-01).
+// arrivent en phase 3, dans le calque réduit `tile-overlay` (GRID-10, remplace la réduction
+// de SEL-05). Clic = visionneuse plein écran (VIEW-01).
 //
 // Taille de l'image selon la densité : 128 px pour les grilles denses (LIB-12), 320 px sinon,
 // et grand aperçu 640 px par-dessus pour 4–6 colonnes (LIB-09).
@@ -133,18 +134,23 @@ export const MediaTile = memo(function MediaTile({ item, index, pageSize, compac
         <Placeholder item={item} status={failed ? THUMB.error : status} compact={compact} />
       )}
 
-      {/* Badge en bas à droite ; au survol, il remonte sur la ligne du nom (GRID-09). */}
-      {hasBadge && (
-        <Badge
-          video={isVideo}
-          duration={duration}
-          className="absolute right-1.5 bottom-1.5 z-10 transition-opacity duration-200 group-hover:opacity-0"
-        />
-      )}
+      {/* Dégradé du survol, sur toute la vignette. */}
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent opacity-0 transition-opacity duration-200 group-hover:opacity-100" />
 
-      {/* Survol : nom, poids, dimensions. */}
-      <div className="pointer-events-none absolute inset-0 flex flex-col justify-end gap-1 bg-gradient-to-t from-black/90 via-black/30 to-transparent opacity-0 transition-opacity duration-200 group-hover:opacity-100">
-        <div className="space-y-1 px-2 pb-1.5">
+      {/* Badges et infos réduits avec la vignette quand elle est étroite (GRID-10). */}
+      <div className="tile-overlay">
+        {/* Badge en bas à droite ; au survol, il remonte sur la ligne du nom (GRID-09). */}
+        {hasBadge && (
+          <Badge
+            video={isVideo}
+            duration={duration}
+            className="absolute right-1.5 bottom-1.5 z-10 transition-opacity duration-200 group-hover:opacity-0"
+          />
+        )}
+
+        {/* Survol : nom, poids, dimensions. Hors survol, ni affichés ni dessinés (`invisible`) :
+            changer de densité est ~20 % plus rapide à 30 colonnes (mesuré le 13/10, D-008). */}
+        <div className="pointer-events-none invisible absolute inset-x-0 bottom-0 space-y-1 px-2 pb-1.5 opacity-0 transition-[opacity,visibility] duration-200 group-hover:visible group-hover:opacity-100">
           <div className="flex items-center gap-2">
             <p className="line-clamp-1 min-w-0 flex-1 text-xs font-medium text-white drop-shadow">{item.fileName}</p>
             {hasBadge && <Badge video={isVideo} duration={duration} />}

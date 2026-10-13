@@ -48,3 +48,8 @@ strip = true
 # sinon la génération des miniatures serait 10 à 50 fois plus lente.
 [profile.dev.package."*"]
 opt-level = 3
+
+[target."cfg(windows)".dependencies]
+# « Copier » (VIEW-35) : le fichier lui-même dans le presse-papiers, comme Ctrl + C dans
+# l'Explorateur (format Windows CF_HDROP).
+clipboard-win = "5"

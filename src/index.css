@@ -102,6 +102,20 @@
     background: transparent;
   }
 
+  /* Badges et infos des vignettes (GRID-10) : dessinés comme sur une vignette assez large pour
+     tout afficher, puis réduits avec elle. `--tile-scale` (≤ 1) est posé sur la grille.
+     Transformation plutôt que `zoom` : changer de densité de 20 à 30 colonnes prend 1,05 s
+     contre 1,47 s avec `zoom`, qui recalcule le texte de chaque vignette (mesuré le 13/10). */
+  .tile-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: calc(100% / var(--tile-scale, 1));
+    height: calc(100% / var(--tile-scale, 1));
+    transform: scale(var(--tile-scale, 1));
+    transform-origin: 0 0;
+  }
+
   /* Fond en damier de la visionneuse (v8). */
   .checker {
     background-color: #0d0e12;

@@ -3,6 +3,36 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Phase 2 — Copier, raccourcis, vignettes denses (13/10/2026) — Backup v11
+
+SPEC : VIEW-18 et VIEW-32 validés `[x]` ; nouvelles demandes VIEW-35, VIEW-36, GRID-10, SET-10
+(paramètres, plus tard) ; SEL-05 mis à jour (remplacé par GRID-10 pour la taille). Choix : D-018.
+
+- VIEW-35 : bouton « Copier » à gauche de « Ajouter aux favoris » : le fichier lui-même va dans le
+  presse-papiers, comme Ctrl + C dans l'Explorateur ; « Copié » s'affiche 1,5 s (en plein écran, la
+  barre du bas apparaît le temps de la confirmation) ; échec = message avec le code Windows.
+- VIEW-36 : raccourcis Copier Ctrl+C, Favoris L, Dossier D, Explorer E, Ouvrir avec O, Imprimer I,
+  Supprimer Suppr, affichés dans les bulles d'aide. Inactifs pendant une saisie ou une pop-in ;
+  Ctrl+C copie le texte s'il y en a de sélectionné. Favoris, Dossier, Supprimer : avec leurs
+  boutons, en phase 3.
+- GRID-10 : badges vidéo / GIF, nom, poids et dimensions des vignettes réduits avec la vignette dès
+  qu'elle fait moins de 150 px (≈ 15 colonnes en 1440p, ≈ 11 en 1080p), jusqu'à 30 colonnes : même
+  disposition qu'en grand, plus rien ne se chevauche.
+
+Vérifié dans la version compilée :
+- Copier : presse-papiers = le fichier (chemin exact, accents compris), effet « copie », ancien
+  contenu vidé ; « Copié » puis « Copier » après 1,5 s ; Ctrl+C en plein écran affiche la barre le
+  temps du « Copié ».
+- Raccourcis : E et O ouvrent l'Explorateur et l'application par défaut, I imprime (images) ;
+  L, D, Suppr sans effet (phase 3) ; lettres tapées dans le champ de tag sans effet ; texte
+  sélectionné + Ctrl+C = le texte est copié, pas le fichier.
+- Vignettes : aucun nom coupé (≤ 12 caractères), badge toujours sur la ligne du nom, poids et
+  dimensions sur une ligne, rien ne dépasse — de 10 à 30 colonnes en 1920 × 1080 et de 14 à 30
+  colonnes en largeur 2560 simulée ; captures du survol à 15 et 30 colonnes.
+- Fluidité (100 000 médias, écran 1080p, deux mesures) : page suivante et défilement identiques à
+  avant (30 colonnes : 372–389 ms contre 372 ; 0 saccade) ; changer de densité un peu plus long
+  aux fortes densités (20 → 30 colonnes d'un coup : 777 ms contre 659, ≈ +12 ms par cran).
+
 ## Phase 2 — Plein écran : même place sur l'écran, contour doré (13/10/2026) — Backup v10
 
 SPEC : VIEW-31 et VIEW-33 validés `[x]` ; nouvelle demande VIEW-34 (bascule du plein écran sans
