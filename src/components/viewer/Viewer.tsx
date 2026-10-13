@@ -9,12 +9,15 @@
 //   bouton rond en bas à droite) ; Échap et le bouton 4 quittent d'abord le plein écran, la
 //   croix ferme tout. Vidéo : souris immobile 3 s = commandes et curseur cachés (VIEW-33).
 // - Note du média (VIEW-19), message d'erreur des ouvertures externes (VIEW-28).
+// - Sous la barre de titre MyBoard (NAV-04), qui reste visible ; en plein écran, la mise en page
+//   ne bascule qu'une fois la fenêtre à la taille de l'écran (VIEW-34, stores/viewer).
 
 import { useEffect, useRef } from "react";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
 
 import type { MediaItem } from "@/lib/api";
 import { hasModalLayer, useEscape } from "@/lib/escape";
+import { scroller } from "@/lib/scroller";
 import { cn } from "@/lib/utils";
 import { useSearch } from "@/stores/search";
 import { useViewer, type ListBase } from "@/stores/viewer";
@@ -39,23 +42,25 @@ function ViewerOverlay({ base }: { base: ListBase }) {
   const index = useViewer((s) => s.index);
   const item = useViewer((s) => s.item);
   const total = useViewer((s) => s.total);
+  // Demandé (touche F, bouton, Échap) / appliqué à la fenêtre (mise en page, VIEW-34).
   const fullscreen = useViewer((s) => s.fullscreen);
+  const shown = useViewer((s) => s.fullscreenShown);
   const screenGap = useViewer((s) => s.screenGap);
   const hasError = useViewer((s) => s.error !== null);
   const copied = useViewer((s) => s.copied !== null);
-  const { show, close, forward, setFullscreen, closeForSearch } = useViewer.getState();
+  const { show, close, forward, canForward, setFullscreen, closeForSearch } = useViewer.getState();
   const pageAt = usePageAt();
   const barRef = useRef<HTMLDivElement>(null);
-  const barVisible = useBottomBarVisible(barRef, fullscreen);
+  const barVisible = useBottomBarVisible(barRef, shown);
   const barHeight = useHeight(barRef);
-  const idle = useIdle(fullscreen && item?.kind === "video");
+  const idle = useIdle(shown && item?.kind === "video");
   // En plein écran, la barre du bas passe par-dessus la scène et la barre des tâches disparaît :
   // les commandes flottantes remontent d'autant pour ne pas bouger à l'écran (VIEW-32).
-  const chrome = { bottomInset: fullscreen ? barHeight + screenGap : 0, idle };
+  const chrome = { bottomInset: shown ? barHeight + screenGap : 0, idle };
   // Dernière position demandée : un appui rapide sur → enchaîne sans attendre l'affichage.
   const target = useRef(index);
 
-  useEscape(true, close, { onForward: forward });
+  useEscape(true, close, { onForward: forward, canForward });
   // Inscrit après la visionneuse : en plein écran, Échap et le bouton 4 le quittent d'abord.
   useEscape(fullscreen, () => setFullscreen(false));
   useEffect(() => {
@@ -104,17 +109,15 @@ function ViewerOverlay({ base }: { base: ListBase }) {
     return () => window.removeEventListener("keydown", onKey);
   });
 
-  // La page derrière ne défile plus (VIEW-06). La place réservée à la barre de défilement
-  // (index.css) est libérée : aucun élément ne peut la recouvrir, elle formerait une bande
-  // de 10 px à droite de la visionneuse. La page, cachée derrière, s'élargit sans se voir.
+  // La page derrière ne défile plus (VIEW-06), même au clavier. La zone qui défile (NAV-04) est
+  // sous la visionneuse : sa barre de défilement est recouverte, la place reste réservée et la
+  // grille derrière ne bouge pas.
   useEffect(() => {
-    const html = document.documentElement;
-    const previous = { overflow: html.style.overflow, gutter: html.style.scrollbarGutter };
-    html.style.overflow = "hidden";
-    html.style.scrollbarGutter = "auto";
+    const area = scroller();
+    const previous = area.style.overflow;
+    area.style.overflow = "hidden";
     return () => {
-      html.style.overflow = previous.overflow;
-      html.style.scrollbarGutter = previous.gutter;
+      area.style.overflow = previous;
       removePrintHolder();
     };
   }, []);
@@ -131,7 +134,12 @@ function ViewerOverlay({ base }: { base: ListBase }) {
       role="dialog"
       aria-modal="true"
       aria-label="Visionneuse"
-      className={cn("mb-zoom-in fixed inset-0 z-[100] flex flex-col bg-black/95", idle && "cursor-none")}
+      // Sous la barre de titre MyBoard (NAV-04), sauf en plein écran où elle est cachée.
+      className={cn(
+        "mb-zoom-in fixed inset-x-0 bottom-0 z-[100] flex flex-col bg-black/95",
+        shown ? "top-0" : "top-[var(--titlebar-h)]",
+        idle && "cursor-none",
+      )}
     >
       <div data-zone="visionneuse.scene" className="checker relative min-h-0 flex-1 overflow-hidden">
         <ViewerChrome.Provider value={chrome}>
@@ -183,8 +191,8 @@ function ViewerOverlay({ base }: { base: ListBase }) {
         ref={barRef}
         data-zone="visionneuse.bas"
         className={cn(
-          fullscreen && "absolute inset-x-0 bottom-0 z-30 transition-opacity duration-200 focus-within:opacity-100",
-          fullscreen && !barVisible && !hasError && !copied && "pointer-events-none opacity-0 focus-within:pointer-events-auto",
+          shown && "absolute inset-x-0 bottom-0 z-30 transition-opacity duration-200 focus-within:opacity-100",
+          shown && !barVisible && !hasError && !copied && "pointer-events-none opacity-0 focus-within:pointer-events-auto",
         )}
       >
         <ErrorBanner />

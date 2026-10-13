@@ -3,6 +3,44 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## NAV-04 — Barre de titre MyBoard, plein écran sans saccade (13/10/2026) — Backup v14
+
+SPEC : VIEW-33 et VIEW-37 validés `[x]` ; menus du clic droit (GEN-12) et curseurs (GEN-13) notés,
+à détailler ; NAV-04 et VIEW-34 livrés `[~]`. Choix : D-020.
+
+- NAV-04 : la barre de titre de Windows est remplacée par celle de MyBoard (32 px, au-dessus de
+  l'en-tête) : icône et « MyBoard », flèches précédent / suivant (= boutons 4 / 5 de la souris,
+  grisées quand ils ne feraient rien), réduire / agrandir (« Niveau inférieur » quand agrandie) /
+  fermer (rouge au survol). Toute la barre déplace la fenêtre ; double-clic = agrandir / rétablir ;
+  aimantation en haut de l'écran et redimensionnement par les bords conservés. Toujours visible,
+  visionneuse comprise (elle s'ouvre dessous) ; cachée en plein écran.
+- La page défile dans la zone sous la barre de titre : la barre de défilement commence sous elle.
+- VIEW-34 : plein écran géré par MyBoard : la fenêtre reste agrandie, seul son bas descend jusqu'en
+  bas de l'écran (barre des tâches cachée) ; la mise en page bascule exactement quand la fenêtre
+  change de taille.
+- `scripts/bench-grid.mjs` mesure le défilement de la nouvelle zone (et celui de la fenêtre pour
+  les versions d'avant).
+
+Vérifié dans la version compilée (un seul écran 1920 × 1080, 60 Hz, depuis ce jour) :
+- Barre : 1920 × 32 px en haut, en-tête dessous, logo de l'en-tête toujours au centre (960 px),
+  barre de défilement sous la barre de titre ; menu burger sous l'en-tête.
+- Boutons : « Niveau inférieur » → fenêtre 1600 × 960 puis « Agrandir » → agrandie ; « Réduire » →
+  dans la barre des tâches. À la vraie souris : double-clic (rétablir puis agrandir), glisser la
+  fenêtre agrandie (Windows la rétablit et la déplace), glisser en haut de l'écran (aimantation :
+  agrandie), bord droit tiré (1616 → 1416 px de large).
+- Flèches : Importer → ← → Bibliothèque → → → Importer ; visionneuse : ← ferme, ← rouvre, ← ferme
+  (← grisée : plus rien), → rouvre, → ferme, → rouvre (→ grisée) — même chemin que les boutons 4 / 5.
+- Plein écran filmé à 60 i/s, 6 passages : barre de lecture immobile sur 5, une image décalée de
+  8 px sur le 6e (avant : 5 images décalées de 23 à 31 px à chaque passage) ; fenêtre 1920 × 1080,
+  barre des tâches cachée, barre de titre cachée.
+- Défilement : Page suivante et molette dans la grille ; visionneuse ouverte, rien ne défile
+  derrière (molette, Page suivante, Espace).
+- Fluidité, 100 000 médias, même écran à 60 Hz, version d'avant NAV-04 recompilée pour comparer :
+  page suivante 81 / 93 / 165 / 220 / 365 ms avant, 82 / 97 / 164 / 231 / 382 ms après (4 à 30
+  colonnes) ; changer de densité 709 contre 714 ms à 30 colonnes ; défilement 60 images/s dans les
+  deux cas — pas de différence mesurable. Une image lente au défilement à 20 colonnes (50 à 67 ms)
+  dans les deux versions.
+
 ## Phase 2 — Masquage en plein écran : badge du zoom, souris sur l'autre écran (13/10/2026) — Backup v13
 
 SPEC : GRID-11 validé `[x]` ; VIEW-33 repasse `[~]` (correction) ; nouvelle demande VIEW-37.

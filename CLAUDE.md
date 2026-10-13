@@ -107,5 +107,6 @@ et pour l'Explorateur. Ne rien y ranger de destiné à l'utilisateur (d'où DEV-
 « Ouvrir dans l'explorateur » sur des fichiers du Bureau.
 
 Structure : `src-tauri/src` (Rust : `db/`, `import/`, `thumbs/`, `media/` (visionneuse, protocole
-`media://`), `library.rs`, `search.rs`, `tags.rs`, `ffmpeg.rs`, `test_screen.rs`) ·
+`media://`), `library.rs`, `search.rs`, `tags.rs`, `ffmpeg.rs`, `display.rs` (densité réelle de l'écran),
+`fullscreen.rs` (plein écran sans barre de titre Windows), `test_screen.rs`) ·
 `src/` (React : `components/{layout,library,import,search,tags,viewer,ui}`, `stores/`, `hooks/`, `lib/`).

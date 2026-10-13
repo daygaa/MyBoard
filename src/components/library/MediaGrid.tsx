@@ -1,12 +1,14 @@
 // Grille virtualisée (D-008) : seules les lignes visibles, plus une petite marge,
 // existent dans la page. N colonnes fixes (GRID-02) : les vignettes s'adaptent en largeur.
 // Changer de densité ne recharge rien : c'est un simple calcul de taille.
+// La page défile dans la zone sous la barre de titre (NAV-04, `lib/scroller`), pas la fenêtre.
 
 import { useLayoutEffect, useRef, useState, type CSSProperties } from "react";
-import { useWindowVirtualizer } from "@tanstack/react-virtual";
+import { useVirtualizer } from "@tanstack/react-virtual";
 
 import { useScreenDensity } from "@/hooks/useScreenDensity";
 import type { MediaItem } from "@/lib/api";
+import { scroller } from "@/lib/scroller";
 import {
   COMPACT_DENSITY,
   GRID_GAP,
@@ -17,14 +19,15 @@ import {
 } from "@/lib/grid";
 import { MediaTile } from "./MediaTile";
 
-/** Largeur de la grille et sa position dans la page, tenues à jour. */
+/** Largeur de la grille et sa position dans la zone qui défile, tenues à jour. */
 function useGridBox(ref: React.RefObject<HTMLDivElement | null>) {
   const [box, setBox] = useState({ width: 0, top: 0 });
   const measure = () => {
     const el = ref.current;
     if (!el) return;
     const width = el.clientWidth;
-    const top = el.getBoundingClientRect().top + window.scrollY;
+    const area = scroller();
+    const top = el.getBoundingClientRect().top - area.getBoundingClientRect().top + area.scrollTop;
     setBox((b) => (b.width === width && b.top === top ? b : { width, top }));
   };
   // À chaque affichage (ce qui est au-dessus de la grille a pu changer de hauteur)…
@@ -61,8 +64,9 @@ export function MediaGrid({ items, density, firstIndex, pageSize }: Props) {
   const pxPerInch = useScreenDensity();
   const nameOnly = tile > 0 && tile < NAME_ONLY_TILE_INCHES * pxPerInch;
 
-  const virtualizer = useWindowVirtualizer({
+  const virtualizer = useVirtualizer({
     count: rowCount,
+    getScrollElement: scroller,
     estimateSize: () => rowHeight,
     overscan: 2,
     scrollMargin: top,

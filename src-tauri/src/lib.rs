@@ -5,6 +5,7 @@ pub mod db;
 pub mod display;
 pub mod ffmpeg;
 pub mod formats;
+pub mod fullscreen;
 pub mod import;
 pub mod library;
 pub mod media;
@@ -58,6 +59,7 @@ pub fn run() {
                 import: ImportManager::new(handle),
             });
             if let Some(window) = app.get_webview_window("main") {
+                fullscreen::install(&window)?;
                 test_screen::place(&window)?;
             }
             Ok(())
@@ -84,6 +86,7 @@ pub fn run() {
             media::open_media,
             media::copy_media,
             display::screen_dpi,
+            fullscreen::set_viewer_fullscreen,
             media::set_media_notes,
             media::open_url,
         ])

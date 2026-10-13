@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { useStats } from "@/hooks/useLibraryData";
 import { formatCount } from "@/lib/format";
 import { navigate } from "@/lib/router";
+import { scroller } from "@/lib/scroller";
 import { useUI } from "@/stores/ui";
 
 /** Largeur réservée à la barre de défilement (index.css) : l'en-tête s'arrête avant elle,
@@ -16,19 +17,14 @@ import { useUI } from "@/stores/ui";
 function useScrollbarGutter(): number {
   const [gutter, setGutter] = useState(0);
   useEffect(() => {
-    // Largeur du corps de page et non `clientWidth` : quand la page ne défile pas, le moteur
-    // annonce une largeur sans la réserve, alors qu'elle est bien là (mesuré le 12/10/2026).
-    const measure = () => setGutter(Math.round(window.innerWidth - document.body.getBoundingClientRect().width));
+    // Zone qui défile sous la barre de titre (NAV-04) : sa largeur totale moins sa largeur
+    // utile = la place réservée, qu'elle défile ou non.
+    const area = scroller();
+    const measure = () => setGutter(area.offsetWidth - area.clientWidth);
     measure();
-    // La place réservée n'existe qu'après la mise en page : on remesure à chaque changement
-    // de largeur de la page (apparition de la réserve, redimensionnement de la fenêtre).
     const observer = new ResizeObserver(measure);
-    observer.observe(document.body);
-    window.addEventListener("resize", measure);
-    return () => {
-      observer.disconnect();
-      window.removeEventListener("resize", measure);
-    };
+    observer.observe(area);
+    return () => observer.disconnect();
   }, []);
   return gutter;
 }

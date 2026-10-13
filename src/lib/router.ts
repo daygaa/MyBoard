@@ -3,6 +3,8 @@
 
 import { useSyncExternalStore } from "react";
 
+import { scrollToTop } from "./scroller";
+
 export type Route = "library" | "import";
 
 const PATHS: Record<Route, string> = { library: "#/", import: "#/import" };
@@ -22,5 +24,5 @@ export function useRoute(): Route {
 
 export function navigate(route: Route) {
   if (current() !== route) window.location.hash = PATHS[route];
-  window.scrollTo(0, 0);
+  scrollToTop();
 }

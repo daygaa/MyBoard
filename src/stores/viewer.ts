@@ -5,10 +5,10 @@
 // confirmation « Copié » (VIEW-35) et
 // chemin des boutons 4 et 5 de la souris autour de la dernière visionneuse (VIEW-27, VIEW-30).
 
-import { currentMonitor, getCurrentWindow } from "@tauri-apps/api/window";
+import { currentMonitor } from "@tauri-apps/api/window";
 import { create } from "zustand";
 
-import type { ListQuery, MediaItem } from "@/lib/api";
+import { api, type ListQuery, type MediaItem } from "@/lib/api";
 import { setMouseFallbacks } from "@/lib/escape";
 import { useLibrary } from "./library";
 import { useSearch } from "./search";
@@ -35,7 +35,12 @@ type ViewerState = {
   /** Requête figée à l'ouverture (même découpage en pages que la grille). */
   base: ListBase | null;
   total: number;
+  /** Plein écran demandé (bouton, touche F) : icône, Échap, bouton 4. */
   fullscreen: boolean;
+  /** Plein écran réellement appliqué à la fenêtre : la mise en page (barre de titre cachée,
+   *  barre du bas par-dessus le média) ne bascule qu'au changement de taille de la fenêtre,
+   *  jamais avant ni après : aucune image intermédiaire (VIEW-34). */
+  fullscreenShown: boolean;
   /** Hauteur de la barre des tâches sous la fenêtre agrandie, en px (voir `taskbarGap`). */
   screenGap: number;
   error: ExternalError | null;
@@ -48,6 +53,8 @@ type ViewerState = {
   close: () => void;
   /** Bouton 5 dans la visionneuse : une étape en avant, qui la ferme (VIEW-30). */
   forward: () => void;
+  /** Le bouton 5 ferait-il quelque chose dans la visionneuse ? (flèche de la barre de titre) */
+  canForward: () => boolean;
   /** Fermeture pour lancer une recherche (clic sur une pastille) : nouvelle vue, page 1. */
   closeForSearch: () => void;
   setFullscreen: (on: boolean) => void;
@@ -58,6 +65,16 @@ type ViewerState = {
 /** Durée de la confirmation « Copié » (VIEW-35). */
 const COPIED_MS = 1500;
 let copiedTimer: ReturnType<typeof setTimeout> | undefined;
+
+/** Délai au-delà duquel la mise en page suit la demande de plein écran même si la fenêtre n'a
+ *  pas changé de taille (déjà à la bonne taille). */
+const FULLSCREEN_SETTLE_MS = 700;
+let settleTimer: ReturnType<typeof setTimeout> | undefined;
+
+/** La fenêtre couvre-t-elle tout l'écran ? (à un pixel près : arrondis de la mise à l'échelle) */
+function coversScreen(): boolean {
+  return window.innerWidth >= screen.width - 1 && window.innerHeight >= screen.height - 1;
+}
 
 /** Ce qui doit être resté identique pour que les boutons 4 et 5 rouvrent la visionneuse : page,
  *  filtres, tri, recherche, densité et page de l'application. */
@@ -102,6 +119,14 @@ export const useViewer = create<ViewerState>()((set, get) => {
   };
   /** Relu à chaque ouverture et à chaque plein écran (la fenêtre a pu changer d'écran). */
   const refreshGap = () => void taskbarGap().then((screenGap) => set({ screenGap }));
+  /** Mise en page du plein écran alignée sur la fenêtre : appelé à chaque changement de taille
+   *  (avant que l'image suivante soit dessinée), ou de force après FULLSCREEN_SETTLE_MS. */
+  const syncShown = (force: boolean) => {
+    const { fullscreen, fullscreenShown } = get();
+    const next = force ? fullscreen : fullscreen ? coversScreen() : fullscreenShown && coversScreen();
+    if (next !== fullscreenShown) set({ fullscreenShown: next });
+  };
+  window.addEventListener("resize", () => syncShown(false));
 
   setMouseFallbacks(
     { can: () => trailValid() && (get().trail?.step ?? 0) > 0, run: () => reopenAt((get().trail?.step ?? 1) - 1) },
@@ -115,6 +140,7 @@ export const useViewer = create<ViewerState>()((set, get) => {
     base: null,
     total: 0,
     fullscreen: false,
+    fullscreenShown: false,
     screenGap: 0,
     error: null,
     copied: null,
@@ -133,6 +159,7 @@ export const useViewer = create<ViewerState>()((set, get) => {
       const step = get().trail?.step ?? LAST_STEP;
       if (step < LAST_STEP) closeAt(step + 1); // sinon : plus rien après
     },
+    canForward: () => (get().trail?.step ?? LAST_STEP) < LAST_STEP,
     closeForSearch: () => {
       get().setFullscreen(false);
       set({ open: false, item: null, base: null, error: null, trail: null });
@@ -140,8 +167,11 @@ export const useViewer = create<ViewerState>()((set, get) => {
     setFullscreen: (on) => {
       if (get().fullscreen === on) return;
       set({ fullscreen: on });
-      void getCurrentWindow().setFullscreen(on);
+      // Commande MyBoard (NAV-04) : couvre tout l'écran sans que le haut de la fenêtre bouge.
+      void api.setViewerFullscreen(on);
       if (on) refreshGap();
+      clearTimeout(settleTimer);
+      settleTimer = setTimeout(() => syncShown(true), FULLSCREEN_SETTLE_MS);
     },
     setError: (error) => set({ error }),
     markCopied: (id) => {

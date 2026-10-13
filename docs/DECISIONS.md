@@ -336,3 +336,31 @@ sa taille : 96 points par pouce. Un écran 4K s'adapte seul (27" ≈ 22 colonnes
 **Nom agrandi.** Une seule ligne, taille calculée au survol pour la seule vignette survolée
 (mesure du texte) : aussi grand que possible dans toute la largeur, jusqu'à la hauteur libérée
 par la ligne poids / dimensions ; jamais plus petit que la taille normale, sinon « … ».
+
+## D-020 — Barre de titre MyBoard et plein écran sans saccade (NAV-04, VIEW-34) (13/10/2026)
+
+**Choix de l'utilisateur.** Barre fine (32 px) au-dessus de l'en-tête, titre « MyBoard » seul,
+flèches grisées quand elles ne feraient rien, Fermer rouge au survol (convention Windows).
+
+**Fenêtre.** Barre de titre de Windows retirée (`decorations: false`). Déplacement, double-clic,
+aimantation aux bords, redimensionnement, réduire / agrandir / fermer : fournis par Tauri
+(`data-tauri-drag-region="deep"` sur toute la barre, boutons exclus). Le menu système de Windows
+(clic droit sur la barre) n'existe plus : GEN-12.
+
+**Défilement.** La fenêtre ne défile plus ; une zone sous la barre de titre (`#defilement`) porte
+le défilement (grille virtualisée sur cette zone), sinon la barre de défilement de la page
+montait jusqu'en haut, à côté du bouton Fermer. Elle a le focus au démarrage : le clavier
+(Page suivante, Espace) la fait défiler.
+
+**Flèches.** Mêmes fonctions que les boutons 4 / 5 de la souris (`goBack`, `goForward` dans
+`lib/escape.ts`) ; grisées d'après la pile d'Échap, le chemin de la visionneuse et l'historique de
+la fenêtre (API « Navigation » de WebView2).
+
+**Plein écran.** Mesuré en filmant l'écran : retirer puis remettre l'état « agrandie » faisait
+sauter l'image en sortant (3 images, ou 11 avec l'animation d'agrandissement de Windows). Retenu :
+la fenêtre reste agrandie ; le calcul de sa zone de dessin (`WM_NCCALCSIZE`) est intercepté (sous-
+classement de la fenêtre) : plein écran demandé et fenêtre couvrant l'écran = zone de dessin sur
+tout l'écran. Seul le bas de la fenêtre bouge. Côté interface, la mise en page « plein écran »
+(barre de titre cachée, barre du bas par-dessus) ne bascule qu'au changement de taille de la
+fenêtre (`fullscreenShown`), jamais avant. Résultat filmé : 5 passages sur 6 sans aucun mouvement,
+une image décalée de 8 px sur le 6e (avant NAV-04 : 5 images décalées de 23 à 31 px).

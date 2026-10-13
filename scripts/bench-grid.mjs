@@ -96,6 +96,8 @@ const wheel = (x, y, deltaY, ctrl = false) =>
 const HELPERS = `
 window.__bench = {
   frames: [], recording: false,
+  // Zone qui défile sous la barre de titre (NAV-04) ; la fenêtre entière pour les versions d'avant.
+  area() { return document.getElementById("defilement") ?? document.scrollingElement; },
   tiles() { return document.querySelectorAll('[data-zone="grille.vignette"]'); },
   firstTitle() { return this.tiles()[0]?.title ?? null; },
   visibleImages() {
@@ -198,15 +200,15 @@ async function farPage() {
 }
 
 async function scrollTest() {
-  await js(`scrollTo(0, 0); window.__bench.frames = []; window.__bench.recording = true; true`);
-  const height = await js(`document.documentElement.scrollHeight - innerHeight`);
+  await js(`window.__bench.area().scrollTo(0, 0); window.__bench.frames = []; window.__bench.recording = true; true`);
+  const height = await js(`(() => { const a = window.__bench.area(); return a.scrollHeight - a.clientHeight; })()`);
   // Molette réelle : 120 px toutes les 16 ms, jusqu'en bas puis retour en haut (2 s max chaque).
   for (const dir of [1, -1]) {
     const t0 = Date.now();
     while (Date.now() - t0 < 2000) {
       await wheel(900, 500, dir * 120);
       await sleep(16);
-      const y = await js(`scrollY`);
+      const y = await js(`window.__bench.area().scrollTop`);
       if ((dir > 0 && y >= height - 2) || (dir < 0 && y <= 0)) break;
     }
   }

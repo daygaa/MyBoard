@@ -57,7 +57,8 @@ export function BurgerMenu() {
         aria-hidden
         onClick={close}
         className={cn(
-          "fixed inset-0 top-14 z-20 bg-black/30 transition-opacity duration-300",
+          // Sous la barre de titre (NAV-04) et l'en-tête.
+          "fixed inset-0 top-[calc(var(--titlebar-h)+3.5rem)] z-20 bg-black/30 transition-opacity duration-300",
           open ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0",
         )}
       />
@@ -67,7 +68,7 @@ export function BurgerMenu() {
         aria-hidden={!open}
         inert={!open}
         className={cn(
-          "fixed top-14 bottom-0 left-0 z-30 flex w-72 max-w-[85vw] flex-col overflow-y-auto border-r border-border bg-card shadow-2xl shadow-black/40 transition-transform duration-300",
+          "fixed top-[calc(var(--titlebar-h)+3.5rem)] bottom-0 left-0 z-30 flex w-72 max-w-[85vw] flex-col overflow-y-auto border-r border-border bg-card shadow-2xl shadow-black/40 transition-transform duration-300",
           open ? "translate-x-0" : "-translate-x-full",
         )}
       >

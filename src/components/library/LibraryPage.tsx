@@ -5,6 +5,7 @@ import { useEffect } from "react";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { useGridShortcuts } from "@/hooks/useGridShortcuts";
 import { useMediaPage, useStats } from "@/hooks/useLibraryData";
+import { scrollToTop } from "@/lib/scroller";
 import { useLibrary } from "@/stores/library";
 import { EmptyLibrary, NoResults } from "./EmptyState";
 import { FiltersBar } from "./FiltersBar";
@@ -20,7 +21,7 @@ export function LibraryPage() {
 
   // Nouvelle page : retour en haut de la grille.
   useEffect(() => {
-    window.scrollTo(0, 0);
+    scrollToTop();
   }, [page]);
 
   let content = null;

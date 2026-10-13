@@ -57,14 +57,28 @@
   --input: #1f2126;
   --ring: #d9a94e;
 
+  /* Hauteur de la barre de titre MyBoard (NAV-04). */
+  --titlebar-h: 32px;
+
   color-scheme: dark;
 }
 
 @layer base {
+  /* NAV-04 : la fenêtre elle-même ne défile plus ; seule la zone sous la barre de titre défile
+     (`.app-scroll`), pour que sa barre de défilement commence sous la barre de titre. */
+  html,
+  body {
+    height: 100%;
+    overflow: hidden;
+  }
+  #root {
+    height: 100%;
+  }
+
   /* Place de la barre de défilement toujours réservée : sinon, une page « juste à la limite »
      fait apparaître puis disparaître la barre, la largeur de la grille change à chaque fois
      et la grille se recalcule sans fin (bogue mesuré le 11/10/2026). */
-  html {
+  .app-scroll {
     scrollbar-gutter: stable;
   }
 
