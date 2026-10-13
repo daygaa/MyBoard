@@ -3,6 +3,25 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Phase 2 — Barre de lecture flottante, curseurs (13/10/2026) — Backup v9
+
+SPEC : VIEW-30 déplacé sous VIEW-29 et validé `[x]`, VIEW-19 et VIEW-29 validés `[x]` ; nouvelle
+demande NAV-04 (barre de titre MyBoard avec flèches avant / arrière), prévue juste après la phase 2.
+
+- VIEW-32 : barre de lecture vidéo flottante par-dessus la vidéo, centrée, ≈ 45 % de la largeur,
+  bords arrondis, à la même hauteur à l'écran en plein écran ou non (la barre du bas ne la
+  recouvre jamais).
+- VIEW-18 : pour les images, le bouton plein écran reste le bouton rond, au même endroit en plein
+  écran (flèches inversées) — plus de bande de barre de lecture.
+- VIEW-33 : vidéo en plein écran, souris immobile 3 s (même en pause) : curseur, barre de lecture,
+  flèches, croix et bouton des notes se cachent ; ils reviennent dès que la souris bouge.
+- VIEW-31 : loupe / main / pointeur seulement au-dessus du média ; flèche normale sur le fond.
+
+Vérifié dans la version compilée (écran 1080p) : barre de lecture 864 × 44 px centrée, à 165 px du
+bas de la fenêtre en plein écran comme hors plein écran ; masquage après 3,6 s et retour au
+mouvement ; curseurs mesurés sur le média et sur le fond (image, vidéo, vidéo zoomée) ; bouton des
+images 40 × 40 px au même endroit dans les deux modes.
+
 ## Phase 2 — Corrections après test, suite (13/10/2026) — Backup v8
 
 SPEC : ZOOM-08, VIEW-21, SRCH-15 validés `[x]` ; GEN-09 `[~]`.

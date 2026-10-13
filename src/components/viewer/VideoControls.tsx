@@ -1,8 +1,10 @@
-// Barre de commandes du lecteur vidéo personnalisé (VIEW-29), aux couleurs de MyBoard :
+// Barre de commandes du lecteur vidéo personnalisé (VIEW-29), aux couleurs de MyBoard, qui
+// flotte par-dessus la vidéo : centrée, bords arrondis, à la même hauteur à l'écran en plein
+// écran ou non (VIEW-32) ; cachée avec le curseur quand la souris est immobile (VIEW-33) :
 // lecture / pause, temps, barre de progression cliquable (temps au survol), volume + muet
 // (curseur continu), vitesse, boucle (VIEW-26), plein écran tout à droite (VIEW-18).
 
-import { useEffect, useReducer, useState, type PointerEvent, type RefObject } from "react";
+import { useContext, useEffect, useReducer, useState, type PointerEvent, type RefObject } from "react";
 import { Pause, Play, Repeat, Volume1, Volume2, VolumeX } from "lucide-react";
 
 import { useEscape } from "@/lib/escape";
@@ -10,6 +12,7 @@ import { formatDuration } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { SPEEDS, usePlayer } from "@/stores/player";
 import { FullscreenButton } from "./FullscreenButton";
+import { idleClass, ViewerChrome } from "./viewerChrome";
 
 const BUTTON = "grid h-8 w-8 shrink-0 place-items-center rounded-md text-zinc-200 transition hover:bg-white/10 hover:text-white";
 
@@ -122,8 +125,11 @@ function SpeedMenu() {
   );
 }
 
-/** `docked` : placée dans la barre du bas (plein écran) au lieu d'être posée sur la scène. */
-export function VideoControls({ videoRef, docked = false }: { videoRef: RefObject<HTMLVideoElement | null>; docked?: boolean }) {
+/** Écart entre la barre de lecture et le bas de la scène (ou le haut de la barre du bas). */
+const FLOAT_GAP = 24;
+
+export function VideoControls({ videoRef }: { videoRef: RefObject<HTMLVideoElement | null> }) {
+  const { bottomInset, idle } = useContext(ViewerChrome);
   useVideoEvents(videoRef);
   const { volume, muted, loop, setVolume, setMuted, setLoop } = usePlayer();
   const video = videoRef.current;
@@ -135,9 +141,10 @@ export function VideoControls({ videoRef, docked = false }: { videoRef: RefObjec
     <div
       data-zone="visionneuse.lecteur"
       className={cn(
-        "flex h-12 items-center gap-2 border-t border-white/5 bg-black/80 px-3",
-        !docked && "absolute inset-x-0 bottom-0 z-20",
+        "absolute left-1/2 z-20 flex h-11 w-[45%] max-w-[1100px] min-w-[560px] -translate-x-1/2 items-center gap-2 rounded-xl border border-white/10 bg-black/80 px-3 shadow-lg transition-opacity duration-300",
+        idleClass(idle),
       )}
+      style={{ bottom: bottomInset + FLOAT_GAP }}
     >
       <button
         type="button"

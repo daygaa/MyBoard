@@ -5,7 +5,7 @@
 // (http…) sont cliquables et s'ouvrent dans le navigateur ; un clic ailleurs dans le texte le
 // modifie. Échap, ou un clic en dehors de la note, la ferme (puis Échap ferme la visionneuse).
 
-import { useEffect, useRef, useState } from "react";
+import { useContext, useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { StickyNote } from "lucide-react";
 
@@ -13,6 +13,7 @@ import { api, type MediaDetail } from "@/lib/api";
 import { useEscape } from "@/lib/escape";
 import { cn } from "@/lib/utils";
 import { runExternal } from "./externalOpen";
+import { idleClass, ViewerChrome } from "./viewerChrome";
 
 /** Délai d'enregistrement après la dernière frappe. */
 const SAVE_DELAY = 400;
@@ -46,6 +47,7 @@ function Linked({ text }: { text: string }) {
 
 export function NotesButton({ mediaId }: { mediaId: number }) {
   const queryClient = useQueryClient();
+  const { idle } = useContext(ViewerChrome);
   const { data: detail } = useQuery({ queryKey: ["media-detail", mediaId], queryFn: () => api.mediaDetail(mediaId) });
   const saved = detail?.notes ?? "";
   const [open, setOpen] = useState(false);
@@ -114,6 +116,7 @@ export function NotesButton({ mediaId }: { mediaId: number }) {
         className={cn(
           "absolute top-4 left-4 z-20 grid h-10 w-10 place-items-center rounded-full bg-black/60 transition hover:bg-black/85",
           open || saved ? "text-[#d9a94e]" : "text-white",
+          !open && idleClass(idle),
         )}
       >
         <StickyNote className="h-4 w-4" />

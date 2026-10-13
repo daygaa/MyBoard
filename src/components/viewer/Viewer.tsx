@@ -5,12 +5,12 @@
 // - En fermant, la grille montre la page du média regardé (VIEW-05).
 // - La page derrière ne défile pas (VIEW-06).
 // - Plein écran total (VIEW-18) : la fenêtre couvre tout l'écran ; la barre du bas apparaît à
-//   l'approche de la souris ; touche F ou bouton (barre de lecture, ou en bas à droite) ;
-//   Échap et le bouton 4 quittent d'abord le plein écran, la croix ferme tout.
+//   l'approche de la souris ; touche F ou bouton (barre de lecture flottante des vidéos, ou
+//   bouton rond en bas à droite) ; Échap et le bouton 4 quittent d'abord le plein écran, la
+//   croix ferme tout. Vidéo : souris immobile 3 s = commandes et curseur cachés (VIEW-33).
 // - Note du média (VIEW-19), message d'erreur des ouvertures externes (VIEW-28).
 
-import { useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
+import { useEffect, useRef } from "react";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
 
 import type { MediaItem } from "@/lib/api";
@@ -18,7 +18,6 @@ import { hasModalLayer, useEscape } from "@/lib/escape";
 import { cn } from "@/lib/utils";
 import { useSearch } from "@/stores/search";
 import { useViewer, type ListBase } from "@/stores/viewer";
-import { ControlsSlot } from "./controlsSlot";
 import { ErrorBanner } from "./ErrorBanner";
 import { FullscreenButton } from "./FullscreenButton";
 import { InfoBar } from "./InfoBar";
@@ -26,13 +25,15 @@ import { MediaStage } from "./MediaStage";
 import { NotesButton } from "./NotesButton";
 import { isTyping, itemAt, preload, usePageAt } from "./navigation";
 import { removePrintHolder } from "./printMedia";
-import { useBottomBarVisible } from "./useBottomBar";
+import { useBottomBarVisible, useHeight, useIdle } from "./useBottomBar";
+import { idleClass, ViewerChrome } from "./viewerChrome";
 
 const NAV_BUTTON =
   "absolute top-1/2 z-20 grid h-12 w-12 -translate-y-1/2 place-items-center rounded-md bg-black/60 text-white transition hover:bg-black/85";
 const ROUND_BUTTON = "absolute z-20 grid h-10 w-10 place-items-center rounded-full bg-black/60 text-white transition hover:bg-black/85";
-/** Bouton plein écran des médias sans barre de lecture, quand il est rangé dans la barre du bas. */
-const DOCKED_BUTTON = "grid h-8 w-8 place-items-center rounded-md text-zinc-200 transition hover:bg-white/10 hover:text-white";
+/** Écart entre le bas de la scène (ou le haut de la barre du bas, en plein écran) et le bouton
+ *  plein écran des images. */
+const FLOAT_GAP = 16;
 
 function ViewerOverlay({ base }: { base: ListBase }) {
   const index = useViewer((s) => s.index);
@@ -42,9 +43,11 @@ function ViewerOverlay({ base }: { base: ListBase }) {
   const hasError = useViewer((s) => s.error !== null);
   const { show, close, forward, setFullscreen, closeForSearch } = useViewer.getState();
   const pageAt = usePageAt();
-  const [slot, setSlot] = useState<HTMLDivElement | null>(null);
   const barRef = useRef<HTMLDivElement>(null);
   const barVisible = useBottomBarVisible(barRef, fullscreen);
+  const barHeight = useHeight(barRef);
+  const idle = useIdle(fullscreen && item?.kind === "video");
+  const chrome = { bottomInset: fullscreen ? barHeight : 0, idle };
   // Dernière position demandée : un appui rapide sur → enchaîne sans attendre l'affichage.
   const target = useRef(index);
 
@@ -124,43 +127,47 @@ function ViewerOverlay({ base }: { base: ListBase }) {
       role="dialog"
       aria-modal="true"
       aria-label="Visionneuse"
-      className="mb-zoom-in fixed inset-0 z-[100] flex flex-col bg-black/95"
+      className={cn("mb-zoom-in fixed inset-0 z-[100] flex flex-col bg-black/95", idle && "cursor-none")}
     >
       <div data-zone="visionneuse.scene" className="checker relative min-h-0 flex-1 overflow-hidden">
-        <ControlsSlot.Provider value={slot}>
+        <ViewerChrome.Provider value={chrome}>
           <MediaStage key={item.id} item={item} onClose={close} />
-        </ControlsSlot.Provider>
-        <NotesButton key={`note-${item.id}`} mediaId={item.id} />
-        {/* Médias sans barre de lecture : bouton plein écran en bas à droite, rangé dans la barre
-            du bas en plein écran (sinon la barre, en apparaissant, le recouvrirait). */}
-        {item.kind !== "video" &&
-          (fullscreen && slot ? (
-            createPortal(
-              <div className="flex justify-end border-t border-white/5 bg-black/80 px-3 py-1.5">
-                <FullscreenButton className={DOCKED_BUTTON} />
-              </div>,
-              slot,
-            )
-          ) : (
-            <FullscreenButton className={cn(ROUND_BUTTON, "right-4 bottom-4")} />
-          ))}
+          <NotesButton key={`note-${item.id}`} mediaId={item.id} />
+        </ViewerChrome.Provider>
+        {/* Médias sans barre de lecture : bouton rond en bas à droite, toujours au même endroit
+            (en plein écran, juste au-dessus de la barre du bas qui ne le recouvre jamais). */}
+        {item.kind !== "video" && (
+          <FullscreenButton className={cn(ROUND_BUTTON, "right-4")} style={{ bottom: chrome.bottomInset + FLOAT_GAP }} />
+        )}
         <button
           type="button"
           data-zone="visionneuse.fermer"
           onClick={close}
           aria-label={fullscreen ? "Quitter le plein écran et la visionneuse" : "Fermer (Échap)"}
           title={fullscreen ? "Quitter le plein écran et la visionneuse" : "Fermer (Échap)"}
-          className={cn(ROUND_BUTTON, "top-4 right-4")}
+          className={cn(ROUND_BUTTON, "top-4 right-4", idleClass(idle))}
         >
           <X className="h-5 w-5" />
         </button>
         {index > 0 && (
-          <button type="button" data-zone="visionneuse.precedent" onClick={() => void go(-1)} aria-label="Précédent (←)" className={`${NAV_BUTTON} left-3`}>
+          <button
+            type="button"
+            data-zone="visionneuse.precedent"
+            onClick={() => void go(-1)}
+            aria-label="Précédent (←)"
+            className={cn(NAV_BUTTON, "left-3", idleClass(idle))}
+          >
             <ChevronLeft className="h-6 w-6" />
           </button>
         )}
         {index < total - 1 && (
-          <button type="button" data-zone="visionneuse.suivant" onClick={() => void go(1)} aria-label="Suivant (→)" className={`${NAV_BUTTON} right-3`}>
+          <button
+            type="button"
+            data-zone="visionneuse.suivant"
+            onClick={() => void go(1)}
+            aria-label="Suivant (→)"
+            className={cn(NAV_BUTTON, "right-3", idleClass(idle))}
+          >
             <ChevronRight className="h-6 w-6" />
           </button>
         )}
@@ -175,7 +182,6 @@ function ViewerOverlay({ base }: { base: ListBase }) {
           fullscreen && !barVisible && !hasError && "pointer-events-none opacity-0 focus-within:pointer-events-auto",
         )}
       >
-        <div ref={setSlot} />
         <ErrorBanner />
         <InfoBar item={item} onSearch={searchTag} />
       </div>

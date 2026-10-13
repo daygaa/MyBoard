@@ -7,16 +7,15 @@
 // Lecture automatique, avec le son, en boucle (VIEW-26) ; fichier original lu par morceaux.
 
 import { useContext, useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
-import { createPortal } from "react-dom";
 
 import { mediaUrl, type MediaItem } from "@/lib/api";
 import { hasModalLayer, useEscape } from "@/lib/escape";
 import { cn } from "@/lib/utils";
 import { usePlayer } from "@/stores/player";
-import { useViewer } from "@/stores/viewer";
-import { ControlsSlot } from "./controlsSlot";
+
 import { ANIM_MS, useZoom, type Size } from "./useZoom";
 import { VideoControls } from "./VideoControls";
+import { ViewerChrome } from "./viewerChrome";
 import { ZoomBadge } from "./ZoomBadge";
 
 /** Durée d'une image quand la vidéo ne l'a pas encore révélée (30 images par seconde). */
@@ -56,8 +55,7 @@ export function VideoStage({ item, onClose, fallback }: { item: MediaItem; onClo
   const [natural, setNatural] = useState<Size>({ w: item.width ?? 0, h: item.height ?? 0 });
   const [failed, setFailed] = useState(false);
   const { volume, muted, loop, speed } = usePlayer();
-  const fullscreen = useViewer((s) => s.fullscreen);
-  const slot = useContext(ControlsSlot);
+  const { idle } = useContext(ViewerChrome);
   const { view, zoomed, animate, handlers, reset } = useZoom(stageRef, natural, onClose, () => toggle(videoRef.current));
   const frame = useFrameDuration(videoRef);
   useEscape(zoomed, reset);
@@ -96,11 +94,8 @@ export function VideoStage({ item, onClose, fallback }: { item: MediaItem; onClo
         ref={stageRef}
         data-zone="visionneuse.video"
         {...handlers}
-        className={cn(
-          "absolute inset-x-0 top-0 touch-none select-none",
-          fullscreen ? "bottom-0" : "bottom-12",
-          zoomed ? "cursor-grab active:cursor-grabbing" : "cursor-pointer",
-        )}
+        // Curseur normal sur le fond ; main ou pointeur seulement sur la vidéo (VIEW-31).
+        className="absolute inset-0 touch-none select-none"
       >
         <video
           ref={videoRef}
@@ -114,7 +109,10 @@ export function VideoStage({ item, onClose, fallback }: { item: MediaItem; onClo
             if (v.videoWidth === 0) setFailed(true);
             else setNatural((n) => (n.w === v.videoWidth && n.h === v.videoHeight ? n : { w: v.videoWidth, h: v.videoHeight }));
           }}
-          className="absolute top-1/2 left-1/2 max-w-none"
+          className={cn(
+            "absolute top-1/2 left-1/2 max-w-none",
+            idle ? "cursor-none" : zoomed ? "cursor-grab active:cursor-grabbing" : "cursor-pointer",
+          )}
           style={{
             width: natural.w,
             height: natural.h,
@@ -125,8 +123,7 @@ export function VideoStage({ item, onClose, fallback }: { item: MediaItem; onClo
         />
         {zoomed && <ZoomBadge scale={view.scale} />}
       </div>
-      {/* Plein écran : les commandes rejoignent la barre du bas, qui apparaît au survol. */}
-      {fullscreen && slot ? createPortal(<VideoControls videoRef={videoRef} docked />, slot) : <VideoControls videoRef={videoRef} />}
+      <VideoControls videoRef={videoRef} />
     </>
   );
 }

@@ -1,12 +1,13 @@
 // Bouton du plein écran total (VIEW-18) : flèches vers l'extérieur pour y entrer, vers
 // l'intérieur pour en sortir. Vidéos : tout à droite de la barre de lecture ; autres médias :
-// en bas à droite de la scène (dans la barre du bas en plein écran). La touche F fait pareil.
+// bouton rond en bas à droite de la scène. La touche F fait pareil.
 
+import type { CSSProperties } from "react";
 import { Maximize2, Minimize2 } from "lucide-react";
 
 import { useViewer } from "@/stores/viewer";
 
-export function FullscreenButton({ className }: { className: string }) {
+export function FullscreenButton({ className, style }: { className: string; style?: CSSProperties }) {
   const fullscreen = useViewer((s) => s.fullscreen);
   const setFullscreen = useViewer((s) => s.setFullscreen);
   const label = fullscreen ? "Quitter le plein écran (F)" : "Plein écran (F)";
@@ -19,6 +20,7 @@ export function FullscreenButton({ className }: { className: string }) {
       aria-label={label}
       title={label}
       className={className}
+      style={style}
     >
       <Icon className="h-4 w-4" />
     </button>

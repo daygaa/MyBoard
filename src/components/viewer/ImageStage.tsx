@@ -25,10 +25,12 @@ export function ImageStage({ item, onClose }: { item: MediaItem; onClose: () => 
       ref={stageRef}
       data-zone="visionneuse.image"
       {...handlers}
-      className={cn("absolute inset-0 touch-none select-none", zoomed ? "cursor-grab active:cursor-grabbing" : "cursor-zoom-in")}
+      // Curseur normal sur le fond (un clic y ferme ou dézoome) ; loupe ou main seulement sur
+      // l'image elle-même (VIEW-31).
+      className="absolute inset-0 touch-none select-none"
     >
       <div
-        className="absolute top-1/2 left-1/2"
+        className={cn("absolute top-1/2 left-1/2", zoomed ? "cursor-grab active:cursor-grabbing" : "cursor-zoom-in")}
         style={{
           width: natural.w,
           height: natural.h,
