@@ -4,7 +4,7 @@
 // Aussi : plein écran total (VIEW-18), message d'erreur d'une ouverture externe (VIEW-28) et
 // chemin des boutons 4 et 5 de la souris autour de la dernière visionneuse (VIEW-27, VIEW-30).
 
-import { getCurrentWindow } from "@tauri-apps/api/window";
+import { currentMonitor, getCurrentWindow } from "@tauri-apps/api/window";
 import { create } from "zustand";
 
 import type { ListQuery, MediaItem } from "@/lib/api";
@@ -35,6 +35,8 @@ type ViewerState = {
   base: ListBase | null;
   total: number;
   fullscreen: boolean;
+  /** Hauteur de la barre des tâches sous la fenêtre agrandie, en px (voir `taskbarGap`). */
+  screenGap: number;
   error: ExternalError | null;
   trail: Trail | null;
   openAt: (index: number, item: MediaItem, pageSize: number) => void;
@@ -56,6 +58,17 @@ function librarySnapshot(): string {
   return JSON.stringify([page, kinds, sort, seed, pageDensity, useSearch.getState().terms, location.hash]);
 }
 
+/** Espace entre le bas de la zone de travail de l'écran (au-dessus de la barre des tâches) et le
+ *  bas de l'écran, en px. En plein écran, les commandes flottantes remontent d'autant pour rester
+ *  au même endroit qu'avec la fenêtre agrandie (VIEW-32). */
+async function taskbarGap(): Promise<number> {
+  const monitor = await currentMonitor().catch(() => null);
+  if (!monitor) return 0;
+  const bottom = monitor.position.y + monitor.size.height;
+  const workBottom = monitor.workArea.position.y + monitor.workArea.size.height;
+  return Math.max(0, Math.round((bottom - workBottom) / monitor.scaleFactor));
+}
+
 export const useViewer = create<ViewerState>()((set, get) => {
   /** Ferme la visionneuse en se plaçant à l'étape `step` du chemin. */
   const closeAt = (step: number) => {
@@ -72,12 +85,15 @@ export const useViewer = create<ViewerState>()((set, get) => {
     if (!trail) return;
     const { index, item, base } = trail.shown;
     set({ open: true, index, item, base, error: null, trail: { ...trail, step } });
+    refreshGap();
   };
   /** Le chemin s'applique-t-il encore (rien n'a changé depuis la fermeture) ? */
   const trailValid = () => {
     const { open, trail } = get();
     return !open && trail !== null && trail.snapshot === librarySnapshot();
   };
+  /** Relu à chaque ouverture et à chaque plein écran (la fenêtre a pu changer d'écran). */
+  const refreshGap = () => void taskbarGap().then((screenGap) => set({ screenGap }));
 
   setMouseFallbacks(
     { can: () => trailValid() && (get().trail?.step ?? 0) > 0, run: () => reopenAt((get().trail?.step ?? 1) - 1) },
@@ -91,6 +107,7 @@ export const useViewer = create<ViewerState>()((set, get) => {
     base: null,
     total: 0,
     fullscreen: false,
+    screenGap: 0,
     error: null,
     trail: null,
     openAt: (index, item, pageSize) => {
@@ -99,6 +116,7 @@ export const useViewer = create<ViewerState>()((set, get) => {
       const base = { kinds, terms, sort, seed, pageSize };
       // Nouveau média ouvert par un clic : nouveau chemin, placé sur sa dernière étape.
       set({ open: true, index, item, base, trail: { shown: { index, item, base }, step: LAST_STEP, snapshot: "" } });
+      refreshGap();
     },
     show: (index, item, total) => set({ index, item, total, error: null }),
     close: () => closeAt(Math.max(0, (get().trail?.step ?? LAST_STEP) - 1)),
@@ -114,6 +132,7 @@ export const useViewer = create<ViewerState>()((set, get) => {
       if (get().fullscreen === on) return;
       set({ fullscreen: on });
       void getCurrentWindow().setFullscreen(on);
+      if (on) refreshGap();
     },
     setError: (error) => set({ error }),
   };

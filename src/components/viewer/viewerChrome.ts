@@ -1,7 +1,8 @@
 // Ce que les éléments flottants de la visionneuse doivent savoir de leur cadre :
 // - `bottomInset` : hauteur à laisser libre en bas de la scène. En plein écran, la barre du bas
-//   passe par-dessus la scène ; la barre de lecture et le bouton plein écran des images restent
-//   juste au-dessus d'elle, à la même hauteur qu'hors plein écran (VIEW-32).
+//   passe par-dessus la scène et la barre des tâches de Windows disparaît ; la barre de lecture et
+//   le bouton plein écran des images restent à la même hauteur à l'écran qu'hors plein écran
+//   (VIEW-32), donc au-dessus de la barre du bas.
 // - `idle` : vidéo en plein écran, souris immobile depuis 3 s : les commandes se cachent (VIEW-33).
 
 import { createContext } from "react";

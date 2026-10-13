@@ -40,6 +40,7 @@ function ViewerOverlay({ base }: { base: ListBase }) {
   const item = useViewer((s) => s.item);
   const total = useViewer((s) => s.total);
   const fullscreen = useViewer((s) => s.fullscreen);
+  const screenGap = useViewer((s) => s.screenGap);
   const hasError = useViewer((s) => s.error !== null);
   const { show, close, forward, setFullscreen, closeForSearch } = useViewer.getState();
   const pageAt = usePageAt();
@@ -47,7 +48,9 @@ function ViewerOverlay({ base }: { base: ListBase }) {
   const barVisible = useBottomBarVisible(barRef, fullscreen);
   const barHeight = useHeight(barRef);
   const idle = useIdle(fullscreen && item?.kind === "video");
-  const chrome = { bottomInset: fullscreen ? barHeight : 0, idle };
+  // En plein écran, la barre du bas passe par-dessus la scène et la barre des tâches disparaît :
+  // les commandes flottantes remontent d'autant pour ne pas bouger à l'écran (VIEW-32).
+  const chrome = { bottomInset: fullscreen ? barHeight + screenGap : 0, idle };
   // Dernière position demandée : un appui rapide sur → enchaîne sans attendre l'affichage.
   const target = useRef(index);
 
@@ -137,7 +140,7 @@ function ViewerOverlay({ base }: { base: ListBase }) {
         {/* Médias sans barre de lecture : bouton rond en bas à droite, toujours au même endroit
             (en plein écran, juste au-dessus de la barre du bas qui ne le recouvre jamais). */}
         {item.kind !== "video" && (
-          <FullscreenButton className={cn(ROUND_BUTTON, "right-4")} style={{ bottom: chrome.bottomInset + FLOAT_GAP }} />
+          <FullscreenButton ring className={cn(ROUND_BUTTON, "right-4")} style={{ bottom: chrome.bottomInset + FLOAT_GAP }} />
         )}
         <button
           type="button"

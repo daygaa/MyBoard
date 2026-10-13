@@ -3,6 +3,27 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Phase 2 — Plein écran : même place sur l'écran, contour doré (13/10/2026) — Backup v10
+
+SPEC : VIEW-31 et VIEW-33 validés `[x]` ; nouvelle demande VIEW-34 (bascule du plein écran sans
+saccade), reportée à NAV-04 au choix de l'utilisateur ; NAV-04 confirmée juste après la phase 2.
+
+- VIEW-32 : en plein écran, la barre de lecture ne descend plus de la hauteur de la barre des
+  tâches de Windows (qui disparaît) : MyBoard lit la zone de travail de l'écran et la remonte
+  d'autant. Elle reste au même endroit sur l'écran dans les deux modes.
+- VIEW-18 : même règle pour le bouton rond des images ; il porte un contour doré tant que le plein
+  écran est actif, et seulement à ce moment-là. Le contour de focus du navigateur, qui apparaissait
+  au hasard (clic sur le bouton puis touche F), est retiré des boutons plein écran (images et vidéos).
+- VIEW-34 (mesuré, pas corrigé) : écran filmé à 60 images/s pendant la bascule ; la saccade vient de
+  la barre de titre de Windows (le haut de la fenêtre se déplace, WebView2 met 3 à 5 images à
+  redessiner). Essai sans barre de titre : plus de mouvement, mais le plein écran devra être géré
+  par MyBoard → NAV-04.
+
+Vérifié dans la version compilée (écran 1080p) : barre de lecture à 793→837 px de l'écran en mode
+normal, en plein écran et au retour (avant : 40 px plus bas en plein écran) ; bouton des images à
+777→817 px dans les deux modes ; contour doré présent en plein écran (clic, touche F), absent après
+F et après Échap ; bouton des vidéos sans contour après un clic puis F.
+
 ## Phase 2 — Barre de lecture flottante, curseurs (13/10/2026) — Backup v9
 
 SPEC : VIEW-30 déplacé sous VIEW-29 et validé `[x]`, VIEW-19 et VIEW-29 validés `[x]` ; nouvelle
