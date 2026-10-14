@@ -4,7 +4,8 @@
 // rapetisse pas), jusqu'à la moitié de la visionneuse, avec défilement si besoin.
 // Mesures transmises à la visionneuse : de combien la barre dépliée monte (`rise`, pour faire
 // glisser flèches et boutons avec elle) et sa hauteur avec une seule ligne de tags (`oneLine`,
-// place d'ancrage des flèches, VIEW-38).
+// place d'ancrage des flèches, VIEW-38). En passant à un média dont les tags ne sont pas encore
+// lus, la zone des tags garde sa hauteur jusqu'à leur arrivée (VIEW-40).
 
 import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
 
@@ -22,7 +23,9 @@ const ONE_LINE = 24;
 const UNFOLD_MS = 200;
 
 type Mode = "replie" | "deplie" | "repli";
-type Geometry = { collapsed: number; oneLine: number; lines3: number; full: number; maxTags: number };
+/** `tags` : hauteur de la zone des tags, barre repliée (gardée pendant le chargement des tags
+ *  d'un autre média, VIEW-40). */
+type Geometry = { collapsed: number; oneLine: number; tags: number; lines3: number; full: number; maxTags: number };
 
 type Props = {
   item: MediaItem;
@@ -36,7 +39,7 @@ export function BottomPanel({ item, onSearch, barRef, className, onMetrics }: Pr
   const [mode, setMode] = useState<Mode>("replie");
   const areaRef = useRef<HTMLDivElement>(null);
   const boxRef = useRef<HTMLDivElement>(null);
-  const [geo, setGeo] = useState<Geometry>({ collapsed: 0, oneLine: 0, lines3: 3 * ONE_LINE, full: 0, maxTags: 0 });
+  const [geo, setGeo] = useState<Geometry>({ collapsed: 0, oneLine: 0, tags: 0, lines3: 3 * ONE_LINE, full: 0, maxTags: 0 });
 
   // Nouveau média : barre repliée.
   useEffect(() => setMode("replie"), [item.id]);
@@ -59,10 +62,12 @@ export function BottomPanel({ item, onSearch, barRef, className, onMetrics }: Pr
       const next: Geometry = {
         collapsed,
         oneLine: folded ? info.offsetHeight - area.offsetHeight + ONE_LINE : g.oneLine,
+        tags: folded ? area.offsetHeight : g.tags,
         lines3,
         full: box.scrollHeight,
-        // Barre dépliée : la moitié de la visionneuse au plus.
-        maxTags: Math.max(lines3, viewer / 2 - (collapsed - lines3)),
+        // Barre dépliée : la moitié de la visionneuse au plus (pixels entiers : les flèches et le
+        // bouton plein écran qui glissent avec elle restent nets).
+        maxTags: Math.max(lines3, Math.floor(viewer / 2 - (collapsed - lines3))),
       };
       const same = (Object.keys(next) as (keyof Geometry)[]).every((k) => Math.abs(next[k] - g[k]) < 0.5);
       return same ? g : next;
@@ -105,6 +110,7 @@ export function BottomPanel({ item, onSearch, barRef, className, onMetrics }: Pr
             maxHeight={mode === "deplie" ? target : geo.lines3}
             scroll={mode === "deplie" && geo.full > geo.maxTags}
             onTransitionEnd={() => mode === "repli" && setMode("replie")}
+            pendingHeight={geo.tags}
           />
         </InfoBar>
       </div>

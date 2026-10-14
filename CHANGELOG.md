@@ -3,6 +3,34 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Visionneuse — symétrie du bouton rangé, barre du bas stable, ouverture (14/10/2026) — Backup v17
+
+SPEC : VIEW-39 (précision), VIEW-40 et VIEW-41 livrés `[~]`. Choix : D-022. Le plein écran
+(VIEW-34) n'est **pas** dans ce commit : 4 versions à comparer dans `Backups/v16` (code et
+programme de chacune ; mesures dans « new V2/Explications plein écran/Comparatif v16.txt »),
+choix de l'utilisateur en attente. Le Workspace contient la version « Mix_test ».
+
+- VIEW-39 : le bouton plein écran rangé à côté de la flèche droite a le même écart en haut et en
+  bas (avant : 3 px / 4 px). Cause : la flèche était à un demi-pixel (Chrome la calait sur un
+  pixel entier, pas le bouton rond) ; positions arrondies au pixel.
+- VIEW-40 : en passant d'un média à l'autre, la barre du bas ne rétrécit plus le temps de lire les
+  tags pour regrandir ensuite : les tags des médias voisins sont lus d'avance (comme leurs
+  images), et si ceux du nouveau média ne sont pas encore là, la zone des tags garde sa hauteur.
+- VIEW-41 : ouverture de la visionneuse : fond noir, barre du bas et boutons dès la première
+  image ; seul le média apparaît en fondu avec un léger zoom (la galerie ne se voit plus).
+
+Vérifié dans la version compilée :
+- Bouton rangé, mesuré au pixel : flèche de 464 à 511, bouton de 468 à 507 : 4 px en haut, 4 px
+  en bas, bords nets (avant : bord du bouton flou, 3 px / 4 px) ; flèche toujours à 464 → 512.
+- Barre du bas suivie image par image (haut de la barre et nombre de tags) : 9 médias à 700 ms
+  d'intervalle puis 9 à 150 ms : la barre a sa bonne hauteur dès la première image de chaque
+  média. Tags rendus artificiellement lents (400 ms, appuis toutes les 250 ms) : la barre garde
+  sa hauteur pendant l'attente (0 tag affiché), puis les tags apparaissent sans qu'elle bouge.
+- Ouverture filmée à 60 i/s, 4 ouvertures : bande sous la barre et côtés à leur état final dès
+  la première image (avant : 8 à 11 images, la galerie visible) ; seul le média évolue.
+- Barre de lecture des vidéos : même place qu'avant (24 px au-dessus du bas de la scène) et
+  toujours cliquable.
+
 ## Visionneuse — flèches ancrées, barre du bas dépliable, pastilles (13/10/2026) — Backup v15
 
 SPEC : VIEW-38 et GEN-14 validés `[x]` ; VIEW-39 (avec sa précision du jour) et GEN-15 livrés

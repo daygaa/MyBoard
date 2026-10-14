@@ -14,6 +14,8 @@
 // - Flèches précédent / suivant ancrées à leur place « barre du bas d'une ligne de tags »
 //   (VIEW-38) ; barre du bas dépliée par-dessus le média : flèches, bouton plein écran et barre
 //   de lecture glissent avec elle s'ils sont atteints (VIEW-39, BottomPanel).
+// - Ouverture : fond noir, barre du bas et boutons tout de suite ; seul le média apparaît en
+//   fondu (VIEW-41).
 
 import { useEffect, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
@@ -28,7 +30,7 @@ import { BottomPanel, type PanelMetrics } from "./BottomPanel";
 import { FullscreenButton } from "./FullscreenButton";
 import { MediaStage } from "./MediaStage";
 import { NotesButton } from "./NotesButton";
-import { isTyping, itemAt, preload, usePageAt } from "./navigation";
+import { isTyping, itemAt, usePageAt, usePreload } from "./navigation";
 import { removePrintHolder } from "./printMedia";
 import { useBottomBarVisible, useHeight, useIdle } from "./useBottomBar";
 import { idleClass, ViewerChrome } from "./viewerChrome";
@@ -61,6 +63,7 @@ function ViewerOverlay({ base }: { base: ListBase }) {
   const copied = useViewer((s) => s.copied !== null);
   const { show, close, forward, canForward, setFullscreen, closeForSearch } = useViewer.getState();
   const pageAt = usePageAt();
+  const preload = usePreload();
   const rootRef = useRef<HTMLDivElement>(null);
   const viewerHeight = useHeight(rootRef);
   const barRef = useRef<HTMLDivElement>(null);
@@ -77,8 +80,10 @@ function ViewerOverlay({ base }: { base: ListBase }) {
   const lift = shown ? Math.max(0, rise - screenGap) : rise;
   const chrome = { bottomInset: shown ? barHeight + screenGap : 0, idle, lift };
   // Flèches (VIEW-38) : centrées comme si la barre du bas n'avait qu'une ligne de tags (plein
-  // écran : centre de l'écran) ; elles montent si la barre dépliée arrive à leur hauteur.
-  const arrowCenter = shown || !panel.oneLine ? (viewerHeight - (shown ? 0 : barHeight)) / 2 : (viewerHeight - panel.oneLine) / 2;
+  // écran : centre de l'écran) ; elles montent si la barre dépliée arrive à leur hauteur. Arrondi
+  // au pixel : à un demi-pixel, la flèche est calée sur un pixel entier mais le bouton rond rangé à
+  // côté non, d'où 3 px d'écart en haut et 4 en bas (mesuré, VIEW-39).
+  const arrowCenter = Math.round(shown || !panel.oneLine ? (viewerHeight - (shown ? 0 : barHeight)) / 2 : (viewerHeight - panel.oneLine) / 2);
   const arrowLift = Math.max(0, arrowCenter + ARROW_HALF + FLOAT_GAP - (viewerHeight - barHeight - rise));
   const arrowStyle = { top: arrowCenter, transform: `translateY(${-arrowLift}px)`, transition: SLIDE };
   // Bouton plein écran des images : s'il monterait à moins de DOCK_GAP de la flèche droite, il se
@@ -125,7 +130,7 @@ function ViewerOverlay({ base }: { base: ListBase }) {
     return () => {
       cancelled = true;
     };
-    // `pageAt` est recréée à chaque affichage mais ne dépend que du cache partagé.
+    // `pageAt` et `preload` sont recréées à chaque affichage mais ne dépendent que du cache partagé.
   }, [base, index]);
 
   // Flèches et touche F (plein écran), sauf pendant une saisie ou si une pop-in est ouverte.
@@ -170,14 +175,20 @@ function ViewerOverlay({ base }: { base: ListBase }) {
       aria-label="Visionneuse"
       // Sous la barre de titre MyBoard (NAV-04), sauf en plein écran où elle est cachée.
       className={cn(
-        "mb-zoom-in fixed inset-x-0 bottom-0 z-[100] flex flex-col bg-black/95",
+        "fixed inset-x-0 bottom-0 z-[100] flex flex-col bg-black/95",
         shown ? "top-0" : "top-[var(--titlebar-h)]",
         idle && "cursor-none",
       )}
     >
       <div data-zone="visionneuse.scene" className="checker relative min-h-0 flex-1 overflow-hidden">
         <ViewerChrome.Provider value={chrome}>
-          <MediaStage key={item.id} item={item} onClose={close} />
+          {/* Ouverture (VIEW-41) : seul le média apparaît en fondu avec un léger zoom ; le fond
+              noir, la barre du bas et les boutons sont là dès la première image (la galerie ne
+              se voit plus derrière). Ce cadre n'est pas recréé d'un média à l'autre : l'effet ne
+              joue qu'à l'ouverture. */}
+          <div className="mb-zoom-in absolute inset-0">
+            <MediaStage key={item.id} item={item} onClose={close} />
+          </div>
           <NotesButton key={`note-${item.id}`} mediaId={item.id} />
         </ViewerChrome.Provider>
         {/* Médias sans barre de lecture : bouton rond en bas à droite, toujours au même endroit

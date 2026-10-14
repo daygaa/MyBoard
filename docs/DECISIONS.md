@@ -387,3 +387,28 @@ droit de la fenêtre). Rien à ranger s'il n'y a pas de flèche droite (dernier 
 **Pastilles (GEN-14, GEN-15).** Croix avant le texte dans le composant partagé `TagPill`
 (visionneuse, barre latérale, page Importer). Texte remonté de 2 px : mesuré au pixel, les
 lettres sans jambage sont à 1 px du haut et du bas de la croix.
+
+## D-022 — Barre du bas stable, ouverture, recherches sur le plein écran (VIEW-39 à VIEW-41, VIEW-34) (14/10/2026)
+
+**Pixels entiers (VIEW-39).** Les positions calculées des flèches et de la barre dépliée sont
+arrondies : à un demi-pixel, Chrome calait la flèche sur un pixel entier mais pas le bouton rond
+voisin (bord flou, 3 px d'écart en haut et 4 en bas, mesuré).
+
+**Tags lus d'avance (VIEW-40).** Les infos des médias voisins (tags…) sont lues en même temps
+que leurs images sont préchargées (`usePreload`, même cache que la visionneuse). Si les tags ne
+sont pas encore là (navigation très rapide), la zone des tags garde la hauteur qu'elle avait,
+barre repliée, au lieu de rétrécir à une ligne. Première ouverture laissée telle quelle (choix
+de l'utilisateur).
+
+**Ouverture (VIEW-41).** L'effet d'apparition (fondu + zoom de 98 à 100 %) ne porte plus que sur
+un cadre autour du média, qui n'est pas recréé d'un média à l'autre ; le fond noir, la barre du
+bas et les boutons sont affichés tout de suite.
+
+**Plein écran (VIEW-34), constats mesurés.** Windows impose le débordement de 8 px aux fenêtres
+agrandies qui ont le style « barre de titre » (`WS_CAPTION`, que Tauri garde sans barre
+visible), même après une demande de position explicite ; sans ce style (ou sans l'une de ses
+deux moitiés), le débordement disparaît mais Windows ne joue plus ses animations (réduire,
+rétablir, agrandir). Tauri n'ajoute aucune ombre en plein écran : la ligne de 2 px est la
+bordure de Windows sur la partie qui déborde. Tauri change le style ~70 ms avant la taille en
+entrant en plein écran. 4 versions comparées dans `Backups/v16` ; choix de l'utilisateur en
+attente.

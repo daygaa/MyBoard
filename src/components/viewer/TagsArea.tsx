@@ -25,13 +25,17 @@ type Props = {
   /** Déplié et trop de tags pour la moitié de l'écran : barre de défilement. */
   scroll: boolean;
   onTransitionEnd: () => void;
+  /** Hauteur gardée tant que les tags ne sont pas lus (VIEW-40) : sans elle, la barre rétrécissait
+   *  à une ligne puis regrandissait, et le média sautait deux fois. */
+  pendingHeight: number;
 };
 
-export function TagsArea({ mediaId, onSearch, expanded, overflow, onToggle, areaRef, boxRef, maxHeight, scroll, onTransitionEnd }: Props) {
-  const { data: detail } = useQuery({ queryKey: ["media-detail", mediaId], queryFn: () => api.mediaDetail(mediaId) });
+export function TagsArea(props: Props) {
+  const { mediaId, onSearch, expanded, overflow, onToggle, areaRef, boxRef, maxHeight, scroll, onTransitionEnd, pendingHeight } = props;
+  const { data: detail, isPending } = useQuery({ queryKey: ["media-detail", mediaId], queryFn: () => api.mediaDetail(mediaId) });
   const style: CSSProperties = { maxHeight, transition: "max-height 200ms ease-out" };
   return (
-    <div ref={areaRef} className="flex min-h-0 flex-col gap-1">
+    <div ref={areaRef} className="flex min-h-0 flex-col gap-1" style={isPending ? { minHeight: pendingHeight } : undefined}>
       <div
         ref={boxRef}
         data-zone="visionneuse.tags"

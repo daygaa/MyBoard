@@ -1,5 +1,5 @@
 // Navigation de la visionneuse dans TOUS les résultats (VIEW-04) : les pages voisines sont lues
-// avec la même requête que la grille (même cache), et les images voisines sont préchargées.
+// avec la même requête que la grille (même cache), et les voisins (image, tags) sont préchargés.
 
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -22,16 +22,22 @@ export function itemAt(page: ListPage, index: number): MediaItem | undefined {
 /** Garde en mémoire les images voisines déjà décodées : passer à la suivante est immédiat. */
 const preloaded = new Map<number, HTMLImageElement>();
 
-export function preload(items: MediaItem[]) {
-  const keep = new Set(items.map((i) => i.id));
-  for (const id of preloaded.keys()) if (!keep.has(id)) preloaded.delete(id);
-  for (const item of items) {
-    if (item.kind !== "image" || preloaded.has(item.id)) continue;
-    const img = new Image();
-    img.decoding = "async";
-    img.src = mediaUrl(item);
-    preloaded.set(item.id, img);
-  }
+/** Préchargement des voisins : images décodées d'avance, et leurs infos (tags…) lues d'avance pour
+ *  que la barre du bas ait tout de suite sa bonne hauteur (VIEW-40). */
+export function usePreload() {
+  const queryClient = useQueryClient();
+  return (items: MediaItem[]) => {
+    const keep = new Set(items.map((i) => i.id));
+    for (const id of preloaded.keys()) if (!keep.has(id)) preloaded.delete(id);
+    for (const item of items) {
+      void queryClient.ensureQueryData({ queryKey: ["media-detail", item.id], queryFn: () => api.mediaDetail(item.id) });
+      if (item.kind !== "image" || preloaded.has(item.id)) continue;
+      const img = new Image();
+      img.decoding = "async";
+      img.src = mediaUrl(item);
+      preloaded.set(item.id, img);
+    }
+  };
 }
 
 export function isTyping(target: EventTarget | null): boolean {
