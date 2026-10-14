@@ -56,6 +56,8 @@ Documents de référence (à lire avant toute tâche) :
 - Performance (D-008) : grille virtualisée, aucun effet coûteux par vignette, cocher une
   vignette ne redessine qu'elle, mesurer sur 10k–100k médias.
 - Code compatible Windows d'abord (chemins, commandes) ; ne jamais supposer Linux.
+- Chaque nouvel élément d'interface reçoit en même temps son **curseur** (règles de GEN-13) et, s'il
+  en faut un, son **menu du clic droit** (section CTX de la SPEC, CTX-16) : rappel à chaque livraison.
 
 ## Commandes
 
