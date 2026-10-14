@@ -3,6 +3,25 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Commandes ancrées même en défilement rapide (14/10/2026) — Backup v19
+
+SPEC : VIEW-34, VIEW-43 et NAV-05 validés `[x]` ; VIEW-42 corrigé `[~]` ; GEN-16 noté `[>]`
+(nom du son dans le mélangeur de volume de Windows, reporté en phase 5).
+
+- VIEW-42 : en faisant défiler très vite les médias (flèche maintenue), la barre de lecture et le
+  bouton plein écran ne vibrent plus. La hauteur de la barre du bas était mesurée après
+  l'affichage et arrivait une image en retard (écart de 20 à 48 px pendant 1 à 2 images, mesuré) :
+  elle est maintenant transmise avant l'affichage, et remesurée dès que les tags arrivent. Un
+  média sans tag ne décale plus l'ancrage de 6 px (hauteur d'une pastille gardée).
+
+Vérifié dans la version compilée, position du bas de la commande relevée à chaque image :
+- vidéos, appuis toutes les 40, 25 et 15 ms (plus vite que la touche maintenue), en fenêtre :
+  barre de lecture toujours à 845 sur 1 387 images (avant : écarts de 20 à 48 px à presque chaque
+  changement de média) ; en plein écran : 845 sur 422 images ;
+- images, appuis toutes les 25 ms : bouton plein écran toujours à 853, en fenêtre et en plein
+  écran ; bibliothèque « divers » : même place (813 → 853) ;
+- inchangés : flèches (464 → 512), bouton rangé à côté de la flèche, barre dépliée en plein écran.
+
 ## Plein écran Mix_test, commandes ancrées, barre dépliée, bord haut (14/10/2026) — Backup v18
 
 SPEC : VIEW-39, VIEW-40 et VIEW-41 validés `[x]` ; VIEW-34 (choix : Mix_test), VIEW-42, VIEW-43 et

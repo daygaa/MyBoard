@@ -17,11 +17,16 @@ import { InfoBar } from "./InfoBar";
 import { TagsArea } from "./TagsArea";
 
 /** `anchor` : hauteur de la barre repliée la plus épaisse (3 lignes de tags + « Afficher plus »),
- *  place d'ancrage des commandes flottantes (VIEW-42). */
-export type PanelMetrics = { rise: number; oneLine: number; anchor: number };
+ *  place d'ancrage des commandes flottantes (VIEW-42). `height` : hauteur réservée à la barre,
+ *  transmise avant l'affichage (mesurée après coup, elle arrivait une image en retard et les
+ *  commandes sautaient pendant un défilement rapide). */
+export type PanelMetrics = { rise: number; oneLine: number; anchor: number; height: number };
 
 /** Hauteur minimale d'une ligne de tags (classe `min-h-6`). */
 const ONE_LINE = 24;
+/** Hauteur d'une pastille (texte 16 px + marges 4 px + bordure 2 px) et écart entre deux lignes
+ *  (`gap-1.5`) : 3 lignes, tant qu'aucune pastille n'a été mesurée (média sans tag). */
+const THREE_LINES = 3 * 22 + 2 * 6;
 /** Ligne « Afficher plus » : texte `text-xs` (16 px) + écart `gap-1` (4 px). */
 const PLUS_LINE = 20;
 /** Durée du dépliage (même valeur que la transition des lignes de tags). */
@@ -44,10 +49,10 @@ export function BottomPanel({ item, onSearch, barRef, className, onMetrics }: Pr
   const [mode, setMode] = useState<Mode>("replie");
   const areaRef = useRef<HTMLDivElement>(null);
   const boxRef = useRef<HTMLDivElement>(null);
-  const [geo, setGeo] = useState<Geometry>({ collapsed: 0, oneLine: 0, tags: 0, lines3: 3 * ONE_LINE, full: 0, maxTags: 0 });
+  const [geo, setGeo] = useState<Geometry>({ collapsed: 0, oneLine: 0, tags: 0, lines3: THREE_LINES, full: 0, maxTags: 0 });
 
-  // Nouveau média : barre repliée.
-  useEffect(() => setMode("replie"), [item.id]);
+  // Nouveau média : barre repliée, avant l'affichage.
+  useLayoutEffect(() => setMode("replie"), [item.id]);
 
   // Mesures, à chaque affichage (tags ajoutés ou retirés, largeur…) et quand la fenêtre change.
   const measure = () => {
@@ -58,12 +63,14 @@ export function BottomPanel({ item, onSearch, barRef, className, onMetrics }: Pr
     if (!bar || !box || !area || !info) return;
     const pill = box.querySelector<HTMLElement>('[data-zone="tag.pastille"]');
     const gap = parseFloat(getComputedStyle(box).rowGap) || 0;
-    const lines3 = 3 * (pill?.offsetHeight ?? ONE_LINE) + 2 * gap;
+    // Sans pastille (média sans tag, tags pas encore lus), la dernière mesure est gardée.
+    const measured = pill ? 3 * pill.offsetHeight + 2 * gap : undefined;
     const viewer = bar.parentElement?.clientHeight ?? window.innerHeight;
     setGeo((g) => {
       // La hauteur repliée ne se mesure que repliée (dépliée, la place réservée reste la même).
       const folded = mode === "replie";
       const collapsed = folded ? bar.offsetHeight : g.collapsed;
+      const lines3 = measured ?? g.lines3;
       const next: Geometry = {
         collapsed,
         oneLine: folded ? info.offsetHeight - area.offsetHeight + ONE_LINE : g.oneLine,
@@ -91,7 +98,10 @@ export function BottomPanel({ item, onSearch, barRef, className, onMetrics }: Pr
 
   const anchor = geo.oneLine ? geo.oneLine - ONE_LINE + geo.lines3 + PLUS_LINE : 0;
 
-  useLayoutEffect(() => onMetrics({ rise, oneLine: geo.oneLine, anchor }), [rise, geo.oneLine, anchor, onMetrics]);
+  useLayoutEffect(
+    () => onMetrics({ rise, oneLine: geo.oneLine, anchor, height: geo.collapsed }),
+    [rise, geo.oneLine, anchor, geo.collapsed, onMetrics],
+  );
 
   // Repli : une fois l'animation finie, la barre reprend sa place normale (sécurité si la fin
   // d'animation n'arrive pas).
@@ -118,6 +128,7 @@ export function BottomPanel({ item, onSearch, barRef, className, onMetrics }: Pr
             scroll={mode === "deplie" && geo.full > geo.maxTags}
             onTransitionEnd={() => mode === "repli" && setMode("replie")}
             pendingHeight={geo.tags}
+            onLayout={measure}
           />
         </InfoBar>
       </div>

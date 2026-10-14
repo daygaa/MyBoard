@@ -68,8 +68,8 @@ function ViewerOverlay({ base }: { base: ListBase }) {
   const viewerHeight = useHeight(rootRef);
   const barRef = useRef<HTMLDivElement>(null);
   const barVisible = useBottomBarVisible(barRef, shown);
-  const barHeight = useHeight(barRef);
-  const [panel, setPanel] = useState<PanelMetrics>({ rise: 0, oneLine: 0, anchor: 0 });
+  const [panel, setPanel] = useState<PanelMetrics>({ rise: 0, oneLine: 0, anchor: 0, height: 0 });
+  const barHeight = panel.height;
   const idle = useIdle(shown && item?.kind === "video");
   // Plein écran : barre du bas affichée (souris proche, message d'erreur, « Copié » d'un
   // raccourci VIEW-35, ou saisie d'un tag ; un bouton cliqué ne compte pas, VIEW-43).

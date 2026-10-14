@@ -3,7 +3,7 @@
 // catégories de la barre latérale) déplie la barre vers le haut ; il devient « Réduire ».
 // Hauteurs et dépliage : BottomPanel.
 
-import type { CSSProperties, RefObject } from "react";
+import { useLayoutEffect, type CSSProperties, type RefObject } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronDown } from "lucide-react";
 
@@ -28,11 +28,15 @@ type Props = {
   /** Hauteur gardée tant que les tags ne sont pas lus (VIEW-40) : sans elle, la barre rétrécissait
    *  à une ligne puis regrandissait, et le média sautait deux fois. */
   pendingHeight: number;
+  /** Appelé après chaque affichage (tags arrivés…), avant que l'écran soit dessiné : la barre du
+   *  bas se remesure aussitôt, sans attendre une image (VIEW-42). */
+  onLayout: () => void;
 };
 
 export function TagsArea(props: Props) {
-  const { mediaId, onSearch, expanded, overflow, onToggle, areaRef, boxRef, maxHeight, scroll, onTransitionEnd, pendingHeight } = props;
+  const { mediaId, onSearch, expanded, overflow, onToggle, areaRef, boxRef, maxHeight, scroll, onTransitionEnd, pendingHeight, onLayout } = props;
   const { data: detail, isPending } = useQuery({ queryKey: ["media-detail", mediaId], queryFn: () => api.mediaDetail(mediaId) });
+  useLayoutEffect(onLayout);
   const style: CSSProperties = { maxHeight, transition: "max-height 200ms ease-out" };
   return (
     <div ref={areaRef} className="flex min-h-0 flex-col gap-1" style={isPending ? { minHeight: pendingHeight } : undefined}>
