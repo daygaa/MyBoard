@@ -50,6 +50,9 @@ export function TagsArea(props: Props) {
           type="button"
           data-zone="visionneuse.tags.plus"
           onClick={onToggle}
+          // Pas de focus au clic de la souris (le clavier y accède toujours) : sinon le contour de
+          // focus apparaissait après un appui sur F (VIEW-43).
+          onMouseDown={(e) => e.preventDefault()}
           aria-expanded={expanded}
           className="mx-auto flex items-center gap-1 rounded px-2 text-xs text-muted-foreground transition hover:text-foreground"
         >

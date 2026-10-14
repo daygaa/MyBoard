@@ -412,3 +412,29 @@ rétablir, agrandir). Tauri n'ajoute aucune ombre en plein écran : la ligne de 
 bordure de Windows sur la partie qui déborde. Tauri change le style ~70 ms avant la taille en
 entrant en plein écran. 4 versions comparées dans `Backups/v16` ; choix de l'utilisateur en
 attente.
+
+## D-023 — Plein écran Mix_test, commandes ancrées, barre dépliée, bord haut (VIEW-34, VIEW-42, VIEW-43, NAV-05) (14/10/2026)
+
+**Plein écran (VIEW-34).** Choix de l'utilisateur après comparaison des 4 versions de
+`Backups/v16` : Mix_test. Les animations de Windows ne peuvent pas être recréées (Windows anime
+la fenêtre entière, et seulement si elle a le style « barre de titre » ; Tauri ne peut animer que
+le contenu). Ajout : en sortant, le style « barre de titre » est remis 400 ms après la bascule,
+par un message posté à la fenêtre (`WM_CAPTION_BACK`) ; d'ici là, la fenêtre agrandie n'a pas de
+débordement du côté d'un écran voisin. Remis tout de suite, Windows reposait ce débordement au
+milieu de la bascule et le peignait en noir le temps d'une image. Essayé sans effet : couper les
+transitions de Windows pendant la bascule (`DWMWA_TRANSITIONS_FORCEDISABLED`).
+
+**Commandes ancrées (VIEW-42).** `BottomPanel` fournit `anchor`, hauteur de la barre repliée la
+plus épaisse (une ligne de tags mesurée, + 2 lignes, + la ligne « Afficher plus » de 20 px) ; la
+visionneuse pose la barre de lecture et le bouton rond comme si la barre du bas avait cette
+hauteur (ou plus, si un message d'erreur l'épaissit), et calcule leur glissement au-delà.
+
+**Barre dépliée en plein écran (VIEW-43).** La règle CSS `focus-within` gardait la barre affichée
+tant qu'un bouton cliqué avait le focus ; remplacée par `useTypingIn` (seule une saisie compte).
+Une seule variable (`barShown`) décide de l'affichage et du glissement des commandes. Masquage :
+au-delà de 60 px au-dessus du bord haut réel de la barre (dépliée comprise) ; apparition : zone du
+bas, inchangée.
+
+**Bord haut (NAV-05).** Sur une fenêtre sans barre de titre, Tauri pose une petite fenêtre
+invisible sur le bord haut (`TAURI_DRAG_RESIZE_BORDERS`) qui reçoit les clics du bord ; son
+double-clic est intercepté (`window_border.rs`) et devient la commande « Agrandir » de Windows.

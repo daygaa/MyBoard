@@ -32,7 +32,7 @@ import { MediaStage } from "./MediaStage";
 import { NotesButton } from "./NotesButton";
 import { isTyping, itemAt, usePageAt, usePreload } from "./navigation";
 import { removePrintHolder } from "./printMedia";
-import { useBottomBarVisible, useHeight, useIdle } from "./useBottomBar";
+import { useBottomBarVisible, useHeight, useIdle, useTypingIn } from "./useBottomBar";
 import { idleClass, ViewerChrome } from "./viewerChrome";
 
 const NAV_BUTTON =
@@ -69,16 +69,25 @@ function ViewerOverlay({ base }: { base: ListBase }) {
   const barRef = useRef<HTMLDivElement>(null);
   const barVisible = useBottomBarVisible(barRef, shown);
   const barHeight = useHeight(barRef);
-  const [panel, setPanel] = useState<PanelMetrics>({ rise: 0, oneLine: 0 });
+  const [panel, setPanel] = useState<PanelMetrics>({ rise: 0, oneLine: 0, anchor: 0 });
   const idle = useIdle(shown && item?.kind === "video");
+  // Plein écran : barre du bas affichée (souris proche, message d'erreur, « Copié » d'un
+  // raccourci VIEW-35, ou saisie d'un tag ; un bouton cliqué ne compte pas, VIEW-43).
+  const typing = useTypingIn(barRef);
+  const barShown = barVisible || hasError || copied || typing;
   // Barre dépliée (VIEW-39) : de combien elle monte au-dessus de sa place, si elle est visible.
-  const rise = !shown || barVisible || hasError || copied ? panel.rise : 0;
-  // En plein écran, la barre du bas passe par-dessus la scène et la barre des tâches disparaît :
-  // les commandes flottantes remontent d'autant pour ne pas bouger à l'écran (VIEW-32). Elles
-  // glissent encore si la barre dépliée les atteint (en plein écran, elles ont la place de la
-  // barre des tâches d'avance).
-  const lift = shown ? Math.max(0, rise - screenGap) : rise;
-  const chrome = { bottomInset: shown ? barHeight + screenGap : 0, idle, lift };
+  const rise = !shown || barShown ? panel.rise : 0;
+  // Commandes flottantes (barre de lecture, bouton plein écran des images) : posées comme si la
+  // barre du bas repliée était la plus épaisse (3 lignes de tags + « Afficher plus ») : elles ne
+  // bougent plus d'un média à l'autre (VIEW-42). En plein écran, la barre du bas passe par-dessus
+  // la scène et la barre des tâches disparaît : elles remontent d'autant pour ne pas bouger à
+  // l'écran (VIEW-32).
+  const anchorBar = Math.max(panel.anchor, barHeight);
+  const bottomInset = shown ? anchorBar + screenGap : anchorBar - barHeight;
+  // Elles glissent si la barre dépliée les atteint, au-delà de l'avance qu'elles ont déjà sur le
+  // bord haut de la barre repliée.
+  const lift = Math.max(0, rise - (bottomInset - (shown ? barHeight : 0)));
+  const chrome = { bottomInset, idle, lift };
   // Flèches (VIEW-38) : centrées comme si la barre du bas n'avait qu'une ligne de tags (plein
   // écran : centre de l'écran) ; elles montent si la barre dépliée arrive à leur hauteur. Arrondi
   // au pixel : à un demi-pixel, la flèche est calée sur un pixel entier mais le bouton rond rangé à
@@ -235,17 +244,15 @@ function ViewerOverlay({ base }: { base: ListBase }) {
           </button>
         )}
       </div>
-      {/* Plein écran : la barre passe par-dessus le média, visible quand la souris s'en approche
-          (ou pendant une saisie, s'il y a un message d'erreur, ou le temps du « Copié » d'un
-          raccourci, VIEW-35). */}
+      {/* Plein écran : la barre passe par-dessus le média, visible selon `barShown`. */}
       <BottomPanel
         item={item}
         onSearch={searchTag}
         barRef={barRef}
         onMetrics={setPanel}
         className={cn(
-          shown && "absolute inset-x-0 bottom-0 z-30 transition-opacity duration-200 focus-within:opacity-100",
-          shown && !barVisible && !hasError && !copied && "pointer-events-none opacity-0 focus-within:pointer-events-auto",
+          shown && "absolute inset-x-0 bottom-0 z-30 transition-opacity duration-200",
+          shown && !barShown && "pointer-events-none opacity-0",
         )}
       />
     </div>

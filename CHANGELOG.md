@@ -3,6 +3,42 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Plein écran Mix_test, commandes ancrées, barre dépliée, bord haut (14/10/2026) — Backup v18
+
+SPEC : VIEW-39, VIEW-40 et VIEW-41 validés `[x]` ; VIEW-34 (choix : Mix_test), VIEW-42, VIEW-43 et
+NAV-05 livrés `[~]`. Choix : D-023.
+
+- VIEW-34 : plein écran de la version « Mix_test » de `Backups/v16` (seul `fullscreen.rs` repris) :
+  coin de la fenêtre immobile (pas de tremblement), pas de débordement du côté d'un écran voisin
+  à droite ou en bas (pas de ligne), animations de Windows gardées. En plus : en sortant, le style
+  « barre de titre » n'est remis qu'après la bascule (400 ms), ce qui supprime la bande de 8 px
+  vue environ une sortie sur 20.
+- VIEW-42 : barre de lecture des vidéos et bouton rond plein écran des images ancrés à la place
+  « barre du bas repliée la plus épaisse » (3 lignes de tags + « Afficher plus »), en fenêtre
+  comme en plein écran.
+- VIEW-43 : plein écran, barre du bas dépliée : elle se cache quand la souris s'éloigne (un bouton
+  cliqué ne la retient plus, seule la saisie d'un tag) ; affichée, elle reste tant que la souris
+  est dessus ou à moins de 60 px de son bord haut ; les commandes flottantes glissent avec elle.
+  « Afficher plus » ne prend plus le focus au clic (plus de cadre doré après F).
+- NAV-05 : double-clic sur le bord haut de la fenêtre = agrandir (comme le bouton carré).
+
+Vérifié dans la version compilée :
+- Plein écran, MyBoard sur l'écran 1440p, fond blanc sur le 1080p voisin, 60 bascules filmées :
+  aucun tremblement de 8 px (3 décalages de 1 px, des arrondis, comme les autres versions), aucune
+  bande à la sortie (avant : 1 sur 40, puis 3 sur 60) ; 2 fois une ligne de 1 px pendant une
+  image à l'entrée. Réduire puis rétablir : 19 images d'animation de Windows. MyBoard sur le
+  1080p (écran voisin à gauche) : pas de tremblement ; la ligne de 2 px reste (limite connue).
+- VIEW-42 : 10 vidéos (barre du bas de 123 à 171 px) : barre de lecture toujours de 801 à 845,
+  en fenêtre et en plein écran ; 20 images : bouton rond toujours de 813 à 853.
+- VIEW-43, image puis vidéo : clic sur « Afficher plus » (le focus reste sur la page), F, souris
+  au milieu : barre cachée ; souris en bas : barre dépliée affichée, bouton plein écran / barre
+  de lecture au-dessus d'elle ; souris en haut de la barre et à 40 px au-dessus : toujours
+  affichée ; à 80 px : cachée ; « Réduire » puis souris au milieu : cachée ; saisie d'un tag :
+  reste affichée, puis cachée une fois la saisie finie. Vidéo immobile 3,5 s : barres et curseur
+  cachés. Rangement du bouton à côté de la flèche (VIEW-39) inchangé.
+- NAV-05, à la vraie souris : curseur ↕ sur le bord haut ; double-clic → fenêtre agrandie ; tirer
+  le bord haut redimensionne toujours ; double-clic sur le bord bas : comportement de Windows.
+
 ## Visionneuse — symétrie du bouton rangé, barre du bas stable, ouverture (14/10/2026) — Backup v17
 
 SPEC : VIEW-39 (précision), VIEW-40 et VIEW-41 livrés `[~]`. Choix : D-022. Le plein écran

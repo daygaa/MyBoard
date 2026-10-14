@@ -14,6 +14,7 @@ pub mod search;
 pub mod tags;
 mod test_screen;
 pub mod thumbs;
+pub mod window_border;
 
 use std::sync::Mutex;
 
@@ -60,6 +61,7 @@ pub fn run() {
             });
             if let Some(window) = app.get_webview_window("main") {
                 fullscreen::install(&window)?;
+                window_border::install(&window)?;
                 test_screen::place(&window)?;
             }
             Ok(())

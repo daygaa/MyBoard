@@ -6,6 +6,8 @@
 
 import { useEffect, useState, type RefObject } from "react";
 
+import { isTyping } from "./navigation";
+
 const BUFFER = 60;
 /** Délai sans mouvement de la souris avant de cacher les commandes (VIEW-33). */
 const IDLE_DELAY = 3000;
@@ -16,7 +18,13 @@ export function useBottomBarVisible(ref: RefObject<HTMLElement | null>, active: 
     if (!active) return;
     const onMove = (e: MouseEvent) => {
       const bar = ref.current;
-      if (bar) setVisible(e.clientY >= window.innerHeight - bar.offsetHeight - BUFFER);
+      if (!bar) return;
+      // Apparition : à moins de BUFFER du haut de la barre repliée. Affichée, elle reste tant que
+      // la souris ne s'éloigne pas de plus de BUFFER de son bord haut réel, barre dépliée comprise
+      // (VIEW-43) : sinon ses lignes du haut seraient inaccessibles.
+      const foldedTop = window.innerHeight - bar.offsetHeight;
+      const shownTop = (bar.firstElementChild ?? bar).getBoundingClientRect().top;
+      setVisible((was) => e.clientY >= (was ? Math.min(foldedTop, shownTop) : foldedTop) - BUFFER);
     };
     const onLeave = () => setVisible(false);
     window.addEventListener("mousemove", onMove);
@@ -28,6 +36,25 @@ export function useBottomBarVisible(ref: RefObject<HTMLElement | null>, active: 
     };
   }, [ref, active]);
   return visible;
+}
+
+/** Vrai pendant une saisie (champ de texte) dans l'élément : en plein écran, la barre du bas reste
+ *  alors affichée (VIEW-18). Un bouton qui garde le focus après un clic (« Afficher plus »…) ne
+ *  compte pas : la barre restait affichée jusqu'au clic suivant (VIEW-43). */
+export function useTypingIn(ref: RefObject<HTMLElement | null>): boolean {
+  const [typing, setTyping] = useState(false);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const update = () => setTyping(el.contains(document.activeElement) && isTyping(document.activeElement));
+    el.addEventListener("focusin", update);
+    el.addEventListener("focusout", update);
+    return () => {
+      el.removeEventListener("focusin", update);
+      el.removeEventListener("focusout", update);
+    };
+  }, [ref]);
+  return typing;
 }
 
 /** Hauteur d'un élément, tenue à jour. */

@@ -4,8 +4,9 @@
 // rapetisse pas), jusqu'à la moitié de la visionneuse, avec défilement si besoin.
 // Mesures transmises à la visionneuse : de combien la barre dépliée monte (`rise`, pour faire
 // glisser flèches et boutons avec elle) et sa hauteur avec une seule ligne de tags (`oneLine`,
-// place d'ancrage des flèches, VIEW-38). En passant à un média dont les tags ne sont pas encore
-// lus, la zone des tags garde sa hauteur jusqu'à leur arrivée (VIEW-40).
+// place d'ancrage des flèches, VIEW-38), et sa hauteur repliée la plus grande (`anchor`, place
+// d'ancrage des commandes flottantes, VIEW-42). En passant à un média dont les tags ne sont pas
+// encore lus, la zone des tags garde sa hauteur jusqu'à leur arrivée (VIEW-40).
 
 import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
 
@@ -15,10 +16,14 @@ import { ErrorBanner } from "./ErrorBanner";
 import { InfoBar } from "./InfoBar";
 import { TagsArea } from "./TagsArea";
 
-export type PanelMetrics = { rise: number; oneLine: number };
+/** `anchor` : hauteur de la barre repliée la plus épaisse (3 lignes de tags + « Afficher plus »),
+ *  place d'ancrage des commandes flottantes (VIEW-42). */
+export type PanelMetrics = { rise: number; oneLine: number; anchor: number };
 
 /** Hauteur minimale d'une ligne de tags (classe `min-h-6`). */
 const ONE_LINE = 24;
+/** Ligne « Afficher plus » : texte `text-xs` (16 px) + écart `gap-1` (4 px). */
+const PLUS_LINE = 20;
 /** Durée du dépliage (même valeur que la transition des lignes de tags). */
 const UNFOLD_MS = 200;
 
@@ -84,7 +89,9 @@ export function BottomPanel({ item, onSearch, barRef, className, onMetrics }: Pr
   const target = Math.min(geo.full, geo.maxTags);
   const rise = mode === "deplie" && overflow ? Math.max(0, target - geo.lines3) : 0;
 
-  useLayoutEffect(() => onMetrics({ rise, oneLine: geo.oneLine }), [rise, geo.oneLine, onMetrics]);
+  const anchor = geo.oneLine ? geo.oneLine - ONE_LINE + geo.lines3 + PLUS_LINE : 0;
+
+  useLayoutEffect(() => onMetrics({ rise, oneLine: geo.oneLine, anchor }), [rise, geo.oneLine, anchor, onMetrics]);
 
   // Repli : une fois l'animation finie, la barre reprend sa place normale (sécurité si la fin
   // d'animation n'arrive pas).
