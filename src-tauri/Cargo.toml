@@ -36,6 +36,9 @@ which = "8"
 # « Ouvrir avec l'application par défaut » (VIEW-24) : appel Windows natif (ShellExecute),
 # sans passer par une ligne de commande.
 opener = "0.9"
+# Index de la recherche par tags en mémoire (SRCH-17) : ensembles de médias compressés, combinés
+# en moins d'une milliseconde.
+roaring = "0.11"
 
 [profile.release]
 codegen-units = 1

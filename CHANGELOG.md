@@ -3,6 +3,35 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Recherche par tags rapide à grande échelle (15/10/2026) — Backup v23
+
+SPEC : SRCH-17 (nouvelle) livrée `[~]` ; CTX-13 et GEN-18 validés `[x]` ; IMP-51 reporté en
+phase 4 ; SET-12 ajoutée (dossier des captures). Choix : D-027.
+
+- SRCH-17 : la recherche par tags passe par un index en mémoire (ensemble des médias de chaque
+  tag recherché, gardé et combiné en mémoire). Les tags ajoutés par + / − ou par le champ, les
+  exclusions, les jokers et les filtres de type ne ralentissent plus la recherche, et changer de
+  page ne refait plus la recherche. L'index suit automatiquement les ajouts et retraits de tags
+  et de médias (compteur tenu par la base, schéma v4).
+- Cause du blocage de 3 à 5 s vu par l'utilisateur : un filtre de type coché (Images…) avec
+  2 tags ou plus faisait prendre à l'ancienne méthode 2,8 à 5 s (40 s à 100 000 médias).
+- Tris « date ↑ » et « résolution ↑ » : deux index ; la page n'oblige plus à retrier toute la
+  bibliothèque (≈ 150 ms → moins de 10 ms à 300 000 médias, avec ou sans recherche).
+
+Vérifié dans la version compilée :
+- résultats identiques à l'ancienne méthode (nombre, page, ordre des médias) : 250 recherches
+  tirées au hasard sur « booru » (3 300 médias), 250 sur « 100k », 120 sur une base synthétique de
+  300 000 médias (8,5 millions de liens, tags présents sur 50 à 99 % des médias) : tous les tris,
+  types, exclusions, jokers, tags inexistants, pages au-delà de la fin ;
+- durées de la recherche à 300 000 médias : 1re recherche avec des tags très lourds 40 à 240 ms
+  (selon que le disque a déjà lu la base) au lieu de 0,25 à 1,1 s ; ensuite (autres combinaisons
+  de ces tags, page suivante) 4 à 5 ms ; tri aléatoire 6 à 13 ms ; par poids 5 à 11 ms ; date ↑
+  5 à 11 ms ;
+- dans l'interface (« booru », filtre « Images », 5 tags lourds ajoutés un à un) : la recherche
+  prend 6 à 8 ms (avant : 2,8 à 4 s), l'affichage complet 150 à 200 ms ;
+- tag ajouté puis retiré à un média : la recherche en tient compte aussitôt (2 753 → 2 754 → 2 753) ;
+- migration v4 sur des copies des bibliothèques de test (et de la base de 300 000).
+
 ## Menu de la fenêtre, Copier l'image, capture vidéo, fond d'écran, zoom, repli complet (15/10/2026) — Backup v22
 
 Lot 3 de GEN-12 (dernier de l'étape 1). SPEC : CTX-13 livré `[~]` ; CTX-06, CTX-07 et CTX-11

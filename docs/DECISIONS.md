@@ -525,3 +525,40 @@ y reste, animation du clic ; « Défaut » = ajusté. 100 % grisé quand le déf
 **Replier complètement (CTX-11).** Trois états par catégorie (10 premiers, tous, aucun), gardés en
 changeant de page ; repliée complètement, sa flèche est tournée vers la droite et l'en-tête se
 clique même avec 10 tags ou moins.
+
+## D-027 — Recherche par tags : index en mémoire (SRCH-17) (15/10/2026)
+
+**Constat (mesuré).** Recherche en SQL (une sous-requête `IN` par terme, comptage puis page) :
+6 à 14 ms à 3 300 médias, mais 0,25 à 1,1 s à 300 000 médias (base synthétique, tags présents
+sur 50 à 99 % des médias), refaite à chaque changement de page ; la durée croît avec chaque tag
+très utilisé (de façon linéaire). Réécrite « tag le plus rare d'abord » : encore 0,1 à 0,5 s.
+
+**Décision (choix de l'utilisateur).** Index en mémoire (`search.rs`) : l'ensemble des médias de
+chaque terme recherché est lu une fois (index `media_tags (tag_id, media_id)`) et gardé sous forme
+d'ensemble de bits compressé (crate `roaring`) ; ET, exclusion, types cochés = opérations sur ces
+ensembles ; nombre de résultats immédiat. Le dernier résultat est gardé : changer de page ne
+recombine rien. Page triée par id (« Récents », « Anciens ») : lue directement dans l'ensemble ;
+« Aléatoire » : même formule que la grille, calculée sur les résultats ; autres tris : jusqu'à
+5 000 résultats, tri dans la base sur leur liste, au-delà, parcours de l'index du tri en ne
+gardant que les résultats (arrêt dès la page remplie). Sans terme de recherche, la grille garde
+sa requête SQL.
+
+**Mise à jour automatique.** Compteur `search_generation` (schéma v4) incrémenté par des
+déclencheurs à chaque ajout ou retrait d'un lien tag-média ou d'un média (et à un changement de
+type), quel que soit le chemin (visionneuse, import, futur gestionnaire de tags) ; s'il a changé,
+l'index oublie tout et relit. Écarté : mettre l'index à jour depuis le code à chaque écriture
+(un chemin oublié = recherche fausse). L'index a sa propre connexion à la base : une recherche
+n'attend plus une écriture faite par l'interface. Au plus 256 ensembles gardés (quelques Mo).
+
+**Vérification.** Mêmes résultats que l'ancienne méthode (total, page, ordre des médias) sur des
+centaines de recherches tirées au hasard (termes, exclusions, jokers, tags inexistants, types,
+tous les tris, pages au-delà de la fin), sur les bibliothèques de test et la base de 300 000.
+
+**Blocage de 3 à 5 s vu par l'utilisateur.** Ancienne méthode + filtre de type coché + 2 tags ou
+plus : la base parcourait l'index du type et évaluait chaque sous-requête média par média (2,8 à
+5 s à 3 300 médias, 40 s à 100 000). L'index n'utilise plus ces sous-requêtes.
+
+**Tris « date ↑ » et « résolution ↑ ».** Ils mettent les valeurs inconnues en dernier (`IS NULL`
+dans le tri) : la base retriait toute la bibliothèque à chaque page (≈ 150 ms à 300 000, avec ou
+sans recherche). Deux index sur ces expressions (schéma v4) : moins de 10 ms. Création à la
+migration : environ 1 s à 300 000 médias, une seule fois.

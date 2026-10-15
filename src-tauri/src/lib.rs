@@ -26,6 +26,7 @@ use tauri::Manager;
 
 use import::ImportManager;
 use paths::DataPaths;
+use search::SearchIndex;
 use thumbs::ThumbService;
 use thumbs::preview::PreviewService;
 
@@ -37,6 +38,8 @@ pub struct AppState {
     pub thumbs: ThumbService,
     pub previews: PreviewService,
     pub import: ImportManager,
+    /// Index de la recherche par tags (SRCH-17).
+    pub search: SearchIndex,
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -53,6 +56,7 @@ pub fn run() {
             let handle = app.handle().clone();
             let paths = DataPaths::resolve(app.path().local_data_dir()?)?;
             let db = db::open_and_migrate(&paths.db)?;
+            let search = SearchIndex::open(&paths.db)?;
             let thumbs = ThumbService::start(handle.clone(), &paths.db, &paths.thumbs_db)?;
             let previews = PreviewService::start(handle.clone(), thumbs.clone(), &paths.db, &paths.thumbs_db)?;
             app.manage(AppState {
@@ -61,6 +65,7 @@ pub fn run() {
                 thumbs,
                 previews,
                 import: ImportManager::new(handle),
+                search,
             });
             if let Some(window) = app.get_webview_window("main") {
                 fullscreen::install(&window)?;
