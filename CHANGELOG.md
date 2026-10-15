@@ -9,7 +9,7 @@ SPEC : VIEW-44, VIEW-45, NAV-06, SRCH-16 et ZOOM-10 livrés `[~]`. Choix : D-028
 `Backups/v24` = les deux versions du fond à comparer (code et programme de chacune).
 
 - VIEW-44 : fond uni derrière le média au lieu du damier. Deux versions : « Noir » (#000000) et
-  « Gris-tres-sombre » (#0d0e12) ; le Workspace et `targetelease\myboard.exe` = noir en attendant
+  « Gris-tres-sombre » (#0d0e12) ; le Workspace et `target\release\myboard.exe` = noir en attendant
   ton choix. Le bug du fond devenu noir sur les vidéos en plein écran n'a pas pu être reproduit.
 - VIEW-45 : poubelle rouge en haut à droite de la note (grisée si la note est vide) ; même
   confirmation que « Effacer la note… » du menu (« Oui » rouge ; Échap ou le bouton 4 annulent).
