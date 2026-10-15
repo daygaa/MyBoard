@@ -17,9 +17,8 @@ import { createPortal } from "react-dom";
 
 import { closeContextMenu, isContextMenuOpen, useContextMenu, type MenuItem, type OpenMenu } from "@/lib/contextMenu";
 import { useEscape } from "@/lib/escape";
-import { Button } from "./button";
+import { ConfirmDialog } from "./confirm-dialog";
 import { fit, MenuList, nextUsable, usable } from "./menu-list";
-import { Modal } from "./modal";
 
 /** Délai avant de fermer un sous-menu quand la souris passe sur une autre entrée : on peut
  *  rejoindre le sous-menu en diagonale. */
@@ -192,32 +191,14 @@ function MenuLayer({ menu }: { menu: OpenMenu }) {
         />
       )}
       {confirming?.confirm && (
-        <Modal
-          open
-          onClose={() => setConfirming(null)}
+        <ConfirmDialog
+          {...confirming.confirm}
           zone="menu-contextuel.confirmation"
-          title={confirming.confirm.title}
-          description={confirming.confirm.message}
-          footer={
-            <>
-              <Button variant="ghost" onClick={() => setConfirming(null)} className="text-foreground hover:bg-secondary hover:text-foreground">
-                Annuler
-              </Button>
-              <Button
-                onClick={() => {
-                  closeContextMenu();
-                  confirming.run?.();
-                }}
-                className={
-                  confirming.confirm.danger
-                    ? "bg-destructive text-white hover:bg-destructive/90"
-                    : "bg-[#d9a94e] text-[#1a1408] hover:bg-[#e3b75f]"
-                }
-              >
-                Oui
-              </Button>
-            </>
-          }
+          onCancel={() => setConfirming(null)}
+          onConfirm={() => {
+            closeContextMenu();
+            confirming.run?.();
+          }}
         />
       )}
     </div>,

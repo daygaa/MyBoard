@@ -16,6 +16,8 @@ const WHEEL_DIVISOR = 600;
 const LINE_HEIGHT = 33;
 /** Au-delà de 3 px de mouvement, c'est un glisser et non un clic (ZOOM-05). */
 const CLICK_THRESHOLD = 3;
+/** Petite image (affichée à 100 %, plus petite que la zone) : un clic la zoome à 200 % (ZOOM-10). */
+const SMALL_IMAGE_ZOOM = 2;
 /** Animation réservée au clic (ZOOM-07). */
 export const ANIM_MS = 200;
 const EPS = 0.0001;
@@ -168,6 +170,10 @@ export function useZoom(
     } else if (min < 1 - EPS) {
       // « Ajusté » → taille réelle, centrée sur le point cliqué.
       commit(1, -cx / min, -cy / min, true);
+    } else {
+      // Petite image, déjà à 100 % : 200 %, centrée sur le point cliqué (ZOOM-10) ; un nouveau clic
+      // la ramène à 100 % (branche « zoomé » ci-dessus).
+      commit(SMALL_IMAGE_ZOOM, -cx * SMALL_IMAGE_ZOOM, -cy * SMALL_IMAGE_ZOOM, true);
     }
   };
 

@@ -29,7 +29,7 @@ function TermPill({ term }: { term: string }) {
       onRemove={() => removeTerm(term)}
       removeLabel={`Retirer « ${label} » de la recherche`}
       title={exclude ? `Exclut ${displayTag(name)}` : undefined}
-      className={exclude ? "line-through decoration-1" : undefined}
+      struck={exclude}
       onContextMenu={(e) => openContextMenu(e, () => termMenu(term, tag, list))}
     >
       {label}

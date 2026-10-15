@@ -60,6 +60,9 @@
   /* Hauteur de la barre de titre MyBoard (NAV-04). */
   --titlebar-h: 32px;
 
+  /* Fond de la visionneuse derrière le média (VIEW-44) : uni, à la place du damier. */
+  --viewer-bg: #000000;
+
   color-scheme: dark;
 }
 
@@ -146,7 +149,8 @@
     transform-origin: 0 0;
   }
 
-  /* Fond en damier de la visionneuse (v8). */
+  /* Fond en damier de la visionneuse (v8), remplacé par un fond uni (VIEW-44) ; gardé pour le
+     choix du fond dans les préférences (SET-11). */
   .checker {
     background-color: #0d0e12;
     background-image:

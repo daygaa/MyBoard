@@ -19,9 +19,11 @@ type Props = {
   className?: string;
   /** Clic droit : menu du tag (CTX-04, CTX-12). */
   onContextMenu?: (e: MouseEvent) => void;
+  /** Tag exclu de la recherche : texte rayé (SRCH-16). */
+  struck?: boolean;
 };
 
-export function TagPill({ color, children, onClick, onRemove, removeLabel, title, className, onContextMenu }: Props) {
+export function TagPill({ color, children, onClick, onRemove, removeLabel, title, className, onContextMenu, struck }: Props) {
   return (
     <span
       data-zone="tag.pastille"
@@ -49,7 +51,12 @@ export function TagPill({ color, children, onClick, onRemove, removeLabel, title
           {children}
         </button>
       ) : (
-        <span className="relative -top-[2px] min-w-0 truncate">{children}</span>
+        <span className="relative -top-[2px] min-w-0 truncate">
+          {children}
+          {/* Rayure dessinée à la hauteur du centre de la croix (le texte est remonté de 2 px) :
+              celle du navigateur, placée par la police, était 1 à 2 px trop haut (SRCH-16). */}
+          {struck && <span aria-hidden className="pointer-events-none absolute inset-x-0 top-[calc(50%+2px)] h-px bg-current" />}
+        </span>
       )}
     </span>
   );

@@ -189,7 +189,7 @@ function ViewerOverlay({ base }: { base: ListBase }) {
         idle && "cursor-none",
       )}
     >
-      <div data-zone="visionneuse.scene" className="checker relative min-h-0 flex-1 overflow-hidden">
+      <div data-zone="visionneuse.scene" className="relative min-h-0 flex-1 overflow-hidden bg-(--viewer-bg)">
         <ViewerChrome.Provider value={chrome}>
           {/* Ouverture (VIEW-41) : seul le média apparaît en fondu avec un léger zoom ; le fond
               noir, la barre du bas et les boutons sont là dès la première image (la galerie ne

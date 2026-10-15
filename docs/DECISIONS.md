@@ -562,3 +562,29 @@ plus : la base parcourait l'index du type et évaluait chaque sous-requête méd
 dans le tri) : la base retriait toute la bibliothèque à chaque page (≈ 150 ms à 300 000, avec ou
 sans recherche). Deux index sur ces expressions (schéma v4) : moins de 10 ms. Création à la
 migration : environ 1 s à 300 000 médias, une seule fois.
+
+## D-028 — Fond de la visionneuse, note, historique des recherches, rayure, petites images (VIEW-44, VIEW-45, NAV-06, SRCH-16, ZOOM-10) (15/10/2026)
+
+**Fond (VIEW-44).** Fond uni, une seule valeur (`--viewer-bg`, `index.css`) : deux versions
+compilées à comparer (`Backups/v24` : noir #000000, gris très sombre #0d0e12, la teinte la plus
+foncée de l'ancien damier). Le damier (`.checker`) est gardé pour le choix du fond dans les
+préférences (SET-11).
+
+**Historique des recherches (NAV-06).** Chaque recherche ajoute une étape à l'historique de la
+fenêtre (`history.pushState`, termes dans l'état de l'étape) ; précédent / suivant (flèches de la
+barre de titre, boutons 4 / 5, Alt + ← / →) restaurent les termes de l'étape sans en créer une
+nouvelle. L'étape de départ porte « aucune recherche » ; une étape créée par un changement de page
+de l'application (Importer) reçoit les termes du moment. Une recherche identique à la précédente
+n'ajoute rien.
+
+**Rayure d'un tag exclu (SRCH-16).** La rayure du navigateur est placée par la police (1,5 px au-
+dessus du centre de la croix, mesuré) et ne se déplace pas : remplacée par un trait de 1 px dessiné
+au centre de la pastille, sur la ligne juste sous le milieu exact (le centre tombe entre deux
+lignes de pixels).
+
+**Note (VIEW-45).** Poubelle grisée quand la note est vide ; confirmation partagée avec le menu de
+la note (`ConfirmDialog`, aussi utilisée par les menus du clic droit). Un clic dans la pop-in ne
+ferme plus la note.
+
+**Petites images (ZOOM-10).** Clic : 200 %, centré sur le point cliqué (comme le passage à 100 %
+d'une grande image) ; nouveau clic : retour à 100 %.

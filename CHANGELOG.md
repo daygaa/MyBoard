@@ -3,6 +3,34 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Fond de la visionneuse, poubelle de la note, recherches dans l'historique, rayure, petites images (15/10/2026) — Backup v25
+
+SPEC : VIEW-44, VIEW-45, NAV-06, SRCH-16 et ZOOM-10 livrés `[~]`. Choix : D-028.
+`Backups/v24` = les deux versions du fond à comparer (code et programme de chacune).
+
+- VIEW-44 : fond uni derrière le média au lieu du damier. Deux versions : « Noir » (#000000) et
+  « Gris-tres-sombre » (#0d0e12) ; le Workspace et `targetelease\myboard.exe` = noir en attendant
+  ton choix. Le bug du fond devenu noir sur les vidéos en plein écran n'a pas pu être reproduit.
+- VIEW-45 : poubelle rouge en haut à droite de la note (grisée si la note est vide) ; même
+  confirmation que « Effacer la note… » du menu (« Oui » rouge ; Échap ou le bouton 4 annulent).
+- NAV-06 : chaque recherche est une étape de l'historique : flèches de la barre de titre, boutons
+  4 / 5 de la souris et Alt + ← / → passent d'une recherche à l'autre (avant : flèches grisées).
+- SRCH-16 : rayure d'un tag exclu au centre de la croix et du texte (avant : 1,5 px trop haut).
+- ZOOM-10 : clic sur une petite image : 200 % ; nouveau clic : 100 %.
+
+Vérifié dans la version compilée (les deux versions pour le fond) :
+- fond de la scène : rgb(0, 0, 0) (Noir), rgb(13, 14, 18) (Gris-tres-sombre) ;
+- note : poubelle grisée sur une note vide, active après la frappe ; confirmation « Effacer la
+  note ? » ; Échap et bouton 4 la ferment (note toujours ouverte, en écriture) ; « Oui » (rouge)
+  efface la note et la ferme ;
+- historique : « highres », « + 1girl », « − touhou » : précédent → « highres + 1girl » →
+  « highres » ; Alt + → et suivant reviennent ; clic sur une pastille de la visionneuse puis
+  précédent : recherche d'avant ; flèche suivant grisée au bout ;
+- rayure, mesurée au pixel : croix et lettres sans jambage centrées entre les lignes 10 et 11 de
+  la pastille ; nouvelle rayure ligne 11 (ancienne ligne 9) ;
+- « petite.png » (300 × 200) : clic → 600 × 400, badge 200 %, curseur main ; clic → 300 × 200,
+  plus de badge, loupe.
+
 ## Recherche par tags rapide à grande échelle (15/10/2026) — Backup v23
 
 SPEC : SRCH-17 (nouvelle) livrée `[~]` ; CTX-13 et GEN-18 validés `[x]` ; IMP-51 reporté en
