@@ -2,7 +2,7 @@
 // fond et bordure de la couleur en transparence, texte de la couleur. La croix de retrait est à
 // GAUCHE du texte (GEN-14) : toujours au même endroit, quelle que soit la longueur du tag.
 
-import type { ReactNode } from "react";
+import type { MouseEvent, ReactNode } from "react";
 import { X } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -17,13 +17,16 @@ type Props = {
   removeLabel?: string;
   title?: string;
   className?: string;
+  /** Clic droit : menu du tag (CTX-04, CTX-12). */
+  onContextMenu?: (e: MouseEvent) => void;
 };
 
-export function TagPill({ color, children, onClick, onRemove, removeLabel, title, className }: Props) {
+export function TagPill({ color, children, onClick, onRemove, removeLabel, title, className, onContextMenu }: Props) {
   return (
     <span
       data-zone="tag.pastille"
       title={title}
+      onContextMenu={onContextMenu}
       className={cn("inline-flex max-w-full items-center gap-1 rounded-md border px-2 py-0.5 text-xs", className)}
       // Couleur de la base (TAGM-01) : 15 % pour le fond, 30 % pour la bordure (comme la v8).
       style={{ color, backgroundColor: `${color}26`, borderColor: `${color}4d` }}

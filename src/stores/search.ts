@@ -14,6 +14,8 @@ type SearchState = {
   /** Ajoute des termes (bouton « + », champ de recherche) ; un terme contraire est remplacé. */
   addTerms: (terms: string[]) => void;
   removeTerm: (term: string) => void;
+  /** Inclure ↔ exclure un terme, à sa place dans la recherche (menu du clic droit, CTX-12). */
+  invertTerm: (term: string) => void;
 };
 
 /** « tag » et « -tag » sont contraires : on ne garde que le dernier choisi. */
@@ -36,4 +38,5 @@ export const useSearch = create<SearchState>()((set, get) => ({
     set(apply(terms));
   },
   removeTerm: (term) => set(apply(get().terms.filter((t) => t !== term))),
+  invertTerm: (term) => set(apply(get().terms.map((t) => (t === term ? opposite(term) : t)))),
 }));

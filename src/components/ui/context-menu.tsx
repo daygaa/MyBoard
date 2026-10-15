@@ -12,35 +12,19 @@
 // - action dangereuse en rouge ; confirmation (CTX-02) : Échap ou le bouton 4 ferment la pop-in
 //   et laissent le menu ouvert, « Oui » agit et ferme tout.
 
-import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type RefObject } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
-import { Check, ChevronRight } from "lucide-react";
 
-import { closeContextMenu, isContextMenuOpen, useContextMenu, type MenuEntry, type MenuItem, type OpenMenu } from "@/lib/contextMenu";
+import { closeContextMenu, isContextMenuOpen, useContextMenu, type MenuItem, type OpenMenu } from "@/lib/contextMenu";
 import { useEscape } from "@/lib/escape";
-import { cn } from "@/lib/utils";
 import { Button } from "./button";
-import { MENU_ITEM, MENU_ITEM_ACTIVE, MENU_SURFACE } from "./dropdown-menu";
+import { fit, MenuList, nextUsable, usable } from "./menu-list";
 import { Modal } from "./modal";
 
-/** Écart minimal entre le menu et le bord de la fenêtre. */
-const EDGE = 4;
 /** Délai avant de fermer un sous-menu quand la souris passe sur une autre entrée : on peut
  *  rejoindre le sous-menu en diagonale. */
 const SUB_DELAY = 250;
 const ZONE = '[data-zone^="menu-contextuel"]';
-
-const usable = (entry: MenuEntry | undefined): entry is MenuItem =>
-  entry !== undefined && entry !== "separator" && !entry.disabled && (entry.run !== undefined || entry.submenu !== undefined);
-
-/** Entrée utilisable suivante dans le sens `step` (en boucle), ou `null`. */
-function nextUsable(entries: MenuEntry[], from: number | null, step: number): number | null {
-  for (let i = 1; i <= entries.length; i++) {
-    const index = (((from ?? (step > 0 ? -1 : 0)) + step * i) % entries.length + entries.length) % entries.length;
-    if (usable(entries[index])) return index;
-  }
-  return null;
-}
 
 /** Le menu ouvert est-il au premier plan (pas de pop-in de confirmation par-dessus) ? */
 let menuOnTop: () => boolean = () => false;
@@ -77,80 +61,6 @@ window.addEventListener(
   { capture: true, passive: false },
 );
 for (const name of ["blur", "resize", "hashchange"]) window.addEventListener(name, closeContextMenu);
-
-type ListProps = {
-  entries: MenuEntry[];
-  active: number | null;
-  listRef: RefObject<HTMLDivElement | null>;
-  style: CSSProperties;
-  zone: string;
-  onHover: (index: number) => void;
-  onLeave: () => void;
-  onPick: (index: number) => void;
-};
-
-function MenuList({ entries, active, listRef, style, zone, onHover, onLeave, onPick }: ListProps) {
-  const checks = entries.some((e) => e !== "separator" && e.checked !== undefined);
-  return (
-    <div
-      ref={listRef}
-      role="menu"
-      data-zone={zone}
-      className={cn(MENU_SURFACE, "fixed animate-in fade-in-0 zoom-in-95")}
-      style={style}
-      // Le menu ne prend ni le focus ni la sélection : un champ de saisie garde les siens.
-      onMouseDown={(e) => e.preventDefault()}
-    >
-      {entries.map((entry, i) => {
-        if (entry === "separator") {
-          return (
-            <div key={i} role="separator" className="py-[3px]">
-              <div className="mx-3 h-px bg-[#43464f]" />
-            </div>
-          );
-        }
-        const disabled = !usable(entry);
-        const on = active === i;
-        return (
-          <div
-            key={i}
-            role="menuitem"
-            aria-disabled={disabled || undefined}
-            aria-haspopup={entry.submenu ? "menu" : undefined}
-            onPointerMove={() => !disabled && onHover(i)}
-            onPointerLeave={onLeave}
-            onClick={() => onPick(i)}
-            className={cn(
-              MENU_ITEM,
-              disabled && "cursor-not-allowed opacity-50",
-              on && (entry.danger ? "bg-destructive text-white" : MENU_ITEM_ACTIVE),
-              entry.danger && !on && "text-destructive",
-            )}
-          >
-            {checks && <span className="grid w-4 shrink-0 place-items-center">{entry.checked && <Check className="h-3.5 w-3.5" />}</span>}
-            {entry.color && <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: entry.color }} />}
-            <span className="flex-1 whitespace-nowrap">{entry.label}</span>
-            {entry.shortcut && (
-              <span className={cn("ml-6 text-xs whitespace-nowrap", on ? "opacity-70" : "text-muted-foreground")}>{entry.shortcut}</span>
-            )}
-            {entry.submenu && <ChevronRight className="-mr-1 ml-4 h-4 w-4 shrink-0" />}
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-/** Position d'un menu de taille `w` × `h` ouvert au point (`x`, `y`), dans la fenêtre ; `flipX` :
- *  abscisse s'il n'y a pas la place à droite. */
-function fit(x: number, y: number, w: number, h: number, flipX = x - w, flipY = y - h) {
-  const left = x + w > window.innerWidth - EDGE ? flipX : x;
-  const top = y + h > window.innerHeight - EDGE ? flipY : y;
-  return {
-    left: Math.max(EDGE, Math.min(left, window.innerWidth - EDGE - w)),
-    top: Math.max(EDGE, Math.min(top, window.innerHeight - EDGE - h)),
-  };
-}
 
 function MenuLayer({ menu }: { menu: OpenMenu }) {
   const { entries } = menu;
@@ -201,7 +111,7 @@ function MenuLayer({ menu }: { menu: OpenMenu }) {
   useLayoutEffect(() => {
     const list = subRef.current;
     const parent = rootRef.current;
-    const item = sub === null ? null : parent?.querySelectorAll('[role="menuitem"]')[sub - entries.slice(0, sub).filter((e) => e === "separator").length];
+    const item = sub === null ? null : parent?.querySelector(`[data-index="${sub}"]`);
     if (!list || !parent || !item || subPos.visibility !== "hidden") return;
     const box = parent.getBoundingClientRect();
     const row = item.getBoundingClientRect();
@@ -217,7 +127,11 @@ function MenuLayer({ menu }: { menu: OpenMenu }) {
       const inSub = subEntries !== null && (subActive !== null || e.key === "ArrowLeft");
       const list = inSub ? subEntries : entries;
       const current = inSub ? subActive : active;
-      const move = (index: number | null) => (inSub ? setSubActive(index) : setActive(index));
+      const move = (index: number | null) => {
+        if (inSub) return setSubActive(index);
+        if (sub !== null) openSub(null);
+        setActive(index);
+      };
       if (e.key === "ArrowDown") move(nextUsable(list, current, 1));
       else if (e.key === "ArrowUp") move(nextUsable(list, current, -1));
       else if (e.key === "Home") move(nextUsable(list, null, 1));
@@ -241,13 +155,19 @@ function MenuLayer({ menu }: { menu: OpenMenu }) {
         style={rootPos}
         zone="menu-contextuel"
         onHover={(i) => {
-          setActive(i);
-          clearTimeout(timer.current);
           const item = entries[i] as MenuItem;
-          // Entrée « ▸ » : son sous-menu tout de suite ; une autre entrée : le sous-menu ouvert se
-          // ferme après un court délai (passage en diagonale vers lui).
-          if (item.submenu) openSub(i);
-          else if (sub !== null) timer.current = setTimeout(() => openSub(null), SUB_DELAY);
+          const enabled = usable(item);
+          if (enabled) setActive(i);
+          if (enabled && item.submenu) {
+            // Entrée « ▸ » : son sous-menu tout de suite.
+            clearTimeout(timer.current);
+            openSub(i);
+          } else if (sub !== null && sub !== i) {
+            // Autre entrée : le sous-menu ouvert se ferme après un court délai (passage en
+            // diagonale vers lui).
+            clearTimeout(timer.current);
+            timer.current = setTimeout(() => openSub(null), SUB_DELAY);
+          }
         }}
         onLeave={() => setActive(sub)}
         onPick={(i) => pick(entries[i] as MenuItem, i)}
@@ -262,7 +182,7 @@ function MenuLayer({ menu }: { menu: OpenMenu }) {
           onHover={(i) => {
             clearTimeout(timer.current);
             setActive(sub);
-            setSubActive(i);
+            if (usable(subEntries[i])) setSubActive(i);
           }}
           onLeave={() => setSubActive(null)}
           onPick={(i) => {

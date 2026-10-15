@@ -5,6 +5,7 @@
 // seulement), Supprimer (VIEW-14). Pas de « Télécharger » (VIEW-12). Favori, Dossier et
 // Supprimer : grisés « bientôt » jusqu'à la phase 3 (D-016). Échec d'une action : message
 // d'erreur (VIEW-28). Chaque action a son raccourci clavier (VIEW-36, lib/shortcuts.ts).
+// Clic droit sur le nom du fichier : son menu (CTX-08).
 // Dessous : les tags du média (`children`, zone dépliable de BottomPanel, VIEW-23, VIEW-39).
 
 import { useEffect, type ComponentType, type ReactNode } from "react";
@@ -12,12 +13,14 @@ import { useQuery } from "@tanstack/react-query";
 import { Check, Copy, ExternalLink, FolderOpen, FolderPlus, Printer, Star, Trash2 } from "lucide-react";
 
 import { api, type MediaItem } from "@/lib/api";
+import { openContextMenu } from "@/lib/contextMenu";
 import { hasModalLayer } from "@/lib/escape";
 import { formatBytes, formatDuration } from "@/lib/format";
 import { viewerActionFor, withShortcut, type ViewerAction } from "@/lib/shortcuts";
 import { cn } from "@/lib/utils";
 import { useViewer } from "@/stores/viewer";
-import { runExternal } from "./externalOpen";
+import { copyFile, openFile, revealFile } from "./mediaActions";
+import { fileNameMenu } from "./mediaMenus";
 import { isTyping } from "./navigation";
 import { printImage } from "./printMedia";
 import { TagAdder } from "./ViewerTags";
@@ -90,9 +93,6 @@ export function InfoBar({ item, children }: { item: MediaItem; children: ReactNo
     detail?.fileCreatedAt ? `créé le ${dateFr(detail.fileCreatedAt)}` : "",
   ].filter(Boolean);
 
-  const copy = async () => {
-    if (await runExternal("Copier le fichier", () => api.copyMedia(item.id))) useViewer.getState().markCopied(item.id);
-  };
   const actions: ActionDef[] = [
     {
       action: "copy",
@@ -100,7 +100,7 @@ export function InfoBar({ item, children }: { item: MediaItem; children: ReactNo
       icon: copied ? Check : Copy,
       label: copied ? "Copié" : "Copier",
       title: "Copier le fichier (à coller dans un dossier, une conversation…)",
-      run: () => void copy(),
+      run: () => void copyFile(item),
       className: copied ? "text-[#d9a94e]" : undefined,
     },
     { action: "favorite", zone: "visionneuse.favori", icon: Star, label: "Ajouter aux favoris", title: "Ajouter aux favoris" },
@@ -111,7 +111,7 @@ export function InfoBar({ item, children }: { item: MediaItem; children: ReactNo
       icon: FolderOpen,
       label: "Explorer",
       title: "Ouvrir dans l'explorateur (fichier sélectionné)",
-      run: () => void runExternal("Ouvrir dans l'explorateur", () => api.revealMedia(item.id)),
+      run: () => revealFile(item),
     },
     {
       action: "open",
@@ -119,7 +119,7 @@ export function InfoBar({ item, children }: { item: MediaItem; children: ReactNo
       icon: ExternalLink,
       label: "Ouvrir avec…",
       title: "Ouvrir avec l'application par défaut",
-      run: () => void runExternal("Ouvrir avec l'application par défaut", () => api.openMedia(item.id)),
+      run: () => openFile(item),
     },
     {
       action: "print",
@@ -138,7 +138,11 @@ export function InfoBar({ item, children }: { item: MediaItem; children: ReactNo
     <div data-zone="visionneuse.barre" className="flex min-h-0 flex-col gap-3 border-t border-border bg-card px-4 py-3">
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
         <div data-zone="visionneuse.infos" className="max-w-[32rem] min-w-0 shrink">
-          <p className="truncate text-sm font-medium text-foreground" title={detail?.path ?? item.fileName}>
+          <p
+            className="truncate text-sm font-medium text-foreground"
+            title={detail?.path ?? item.fileName}
+            onContextMenu={(e) => openContextMenu(e, () => fileNameMenu(item))}
+          >
             {item.fileName}
           </p>
           <p className="truncate text-xs text-muted-foreground">{meta.join(" · ")}</p>

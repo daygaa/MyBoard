@@ -95,6 +95,7 @@ pub fn run() {
             media::set_media_notes,
             media::open_url,
             clipboard_text::read_clipboard_text,
+            clipboard_text::write_clipboard_text,
         ])
         .run(tauri::generate_context!())
         .expect("erreur au lancement de MyBoard");

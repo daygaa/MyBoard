@@ -4,13 +4,15 @@
 // Entrée termine l'écriture (Maj + Entrée = retour à la ligne). En lecture, les liens collés
 // (http…) sont cliquables et s'ouvrent dans le navigateur ; un clic ailleurs dans le texte le
 // modifie. Échap, ou un clic en dehors de la note, la ferme (puis Échap ferme la visionneuse).
+// Clic droit : menu de la note écrite (CTX-09) ou d'un lien (CTX-10) ; en écriture, menu d'édition
+// (CTX-03, automatique).
 
 import { useContext, useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { StickyNote } from "lucide-react";
 
 import { api, type MediaDetail } from "@/lib/api";
-import { isContextMenuOpen } from "@/lib/contextMenu";
+import { isContextMenuOpen, openContextMenu } from "@/lib/contextMenu";
 import { useEscape } from "@/lib/escape";
 import { cn } from "@/lib/utils";
 import { runExternal } from "./externalOpen";
@@ -19,6 +21,8 @@ import { idleClass, ViewerChrome } from "./viewerChrome";
 /** Délai d'enregistrement après la dernière frappe. */
 const SAVE_DELAY = 400;
 const LINK = /(https?:\/\/[^\s<>"]+)/gi;
+
+const openLink = (url: string) => void runExternal("Ouvrir le lien", () => api.openUrl(url));
 
 /** Texte avec les liens rendus cliquables. */
 function Linked({ text }: { text: string }) {
@@ -32,8 +36,14 @@ function Linked({ text }: { text: string }) {
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation(); // ne passe pas en modification
-              void runExternal("Ouvrir le lien", () => api.openUrl(part));
+              openLink(part);
             }}
+            onContextMenu={(e) =>
+              openContextMenu(e, () => [
+                { label: "Ouvrir le lien", run: () => openLink(part) },
+                { label: "Copier le lien", run: () => void api.writeClipboardText(part) },
+              ])
+            }
             className="break-all text-[#d9a94e] underline underline-offset-2 hover:text-[#e3b75f]"
           >
             {part}
@@ -79,6 +89,14 @@ export function NotesButton({ mediaId }: { mediaId: number }) {
     setDraft(null);
   };
   useEscape(open, close);
+  /** « Effacer la note… » (CTX-09) : note vide enregistrée, zone fermée. */
+  const erase = () => {
+    clearTimeout(timer.current);
+    save("");
+    setOpen(false);
+    setEditing(false);
+    setDraft(null);
+  };
 
   // Un clic en dehors de la note la ferme, comme Échap : ce clic ne fait rien d'autre (il ne
   // zoome pas l'image et ne ferme pas la visionneuse).
@@ -159,6 +177,19 @@ export function NotesButton({ mediaId }: { mediaId: number }) {
           ) : (
             <div
               onClick={() => setEditing(true)}
+              onContextMenu={(e) =>
+                openContextMenu(e, () => [
+                  { label: "Modifier", run: () => setEditing(true) },
+                  { label: "Copier le texte", run: () => void api.writeClipboardText(text) },
+                  "separator",
+                  {
+                    label: "Effacer la note…",
+                    danger: true,
+                    confirm: { title: "Effacer la note ?", message: "La note de ce média sera supprimée.", danger: true },
+                    run: erase,
+                  },
+                ])
+              }
               title="Cliquer pour modifier"
               className="max-h-60 min-h-10 cursor-text overflow-y-auto rounded-md p-2 text-sm whitespace-pre-wrap text-foreground hover:bg-secondary/50"
             >

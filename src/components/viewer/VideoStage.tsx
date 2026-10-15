@@ -5,14 +5,17 @@
 // - Espace = lecture / pause ; image par image, vidéo en pause : touche « , ? » = reculer,
 //   touche « ; . » = avancer.
 // Lecture automatique, avec le son, en boucle (VIEW-26) ; fichier original lu par morceaux.
+// Clic droit sur la vidéo (pas sur le fond) : son menu (CTX-07).
 
 import { useContext, useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 
 import { mediaUrl, type MediaItem } from "@/lib/api";
+import { openContextMenu } from "@/lib/contextMenu";
 import { hasModalLayer, useEscape } from "@/lib/escape";
 import { cn } from "@/lib/utils";
 import { usePlayer } from "@/stores/player";
 
+import { videoMenu } from "./mediaMenus";
 import { ANIM_MS, useZoom, type Size } from "./useZoom";
 import { VideoControls } from "./VideoControls";
 import { ViewerChrome } from "./viewerChrome";
@@ -103,6 +106,7 @@ export function VideoStage({ item, onClose, fallback }: { item: MediaItem; onClo
           autoPlay
           playsInline
           onError={() => setFailed(true)}
+          onContextMenu={(e) => openContextMenu(e, () => videoMenu(item, e.currentTarget))}
           onLoadedMetadata={(e) => {
             const v = e.currentTarget;
             // Piste image illisible (le son seul passerait) : même message que l'échec.

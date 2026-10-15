@@ -2,12 +2,15 @@
 // La miniature (déjà prête) s'affiche tout de suite, puis l'original net la remplace (D-016).
 // Les miniatures sont des carrés recadrés au centre (D-013) : elle est donc posée exactement
 // sur le carré central de l'image, et le reste apparaît avec l'original.
+// Clic droit sur l'image (pas sur le fond) : son menu (CTX-06).
 
 import { useRef, useState } from "react";
 
 import { THUMB, mediaUrl, thumbUrl, type MediaItem } from "@/lib/api";
+import { openContextMenu } from "@/lib/contextMenu";
 import { cn } from "@/lib/utils";
 import { usePreviews } from "@/stores/previews";
+import { imageMenu } from "./mediaMenus";
 import { ANIM_MS, useZoom, type Size } from "./useZoom";
 import { ZoomBadge } from "./ZoomBadge";
 
@@ -31,6 +34,7 @@ export function ImageStage({ item, onClose }: { item: MediaItem; onClose: () => 
     >
       <div
         className={cn("absolute top-1/2 left-1/2", zoomed ? "cursor-grab active:cursor-grabbing" : "cursor-zoom-in")}
+        onContextMenu={(e) => openContextMenu(e, () => imageMenu(item))}
         style={{
           width: natural.w,
           height: natural.h,

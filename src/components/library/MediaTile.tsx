@@ -2,7 +2,7 @@
 // badge durée pour les vidéos, badge GIF. L'étoile favori et la case de sélection
 // arrivent en phase 3, dans le calque réduit `tile-overlay` (GRID-10, remplace la réduction
 // de SEL-05). Vignettes de moins de ~2,2 cm : nom seul, agrandi (GRID-11, index.css).
-// Clic = visionneuse plein écran (VIEW-01).
+// Clic = visionneuse plein écran (VIEW-01) ; clic droit = menu de la vignette (CTX-05).
 //
 // Taille de l'image selon la densité : 128 px pour les grilles denses (LIB-12), 320 px sinon,
 // et grand aperçu 640 px par-dessus pour 4–6 colonnes (LIB-09).
@@ -14,10 +14,12 @@ import { File, FileSpreadsheet, FileText, Film, Image as ImageIcon, Music, Play 
 
 import { usePreview } from "@/hooks/usePreview";
 import { THUMB, thumbUrl, type MediaItem } from "@/lib/api";
+import { openContextMenu } from "@/lib/contextMenu";
 import { formatBytes, formatDuration } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { useThumbs } from "@/stores/thumbs";
 import { useViewer } from "@/stores/viewer";
+import { tileMenu } from "./tileMenu";
 
 const SHEETS = ["xls", "xlsx", "xlsm", "ods", "csv", "gsheet"];
 const WORD = ["doc", "docx", "odt"];
@@ -129,6 +131,7 @@ export const MediaTile = memo(function MediaTile({ item, index, pageSize, compac
       data-zone="grille.vignette"
       title={item.fileName}
       onClick={() => useViewer.getState().openAt(index, item, pageSize)}
+      onContextMenu={(e) => openContextMenu(e, () => tileMenu(item, index, pageSize))}
       onMouseEnter={() => nameRef.current && fitName(nameRef.current)}
       className="group relative block aspect-square w-full cursor-pointer overflow-hidden rounded-lg bg-[#0d0e12] ring-1 ring-border transition-all duration-200 hover:ring-[#d9a94e]/60"
     >

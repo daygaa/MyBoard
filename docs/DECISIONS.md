@@ -472,3 +472,24 @@ souris (`pointer-events: none`, donc pas de curseur « interdit ») : remplacé,
 survol annulé quand ils sont grisés. Attente (`lib/busy.ts`) : ouvertures externes, et page de la
 grille pas encore arrivée après 0,3 s (données provisoires seulement : les relectures de fond
 pendant un import ne comptent pas).
+
+## D-025 — Menus du clic droit des éléments existants (GEN-12 lot 2, CTX-04 à CTX-12, CTX-19) (15/10/2026)
+
+**Choix de l'utilisateur (15/10).** « Copier le tag » copie la forme enregistrée (`long_hair`) : elle
+se colle telle quelle dans une recherche, où « long hair » serait lu comme deux tags. Menu de la
+visionneuse sur le média seulement (rien sur le fond autour, comme le fond de la grille). Échec
+d'une action lancée hors de la visionneuse : pop-in d'erreur (CTX-19) avec « OK » et « Copier ».
+
+**Une seule source pour les actions.** Copier le fichier, l'explorateur, « Ouvrir avec », copier le
+chemin ou le nom : `viewer/mediaActions.ts`, utilisé par la barre du bas, le menu d'une vignette et
+ceux de la visionneuse ; un échec passe par `runExternal` : message dans la barre du bas si la
+visionneuse est ouverte, sinon pop-in (`ErrorDialog`, même erreur gardée dans `useViewer`). Les
+menus eux-mêmes sont des listes d'entrées (`tileMenu.ts`, `tagMenu.ts`, `mediaMenus.ts`) calculées
+au clic droit ; ceux de la vidéo reprennent l'état de la barre de lecture à ce moment-là (le son
+coupé / rétabli et le libellé de vitesse sont désormais partagés par le store du lecteur).
+
+**Détails.** Texte copié par le cœur Rust (`write_clipboard_text`), comme la lecture pour
+« Coller ». Un bouton désactivé ne reçoit plus le clic droit : l'en-tête d'une catégorie sans
+dépliage est marqué `aria-disabled` au lieu de `disabled`. Inclure ↔ exclure un terme le laisse à
+sa place dans la recherche. Les fonctions du lot 3 (Copier l'image, Zoom, capture, fond d'écran,
+Replier complètement) et celles des phases suivantes sont grisées en attendant.

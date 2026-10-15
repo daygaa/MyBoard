@@ -7,12 +7,14 @@ import { useLayoutEffect, type CSSProperties, type RefObject } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronDown } from "lucide-react";
 
-import { api } from "@/lib/api";
+import { api, type MediaKind } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { TagPills } from "./ViewerTags";
 
 type Props = {
   mediaId: number;
+  /** Type du média (libellé « Retirer de cette image / vidéo… » du menu des tags, CTX-04). */
+  kind: MediaKind;
   onSearch: (name: string) => void;
   expanded: boolean;
   /** Plus de 3 lignes : bouton « Afficher plus » / « Réduire ». */
@@ -34,7 +36,7 @@ type Props = {
 };
 
 export function TagsArea(props: Props) {
-  const { mediaId, onSearch, expanded, overflow, onToggle, areaRef, boxRef, maxHeight, scroll, onTransitionEnd, pendingHeight, onLayout } = props;
+  const { mediaId, kind, onSearch, expanded, overflow, onToggle, areaRef, boxRef, maxHeight, scroll, onTransitionEnd, pendingHeight, onLayout } = props;
   const { data: detail, isPending } = useQuery({ queryKey: ["media-detail", mediaId], queryFn: () => api.mediaDetail(mediaId) });
   useLayoutEffect(onLayout);
   const style: CSSProperties = { maxHeight, transition: "max-height 200ms ease-out" };
@@ -47,7 +49,7 @@ export function TagsArea(props: Props) {
         style={style}
         onTransitionEnd={(e) => e.target === e.currentTarget && onTransitionEnd()}
       >
-        {detail && <TagPills mediaId={mediaId} tags={detail.tags} onSearch={onSearch} />}
+        {detail && <TagPills mediaId={mediaId} kind={kind} tags={detail.tags} onSearch={onSearch} />}
       </div>
       {overflow && (
         <button

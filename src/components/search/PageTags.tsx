@@ -6,14 +6,17 @@
 // Liste virtualisée (D-008) : une page de 500 médias peut porter des milliers de tags.
 // Chaque catégorie montre ses 10 tags les plus utilisés ; son nom est un bouton qui déplie la
 // liste complète, puis la replie (SRCH-15).
+// Clic droit : menu du tag (CTX-04) ou de la catégorie (CTX-11).
 
 import { useLayoutEffect, useRef, useState } from "react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { ChevronDown, Minus, Plus } from "lucide-react";
 
+import { tagMenu } from "@/components/tags/tagMenu";
 import { useCategories } from "@/hooks/useCategories";
 import { api, type Category, type MediaItem, type TagInfo } from "@/lib/api";
+import { openContextMenu, type MenuEntry } from "@/lib/contextMenu";
 import { formatNumber } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { displayTag } from "@/lib/tags";
@@ -28,12 +31,16 @@ const TAG_ROW = 26;
 /** Tags montrés par catégorie tant qu'elle n'est pas dépliée (SRCH-15). */
 const FOLDED_COUNT = 10;
 
-function TagRow({ tag, color }: { tag: TagInfo; color: string }) {
+function TagRow({ tag, color, categories }: { tag: TagInfo; color: string; categories: Category[] }) {
   const setTerms = useSearch((s) => s.setTerms);
   const addTerms = useSearch((s) => s.addTerms);
   const label = displayTag(tag.name);
   return (
-    <div data-zone="barre-laterale.tag" className="group flex h-full items-center gap-1 rounded-md pr-1 hover:bg-secondary/60">
+    <div
+      data-zone="barre-laterale.tag"
+      onContextMenu={(e) => openContextMenu(e, () => tagMenu(tag, categories))}
+      className="group flex h-full items-center gap-1 rounded-md pr-1 hover:bg-secondary/60"
+    >
       <button
         type="button"
         onClick={() => addTerms([tag.name])}
@@ -82,6 +89,11 @@ export function PageTags({ items }: { items: MediaItem[] }) {
       if (!next.delete(id)) next.add(id);
       return next;
     });
+  /** Menu de l'en-tête d'une catégorie (CTX-11) ; « Replier complètement » : à venir. */
+  const categoryMenu = (row: Extract<Row, { kind: "category" }>): MenuEntry[] => [
+    { label: row.expanded ? "Replier" : "Déplier", disabled: !row.expandable, run: () => toggle(row.category.id) },
+    { label: "Replier complètement" },
+  ];
 
   // Tags déjà triés par nombre de médias (le plus utilisé en haut, D-016).
   const rows: Row[] = [];
@@ -133,11 +145,14 @@ export function PageTags({ items }: { items: MediaItem[] }) {
                   <button
                     type="button"
                     data-zone="barre-laterale.categorie"
-                    disabled={!row.expandable}
-                    onClick={() => toggle(row.category.id)}
+                    // Pas `disabled` sans dépliage : un bouton désactivé ne reçoit plus le clic droit
+                    // (menu de la catégorie, CTX-11).
+                    aria-disabled={!row.expandable || undefined}
+                    onClick={() => row.expandable && toggle(row.category.id)}
+                    onContextMenu={(e) => openContextMenu(e, () => categoryMenu(row))}
                     aria-expanded={row.expandable ? row.expanded : undefined}
                     title={row.expandable ? (row.expanded ? "Ne montrer que les 10 premiers" : "Afficher tous les tags") : undefined}
-                    className="flex h-full w-full items-end gap-2 px-1 pb-1 text-left text-xs font-semibold tracking-wider text-muted-foreground uppercase enabled:hover:text-foreground disabled:cursor-default"
+                    className="flex h-full w-full items-end gap-2 px-1 pb-1 text-left text-xs font-semibold tracking-wider text-muted-foreground uppercase hover:text-foreground aria-disabled:cursor-default aria-disabled:hover:text-muted-foreground"
                   >
                     {row.category.name}
                     <span className="font-normal text-muted-foreground/70 tabular-nums">{formatNumber(row.count)}</span>
@@ -146,7 +161,7 @@ export function PageTags({ items }: { items: MediaItem[] }) {
                     )}
                   </button>
                 ) : (
-                  <TagRow tag={row.tag} color={row.color} />
+                  <TagRow tag={row.tag} color={row.color} categories={categories} />
                 )}
               </div>
             );

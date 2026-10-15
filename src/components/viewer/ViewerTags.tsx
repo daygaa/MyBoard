@@ -1,16 +1,18 @@
 // Tags dans la visionneuse : champ d'ajout avec autocomplétion ouverte AU-DESSUS (VIEW-21),
 // pop-in de création si le tag n'existe pas (VIEW-22), pastilles colorées retirables ; un clic
-// sur une pastille lance la recherche de ce tag (VIEW-23).
+// sur une pastille lance la recherche de ce tag (VIEW-23), un clic droit ouvre son menu (CTX-04).
 
 import { useState } from "react";
 import { Plus } from "lucide-react";
 
 import { CreateTagDialog } from "@/components/tags/CreateTagDialog";
 import { TagInput } from "@/components/tags/TagInput";
+import { tagMenu } from "@/components/tags/tagMenu";
 import { TagPill } from "@/components/tags/TagPill";
 import { useCategories } from "@/hooks/useCategories";
 import { useTagChanges } from "@/hooks/useTagChanges";
-import { api, type TagInfo } from "@/lib/api";
+import { api, type MediaKind, type TagInfo } from "@/lib/api";
+import { openContextMenu } from "@/lib/contextMenu";
 import { displayTag, normalizeTag } from "@/lib/tags";
 
 /** Champ d'ajout de tag (VIEW-20 : placé juste à droite des infos du fichier). */
@@ -66,7 +68,9 @@ export function TagAdder({ mediaId }: { mediaId: number }) {
 }
 
 /** Pastilles des tags du média, dans l'ordre des catégories (TAGM-03). */
-export function TagPills({ mediaId, tags, onSearch }: { mediaId: number; tags: TagInfo[]; onSearch: (name: string) => void }) {
+type PillsProps = { mediaId: number; kind: MediaKind; tags: TagInfo[]; onSearch: (name: string) => void };
+
+export function TagPills({ mediaId, kind, tags, onSearch }: PillsProps) {
   const { list, color } = useCategories();
   const { remove } = useTagChanges();
   const order = new Map(list.map((c) => [c.id, c.sortOrder]));
@@ -85,6 +89,7 @@ export function TagPills({ mediaId, tags, onSearch }: { mediaId: number; tags: T
           onClick={() => onSearch(tag.name)}
           onRemove={() => void remove(mediaId, tag.id)}
           removeLabel={`Retirer « ${displayTag(tag.name)} »`}
+          onContextMenu={(e) => openContextMenu(e, () => tagMenu(tag, list, { kind, run: () => void remove(mediaId, tag.id) }))}
         >
           {displayTag(tag.name)}
         </TagPill>

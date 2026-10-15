@@ -118,6 +118,7 @@ export function BottomPanel({ item, onSearch, barRef, className, onMetrics }: Pr
         <InfoBar item={item}>
           <TagsArea
             mediaId={item.id}
+            kind={item.kind}
             onSearch={onSearch}
             expanded={mode === "deplie"}
             overflow={overflow}

@@ -10,7 +10,7 @@ import { Pause, Play, Repeat, Volume1, Volume2, VolumeX } from "lucide-react";
 import { useEscape } from "@/lib/escape";
 import { formatDuration } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { SPEEDS, usePlayer } from "@/stores/player";
+import { isSilent, SPEEDS, speedLabel, usePlayer } from "@/stores/player";
 import { FullscreenButton } from "./FullscreenButton";
 import { idleClass, ViewerChrome } from "./viewerChrome";
 
@@ -98,7 +98,7 @@ function SpeedMenu() {
         title="Vitesse de lecture"
         className="h-8 min-w-12 rounded-md px-2 font-mono text-xs text-zinc-200 transition hover:bg-white/10 hover:text-white"
       >
-        {String(speed).replace(".", ",")}×
+        {speedLabel(speed)}
       </button>
       {open && (
         <ul className="absolute right-0 bottom-full z-30 mb-1 rounded-md border border-border bg-popover p-1 shadow-lg">
@@ -115,7 +115,7 @@ function SpeedMenu() {
                   s === speed ? "text-[#d9a94e]" : "text-foreground",
                 )}
               >
-                {String(s).replace(".", ",")}×
+                {speedLabel(s)}
               </button>
             </li>
           ))}
@@ -131,10 +131,10 @@ const FLOAT_GAP = 24;
 export function VideoControls({ videoRef }: { videoRef: RefObject<HTMLVideoElement | null> }) {
   const { bottomInset, idle, lift } = useContext(ViewerChrome);
   useVideoEvents(videoRef);
-  const { volume, muted, loop, setVolume, setMuted, setLoop } = usePlayer();
+  const { volume, muted, loop, setVolume, setLoop, toggleSound } = usePlayer();
   const video = videoRef.current;
   if (!video) return null;
-  const silent = muted || volume === 0;
+  const silent = isSilent({ muted, volume });
   const VolumeIcon = silent ? VolumeX : volume < 0.5 ? Volume1 : Volume2;
 
   return (
@@ -163,8 +163,7 @@ export function VideoControls({ videoRef }: { videoRef: RefObject<HTMLVideoEleme
       <button
         type="button"
         className={BUTTON}
-        // Rétablir le son alors que le volume est à zéro : on remet un volume moyen.
-        onClick={() => (silent ? (volume === 0 ? setVolume(0.5) : setMuted(false)) : setMuted(true))}
+        onClick={toggleSound}
         aria-label={silent ? "Rétablir le son" : "Couper le son"}
         title={silent ? "Rétablir le son" : "Couper le son"}
       >

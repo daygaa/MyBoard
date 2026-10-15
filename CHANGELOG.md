@@ -3,6 +3,58 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Menus du clic droit des tags, vignettes, visionneuse, note et barre latérale (15/10/2026) — Backup v21
+
+Lot 2 de GEN-12. SPEC : CTX-02 (testable maintenant), CTX-04 à CTX-12 et CTX-19 (nouvelle : pop-in
+d'erreur) livrés `[~]` ; dans CTX-06, CTX-07 et CTX-11, les fonctions du lot 3 sont grisées en
+attendant. Choix de l'utilisateur et détails : D-025.
+
+- CTX-04 : tags (pastilles de la visionneuse, lignes de la barre latérale) : Copier le tag (forme
+  `long_hair`), Retirer de cette image / vidéo / ce document / ce fichier audio (visionneuse) ;
+  Renommer, Changer de catégorie ▸ (catégories en couleur, l'actuelle cochée), Masquer, Supprimer :
+  grisés jusqu'au gestionnaire de tags.
+- CTX-05 : vignette : Ouvrir, Copier le fichier, Ouvrir avec l'application par défaut, Afficher dans
+  l'explorateur de fichiers, Copier le chemin du fichier ; favoris, dossier, sélection, suppression
+  grisés.
+- CTX-06 : image (clic droit sur l'image elle-même) : Copier le fichier, Plein écran / Quitter le
+  plein écran, Copier le chemin, Ouvrir avec, Afficher dans l'explorateur, Imprimer, avec leurs
+  raccourcis ; Copier l'image, Zoom ▸ et fond d'écran : lot 3.
+- CTX-07 : vidéo : Lire / Pause, Couper / Rétablir le son, Lecture en boucle (cochée), Vitesse ▸,
+  Plein écran, Copier le fichier, Copier le chemin, Ouvrir avec, Afficher dans l'explorateur, à
+  l'image de la barre de lecture ; capture et Zoom ▸ : lot 3.
+- CTX-08 : nom du fichier : Copier le nom, Copier le chemin du fichier, Afficher dans l'explorateur.
+- CTX-09 / CTX-02 : note écrite : Modifier, Copier le texte, Effacer la note… (rouge, confirmation
+  « Oui » rouge ; Échap ou le bouton 4 ferment la confirmation et laissent le menu).
+- CTX-10 : lien d'une note : Ouvrir le lien, Copier le lien.
+- CTX-11 : en-tête de catégorie : Déplier / Replier (aussi sur une catégorie sans dépliage, grisé) ;
+  Replier complètement : lot 3.
+- CTX-12 : termes de la recherche : Inclure / Exclure (le terme garde sa place), Copier le tag, Tout
+  effacer ; Renommer, Changer de catégorie, Masquer grisés.
+- CTX-19 : échec d'une action lancée depuis une vignette (fichier introuvable…) : pop-in avec le
+  même contenu que dans la visionneuse, « Copier » (→ « Copié » 1,5 s) et « OK ».
+
+Vérifié dans la version compilée (bibliothèque « booru », et une petite bibliothèque de test dont
+j'ai supprimé l'unique fichier, une copie, pour CTX-19) :
+- chaque menu ouvert au vrai point du clic, entrées et entrées grisées dans l'ordre de la SPEC ;
+- vignette : Copier le chemin → chemin complet ; Ouvrir → visionneuse sur ce média ;
+- image : Plein écran puis Quitter (barre de titre cachée puis revenue, libellé inversé) ; Copier le
+  chemin ; clic droit sur le fond autour de l'image : rien ;
+- nom du fichier : Copier le nom → « 12364066.jpg » ;
+- pastille « sayonara lara » : Copier le tag → « sayonara_lara » ; Retirer → 89 → 88 pastilles
+  (tag remis ensuite) ;
+- vidéo : Pause (libellé devenu « Lire »), Couper le son, boucle décochée, Vitesse ▸ 1,5× : la
+  barre de lecture affiche 1,5×, boucle décochée, puis tout remis ; flèche bas avec le sous-menu
+  ouvert au survol : il se ferme, la sélection descend ;
+- note : Copier le lien, Copier le texte, Modifier ; Effacer la note… : confirmation, Échap et
+  bouton 4 la ferment en gardant le menu, « Oui » (rouge) efface la note et ferme tout ;
+- barre latérale : Copier le tag « mon tag test » → « mon_tag_test » ; Déplier / Replier ;
+  catégorie de 1 tag : menu avec « Déplier » grisé, curseur flèche ;
+- termes « mon tag test | black souls » : Exclure → « −mon tag test | black souls » (même place),
+  Inclure, Tout effacer ;
+- CTX-19 : Ouvrir avec, Afficher dans l'explorateur et Copier le fichier sur le fichier supprimé :
+  pop-in « … : échec / Erreur Windows 2 / Fichier introuvable : … / explication » ; Copier → bouton
+  « Copié » et texte complet dans le presse-papiers, « Copier » 1,6 s après ; OK ferme.
+
 ## Menus du clic droit : base commune, curseurs, raccourcis du navigateur (15/10/2026) — Backup v20
 
 Lot 1 de GEN-12 (menus du clic droit), en 3 lots. SPEC : GEN-12, GEN-13, GEN-17, GEN-18, CTX-01,

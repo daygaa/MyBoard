@@ -1,22 +1,25 @@
 // Recherche par tags de la barre latérale (SRCH-01 à SRCH-07), apparence v8 : champ avec
 // autocomplétion + bouton doré ; les termes actifs s'affichent en pastilles dessous, et
-// uniquement là (SRCH-07). Entrée ou le bouton lancent la recherche.
+// uniquement là (SRCH-07), avec leur menu du clic droit (CTX-12). Entrée ou le bouton lancent la
+// recherche.
 
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Search } from "lucide-react";
 
+import { termMenu } from "@/components/tags/tagMenu";
 import { TagInput } from "@/components/tags/TagInput";
 import { TagPill } from "@/components/tags/TagPill";
 import { FALLBACK_COLOR, useCategories } from "@/hooks/useCategories";
 import { api } from "@/lib/api";
+import { openContextMenu } from "@/lib/contextMenu";
 import { displayTag, parseTerms, splitTerm } from "@/lib/tags";
 import { useSearch } from "@/stores/search";
 
 /** Pastille d'un terme actif : couleur de la catégorie du tag s'il existe. */
 function TermPill({ term }: { term: string }) {
   const removeTerm = useSearch((s) => s.removeTerm);
-  const { color } = useCategories();
+  const { color, list } = useCategories();
   const { exclude, name, prefix } = splitTerm(term);
   const { data: tag } = useQuery({ queryKey: ["tag", name], queryFn: () => api.findTag(name), enabled: !prefix });
   const label = `${exclude ? "−" : ""}${displayTag(name)}${prefix ? "*" : ""}`;
@@ -27,6 +30,7 @@ function TermPill({ term }: { term: string }) {
       removeLabel={`Retirer « ${label} » de la recherche`}
       title={exclude ? `Exclut ${displayTag(name)}` : undefined}
       className={exclude ? "line-through decoration-1" : undefined}
+      onContextMenu={(e) => openContextMenu(e, () => termMenu(term, tag, list))}
     >
       {label}
     </TagPill>
