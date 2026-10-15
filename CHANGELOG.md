@@ -3,6 +3,48 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Barre de recherche : termes sur une ligne, suggestions par mot (15/10/2026) — Backup v27
+
+SPEC : SRCH-18 à SRCH-23 (nouvelles) livrées `[~]` ; SRCH-16, SRCH-17 et VIEW-44 validés `[x]`.
+Choix : D-029.
+
+- SRCH-18 : une seule ligne de pastilles sous le champ ; les termes en trop sont résumés par un
+  « +N » collé au bord droit. La souris arrivée à 16 px du « +N » déplie les autres par-dessus la
+  liste des tags ; elles se replient quand elle s'éloigne de plus de 16 px. La place de la ligne est
+  toujours réservée : la liste des tags ne bouge plus.
+- SRCH-19 : « Tout effacer » sur sa propre ligne, centré, juste au-dessus des pastilles ; visible mais
+  grisé sans recherche.
+- SRCH-20 : plusieurs tags tapés d'un coup : les suggestions portent sur le mot où se trouve le
+  curseur de saisie (après chaque espace, ou en revenant dans un mot).
+- SRCH-21 : boutons + / − à gauche de chaque suggestion de la barre latérale (ajout immédiat à la
+  recherche ; le mot en cours est effacé, les autres restent). Clic sur le nom ou Entrée sur la
+  suggestion choisie : le tag s'écrit dans le champ à la place du mot, suivi d'un espace.
+- SRCH-22 : noms longs : la liste s'élargit jusqu'au double, puis le nom passe sur 2 lignes, puis
+  « … » (barre latérale, visionneuse, import). La barre latérale passe au-dessus de la grille pour que
+  la liste élargie ne soit pas cachée par les vignettes.
+- SRCH-23 : suggestion survolée (ou choisie au clavier) sur fond gris plus clair (#2a2c33), nom dans
+  la couleur de sa catégorie.
+
+Vérifié dans la version compilée (bibliothèque de test « booru ») :
+- liste des tags immobile, mesurée au pixel : titre « Tags » à 247 px sans recherche, avec 1 terme et
+  à chaque terme ajouté jusqu'à 10 ;
+- « Tout effacer » centré (centre 144 px = centre de la ligne), grisé (curseur « interdit ») sans
+  recherche ;
+- 10 termes : 2 pastilles + « +8 » au bord droit ; repliées à 20 px du « +N », dépliées à 15 px (à
+  gauche comme au-dessus), toujours dépliées dans le panneau et à 15 px sous lui, repliées à 20 px ;
+  rien ne se déplie sur « Tout effacer » (64 px du « +N ») ; 1re catégorie de tags à 48 px du « +N » ;
+- 1re pastille très longue : coupée par « … » à côté du « +4 », sur la même ligne ; Tab saute les
+  pastilles cachées ; menu burger toujours au-dessus de la barre latérale ;
+- « 1gi » → 1girl ; espace → liste fermée ; « sol » → solo… ; « -lon » → −long hair… ; curseur ramené
+  dans « 1gi » → 1girl ; Entrée sur la 1re → « -long_hair » écrit, suivi d'un espace ; clic sur un nom au milieu du
+  texte → remplacé ; + → highres ajouté, mot effacé ; − → −smile ; Entrée → le reste du champ ;
+- noms longs : liste de 224 px élargie à 392-448 px (×2 au plus), nom de 67 caractères sur 2 lignes,
+  nom de 162 caractères coupé à 2 lignes par « … » (tag créé sur une COPIE de la base), sans
+  défilement horizontal ; visionneuse : ×1,88 au plus, au-dessus du champ, sans + / − ; import :
+  inchangé (champ large) ;
+- survol : fond rgb(42, 44, 51) sur la liste rgb(31, 33, 38), couleur de catégorie gardée (barre
+  latérale, visionneuse, import).
+
 ## Fond gris très sombre, rayure remontée d'un pixel (15/10/2026) — Backup v26
 
 SPEC : VIEW-45, NAV-06 et ZOOM-10 validés `[x]` ; VIEW-44 et SRCH-16 ajustés `[~]`.

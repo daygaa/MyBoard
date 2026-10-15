@@ -11,8 +11,9 @@ export function Sidebar({ items }: { items: MediaItem[] }) {
   return (
     <aside
       data-zone="barre-laterale"
-      // Hauteur disponible : fenêtre moins la barre de titre (NAV-04) et l'en-tête.
-      className="sticky top-14 hidden max-h-[calc(100vh-var(--titlebar-h)-3.5rem)] w-72 shrink-0 flex-col border-r border-border bg-card/40 px-4 py-5 md:flex"
+      // Hauteur disponible : fenêtre moins la barre de titre (NAV-04) et l'en-tête. Au-dessus de la
+      // grille : la liste des suggestions, élargie pour les noms longs, déborde sur elle (SRCH-22).
+      className="sticky top-14 z-20 hidden max-h-[calc(100vh-var(--titlebar-h)-3.5rem)] w-72 shrink-0 flex-col border-r border-border bg-card/40 px-4 py-5 md:flex"
     >
       <SearchBox />
       <PageTags items={items} />

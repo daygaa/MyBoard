@@ -24,6 +24,16 @@ export function parseTerms(text: string): string[] {
   return terms;
 }
 
+/** Mot en cours d'un champ à plusieurs termes (SRCH-20) : celui où se trouve le curseur de saisie,
+ *  de `start` (compris) à `end` (non compris) ; vide juste après un espace. */
+export function wordAt(text: string, caret: number): { start: number; end: number } {
+  let start = caret;
+  while (start > 0 && !/\s/.test(text[start - 1])) start--;
+  let end = caret;
+  while (end < text.length && !/\s/.test(text[end])) end++;
+  return { start, end };
+}
+
 /** Terme décomposé pour l'affichage d'une pastille. */
 export function splitTerm(term: string): { exclude: boolean; name: string; prefix: boolean } {
   const exclude = term.startsWith("-");

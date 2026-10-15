@@ -4,15 +4,20 @@
 // contiennent (D-016). ↑ / ↓ ou Tab pour choisir, Entrée pour valider, Échap pour fermer.
 // Liste ouverte au-dessus du champ (visionneuse) : ordre inversé, le tag le plus utilisé est
 // en bas, au plus près du champ (VIEW-21) ; la flèche ↑ monte donc vers les suivants.
+// Recherche de la barre latérale (`onAddTerm`) : plusieurs termes séparés par des espaces, les
+// suggestions portent sur le mot en cours (SRCH-20) ; le nom choisi s'écrit dans le champ à la
+// place de ce mot, les boutons + / − l'ajoutent tout de suite à la recherche (SRCH-21).
+// Noms longs : la liste s'élargit jusqu'au double, puis le nom passe sur 2 lignes (SRCH-22).
 
-import { useState, type KeyboardEvent, type Ref } from "react";
+import { useLayoutEffect, useRef, useState, type KeyboardEvent, type MouseEvent, type Ref } from "react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { Minus, Plus } from "lucide-react";
 
 import { useCategories } from "@/hooks/useCategories";
 import { api, type TagInfo } from "@/lib/api";
 import { useEscape } from "@/lib/escape";
 import { formatNumber } from "@/lib/format";
-import { displayTag, normalizeTag } from "@/lib/tags";
+import { displayTag, normalizeTag, wordAt } from "@/lib/tags";
 import { cn } from "@/lib/utils";
 
 type Props = {
@@ -20,13 +25,14 @@ type Props = {
   onChange: (value: string) => void;
   /** Entrée sans suggestion choisie : le texte tel quel. */
   onSubmit: (text: string) => void;
-  /** Suggestion choisie ; `negated` : le texte commençait par « - » (exclusion, SRCH-03). */
-  onPick: (tag: TagInfo, negated: boolean) => void;
+  /** Suggestion choisie (visionneuse, import). */
+  onPick?: (tag: TagInfo) => void;
+  /** Recherche de la barre latérale : boutons + / − des suggestions (`exclude` pour « − »), plusieurs
+   *  termes, « -tag » tapé pour exclure (SRCH-03). */
+  onAddTerm?: (tag: TagInfo, exclude: boolean) => void;
   placeholder: string;
   /** Côté où s'ouvrent les suggestions (« top » dans la visionneuse, VIEW-21). */
   dropdown?: "top" | "bottom";
-  /** « -tag » autorisé (recherche) : les suggestions portent sur le texte après le « - ». */
-  allowNegation?: boolean;
   zone: string;
   className?: string;
   /** Ajustements du champ lui-même (taille, fond…). */
@@ -34,14 +40,21 @@ type Props = {
   inputRef?: Ref<HTMLInputElement>;
 };
 
+/** Suggestion survolée ou choisie au clavier (SRCH-23) : gris plus clair que le fond de la liste
+ *  (#1f2126), comme le survol des lignes de tags de la barre latérale. */
+const ACTIVE = "bg-[#2a2c33]";
+
+/** Garde le focus dans le champ : le clic ne doit pas fermer la liste avant d'agir. */
+const keepFocus = (e: MouseEvent) => e.preventDefault();
+
 export function TagInput({
   value,
   onChange,
   onSubmit,
   onPick,
+  onAddTerm,
   placeholder,
   dropdown = "bottom",
-  allowNegation = false,
   zone,
   className,
   inputClassName,
@@ -50,8 +63,16 @@ export function TagInput({
   const { color } = useCategories();
   const [focused, setFocused] = useState(false);
   const [highlight, setHighlight] = useState(-1);
-  const negated = allowNegation && value.trimStart().startsWith("-");
-  const text = normalizeTag(value);
+  const [caret, setCaret] = useState(0);
+  const field = useRef<HTMLInputElement | null>(null);
+  /** Curseur de saisie à replacer après un texte réécrit ici (SRCH-21). */
+  const nextCaret = useRef<number | null>(null);
+  const search = onAddTerm !== undefined;
+  // Recherche : seul le mot en cours compte (SRCH-20) ; ailleurs, tout le texte forme un seul tag.
+  const word = search ? wordAt(value, Math.min(caret, value.length)) : { start: 0, end: value.length };
+  const typed = value.slice(word.start, word.end);
+  const negated = search && typed.startsWith("-");
+  const text = normalizeTag(typed);
 
   const { data: suggestions = [] } = useQuery({
     queryKey: ["autocomplete", text],
@@ -63,8 +84,43 @@ export function TagInput({
   // Échap ferme d'abord les suggestions, sans fermer la visionneuse derrière.
   useEscape(open, () => setFocused(false));
 
+  useLayoutEffect(() => {
+    const at = nextCaret.current;
+    if (at === null || !field.current) return;
+    nextCaret.current = null;
+    field.current.setSelectionRange(at, at);
+  }, [value]);
+
+  /** Nouveau texte écrit ici, curseur de saisie placé en `at`. */
+  const rewrite = (next: string, at: number) => {
+    setCaret(at);
+    if (next === value) field.current?.setSelectionRange(at, at);
+    else nextCaret.current = at;
+    onChange(next);
+  };
+
   const pick = (tag: TagInfo) => {
-    onPick(tag, negated);
+    setHighlight(-1);
+    if (!search) return onPick?.(tag);
+    // Le tag remplace le mot en cours, suivi d'un espace : la liste se ferme, on tape le tag
+    // suivant ou Entrée pour lancer la recherche (SRCH-21, choix du 15/10). Au milieu du texte,
+    // l'espace est ajouté quand même : ce qu'on tape ensuite forme un nouveau mot.
+    const written = `${negated ? "-" : ""}${tag.name} `;
+    rewrite(value.slice(0, word.start) + written + value.slice(word.end), word.start + written.length);
+  };
+
+  /** + / − : le tag part dans la recherche ; le mot en cours est effacé, les autres restent. */
+  const addTerm = (tag: TagInfo, exclude: boolean) => {
+    setHighlight(-1);
+    onAddTerm?.(tag, exclude);
+    rewrite(value.slice(0, word.start) + value.slice(word.end), word.start);
+  };
+
+  /** Le curseur de saisie a bougé (flèches, clic) : les suggestions suivent son mot (SRCH-20). */
+  const followCaret = (input: HTMLInputElement) => {
+    const at = input.selectionStart ?? input.value.length;
+    if (!search || at === caret) return;
+    setCaret(at);
     setHighlight(-1);
   };
 
@@ -92,13 +148,19 @@ export function TagInput({
   return (
     <div data-zone={zone} className={cn("relative min-w-0", className)}>
       <input
-        ref={inputRef}
+        ref={(el) => {
+          field.current = el;
+          if (typeof inputRef === "function") inputRef(el);
+          else if (inputRef) inputRef.current = el;
+        }}
         value={value}
         onChange={(e) => {
           onChange(e.target.value);
+          setCaret(e.target.selectionStart ?? e.target.value.length);
           setHighlight(-1);
           setFocused(true);
         }}
+        onSelect={(e) => followCaret(e.currentTarget)}
         onFocus={() => setFocused(true)}
         onBlur={() => setFocused(false)}
         onKeyDown={onKeyDown}
@@ -114,25 +176,50 @@ export function TagInput({
         <ul
           data-zone={`${zone}.suggestions`}
           className={cn(
-            "absolute right-0 left-0 z-50 max-h-72 min-w-56 overflow-y-auto rounded-lg border border-border bg-popover p-1 shadow-lg",
+            // Largeur d'origine : celle du champ, 14rem au moins ; jusqu'au double pour un nom long,
+            // au-delà il passe sur 2 lignes, puis « … » (SRCH-22).
+            "absolute left-0 z-50 max-h-72 w-max max-w-[calc(2*max(100%,14rem))] min-w-[max(100%,14rem)] overflow-y-auto rounded-lg border border-border bg-popover p-1 shadow-lg",
             // Au-dessus : liste à l'envers (le plus utilisé en bas), qui s'ouvre défilée en bas.
             dropdown === "top" ? "bottom-full mb-1 flex flex-col-reverse" : "top-full mt-1",
           )}
         >
           {suggestions.map((tag, i) => (
-            <li key={tag.id}>
+            <li
+              key={tag.id}
+              onMouseEnter={() => setHighlight(i)}
+              className={cn("flex items-center rounded-md", search && "pl-1", i === highlight && ACTIVE)}
+            >
+              {search && (
+                <>
+                  <button
+                    type="button"
+                    onMouseDown={keepFocus}
+                    onClick={() => addTerm(tag, false)}
+                    aria-label={`Ajouter « ${displayTag(tag.name)} » à la recherche`}
+                    title="Ajouter à la recherche"
+                    className="grid h-5 w-5 shrink-0 place-items-center rounded text-muted-foreground/70 transition hover:text-[#d9a94e]"
+                  >
+                    <Plus className="h-3 w-3" />
+                  </button>
+                  <button
+                    type="button"
+                    onMouseDown={keepFocus}
+                    onClick={() => addTerm(tag, true)}
+                    aria-label={`Exclure « ${displayTag(tag.name)} » de la recherche`}
+                    title="Exclure de la recherche"
+                    className="grid h-5 w-5 shrink-0 place-items-center rounded text-muted-foreground/70 transition hover:text-rose-400"
+                  >
+                    <Minus className="h-3 w-3" />
+                  </button>
+                </>
+              )}
               <button
                 type="button"
-                // Garde le focus dans le champ : le clic ne doit pas fermer la liste avant d'agir.
-                onMouseDown={(e) => e.preventDefault()}
+                onMouseDown={keepFocus}
                 onClick={() => pick(tag)}
-                onMouseEnter={() => setHighlight(i)}
-                className={cn(
-                  "flex w-full items-center gap-2 rounded-md px-2 py-1 text-left text-sm",
-                  i === highlight ? "bg-secondary" : "hover:bg-secondary",
-                )}
+                className={cn("flex min-w-0 flex-1 items-center gap-2 py-1 pr-2 text-left text-sm", search ? "pl-1" : "pl-2")}
               >
-                <span className="min-w-0 flex-1 truncate" style={{ color: color(tag.categoryId) }}>
+                <span className="line-clamp-2 min-w-0 flex-1 [overflow-wrap:anywhere]" style={{ color: color(tag.categoryId) }}>
                   {negated && "−"}
                   {displayTag(tag.name)}
                 </span>

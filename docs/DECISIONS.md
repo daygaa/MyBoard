@@ -591,3 +591,28 @@ ferme plus la note.
 
 **Petites images (ZOOM-10).** Clic : 200 %, centré sur le point cliqué (comme le passage à 100 %
 d'une grande image) ; nouveau clic : retour à 100 %.
+
+## D-029 — Barre de recherche : termes sur une ligne, suggestions par mot (SRCH-18 à SRCH-23) (15/10/2026)
+
+**Place réservée (SRCH-18, SRCH-19).** Sous le champ : la ligne « Tout effacer » (centré, grisé sans
+recherche) puis une ligne de pastilles de hauteur fixe, présentes même sans recherche : la liste des
+tags ne bouge plus. Les pastilles s'écrivent à la suite comme du texte ; le « +N » flotte à droite de
+la 1re ligne seulement, donc les lignes dépliées dessous ont toute la largeur. Le nombre caché est
+mesuré avant chaque affichage (une pastille de moins quand le « +N » apparaît) ; une 1re pastille
+trop longue est coupée à côté du « +N ». Repliées, les pastilles en trop restent en place mais
+invisibles (ni clic ni Tab). Dépliage : même principe que la barre du bas en plein écran (VIEW-18),
+mais autour du « +N » (16 px, choix de l'utilisateur) puis autour des pastilles dépliées ; rien ne se
+déplie sous la liste des suggestions ou un menu. La marge ne bloque aucun clic : la 1re catégorie de
+tags est à 48 px du « +N ».
+
+**Suggestions par mot (SRCH-20, SRCH-21).** Recherche de la barre latérale seulement : le mot en cours
+est celui où se trouve le curseur de saisie (il suit les flèches et les clics). Nom choisi : il
+remplace ce mot, suivi d'un espace même au milieu du texte (ce qu'on tape ensuite forme un nouveau
+mot). + / − : le tag part dans la recherche, le mot est effacé. Visionneuse et import : inchangés (le
+texte entier forme un tag, espaces → « _ »).
+
+**Noms longs, survol (SRCH-22, SRCH-23).** Liste à la largeur de son contenu, entre la largeur
+d'origine (champ, 14rem au moins) et le double ; au-delà, 2 lignes puis « … ». Élargie, la liste
+déborde de la barre latérale sur la grille : la barre latérale passe au-dessus de la grille (`z-20`,
+toujours sous l'en-tête, le menu burger et la visionneuse). Survol et choix au clavier (c'est le même
+état) : fond #2a2c33 sur la liste #1f2126 (avant : #1f2126, invisible).

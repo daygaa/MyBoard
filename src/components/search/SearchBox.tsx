@@ -1,47 +1,19 @@
 // Recherche par tags de la barre latérale (SRCH-01 à SRCH-07), apparence v8 : champ avec
 // autocomplétion + bouton doré ; les termes actifs s'affichent en pastilles dessous, et
-// uniquement là (SRCH-07), avec leur menu du clic droit (CTX-12). Entrée ou le bouton lancent la
-// recherche.
+// uniquement là (SRCH-07, SearchTerms). Entrée ou le bouton lancent la recherche ; les boutons
+// + / − des suggestions ajoutent un tag tout de suite (SRCH-21).
 
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
 import { Search } from "lucide-react";
 
-import { termMenu } from "@/components/tags/tagMenu";
+import { SearchTerms } from "@/components/search/SearchTerms";
 import { TagInput } from "@/components/tags/TagInput";
-import { TagPill } from "@/components/tags/TagPill";
-import { FALLBACK_COLOR, useCategories } from "@/hooks/useCategories";
-import { api } from "@/lib/api";
-import { openContextMenu } from "@/lib/contextMenu";
-import { displayTag, parseTerms, splitTerm } from "@/lib/tags";
+import { parseTerms } from "@/lib/tags";
 import { useSearch } from "@/stores/search";
-
-/** Pastille d'un terme actif : couleur de la catégorie du tag s'il existe. */
-function TermPill({ term }: { term: string }) {
-  const removeTerm = useSearch((s) => s.removeTerm);
-  const { color, list } = useCategories();
-  const { exclude, name, prefix } = splitTerm(term);
-  const { data: tag } = useQuery({ queryKey: ["tag", name], queryFn: () => api.findTag(name), enabled: !prefix });
-  const label = `${exclude ? "−" : ""}${displayTag(name)}${prefix ? "*" : ""}`;
-  return (
-    <TagPill
-      color={tag ? color(tag.categoryId) : prefix ? "#d9a94e" : FALLBACK_COLOR}
-      onRemove={() => removeTerm(term)}
-      removeLabel={`Retirer « ${label} » de la recherche`}
-      title={exclude ? `Exclut ${displayTag(name)}` : undefined}
-      struck={exclude}
-      onContextMenu={(e) => openContextMenu(e, () => termMenu(term, tag, list))}
-    >
-      {label}
-    </TagPill>
-  );
-}
 
 export function SearchBox() {
   const [text, setText] = useState("");
-  const terms = useSearch((s) => s.terms);
   const addTerms = useSearch((s) => s.addTerms);
-  const setTerms = useSearch((s) => s.setTerms);
 
   const submit = (raw: string) => {
     const parsed = parseTerms(raw);
@@ -58,11 +30,7 @@ export function SearchBox() {
           value={text}
           onChange={setText}
           onSubmit={submit}
-          onPick={(tag, negated) => {
-            addTerms([`${negated ? "-" : ""}${tag.name}`]);
-            setText("");
-          }}
-          allowNegation
+          onAddTerm={(tag, exclude) => addTerms([`${exclude ? "-" : ""}${tag.name}`])}
           placeholder="Ajouter un tag à la recherche…"
           className="h-[38px] flex-1"
         />
@@ -76,20 +44,7 @@ export function SearchBox() {
           <Search className="h-4 w-4" />
         </button>
       </div>
-      {terms.length > 0 && (
-        <div data-zone="barre-laterale.recherche.termes" className="mt-3 flex flex-wrap items-center gap-1.5">
-          {terms.map((term) => (
-            <TermPill key={term} term={term} />
-          ))}
-          <button
-            type="button"
-            onClick={() => setTerms([])}
-            className="px-1 text-xs text-muted-foreground transition hover:text-foreground"
-          >
-            Tout effacer
-          </button>
-        </div>
-      )}
+      <SearchTerms />
     </section>
   );
 }
