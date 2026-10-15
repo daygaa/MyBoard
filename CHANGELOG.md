@@ -3,6 +3,23 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Suggestions sans barre de défilement (16/10/2026) — Backup v29
+
+SPEC : SRCH-18, SRCH-22, SRCH-24 et VIEW-46 validés `[x]` ; CTX-01, CTX-03, CTX-18, GEN-13 et GEN-17
+laissés ouverts comme bases communes à suivre pour la suite (confirmé par l'utilisateur) ; SRCH-25
+(nouvelle) livrée `[~]` ; DUP-05 (nouvelle, phase 5) : après un import, proposer de supprimer du
+disque les doublons détectés.
+
+- SRCH-25 : la liste des suggestions (barre latérale, visionneuse, import) prend la hauteur de ses
+  suggestions (10 au plus, d'une ou deux lignes) : toutes sont affichées, sans barre de défilement.
+  Avant : hauteur limitée à 288 px, alors que 10 noms d'une ligne en demandent 290 : la barre
+  apparaissait presque toujours.
+
+Vérifié dans la version compilée (copie de la base « booru », avec 10 tags à nom long) : barre
+latérale, visionneuse et import, 10 noms d'une ligne : 290 px, 10 noms de 2 lignes : 490 px, 5 noms :
+170 px ; aucun contenu qui défile, aucune barre de défilement (avant : barre de 10 px dans les trois
+listes dès 10 suggestions).
+
 ## Recherche : dépliage sur toute la ligne, nouvelle recherche, bulles des noms coupés, pop-in de création (16/10/2026) — Backup v28
 
 SPEC : SRCH-19, SRCH-20, SRCH-21 et SRCH-23 validés `[x]` ; SRCH-18 et SRCH-22 précisés `[~]` ;

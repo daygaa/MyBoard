@@ -178,9 +178,10 @@ export function TagInput({
           data-zone={`${zone}.suggestions`}
           className={cn(
             // Largeur d'origine : celle du champ, 14rem au moins ; jusqu'au double pour un nom long,
-            // au-delà il passe sur 2 lignes, puis « … » (SRCH-22).
-            "absolute left-0 z-50 max-h-72 w-max max-w-[calc(2*max(100%,14rem))] min-w-[max(100%,14rem)] overflow-y-auto rounded-lg border border-border bg-popover p-1 shadow-lg",
-            // Au-dessus : liste à l'envers (le plus utilisé en bas), qui s'ouvre défilée en bas.
+            // au-delà il passe sur 2 lignes, puis « … » (SRCH-22). Hauteur : celle des suggestions
+            // (10 au plus), toutes affichées, sans barre de défilement (SRCH-25).
+            "absolute left-0 z-50 w-max max-w-[calc(2*max(100%,14rem))] min-w-[max(100%,14rem)] rounded-lg border border-border bg-popover p-1 shadow-lg",
+            // Au-dessus : liste à l'envers (le plus utilisé en bas, au plus près du champ).
             dropdown === "top" ? "bottom-full mb-1 flex flex-col-reverse" : "top-full mt-1",
           )}
         >
