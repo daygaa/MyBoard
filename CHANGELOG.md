@@ -3,6 +3,23 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Fond gris très sombre, rayure remontée d'un pixel (15/10/2026) — Backup v26
+
+SPEC : VIEW-45, NAV-06 et ZOOM-10 validés `[x]` ; VIEW-44 et SRCH-16 ajustés `[~]`.
+
+- VIEW-44 : fond de la visionneuse gris très sombre (#0d0e12), choix de l'utilisateur après
+  comparaison des deux versions de `Backups/v24`.
+- SRCH-16 : rayure d'un tag exclu remontée d'un pixel (ligne juste au-dessus du centre de la croix).
+- SRCH-17 (réponse à une question, rien de changé) : mémoire de l'index bornée, mesurée.
+
+Vérifié dans la version compilée :
+- fond de la scène rgb(13, 14, 18) ;
+- rayure sur la ligne 10 de la pastille (croix et lettres sans jambage centrées entre les lignes
+  10 et 11) ;
+- 5 000 recherches toutes différentes (1 à 4 termes tirés parmi les 3 008 tags, exclusions
+  comprises) sur la base de 300 000 médias : 27 s en tout ; mémoire de MyBoard 72 Mo au départ,
+  puis 109-110 Mo de la 1 000e à la 5 000e recherche (le plafond de 256 ensembles joue).
+
 ## Fond de la visionneuse, poubelle de la note, recherches dans l'historique, rayure, petites images (15/10/2026) — Backup v25
 
 SPEC : VIEW-44, VIEW-45, NAV-06, SRCH-16 et ZOOM-10 livrés `[~]`. Choix : D-028.

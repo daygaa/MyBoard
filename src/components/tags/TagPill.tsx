@@ -53,9 +53,10 @@ export function TagPill({ color, children, onClick, onRemove, removeLabel, title
       ) : (
         <span className="relative -top-[2px] min-w-0 truncate">
           {children}
-          {/* Rayure dessinée à la hauteur du centre de la croix (le texte est remonté de 2 px) :
-              celle du navigateur, placée par la police, était 1 à 2 px trop haut (SRCH-16). */}
-          {struck && <span aria-hidden className="pointer-events-none absolute inset-x-0 top-[calc(50%+2px)] h-px bg-current" />}
+          {/* Rayure dessinée au centre de la croix (le texte est remonté de 2 px) : celle du
+              navigateur, placée par la police, était 1,5 px trop haut (SRCH-16). Le centre tombe
+              entre deux lignes de pixels : la ligne du dessus (choix de l'utilisateur). */}
+          {struck && <span aria-hidden className="pointer-events-none absolute inset-x-0 top-[calc(50%+1px)] h-px bg-current" />}
         </span>
       )}
     </span>

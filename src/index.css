@@ -61,7 +61,7 @@
   --titlebar-h: 32px;
 
   /* Fond de la visionneuse derrière le média (VIEW-44) : uni, à la place du damier. */
-  --viewer-bg: #000000;
+  --viewer-bg: #0d0e12;
 
   color-scheme: dark;
 }

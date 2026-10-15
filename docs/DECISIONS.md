@@ -548,7 +548,10 @@ déclencheurs à chaque ajout ou retrait d'un lien tag-média ou d'un média (et
 type), quel que soit le chemin (visionneuse, import, futur gestionnaire de tags) ; s'il a changé,
 l'index oublie tout et relit. Écarté : mettre l'index à jour depuis le code à chaque écriture
 (un chemin oublié = recherche fausse). L'index a sa propre connexion à la base : une recherche
-n'attend plus une écriture faite par l'interface. Au plus 256 ensembles gardés (quelques Mo).
+n'attend plus une écriture faite par l'interface. Au plus 256 ensembles gardés : au-delà, tous sont
+oubliés (quelques Mo ; au pire environ 38 Ko par ensemble à 300 000 médias). Mesuré le 15/10 :
+5 000 recherches toutes différentes sur 300 000 médias, mémoire de MyBoard stable à 110 Mo dès la
+1 000e (72 Mo au départ, cache de la base compris).
 
 **Vérification.** Mêmes résultats que l'ancienne méthode (total, page, ordre des médias) sur des
 centaines de recherches tirées au hasard (termes, exclusions, jokers, tags inexistants, types,
@@ -566,8 +569,8 @@ migration : environ 1 s à 300 000 médias, une seule fois.
 ## D-028 — Fond de la visionneuse, note, historique des recherches, rayure, petites images (VIEW-44, VIEW-45, NAV-06, SRCH-16, ZOOM-10) (15/10/2026)
 
 **Fond (VIEW-44).** Fond uni, une seule valeur (`--viewer-bg`, `index.css`) : deux versions
-compilées à comparer (`Backups/v24` : noir #000000, gris très sombre #0d0e12, la teinte la plus
-foncée de l'ancien damier). Le damier (`.checker`) est gardé pour le choix du fond dans les
+compilées comparées (`Backups/v24` : noir #000000, gris très sombre #0d0e12, la teinte la plus
+foncée de l'ancien damier) ; choix de l'utilisateur : gris très sombre. Le damier (`.checker`) est gardé pour le choix du fond dans les
 préférences (SET-11).
 
 **Historique des recherches (NAV-06).** Chaque recherche ajoute une étape à l'historique de la
@@ -579,8 +582,8 @@ n'ajoute rien.
 
 **Rayure d'un tag exclu (SRCH-16).** La rayure du navigateur est placée par la police (1,5 px au-
 dessus du centre de la croix, mesuré) et ne se déplace pas : remplacée par un trait de 1 px dessiné
-au centre de la pastille, sur la ligne juste sous le milieu exact (le centre tombe entre deux
-lignes de pixels).
+au centre de la pastille, sur la ligne juste au-dessus du milieu exact (le centre tombe entre deux
+lignes de pixels ; la ligne du dessous paraissait 1 px trop basse à l'utilisateur).
 
 **Note (VIEW-45).** Poubelle grisée quand la note est vide ; confirmation partagée avec le menu de
 la note (`ConfirmDialog`, aussi utilisée par les menus du clic droit). Un clic dans la pop-in ne
