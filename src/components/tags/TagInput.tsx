@@ -82,8 +82,9 @@ export function TagInput({
     placeholderData: keepPreviousData,
   });
   const open = focused && text.length > 0 && suggestions.length > 0;
-  // Échap ferme d'abord les suggestions, sans fermer la visionneuse derrière.
-  useEscape(open, () => setFocused(false));
+  // Échap ferme d'abord les suggestions, sans fermer la visionneuse derrière ; les boutons 4 / 5 et
+  // les flèches de la barre de titre les ignorent (NAV-07).
+  useEscape(open, () => setFocused(false), { escapeOnly: true });
 
   useLayoutEffect(() => {
     const at = nextCaret.current;

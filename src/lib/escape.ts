@@ -7,11 +7,19 @@
 // Chaque élément ouvert s'inscrit sur une pile ; seul le dernier inscrit réagit.
 // Les flèches de la barre de titre (NAV-04) font exactement la même chose (`goBack`, `goForward`)
 // et se grisent quand le bouton correspondant ne ferait rien (`canGoBack`, `canGoForward`).
+// Un élément « Échap seulement » (liste des suggestions) est ignoré par les boutons 4 / 5 et les
+// flèches : ils agissent sur ce qui est dessous (NAV-07).
 
 import { useEffect, useLayoutEffect, useRef } from "react";
 
 type Handler = () => void;
-type Entry = { current: Handler; forward: Handler | null; canForward: (() => boolean) | null; modal: boolean };
+type Entry = {
+  current: Handler;
+  forward: Handler | null;
+  canForward: (() => boolean) | null;
+  modal: boolean;
+  escapeOnly: boolean;
+};
 const stack: Entry[] = [];
 
 /** Abonnés prévenus quand un élément s'ouvre ou se ferme (flèches de la barre de titre). */
@@ -29,6 +37,12 @@ const MOUSE_FORWARD = 4;
 
 function top() {
   return stack[stack.length - 1];
+}
+
+/** Élément au premier plan pour les boutons 4 / 5 et les flèches (sans les « Échap seulement »). */
+function navTop(): Entry | undefined {
+  for (let i = stack.length - 1; i >= 0; i--) if (!stack[i].escapeOnly) return stack[i];
+  return undefined;
 }
 
 function onKeyDown(e: KeyboardEvent) {
@@ -51,7 +65,8 @@ export function setMouseFallbacks(back: Fallback, forward: Fallback) {
 
 function onMouse(e: MouseEvent) {
   if (e.button !== MOUSE_BACK && e.button !== MOUSE_FORWARD) return;
-  if (!top()) {
+  const entry = navTop();
+  if (!entry) {
     // Décidé à l'appui : c'est là qu'il faut empêcher le retour / l'avance de la fenêtre.
     if (e.type === "mousedown") armed[e.button] = fallbacks[e.button]?.can() ?? false;
     if (!armed[e.button]) return;
@@ -67,8 +82,8 @@ function onMouse(e: MouseEvent) {
   e.preventDefault();
   e.stopPropagation();
   if (e.type !== "mouseup") return;
-  if (e.button === MOUSE_BACK) top()?.current();
-  else top()?.forward?.();
+  if (e.button === MOUSE_BACK) entry.current();
+  else entry.forward?.();
 }
 
 // Phase de capture : réagit avant tout autre élément (menus, champs de saisie…).
@@ -84,6 +99,8 @@ type Options = {
   onForward?: Handler;
   /** `onForward` ferait-il quelque chose en ce moment ? (flèche grisée sinon) */
   canForward?: () => boolean;
+  /** Seule Échap le ferme : les boutons 4 / 5 et les flèches l'ignorent (suggestions, NAV-07). */
+  escapeOnly?: boolean;
 };
 
 /** Inscrit `handler` (Échap, bouton 4) sur la pile tant que `active` est vrai. Renvoie une
@@ -92,6 +109,7 @@ export function useEscape(active: boolean, handler: Handler, options: Options = 
   const ref = useRef({ handler, onForward: options.onForward, canForward: options.canForward });
   const entryRef = useRef<Entry | null>(null);
   const modal = options.modal ?? false;
+  const escapeOnly = options.escapeOnly ?? false;
   const hasForward = options.onForward !== undefined;
   const hasCanForward = options.canForward !== undefined;
   useLayoutEffect(() => {
@@ -104,6 +122,7 @@ export function useEscape(active: boolean, handler: Handler, options: Options = 
       forward: hasForward ? () => ref.current.onForward?.() : null,
       canForward: hasCanForward ? () => ref.current.canForward?.() ?? true : null,
       modal,
+      escapeOnly,
     };
     entryRef.current = entry;
     stack.push(entry);
@@ -114,7 +133,7 @@ export function useEscape(active: boolean, handler: Handler, options: Options = 
       entryRef.current = null;
       changed();
     };
-  }, [active, modal, hasForward, hasCanForward]);
+  }, [active, modal, escapeOnly, hasForward, hasCanForward]);
   return () => entryRef.current !== null && top() === entryRef.current;
 }
 
@@ -134,20 +153,20 @@ const history_ = () => (window as unknown as { navigation?: HistoryState }).navi
 
 /** Ce que ferait le bouton 4 de la souris : y a-t-il quelque chose à faire ? */
 export function canGoBack(): boolean {
-  if (top()) return true;
+  if (navTop()) return true;
   return (fallbacks[MOUSE_BACK]?.can() ?? false) || (history_()?.canGoBack ?? true);
 }
 
 /** Ce que ferait le bouton 5 de la souris : y a-t-il quelque chose à faire ? */
 export function canGoForward(): boolean {
-  const entry = top();
+  const entry = navTop();
   if (entry) return entry.forward !== null && (entry.canForward?.() ?? true);
   return (fallbacks[MOUSE_FORWARD]?.can() ?? false) || (history_()?.canGoForward ?? true);
 }
 
 /** Flèche « précédent » de la barre de titre = bouton 4 de la souris. */
 export function goBack() {
-  const entry = top();
+  const entry = navTop();
   const fallback = fallbacks[MOUSE_BACK];
   if (entry) entry.current();
   else if (fallback?.can()) fallback.run();
@@ -156,7 +175,7 @@ export function goBack() {
 
 /** Flèche « suivant » de la barre de titre = bouton 5 de la souris. */
 export function goForward() {
-  const entry = top();
+  const entry = navTop();
   const fallback = fallbacks[MOUSE_FORWARD];
   if (entry) entry.forward?.();
   else if (fallback?.can()) fallback.run();

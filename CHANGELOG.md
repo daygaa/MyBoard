@@ -3,6 +3,27 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Flèches précédent / suivant et liste des suggestions (16/10/2026) — Backup v30
+
+SPEC : SRCH-25 validé `[x]` ; NAV-07 (nouvelle) livrée `[~]` ; IMP-52 (nouvelle, à faire plus tard) :
+ouvrir vers le haut la liste des suggestions des tags par défaut quand la place manque en dessous.
+
+- NAV-07 : la liste des suggestions d'un champ de tag ne compte plus pour la navigation. Les flèches
+  de la barre de titre montrent toujours l'historique réel (avant : « précédent » s'allumait même
+  sans historique, « suivant » se grisait tout en restant utilisable) ; les boutons 4 / 5 de la
+  souris font comme elles (retour / avance, fermeture de la visionneuse ; choix de l'utilisateur) ;
+  seule Échap ferme d'abord la liste (option « Échap seulement » de la pile des éléments ouverts).
+
+Vérifié dans la version compilée (bibliothèque « booru », fenêtre fraîchement ouverte), avant puis
+après le correctif :
+- sans historique, liste affichée : flèches grisée / grisée (avant : active / grisée) ;
+- avec un historique dans les deux sens, liste affichée : active / active (avant : active / grisée) ;
+- liste affichée : bouton 5 → recherche suivante, bouton 4 → précédente, liste fermée (avant :
+  le bouton 5 ne faisait rien, le bouton 4 fermait seulement la liste) ; Échap ferme seulement la
+  liste ; clic sur la flèche « suivant » → recherche suivante ;
+- visionneuse, liste de l'ajout de tag affichée : Échap ferme seulement la liste ; bouton 4 ferme
+  la visionneuse.
+
 ## Suggestions sans barre de défilement (16/10/2026) — Backup v29
 
 SPEC : SRCH-18, SRCH-22, SRCH-24 et VIEW-46 validés `[x]` ; CTX-01, CTX-03, CTX-18, GEN-13 et GEN-17
