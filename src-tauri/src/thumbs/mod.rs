@@ -24,8 +24,8 @@ use tauri::{AppHandle, Emitter};
 
 use crate::ffmpeg::{self, Ffmpeg};
 
-pub use image::{THUMB_SIZE, Thumb, thumbs_of};
-pub use video::full_image_jpeg;
+pub use image::{THUMB_SIZE, Thumb, decode, thumbs_of};
+pub use video::{frame_jpeg_at, frame_rate, full_image_jpeg};
 
 /// Valeurs de `media.thumb_status`.
 pub mod status {

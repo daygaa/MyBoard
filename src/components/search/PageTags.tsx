@@ -6,7 +6,9 @@
 // Liste virtualisée (D-008) : une page de 500 médias peut porter des milliers de tags.
 // Chaque catégorie montre ses 10 tags les plus utilisés ; son nom est un bouton qui déplie la
 // liste complète, puis la replie (SRCH-15).
-// Clic droit : menu du tag (CTX-04) ou de la catégorie (CTX-11).
+// Clic droit : menu du tag (CTX-04) ou de la catégorie (CTX-11) ; « Replier complètement » ne
+// montre plus aucun de ses tags (flèche vers la droite) : un clic sur l'en-tête déplie alors tout,
+// un nouveau clic revient aux 10 premiers.
 
 import { useLayoutEffect, useRef, useState } from "react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
@@ -22,14 +24,18 @@ import { cn } from "@/lib/utils";
 import { displayTag } from "@/lib/tags";
 import { useSearch } from "@/stores/search";
 
+type CategoryRow = Extract<Row, { kind: "category" }>;
+
 type Row =
-  | { kind: "category"; category: Category; count: number; expandable: boolean; expanded: boolean }
+  | { kind: "category"; category: Category; count: number; expandable: boolean; fold: Fold | undefined }
   | { kind: "tag"; tag: TagInfo; color: string };
 
 const CATEGORY_ROW = 30;
 const TAG_ROW = 26;
 /** Tags montrés par catégorie tant qu'elle n'est pas dépliée (SRCH-15). */
 const FOLDED_COUNT = 10;
+/** Catégorie dépliée (tous ses tags) ou repliée complètement (aucun) ; sinon : les 10 premiers. */
+type Fold = "all" | "none";
 
 function TagRow({ tag, color, categories }: { tag: TagInfo; color: string; categories: Category[] }) {
   const setTerms = useSearch((s) => s.setTerms);
@@ -81,18 +87,25 @@ export function PageTags({ items }: { items: MediaItem[] }) {
     placeholderData: keepPreviousData,
   });
   const { list: categories } = useCategories();
-  /** Catégories dépliées (gardées en changeant de page). */
-  const [expanded, setExpanded] = useState<ReadonlySet<number>>(new Set());
-  const toggle = (id: number) =>
-    setExpanded((set) => {
-      const next = new Set(set);
-      if (!next.delete(id)) next.add(id);
+  /** Catégories dépliées ou repliées complètement (gardées en changeant de page). */
+  const [folds, setFolds] = useState<ReadonlyMap<number, Fold>>(new Map());
+  const setFold = (id: number, fold: Fold | undefined) =>
+    setFolds((map) => {
+      const next = new Map(map);
+      if (fold) next.set(id, fold);
+      else next.delete(id);
       return next;
     });
-  /** Menu de l'en-tête d'une catégorie (CTX-11) ; « Replier complètement » : à venir. */
-  const categoryMenu = (row: Extract<Row, { kind: "category" }>): MenuEntry[] => [
-    { label: row.expanded ? "Replier" : "Déplier", disabled: !row.expandable, run: () => toggle(row.category.id) },
-    { label: "Replier complètement" },
+  /** Clic sur l'en-tête : tout (si plus de 10 tags ou repliée complètement), puis les 10 premiers. */
+  const clickable = (row: CategoryRow) => row.expandable || row.fold === "none";
+  const toggle = (row: CategoryRow) => {
+    if (row.fold === "all") setFold(row.category.id, undefined);
+    else if (clickable(row)) setFold(row.category.id, row.expandable ? "all" : undefined);
+  };
+  /** Menu de l'en-tête d'une catégorie (CTX-11). */
+  const categoryMenu = (row: CategoryRow): MenuEntry[] => [
+    { label: row.fold === "all" ? "Replier" : "Déplier", disabled: !clickable(row), run: () => toggle(row) },
+    { label: "Replier complètement", disabled: row.fold === "none", run: () => setFold(row.category.id, "none") },
   ];
 
   // Tags déjà triés par nombre de médias (le plus utilisé en haut, D-016).
@@ -100,10 +113,10 @@ export function PageTags({ items }: { items: MediaItem[] }) {
   for (const category of categories) {
     const inCategory = tags.filter((t) => t.categoryId === category.id);
     if (inCategory.length === 0) continue;
-    const open = expanded.has(category.id);
+    const fold = folds.get(category.id);
     const expandable = inCategory.length > FOLDED_COUNT;
-    rows.push({ kind: "category", category, count: inCategory.length, expandable, expanded: open });
-    const shown = open ? inCategory : inCategory.slice(0, FOLDED_COUNT);
+    rows.push({ kind: "category", category, count: inCategory.length, expandable, fold });
+    const shown = fold === "all" ? inCategory : fold === "none" ? [] : inCategory.slice(0, FOLDED_COUNT);
     for (const tag of shown) rows.push({ kind: "tag", tag, color: category.color });
   }
 
@@ -147,17 +160,19 @@ export function PageTags({ items }: { items: MediaItem[] }) {
                     data-zone="barre-laterale.categorie"
                     // Pas `disabled` sans dépliage : un bouton désactivé ne reçoit plus le clic droit
                     // (menu de la catégorie, CTX-11).
-                    aria-disabled={!row.expandable || undefined}
-                    onClick={() => row.expandable && toggle(row.category.id)}
+                    aria-disabled={!clickable(row) || undefined}
+                    onClick={() => toggle(row)}
                     onContextMenu={(e) => openContextMenu(e, () => categoryMenu(row))}
-                    aria-expanded={row.expandable ? row.expanded : undefined}
-                    title={row.expandable ? (row.expanded ? "Ne montrer que les 10 premiers" : "Afficher tous les tags") : undefined}
+                    aria-expanded={clickable(row) ? row.fold === "all" : undefined}
+                    title={clickable(row) ? (row.fold === "all" ? "Ne montrer que les 10 premiers" : "Afficher tous les tags") : undefined}
                     className="flex h-full w-full items-end gap-2 px-1 pb-1 text-left text-xs font-semibold tracking-wider text-muted-foreground uppercase hover:text-foreground aria-disabled:cursor-default aria-disabled:hover:text-muted-foreground"
                   >
                     {row.category.name}
                     <span className="font-normal text-muted-foreground/70 tabular-nums">{formatNumber(row.count)}</span>
-                    {row.expandable && (
-                      <ChevronDown className={cn("mb-px h-3.5 w-3.5 transition-transform", row.expanded && "rotate-180")} />
+                    {clickable(row) && (
+                      <ChevronDown
+                        className={cn("mb-px h-3.5 w-3.5 transition-transform", row.fold === "all" && "rotate-180", row.fold === "none" && "-rotate-90")}
+                      />
                     )}
                   </button>
                 ) : (

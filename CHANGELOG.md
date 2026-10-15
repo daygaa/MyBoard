@@ -3,6 +3,42 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Menu de la fenêtre, Copier l'image, capture vidéo, fond d'écran, zoom, repli complet (15/10/2026) — Backup v22
+
+Lot 3 de GEN-12 (dernier de l'étape 1). SPEC : CTX-13 livré `[~]` ; CTX-06, CTX-07 et CTX-11
+complétés. Choix techniques : D-026.
+
+- CTX-13 : clic droit sur la barre de titre (pas sur ses boutons) ou Alt + Espace : menu MyBoard
+  Restaurer, Déplacer, Taille, Réduire, Agrandir, Fermer (Alt+F4), entrées grisées selon l'état de
+  la fenêtre, comme celui de Windows ; Déplacer et Taille au clavier, comme dans Windows. Alt +
+  Espace n'ouvre plus celui de Windows ; en plein écran, il n'ouvre rien.
+- CTX-06 : Copier l'image (l'image elle-même, à coller dans Paint, une conversation…) ; Zoom ▸
+  Défaut, 100 % (grisé si le défaut est déjà 100 %), 150 %, 200 %, 400 % ; Utiliser comme fond
+  d'écran du bureau… (confirmation, « Oui » doré).
+- CTX-07 : Enregistrer une capture d'écran… : l'image affichée au clic droit, taille réelle de la
+  vidéo, sans rien de l'interface, en .jpg, fenêtre « Enregistrer sous » de Windows avec le nom
+  « Screenshot_[nom]_[numéro de l'image]_JJ-MM-AA.jpg » ; Zoom ▸ comme les images.
+- CTX-11 : Replier complètement : plus aucun tag de la catégorie (flèche vers la droite) ; un clic
+  sur l'en-tête déplie tout, un nouveau clic revient aux 10 premiers.
+
+Vérifié dans la version compilée (bibliothèques « booru » et « divers ») :
+- Zoom ▸ 200 / 400 / 150 / 100 % : badge 200 %, 400 %, 150 %, 100 % ; Défaut : plus de badge ;
+  vidéo : idem ; petite image : 100 % grisé, 200 % marche ;
+- Copier l'image (JPEG 3475 × 2316) : le presse-papiers contient une image de 3475 × 2316 ;
+- fond d'écran : confirmation affichée (« Oui » doré, entrée non rouge), puis « Annuler » : menu
+  toujours ouvert. **Pas essayé jusqu'au bout** : cela aurait remplacé ton fond d'écran ;
+- capture (vidéo à 4 images/s, en pause à 1,0 s) : nom proposé
+  « Screenshot_12364051_4_15-10-26.jpg », fichier JPEG de 1280 × 904 (taille de la vidéo), image
+  sans rien de l'interface ; fenêtre fermée sans enregistrer : rien d'écrit ;
+- barre de titre : menu au point du clic, Restaurer / Agrandir / Réduire (état de la fenêtre
+  relevé après chacun), entrées grisées selon l'état ; clic droit sur « Réduire » : rien ;
+  vrai clavier : Alt + Espace → menu MyBoard sous le coin haut gauche, « Restaurer » choisi, menu
+  de Windows absent, flèche bas saute les entrées grisées, Échap ferme ; Déplacer + flèche droite
+  ×5 + Entrée : fenêtre déplacée de 55 px ; Taille + Échap : rien ne change ; en plein écran,
+  Alt + Espace : aucun menu ; Fermer : l'application se ferme ;
+- Replier complètement : catégorie vide, flèche tournée ; clic : tous les tags ; nouveau clic :
+  les 10 premiers ; catégorie d'un seul tag : repliée puis rouverte d'un clic.
+
 ## Menus du clic droit des tags, vignettes, visionneuse, note et barre latérale (15/10/2026) — Backup v21
 
 Lot 2 de GEN-12. SPEC : CTX-02 (testable maintenant), CTX-04 à CTX-12 et CTX-19 (nouvelle : pop-in

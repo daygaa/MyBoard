@@ -112,5 +112,5 @@ Structure : `src-tauri/src` (Rust : `db/`, `import/`, `thumbs/`, `media/` (visio
 `media://`), `library.rs`, `search.rs`, `tags.rs`, `ffmpeg.rs`, `display.rs` (densité réelle de l'écran),
 `fullscreen.rs` (plein écran sans barre de titre Windows), `window_border.rs` (double-clic sur le bord
 haut de la fenêtre), `webview_settings.rs` (menu et raccourcis du navigateur coupés), `clipboard_text.rs`
-(texte du presse-papiers), `test_screen.rs`) ·
+(texte du presse-papiers), `system_menu.rs` (menu de la fenêtre, Alt + Espace), `test_screen.rs`) ·
 `src/` (React : `components/{layout,library,import,search,tags,viewer,ui}`, `stores/`, `hooks/`, `lib/`).

@@ -19,7 +19,7 @@ export function ImageStage({ item, onClose }: { item: MediaItem; onClose: () => 
   // Dimensions connues par la base (rotation EXIF comprise) ; corrigées au chargement si besoin.
   const [natural, setNatural] = useState<Size>({ w: item.width ?? 0, h: item.height ?? 0 });
   const [loaded, setLoaded] = useState(false);
-  const { view, zoomed, animate, handlers } = useZoom(stageRef, natural, onClose);
+  const { view, zoomed, animate, handlers, zoomTo, fitIsFullSize } = useZoom(stageRef, natural, onClose);
   const previewReady = usePreviews((s) => s.ready[item.id] === true);
   const side = Math.min(natural.w, natural.h);
 
@@ -34,7 +34,7 @@ export function ImageStage({ item, onClose }: { item: MediaItem; onClose: () => 
     >
       <div
         className={cn("absolute top-1/2 left-1/2", zoomed ? "cursor-grab active:cursor-grabbing" : "cursor-zoom-in")}
-        onContextMenu={(e) => openContextMenu(e, () => imageMenu(item))}
+        onContextMenu={(e) => openContextMenu(e, () => imageMenu(item, { zoomTo, fitIsFullSize }))}
         style={{
           width: natural.w,
           height: natural.h,

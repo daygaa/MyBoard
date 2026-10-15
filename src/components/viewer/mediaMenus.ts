@@ -8,7 +8,7 @@ import type { MenuEntry } from "@/lib/contextMenu";
 import { VIEWER_SHORTCUTS } from "@/lib/shortcuts";
 import { isSilent, SPEEDS, speedLabel, usePlayer } from "@/stores/player";
 import { useViewer } from "@/stores/viewer";
-import { copyFile, copyName, copyPath, openFile, revealFile } from "./mediaActions";
+import { copyFile, copyImage, copyName, copyPath, openFile, revealFile, saveFrame, setWallpaper } from "./mediaActions";
 import { printImage } from "./printMedia";
 
 function fullscreenEntry(): MenuEntry {
@@ -16,9 +16,23 @@ function fullscreenEntry(): MenuEntry {
   return { label: fullscreen ? "Quitter le plein écran" : "Plein écran", shortcut: "F", run: () => setFullscreen(!fullscreen) };
 }
 
-/** Paliers du zoom (ZOOM-10) : à venir. */
-function zoomEntry(): MenuEntry {
-  return { label: "Zoom", disabled: true, submenu: ["Défaut", "100 %", "150 %", "200 %", "400 %"].map((label) => ({ label })) };
+/** Commandes du zoom de la visionneuse (useZoom). */
+export type ZoomControls = { zoomTo: (scale: number | "fit") => void; fitIsFullSize: boolean };
+
+/** Paliers du zoom : « Défaut » (ajusté, ou 100 % pour une image plus petite que la zone) ; 100 %
+ *  grisé quand le défaut l'est déjà. */
+function zoomEntry(zoom: ZoomControls): MenuEntry {
+  const step = (label: string, scale: number) => ({ label, run: () => zoom.zoomTo(scale) });
+  return {
+    label: "Zoom",
+    submenu: [
+      { label: "Défaut", run: () => zoom.zoomTo("fit") },
+      { ...step("100 %", 1), disabled: zoom.fitIsFullSize },
+      step("150 %", 1.5),
+      step("200 %", 2),
+      step("400 %", 4),
+    ],
+  };
 }
 
 const fileEntries = (item: MediaItem) => ({
@@ -29,29 +43,34 @@ const fileEntries = (item: MediaItem) => ({
   remove: { label: "Supprimer de la bibliothèque…", danger: true },
 });
 
-export function imageMenu(item: MediaItem): MenuEntry[] {
+export function imageMenu(item: MediaItem, zoom: ZoomControls): MenuEntry[] {
   const file = fileEntries(item);
   return [
     file.copy,
-    { label: "Copier l'image" },
+    { label: "Copier l'image", run: () => copyImage(item) },
     "separator",
     fullscreenEntry(),
-    zoomEntry(),
+    zoomEntry(zoom),
     "separator",
     file.path,
     file.open,
     file.reveal,
     { label: "Imprimer", shortcut: VIEWER_SHORTCUTS.print.label, run: () => void printImage(item) },
-    { label: "Utiliser comme fond d'écran du bureau…" },
+    {
+      label: "Utiliser comme fond d'écran du bureau…",
+      confirm: { title: "Utiliser comme fond d'écran ?", message: "Cette image remplacera le fond d'écran actuel du bureau de Windows." },
+      run: () => setWallpaper(item),
+    },
     "separator",
     file.remove,
   ];
 }
 
 /** Toujours à l'image de la barre de lecture au moment du clic droit. */
-export function videoMenu(item: MediaItem, video: HTMLVideoElement): MenuEntry[] {
+export function videoMenu(item: MediaItem, video: HTMLVideoElement, zoom: ZoomControls): MenuEntry[] {
   const player = usePlayer.getState();
   const file = fileEntries(item);
+  const time = video.currentTime;
   return [
     { label: video.paused ? "Lire" : "Pause", shortcut: "Espace", run: () => void (video.paused ? video.play() : video.pause()) },
     { label: isSilent(player) ? "Rétablir le son" : "Couper le son", run: player.toggleSound },
@@ -61,10 +80,11 @@ export function videoMenu(item: MediaItem, video: HTMLVideoElement): MenuEntry[]
       submenu: [...SPEEDS].reverse().map((speed) => ({ label: speedLabel(speed), checked: speed === player.speed, run: () => player.setSpeed(speed) })),
     },
     fullscreenEntry(),
-    zoomEntry(),
+    zoomEntry(zoom),
     "separator",
     file.copy,
-    { label: "Enregistrer une capture d'écran…" },
+    // L'image affichée au moment du clic droit.
+    { label: "Enregistrer une capture d'écran…", run: () => saveFrame(item, time) },
     file.path,
     file.open,
     file.reveal,

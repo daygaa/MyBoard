@@ -1,9 +1,11 @@
 //! Un média précis, pour la visionneuse : fiche détaillée (VIEW-10, VIEW-23), notes (VIEW-19),
 //! ouverture dans l'Explorateur (VIEW-13) ou dans l'application par défaut (VIEW-24), copie du
 //! fichier dans le presse-papiers (VIEW-35), avec le code d'erreur Windows en cas d'échec
-//! (VIEW-28). Fichier original servi par le protocole `media://` (voir `protocol.rs`).
+//! (VIEW-28). Fichier original servi par le protocole `media://` (voir `protocol.rs`). L'image
+//! elle-même (copie, fond d'écran, capture d'une vidéo) : `picture.rs`.
 
 mod clipboard;
+pub mod picture;
 pub mod protocol;
 
 use std::path::{Path, PathBuf};

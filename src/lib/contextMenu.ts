@@ -77,6 +77,12 @@ function show(e: MouseEvent, entries: MenuEntry[]) {
   useContextMenu.setState({ menu: { ...anchorOf(e), entries, id: nextId++ } });
 }
 
+/** Ouvre un menu à un point de la fenêtre, sans clic droit (Alt + Espace : menu de la fenêtre,
+ *  CTX-13) ; `keyboard` : la première entrée est déjà choisie. */
+export function openMenuAt(x: number, y: number, entries: MenuEntry[], keyboard: boolean) {
+  useContextMenu.setState({ menu: { x, y, entries, keyboard, id: nextId++ } });
+}
+
 /** Ouvre le menu de l'élément. Sans effet sur un champ de saisie ou un texte sélectionné : leur
  *  menu (édition, « Copier ») passe avant. */
 export function openContextMenu(e: ReactMouseEvent | MouseEvent, entries: () => MenuEntry[]) {

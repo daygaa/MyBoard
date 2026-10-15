@@ -493,3 +493,35 @@ coupé / rétabli et le libellé de vitesse sont désormais partagés par le sto
 dépliage est marqué `aria-disabled` au lieu de `disabled`. Inclure ↔ exclure un terme le laisse à
 sa place dans la recherche. Les fonctions du lot 3 (Copier l'image, Zoom, capture, fond d'écran,
 Replier complètement) et celles des phases suivantes sont grisées en attendant.
+
+## D-026 — Barre de titre, image, capture, zoom, repli complet (GEN-12 lot 3, CTX-06, CTX-07, CTX-11, CTX-13) (15/10/2026)
+
+**Menu de la fenêtre (CTX-13, option 1).** Menu maison avec les commandes de Windows, envoyées à la
+fenêtre telles quelles (`WM_SYSCOMMAND` : animations, Déplacer et Taille au clavier comme dans
+Windows) ; entrées grisées selon l'état (agrandie ou non). Alt + Espace : Windows demande son menu
+à la fenêtre (`SC_KEYMENU` avec la touche Espace) ; la demande est interceptée (`system_menu.rs`)
+et l'interface ouvre le sien sous le coin haut gauche, première entrée choisie. En plein écran, la
+barre de titre étant cachée, rien ne s'ouvre. Pas de menu sur les boutons de la barre (CTX-17).
+
+**Copier l'image (CTX-06).** Image décodée comme pour les miniatures (orientation de l'appareil
+photo appliquée ; HEIC… par ffmpeg), mise en bitmap (tous les programmes, Paint compris) et, si
+elle a de la transparence, aussi en PNG (posée sur du blanc dans le bitmap).
+
+**Fond d'écran (CTX-06).** Réglage de Windows (`SystemParametersInfo`), enregistré. L'original est
+donné à Windows s'il est en JPEG, PNG ou BMP et n'est pas à tourner ; sinon une copie convertie
+(`fond-ecran.png`, dossier de données de MyBoard) est donnée. Non essayé sur le PC de
+l'utilisateur pendant le développement : cela aurait remplacé son fond d'écran.
+
+**Capture d'une vidéo (CTX-07).** L'image au temps affiché au clic droit, extraite par ffmpeg en
+pleine résolution (rotation appliquée, JPEG qualité 2) ; numéro de l'image = temps × images par
+seconde (lues par ffprobe, 30 si inconnues) ; date du jour fournie par l'interface. Fenêtre
+« Enregistrer sous » de Windows (plugin de dialogue, côté Rust, fenêtre MyBoard parente) : rien
+n'est écrit si elle est fermée sans enregistrer. Windows l'ouvre dans le dernier dossier utilisé.
+
+**Zoom par paliers (CTX-06, CTX-07).** `useZoom` reçoit `zoomTo` : le point au centre de la scène
+y reste, animation du clic ; « Défaut » = ajusté. 100 % grisé quand le défaut est déjà 100 %
+(image plus petite que la zone). Le clic sur une petite image reste sans effet (ZOOM-10, à venir).
+
+**Replier complètement (CTX-11).** Trois états par catégorie (10 premiers, tous, aucun), gardés en
+changeant de page ; repliée complètement, sa flèche est tournée vers la droite et l'en-tête se
+clique même avec 10 tags ou moins.

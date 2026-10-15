@@ -155,7 +155,15 @@ export const api = {
   openUrl: (url: string) => invoke<void>("open_url", { url }),
   readClipboardText: () => invoke<string | null>("read_clipboard_text"),
   writeClipboardText: (text: string) => invoke<void>("write_clipboard_text", { text }),
+  copyImage: (id: number) => invoke<void>("copy_image", { id }),
+  setWallpaper: (id: number) => invoke<void>("set_wallpaper", { id }),
+  /** Fenêtre « Enregistrer sous » ; rien d'enregistré si l'utilisateur annule. `date` : « JJ-MM-AA ». */
+  saveVideoFrame: (id: number, seconds: number, date: string) => invoke<void>("save_video_frame", { id, seconds, date }),
+  /** Commande du menu de la fenêtre (CTX-13) : comme celui de Windows. */
+  windowCommand: (command: WindowCommand) => invoke<void>("window_command", { command }),
 };
+
+export type WindowCommand = "restore" | "move" | "size" | "minimize" | "maximize" | "close";
 
 /** Événements émis par le cœur Rust. */
 export const EVENTS = {
@@ -163,6 +171,8 @@ export const EVENTS = {
   thumbsReady: "thumbs-ready",
   previewsReady: "previews-ready",
   importState: "import-state",
+  /** Alt + Espace : ouvrir le menu de la fenêtre de MyBoard (CTX-13). */
+  windowMenu: "menu-fenetre",
 } as const;
 
 /** Tailles servies par le protocole `thumb://` : 320 px, 128 px (LIB-12), aperçu 640 px (LIB-09). */

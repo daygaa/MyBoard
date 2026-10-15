@@ -12,6 +12,7 @@ pub mod library;
 pub mod media;
 pub mod paths;
 pub mod search;
+pub mod system_menu;
 pub mod tags;
 mod test_screen;
 pub mod thumbs;
@@ -65,6 +66,7 @@ pub fn run() {
                 fullscreen::install(&window)?;
                 window_border::install(&window)?;
                 webview_settings::install(&window)?;
+                system_menu::install(app.handle(), &window)?;
                 test_screen::place(&window)?;
             }
             Ok(())
@@ -96,6 +98,10 @@ pub fn run() {
             media::open_url,
             clipboard_text::read_clipboard_text,
             clipboard_text::write_clipboard_text,
+            media::picture::copy_image,
+            media::picture::set_wallpaper,
+            media::picture::save_video_frame,
+            system_menu::window_command,
         ])
         .run(tauri::generate_context!())
         .expect("erreur au lancement de MyBoard");

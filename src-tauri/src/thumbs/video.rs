@@ -76,6 +76,37 @@ pub fn full_image_jpeg(ff: &Ffmpeg, path: &Path) -> anyhow::Result<Vec<u8>> {
     Ok(output.stdout)
 }
 
+/// Image de la vidéo à `seconds`, pleine résolution (rotation appliquée), en JPEG haute qualité :
+/// capture enregistrée depuis le menu de la vidéo (CTX-07).
+pub fn frame_jpeg_at(ff: &Ffmpeg, path: &Path, seconds: f64) -> anyhow::Result<Vec<u8>> {
+    let mut cmd = ffmpeg::command(&ff.ffmpeg);
+    cmd.args(["-hide_banner", "-loglevel", "error", "-nostdin", "-ss", &format!("{:.3}", seconds.max(0.0)), "-i"])
+        .arg(path)
+        .args(["-map", "0:v:0", "-frames:v", "1", "-an", "-sn", "-dn"])
+        .args(["-f", "image2pipe", "-c:v", "mjpeg", "-q:v", "2", "-"]);
+    let output = run(cmd)?;
+    if output.stdout.is_empty() {
+        bail!("ffmpeg n'a produit aucune image");
+    }
+    Ok(output.stdout)
+}
+
+/// Images par seconde de la vidéo (moyenne, sinon nominale) : numéro de l'image d'une capture.
+pub fn frame_rate(ff: &Ffmpeg, path: &Path) -> Option<f64> {
+    let mut cmd = ffmpeg::command(&ff.ffprobe);
+    cmd.args(["-v", "error", "-select_streams", "v:0", "-show_entries", "stream=avg_frame_rate,r_frame_rate", "-of", "json"])
+        .arg(path);
+    let json: Value = serde_json::from_slice(&run(cmd).ok()?.stdout).ok()?;
+    let stream = &json["streams"][0];
+    // « 30000/1001 » ; « 0/0 » quand ffprobe ne sait pas.
+    let ratio = |key: &str| {
+        let (num, den) = stream[key].as_str()?.split_once('/')?;
+        let rate = num.parse::<f64>().ok()? / den.parse::<f64>().ok()?;
+        (rate.is_finite() && rate > 0.0).then_some(rate)
+    };
+    ratio("avg_frame_rate").or_else(|| ratio("r_frame_rate"))
+}
+
 /// Image de la vidéo à 10 % de la durée (ou au début si elle est trop courte).
 fn video_frame(ff: &Ffmpeg, path: &Path, probe: &Probe, short_side: u32) -> anyhow::Result<Vec<u8>> {
     let seek = probe

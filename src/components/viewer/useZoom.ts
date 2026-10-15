@@ -177,6 +177,16 @@ export function useZoom(
     animate,
     /** Retour à « ajusté », centré, avec l'animation du clic. */
     reset: () => commit(live.current.minScale, 0, 0, true),
+    /** « Défaut » = « ajusté » (100 % pour une image plus petite que la zone). */
+    fitIsFullSize: minScale >= 1 - EPS,
+    /** Paliers du menu du clic droit (CTX-06, CTX-07) : `scale` (1 = 100 %), ou « Défaut ». Le
+     *  point au centre de la scène y reste, avec l'animation du clic. */
+    zoomTo: (scale: number | "fit") => {
+      const { view: v, minScale: min } = live.current;
+      if (scale === "fit") return commit(min, 0, 0, true);
+      const next = Math.min(MAX_ZOOM, Math.max(min, scale));
+      commit(next, (v.tx * next) / v.scale, (v.ty * next) / v.scale, true);
+    },
     // Geste interrompu (fenêtre qui perd le focus…) : ni clic ni déplacement.
     handlers: { onPointerDown, onPointerMove, onPointerUp, onPointerCancel: () => (drag.current = null) },
   };

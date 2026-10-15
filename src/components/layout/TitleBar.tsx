@@ -3,12 +3,17 @@
 // réduire / agrandir / fermer. Toute la barre sert à déplacer la fenêtre (aimantation aux bords
 // comprise), double-clic = agrandir / rétablir (gérés par Tauri : `data-tauri-drag-region`).
 // Toujours visible, visionneuse comprise ; cachée en plein écran.
+// Menu de la fenêtre (CTX-13) : mêmes commandes que celui de Windows, au clic droit sur la barre
+// (pas sur ses boutons) et par Alt + Espace (intercepté par le cœur Rust, system_menu.rs).
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { ChevronLeft, ChevronRight, Copy, Minus, Square, X } from "lucide-react";
 
 import { useBackForward } from "@/hooks/useBackForward";
+import { EVENTS, api } from "@/lib/api";
+import { openContextMenu, openMenuAt, type MenuEntry } from "@/lib/contextMenu";
 import { goBack, goForward } from "@/lib/escape";
 import { cn } from "@/lib/utils";
 import { useViewer } from "@/stores/viewer";
@@ -24,6 +29,36 @@ function useMaximized(): boolean {
     return () => void stop.then((unlisten) => unlisten());
   }, []);
   return maximized;
+}
+
+/** Menu de la fenêtre, comme celui de Windows : entrées grisées selon l'état de la fenêtre. */
+function windowMenu(maximized: boolean): MenuEntry[] {
+  return [
+    { label: "Restaurer", disabled: !maximized, run: () => void api.windowCommand("restore") },
+    { label: "Déplacer", disabled: maximized, run: () => void api.windowCommand("move") },
+    { label: "Taille", disabled: maximized, run: () => void api.windowCommand("size") },
+    { label: "Réduire", run: () => void api.windowCommand("minimize") },
+    { label: "Agrandir", disabled: maximized, run: () => void api.windowCommand("maximize") },
+    "separator",
+    { label: "Fermer", shortcut: "Alt+F4", run: () => void api.windowCommand("close") },
+  ];
+}
+
+/** Alt + Espace : le menu de la fenêtre s'ouvre sous le coin haut gauche de la barre de titre,
+ *  comme celui de Windows (pas en plein écran : la barre de titre est cachée). */
+function useAltSpace(maximized: boolean, fullscreen: boolean) {
+  const state = useRef({ maximized, fullscreen });
+  useEffect(() => {
+    state.current = { maximized, fullscreen };
+  });
+  useEffect(() => {
+    const stop = listen(EVENTS.windowMenu, () => {
+      if (state.current.fullscreen) return;
+      const bar = document.querySelector('[data-zone="barre-titre"]')?.getBoundingClientRect();
+      openMenuAt(bar?.left ?? 0, bar?.bottom ?? 0, windowMenu(state.current.maximized), true);
+    });
+    return () => void stop.then((unlisten) => unlisten());
+  }, []);
 }
 
 function ArrowButton({ label, enabled, onClick, children }: { label: string; enabled: boolean; onClick: () => void; children: ReactNode }) {
@@ -68,6 +103,7 @@ export function TitleBar() {
   const fullscreen = useViewer((s) => s.fullscreenShown);
   const maximized = useMaximized();
   const can = useBackForward();
+  useAltSpace(maximized, fullscreen);
   if (fullscreen) return null;
   const window_ = getCurrentWindow();
 
@@ -75,6 +111,7 @@ export function TitleBar() {
     <div
       data-zone="barre-titre"
       data-tauri-drag-region="deep"
+      onContextMenu={(e) => !(e.target as Element).closest("button") && openContextMenu(e, () => windowMenu(maximized))}
       className="relative z-[130] flex h-[var(--titlebar-h)] shrink-0 items-center border-b border-border bg-[#0d0e12] select-none"
     >
       <div className="flex items-center gap-2 pr-2 pl-3">

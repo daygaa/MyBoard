@@ -33,3 +33,21 @@ export function copyPath(item: MediaItem) {
 export function copyName(item: MediaItem) {
   void runExternal("Copier le nom", () => api.writeClipboardText(item.fileName));
 }
+
+/** L'image elle-même dans le presse-papiers, à coller dans Paint, une conversation… (CTX-06). */
+export function copyImage(item: MediaItem) {
+  void runExternal("Copier l'image", () => api.copyImage(item.id));
+}
+
+/** Fond d'écran du bureau de Windows (CTX-06, après confirmation). */
+export function setWallpaper(item: MediaItem) {
+  void runExternal("Utiliser comme fond d'écran", () => api.setWallpaper(item.id));
+}
+
+/** Image de la vidéo à `seconds`, pleine résolution, enregistrée en .jpg là où l'utilisateur le
+ *  choisit (fenêtre « Enregistrer sous » de Windows, CTX-07). */
+export function saveFrame(item: MediaItem, seconds: number) {
+  // Date du jour dans le nom proposé : « JJ-MM-AA » (« / » est interdit dans un nom de fichier).
+  const date = new Date().toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "2-digit" }).replaceAll("/", "-");
+  void runExternal("Enregistrer une capture d'écran", () => api.saveVideoFrame(item.id, seconds, date));
+}
