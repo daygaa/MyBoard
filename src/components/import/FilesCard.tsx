@@ -144,7 +144,7 @@ export function FilesCard() {
             size="sm"
             disabled={importing}
             onClick={() => void chooseFiles()}
-            className="border-[#d9a94e]/40 text-[#d9a94e] hover:bg-[#d9a94e]/10 hover:text-[#e3b75f]"
+            className="border-[#d9a94e]/40 text-[#d9a94e] hover:bg-[#d9a94e]/10 hover:text-[#e3b75f] disabled:hover:bg-background disabled:hover:text-[#d9a94e]"
           >
             <Upload className="h-3.5 w-3.5" />
             Importer un fichier
@@ -155,13 +155,13 @@ export function FilesCard() {
             size="sm"
             disabled={importing}
             onClick={() => void chooseFolder()}
-            className="border-border text-muted-foreground hover:bg-secondary hover:text-foreground"
+            className="border-border text-muted-foreground hover:bg-secondary hover:text-foreground disabled:hover:bg-background disabled:hover:text-muted-foreground"
           >
             <FolderOpen className="h-3.5 w-3.5" />
             Importer un dossier
           </Button>
         </div>
-        <label className="flex cursor-pointer items-center gap-2 text-sm text-foreground">
+        <label className="flex cursor-pointer items-center gap-2 text-sm text-foreground has-disabled:cursor-not-allowed">
           <Checkbox checked={recursive} disabled={importing} onCheckedChange={(c) => toggleRecursive(c === true)} />
           Importer le contenu des sous-dossiers
         </label>

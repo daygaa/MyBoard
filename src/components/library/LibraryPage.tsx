@@ -5,6 +5,7 @@ import { useEffect } from "react";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { useGridShortcuts } from "@/hooks/useGridShortcuts";
 import { useMediaPage, useStats } from "@/hooks/useLibraryData";
+import { useBusy } from "@/lib/busy";
 import { scrollToTop } from "@/lib/scroller";
 import { useLibrary } from "@/stores/library";
 import { EmptyLibrary, NoResults } from "./EmptyState";
@@ -13,11 +14,13 @@ import { MediaGrid } from "./MediaGrid";
 import { Pagination } from "./Pagination";
 
 export function LibraryPage() {
-  const { data } = useMediaPage();
+  const { data, isPlaceholderData } = useMediaPage();
   const { data: stats } = useStats();
   const density = useLibrary((s) => s.density);
   const page = useLibrary((s) => s.page);
   useGridShortcuts(data?.pageCount ?? 1);
+  // Autre page, filtre, tri ou recherche qui tarde : curseur d'attente passé 0,3 s (GEN-13).
+  useBusy(isPlaceholderData, 300);
 
   // Nouvelle page : retour en haut de la grille.
   useEffect(() => {

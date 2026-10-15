@@ -137,7 +137,7 @@ export function PageTags({ items }: { items: MediaItem[] }) {
                     onClick={() => toggle(row.category.id)}
                     aria-expanded={row.expandable ? row.expanded : undefined}
                     title={row.expandable ? (row.expanded ? "Ne montrer que les 10 premiers" : "Afficher tous les tags") : undefined}
-                    className="flex h-full w-full items-end gap-2 px-1 pb-1 text-left text-xs font-semibold tracking-wider text-muted-foreground uppercase enabled:hover:text-foreground"
+                    className="flex h-full w-full items-end gap-2 px-1 pb-1 text-left text-xs font-semibold tracking-wider text-muted-foreground uppercase enabled:hover:text-foreground disabled:cursor-default"
                   >
                     {row.category.name}
                     <span className="font-normal text-muted-foreground/70 tabular-nums">{formatNumber(row.count)}</span>

@@ -3,6 +3,58 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Menus du clic droit : base commune, curseurs, raccourcis du navigateur (15/10/2026) — Backup v20
+
+Lot 1 de GEN-12 (menus du clic droit), en 3 lots. SPEC : GEN-12, GEN-13, GEN-17, GEN-18, CTX-01,
+CTX-03 et CTX-18 (nouvelle : « Copier » sur un texte sélectionné, choix de l'utilisateur) livrés
+`[~]` ; CTX-02 prêt, à tester au lot 2 (premier menu avec une confirmation). Choix : D-024.
+
+- CTX-01 : le menu du navigateur (Retour, Actualiser, Enregistrer sous, Imprimer) ne s'ouvre plus
+  nulle part, lecteur PDF compris ; un clic droit là où MyBoard n'a pas de menu n'ouvre rien.
+  Menu maison commun, apparence du menu de tri, sans icônes : ouvert au point du clic (à gauche /
+  au-dessus s'il manque la place), fermé par un clic ailleurs (qui ne fait rien d'autre), Échap,
+  le bouton 4, la molette (sans défiler), un changement de page ou de fenêtre ; flèches + Entrée ;
+  touche Menu ou Maj + F10 ; séparateurs comme Firefox (7 px sans réaction) ; sous-menus « ▸ » ;
+  actions dangereuses en rouge avec confirmation (CTX-02 : Échap ou bouton 4 ferment la pop-in et
+  gardent le menu, « Oui » rouge agit et ferme tout).
+- CTX-03 : menu d'édition dans tous les champs de saisie (recherche, ajout de tag, tags par défaut,
+  numéro de page, note en écriture) : Annuler, Couper, Copier, Coller, Supprimer, Tout
+  sélectionner, grisés quand ils sont sans objet. Le champ garde sa sélection ; la note reste en
+  écriture.
+- CTX-18 : clic droit sur un texte sélectionné (nom du fichier, compteurs…) : « Copier ».
+- GEN-13 : curseurs selon la règle commune : flèche par défaut (textes compris), main sur ce qui
+  se clique (choix des listes déroulantes, curseur de la disposition…), barre « I » dans les
+  champs, « interdit » sur les boutons grisés (y compris « Importer » et les boutons de la page
+  d'import, qui montraient la flèche), flèche sur Réduire / Agrandir / Fermer et sur les flèches
+  grisées de la barre de titre et de la pagination ; rond qui tourne pendant « Copier »,
+  « Explorer », « Ouvrir avec » et quand une page de la grille tarde plus de 0,3 s.
+- GEN-17 : nom et infos du fichier, compteurs, titres : sélectionnables à la souris, curseur flèche.
+- GEN-18 : F5, Maj + F5, Ctrl + F5, Ctrl + P, Ctrl + F, F3, Ctrl + G, Ctrl + S et F7 ne font plus
+  rien (page et lecteur PDF) ; Ctrl + R et Ctrl + Maj + R rechargent toujours ; Alt + ← / → =
+  précédent / suivant de MyBoard.
+
+Vérifié dans la version compilée (bibliothèques « booru » et « divers ») :
+- vrai clic droit : grille, barre de titre, barre des filtres, lecteur PDF : aucun menu ; champ de
+  recherche : menu d'édition au point du clic, Coller actif (texte dans le presse-papiers) ;
+- menu d'édition, tout essayé : Couper (« abc def », « def » sélectionné → « abc », presse-papiers
+  « def »), Coller, Annuler, Tout sélectionner, Copier, Supprimer ; flèches + Entrée ; une lettre
+  tapée menu ouvert est ignorée ; numéro de page et note compris (la note reste ouverte, un clic
+  ailleurs ferme seulement le menu) ;
+- fermetures : Échap (le champ garde le focus), bouton 4, molette (la page ne défile pas), clic sur
+  une vignette (menu fermé, visionneuse non ouverte ; le clic suivant l'ouvre) ;
+- sélection du compteur → « Copier » → presse-papiers « 3 300 médias » ; clic droit hors de la
+  sélection : rien ; Maj + F10 dans le champ : menu, première entrée choisie ;
+- vrai clavier : F5, Maj + F5, Ctrl + F5, Ctrl + P, Ctrl + F, F3, Ctrl + G, Ctrl + S, F7 : ni
+  rechargement, ni impression, ni fenêtre ; idem le curseur dans le PDF ; Alt + ← rouvre la
+  dernière image, Alt + → la referme ; Ctrl + R recharge ;
+- curseurs relevés élément par élément (grille, barre latérale, en-tête, barre de titre,
+  visionneuse) ; sélection à la souris du compteur, des stats, des titres, du nom et des infos du
+  fichier ; classe d'attente pendant « Copier » et pendant une page de grille ralentie ;
+- menu de démonstration (accès de test temporaire, retiré) : séparateurs de 7 px, trait à 16 px
+  des bords, clic dessus sans effet ; sous-menu à gauche près du bord droit ; menu ouvert dans le
+  coin bas droit placé au-dessus et à gauche du point ; confirmation : Échap et bouton 4 la
+  ferment en gardant le menu, « Oui » (rouge) agit et ferme tout.
+
 ## Commandes ancrées même en défilement rapide (14/10/2026) — Backup v19
 
 SPEC : VIEW-34, VIEW-43 et NAV-05 validés `[x]` ; VIEW-42 corrigé `[~]` ; GEN-16 noté `[>]`

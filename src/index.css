@@ -88,8 +88,24 @@
     scrollbar-color: #343741 transparent;
   }
 
+  /* Curseurs (GEN-13) : flèche par défaut, textes compris (ils restent sélectionnables, GEN-17) ;
+     main sur ce qui se clique ; « interdit » sur un bouton grisé (sauf les flèches de la barre de
+     titre et de la pagination : flèche) ; barre « I » dans les champs de saisie. */
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]) {
+    cursor: pointer;
+  }
+  button:disabled {
+    cursor: not-allowed;
+  }
+  input:not([type="range"], [type="checkbox"], [type="radio"]),
+  textarea {
+    cursor: text;
+  }
+
   body {
     @apply bg-background text-foreground;
+    cursor: default;
     font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial,
       sans-serif;
     -webkit-font-smoothing: antialiased;
@@ -170,6 +186,13 @@
     -webkit-appearance: none;
     margin: 0;
   }
+}
+
+/* Petites attentes (GEN-13, lib/busy.ts) : flèche + rond qui tourne partout. Hors des couches
+   Tailwind et prioritaire : passe avant le curseur de chaque élément. */
+html.attente,
+html.attente * {
+  cursor: progress !important;
 }
 
 /* Vignettes de moins de ~2,2 cm à l'écran (GRID-11, `data-nom-seul` posé sur la grille) : plus

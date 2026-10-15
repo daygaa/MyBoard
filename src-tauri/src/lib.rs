@@ -1,6 +1,7 @@
 //! MyBoard — partie Rust : base de données, import, miniatures, tags, recherche, visionneuse.
 //! L'interface (React) appelle les commandes déclarées ici via `invoke`.
 
+pub mod clipboard_text;
 pub mod db;
 pub mod display;
 pub mod ffmpeg;
@@ -14,6 +15,7 @@ pub mod search;
 pub mod tags;
 mod test_screen;
 pub mod thumbs;
+pub mod webview_settings;
 pub mod window_border;
 
 use std::sync::Mutex;
@@ -62,6 +64,7 @@ pub fn run() {
             if let Some(window) = app.get_webview_window("main") {
                 fullscreen::install(&window)?;
                 window_border::install(&window)?;
+                webview_settings::install(&window)?;
                 test_screen::place(&window)?;
             }
             Ok(())
@@ -91,6 +94,7 @@ pub fn run() {
             fullscreen::set_viewer_fullscreen,
             media::set_media_notes,
             media::open_url,
+            clipboard_text::read_clipboard_text,
         ])
         .run(tauri::generate_context!())
         .expect("erreur au lancement de MyBoard");

@@ -48,7 +48,7 @@ export function TagAdder({ mediaId }: { mediaId: number }) {
         onClick={() => void submit(text)}
         disabled={!text.trim()}
         aria-label="Ajouter le tag"
-        className="grid h-8 w-8 shrink-0 place-items-center rounded-md border border-border bg-secondary text-muted-foreground transition hover:border-[#d9a94e]/50 hover:text-[#d9a94e] disabled:opacity-40"
+        className="grid h-8 w-8 shrink-0 place-items-center rounded-md border border-border bg-secondary text-muted-foreground transition hover:border-[#d9a94e]/50 hover:text-[#d9a94e] disabled:opacity-40 disabled:hover:border-border disabled:hover:text-muted-foreground"
       >
         <Plus className="h-4 w-4" />
       </button>

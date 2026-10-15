@@ -48,7 +48,7 @@ export function CreateTagDialog({ name, onCancel, onCreate }: Props) {
               setChosen(null);
               onCreate(category);
             }}
-            className="bg-[#d9a94e] text-[#1a1408] hover:bg-[#e3b75f]"
+            className="bg-[#d9a94e] text-[#1a1408] hover:bg-[#e3b75f] disabled:hover:bg-[#d9a94e]"
           >
             <Plus className="h-4 w-4" />
             Créer

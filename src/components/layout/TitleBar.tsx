@@ -53,7 +53,8 @@ function WindowButton({ label, onClick, danger, children }: { label: string; onC
       title={label}
       onClick={onClick}
       className={cn(
-        "grid h-full w-[46px] place-items-center text-zinc-300 transition-colors",
+        // Flèche, comme les boutons de fenêtre de Windows (GEN-13).
+        "grid h-full w-[46px] cursor-default place-items-center text-zinc-300 transition-colors",
         // Fermer : rouge de Windows au survol (choix de l'utilisateur, NAV-04).
         danger ? "hover:bg-[#e81123] hover:text-white" : "hover:bg-white/10 hover:text-white",
       )}

@@ -7,6 +7,8 @@ import "@fontsource/geist-mono/400.css";
 import "@fontsource/geist-mono/500.css";
 import "@fontsource/geist-mono/600.css";
 import "./index.css";
+// Alt + ← / → : précédent / suivant de MyBoard (GEN-18).
+import "./lib/browserKeys";
 
 import { App } from "./App";
 

@@ -153,6 +153,7 @@ export const api = {
   setViewerFullscreen: (on: boolean) => invoke<void>("set_viewer_fullscreen", { on }),
   setMediaNotes: (id: number, notes: string) => invoke<void>("set_media_notes", { id, notes }),
   openUrl: (url: string) => invoke<void>("open_url", { url }),
+  readClipboardText: () => invoke<string | null>("read_clipboard_text"),
 };
 
 /** Événements émis par le cœur Rust. */

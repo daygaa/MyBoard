@@ -12,7 +12,7 @@ import { cn } from "@/lib/utils";
 import { useLibrary } from "@/stores/library";
 
 const CELL =
-  "grid h-8 min-w-8 place-items-center rounded-md px-2 text-sm tabular-nums transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#d9a94e]";
+  "grid h-8 min-w-8 place-items-center disabled:cursor-default rounded-md px-2 text-sm tabular-nums transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#d9a94e]";
 const LINK = "text-muted-foreground hover:bg-secondary hover:text-foreground";
 
 /** Demi-largeur minimale pour centrer sur la fenêtre (place des numéros et de « Aller à »). */

@@ -10,6 +10,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { StickyNote } from "lucide-react";
 
 import { api, type MediaDetail } from "@/lib/api";
+import { isContextMenuOpen } from "@/lib/contextMenu";
 import { useEscape } from "@/lib/escape";
 import { cn } from "@/lib/utils";
 import { runExternal } from "./externalOpen";
@@ -91,7 +92,8 @@ export function NotesButton({ mediaId }: { mediaId: number }) {
     };
     const onDown = (e: PointerEvent) => {
       const target = e.target as Node;
-      if (e.button !== 0 || panelRef.current?.contains(target) || buttonRef.current?.contains(target)) return;
+      // Menu du clic droit ouvert (menu d'édition de la note…) : ce clic est pour lui (CTX-01).
+      if (e.button !== 0 || isContextMenuOpen() || panelRef.current?.contains(target) || buttonRef.current?.contains(target)) return;
       swallow(e);
       window.addEventListener("click", swallow, { capture: true, once: true });
       close();

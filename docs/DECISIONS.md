@@ -438,3 +438,37 @@ bas, inchangée.
 **Bord haut (NAV-05).** Sur une fenêtre sans barre de titre, Tauri pose une petite fenêtre
 invisible sur le bord haut (`TAURI_DRAG_RESIZE_BORDERS`) qui reçoit les clics du bord ; son
 double-clic est intercepté (`window_border.rs`) et devient la commande « Agrandir » de Windows.
+
+## D-024 — Menus du clic droit, curseurs, raccourcis du navigateur : base commune (GEN-12 lot 1, GEN-13, GEN-17, GEN-18) (15/10/2026)
+
+**Menu maison (CTX-01).** Un seul menu ouvert à la fois (`lib/contextMenu.ts`), dessiné par
+`ContextMenuHost` (`components/ui/context-menu.tsx`) ; un élément ouvre le sien par
+`openContextMenu(e, () => entrées)`, entrées calculées au clic droit seulement (rien par vignette,
+D-008). Écarté : les menus de Radix (bibliothèque du menu de tri) : ils prennent le focus, donc un
+champ de saisie perdait sa sélection et la note sortait du mode écriture ; leurs fermetures ne
+suivent pas la demande (un clic ailleurs atteignait l'élément cliqué). Le menu ne prend jamais le
+focus : le clavier passe par un écouteur de la fenêtre tant qu'il est au premier plan. Apparence
+partagée avec le menu de tri (`MENU_SURFACE`, `MENU_ITEM`, `MENU_ITEM_ACTIVE` de
+`dropdown-menu.tsx`). Séparateurs mesurés sur les captures de Firefox de l'utilisateur : trait à
+16 px du bord intérieur, 3 px vides de chaque côté.
+
+**Menu et raccourcis du navigateur coupés dans WebView2 lui-même** (`webview_settings.rs`, réglages
+que Tauri ne propose pas) : ils valent aussi dans le lecteur PDF de la visionneuse, un cadre que
+le code de la page ne voit pas (F5 y rechargeait toute l'application). L'action du navigateur est
+retirée touche par touche (Ctrl + R et Ctrl + Maj + R gardés) ; la touche arrive toujours à la
+page, qui fait d'Alt + ← / → le précédent / suivant de MyBoard.
+
+**Textes (CTX-03, CTX-18).** Menu d'édition et menu « Copier » ouverts sans rien à faire dans les
+composants, pour tous les champs présents et futurs (`lib/textMenus.ts`). « Coller » lit le
+presse-papiers par le cœur Rust (`clipboard_text.rs`) : WebView2 demanderait une autorisation à la
+page. Une sélection sous le clic droit passe avant le menu de l'élément (choix de l'utilisateur :
+petit menu « Copier »).
+
+**Curseurs (GEN-13).** Règles globales (`index.css`) : flèche par défaut (textes compris), main
+sur les boutons actifs, « interdit » sur les boutons grisés, barre « I » dans les champs ;
+exceptions en flèche : flèches grisées de la barre de titre et de la pagination, boutons de
+fenêtre, en-tête de catégorie sans dépliage. Les boutons shadcn grisés ne recevaient plus la
+souris (`pointer-events: none`, donc pas de curseur « interdit ») : remplacé, et leur effet de
+survol annulé quand ils sont grisés. Attente (`lib/busy.ts`) : ouvertures externes, et page de la
+grille pas encore arrivée après 0,3 s (données provisoires seulement : les relectures de fond
+pendant un import ne comptent pas).

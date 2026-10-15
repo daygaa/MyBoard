@@ -8,7 +8,7 @@ function Slider({ className, ...props }: React.ComponentProps<typeof SliderPrimi
   return (
     <SliderPrimitive.Root
       data-slot="slider"
-      className={cn("relative flex w-full touch-none items-center select-none data-[disabled]:opacity-50", className)}
+      className={cn("relative flex w-full cursor-pointer touch-none items-center select-none data-[disabled]:opacity-50", className)}
       {...props}
     >
       <SliderPrimitive.Track data-slot="slider-track" className="bg-muted relative h-1.5 w-full grow overflow-hidden rounded-full">

@@ -91,7 +91,7 @@ export function ImportActionBar() {
           data-zone="import.importer"
           disabled={!canImport}
           onClick={() => void api.startImport(useImport.getState().defaultTags)}
-          className="bg-[#d9a94e] text-[#1a1408] hover:bg-[#e3b75f] focus-visible:ring-[#d9a94e]/40"
+          className="bg-[#d9a94e] text-[#1a1408] hover:bg-[#e3b75f] focus-visible:ring-[#d9a94e]/40 disabled:hover:bg-[#d9a94e]"
         >
           <Upload className="h-4 w-4" />
           {phase === "importing" ? "Import en cours…" : `Importer${canImport ? ` (${formatNumber(total)})` : ""}`}

@@ -1,5 +1,5 @@
 // Squelette de l'application : barre de titre MyBoard (NAV-04), puis la zone qui défile (en-tête,
-// page courante, pied de page) ; menu burger et visionneuse par-dessus.
+// page courante, pied de page) ; menu burger, visionneuse et menu du clic droit (CTX-01) par-dessus.
 
 import { useEffect, useRef } from "react";
 
@@ -9,6 +9,7 @@ import { Footer } from "@/components/layout/Footer";
 import { Header } from "@/components/layout/Header";
 import { TitleBar } from "@/components/layout/TitleBar";
 import { LibraryPage } from "@/components/library/LibraryPage";
+import { ContextMenuHost } from "@/components/ui/context-menu";
 import { Viewer } from "@/components/viewer/Viewer";
 import { useBackendEvents } from "@/hooks/useBackendEvents";
 import { useRoute } from "@/lib/router";
@@ -39,6 +40,7 @@ export function App() {
       </div>
       <BurgerMenu />
       <Viewer />
+      <ContextMenuHost />
     </div>
   );
 }
