@@ -5,7 +5,7 @@
 import type { MouseEvent, ReactNode } from "react";
 import { X } from "lucide-react";
 
-import { cn } from "@/lib/utils";
+import { cn, titleIfCut } from "@/lib/utils";
 
 type Props = {
   color: string;
@@ -21,9 +21,23 @@ type Props = {
   onContextMenu?: (e: MouseEvent) => void;
   /** Tag exclu de la recherche : texte rayé (SRCH-16). */
   struck?: boolean;
+  /** Nom coupé par « … » : bulle avec le nom complet au survol (pastilles de la recherche, SRCH-18). */
+  fullTitleIfCut?: boolean;
 };
 
-export function TagPill({ color, children, onClick, onRemove, removeLabel, title, className, onContextMenu, struck }: Props) {
+export function TagPill({
+  color,
+  children,
+  onClick,
+  onRemove,
+  removeLabel,
+  title,
+  className,
+  onContextMenu,
+  struck,
+  fullTitleIfCut,
+}: Props) {
+  const onTextEnter = fullTitleIfCut ? (e: MouseEvent<HTMLElement>) => titleIfCut(e.currentTarget) : undefined;
   return (
     <span
       data-zone="tag.pastille"
@@ -47,11 +61,11 @@ export function TagPill({ color, children, onClick, onRemove, removeLabel, title
           (mesuré au pixel le 13/10, GEN-09 puis GEN-14 : lettres sans jambage à 1 px du haut et
           du bas de la croix). */}
       {onClick ? (
-        <button type="button" onClick={onClick} className="relative -top-[2px] min-w-0 truncate hover:underline">
+        <button type="button" onClick={onClick} onMouseEnter={onTextEnter} className="relative -top-[2px] min-w-0 truncate hover:underline">
           {children}
         </button>
       ) : (
-        <span className="relative -top-[2px] min-w-0 truncate">
+        <span onMouseEnter={onTextEnter} className="relative -top-[2px] min-w-0 truncate">
           {children}
           {/* Rayure dessinée au centre de la croix (le texte est remonté de 2 px) : celle du
               navigateur, placée par la police, était 1,5 px trop haut (SRCH-16). Le centre tombe

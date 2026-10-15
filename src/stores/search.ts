@@ -12,9 +12,10 @@ import { useLibrary } from "./library";
 type SearchState = {
   /** Termes actifs, dans l'ordre d'ajout : `tag`, `-tag` (exclusion), `tag*` (joker). */
   terms: string[];
-  /** Remplace toute la recherche (clic sur un tag, SRCH-12). */
+  /** Remplace toute la recherche (clic sur un tag, SRCH-12 ; champ de recherche, SRCH-24). */
   setTerms: (terms: string[]) => void;
-  /** Ajoute des termes (bouton « + », champ de recherche) ; un terme contraire est remplacé. */
+  /** Ajoute des termes (boutons + / − des lignes de tags et des suggestions) ; un terme contraire est
+   *  remplacé. */
   addTerms: (terms: string[]) => void;
   removeTerm: (term: string) => void;
   /** Inclure ↔ exclure un terme, à sa place dans la recherche (menu du clic droit, CTX-12). */
@@ -23,6 +24,12 @@ type SearchState = {
 
 /** « tag » et « -tag » sont contraires : on ne garde que le dernier choisi. */
 const opposite = (term: string) => (term.startsWith("-") ? term.slice(1) : `-${term}`);
+
+/** Termes ajoutés à la suite, sans doublon ; un terme contraire déjà présent est remplacé. */
+function merge(terms: string[], added: string[]) {
+  for (const term of added) terms = [...terms.filter((t) => t !== term && t !== opposite(term)), term];
+  return terms;
+}
 
 const same = (a: string[], b: string[]) => a.length === b.length && a.every((t, i) => t === b[i]);
 
@@ -35,15 +42,8 @@ function apply(terms: string[], remember = true) {
 
 export const useSearch = create<SearchState>()((set, get) => ({
   terms: [],
-  setTerms: (terms) => set(apply([...new Set(terms)])),
-  addTerms: (added) => {
-    let terms = get().terms;
-    for (const term of added) {
-      terms = terms.filter((t) => t !== term && t !== opposite(term));
-      terms = [...terms, term];
-    }
-    set(apply(terms));
-  },
+  setTerms: (terms) => set(apply(merge([], terms))),
+  addTerms: (added) => set(apply(merge(get().terms, added))),
   removeTerm: (term) => set(apply(get().terms.filter((t) => t !== term))),
   invertTerm: (term) => set(apply(get().terms.map((t) => (t === term ? opposite(term) : t)))),
 }));

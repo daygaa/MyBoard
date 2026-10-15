@@ -3,6 +3,39 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Recherche : dépliage sur toute la ligne, nouvelle recherche, bulles des noms coupés, pop-in de création (16/10/2026) — Backup v28
+
+SPEC : SRCH-19, SRCH-20, SRCH-21 et SRCH-23 validés `[x]` ; SRCH-18 et SRCH-22 précisés `[~]` ;
+SRCH-24 et VIEW-46 (nouvelles) livrées `[~]`. Choix : D-030.
+
+- SRCH-18 : les pastilles se déplient dès que la souris approche de toute leur ligne (16 px à
+  gauche, à droite et en dessous ; rien au-dessus : passer sur « Tout effacer » ne déplie rien).
+  Sans recherche, la ligne affiche « Aucun tag dans la recherche » en gris. Une pastille coupée par
+  « … » montre son nom complet dans une bulle au survol.
+- SRCH-22 : un nom de suggestion coupé par « … » montre son nom complet dans une bulle au survol.
+- SRCH-24 : Entrée ou le bouton de recherche lancent une nouvelle recherche avec les tags tapés
+  seulement (avant : ajoutés à la recherche en cours, comme « + ») ; « solo -solo » tapés ensemble :
+  le dernier l'emporte, comme avant.
+- VIEW-46 : pop-in « Créer un nouveau tag » : un nom long passe à la ligne dans la largeur de la
+  pop-in, 2 lignes au plus puis « … » (bulle au survol) ; la pop-in grandit vers le haut, les
+  boutons ne bougent pas.
+
+Vérifié dans la version compilée (copie de la base « booru », avec un tag de 162 caractères) :
+- texte « Aucun tag dans la recherche » centré dans la ligne de 22 px ; titre « Tags » toujours à
+  247 px ;
+- dépliage : rien sur « Tout effacer », à 3 px au-dessus de la ligne ni à 20 px à sa gauche ;
+  déplié à 15 px à gauche, sur le bord et au milieu de la ligne, et à 15 px sous les pastilles
+  dépliées ; replié en remontant sur « Tout effacer » et à 20 px dessous ;
+- « solo highres » + Entrée → solo + highres ; puis « 1girl » + Entrée → 1girl seul ; + d'une ligne
+  de tags → 1girl + touhou ; « smile -smile » + bouton → −smile ; champ vidé ;
+- bulles (attribut posé au survol, seulement si le nom est coupé) : 1re pastille coupée, 2e
+  suggestion coupée (la 1re, entière, n'en a pas), nom coupé de la pop-in. La bulle elle-même
+  (fenêtre de Windows) n'a pas pu être capturée par mes outils : à confirmer à l'œil ;
+- pop-in : nom court → même place au pixel près qu'avant ; nom de 55 caractères → 2 lignes ; nom de
+  116 caractères → 2 lignes puis « … » ; dans les 3 cas, bas de la pop-in à 653 px et bouton
+  « Créer » à 592-628 px (avant : le nom débordait de 40 à 540 px à droite et les boutons
+  descendaient de 10 px).
+
 ## Barre de recherche : termes sur une ligne, suggestions par mot (15/10/2026) — Backup v27
 
 SPEC : SRCH-18 à SRCH-23 (nouvelles) livrées `[~]` ; SRCH-16, SRCH-17 et VIEW-44 validés `[x]`.

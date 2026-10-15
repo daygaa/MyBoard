@@ -7,7 +7,8 @@
 // Recherche de la barre latérale (`onAddTerm`) : plusieurs termes séparés par des espaces, les
 // suggestions portent sur le mot en cours (SRCH-20) ; le nom choisi s'écrit dans le champ à la
 // place de ce mot, les boutons + / − l'ajoutent tout de suite à la recherche (SRCH-21).
-// Noms longs : la liste s'élargit jusqu'au double, puis le nom passe sur 2 lignes (SRCH-22).
+// Noms longs : la liste s'élargit jusqu'au double, puis le nom passe sur 2 lignes, puis « … » avec
+// le nom complet dans une bulle au survol (SRCH-22).
 
 import { useLayoutEffect, useRef, useState, type KeyboardEvent, type MouseEvent, type Ref } from "react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
@@ -18,7 +19,7 @@ import { api, type TagInfo } from "@/lib/api";
 import { useEscape } from "@/lib/escape";
 import { formatNumber } from "@/lib/format";
 import { displayTag, normalizeTag, wordAt } from "@/lib/tags";
-import { cn } from "@/lib/utils";
+import { cn, titleIfCut } from "@/lib/utils";
 
 type Props = {
   value: string;
@@ -219,7 +220,11 @@ export function TagInput({
                 onClick={() => pick(tag)}
                 className={cn("flex min-w-0 flex-1 items-center gap-2 py-1 pr-2 text-left text-sm", search ? "pl-1" : "pl-2")}
               >
-                <span className="line-clamp-2 min-w-0 flex-1 [overflow-wrap:anywhere]" style={{ color: color(tag.categoryId) }}>
+                <span
+                  onMouseEnter={(e) => titleIfCut(e.currentTarget)}
+                  className="line-clamp-2 min-w-0 flex-1 [overflow-wrap:anywhere]"
+                  style={{ color: color(tag.categoryId) }}
+                >
                   {negated && "−"}
                   {displayTag(tag.name)}
                 </span>

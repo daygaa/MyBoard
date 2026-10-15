@@ -616,3 +616,22 @@ d'origine (champ, 14rem au moins) et le double ; au-delà, 2 lignes puis « … 
 déborde de la barre latérale sur la grille : la barre latérale passe au-dessus de la grille (`z-20`,
 toujours sous l'en-tête, le menu burger et la visionneuse). Survol et choix au clavier (c'est le même
 état) : fond #2a2c33 sur la liste #1f2126 (avant : #1f2126, invisible).
+
+## D-030 — Retouches de la recherche, bulles des noms coupés, pop-in de création (SRCH-18, SRCH-22, SRCH-24, VIEW-46) (16/10/2026)
+
+**Dépliage des pastilles (SRCH-18).** La zone d'approche est toute la ligne de pastilles (16 px à gauche,
+à droite et en dessous, rien au-dessus : « Tout effacer » ne déplie rien), puis les pastilles
+dépliées avec la même marge. Sans recherche, texte gris « Aucun tag dans la recherche » dans la ligne.
+
+**Bulles (SRCH-18, SRCH-22, VIEW-46).** `titleIfCut` (`lib/utils.ts`) : au survol, si le texte est coupé
+par « … », sa bulle de Windows (`title`) montre le texte complet ; sinon l'attribut est retiré (un
+`title` vide cacherait la bulle d'un parent, comme « Exclut … » d'une pastille). Utilisé par les
+suggestions, les pastilles de la recherche (option `fullTitleIfCut` de `TagPill`) et la pop-in.
+
+**Nouvelle recherche (SRCH-24).** Entrée et le bouton remplacent la recherche (`setTerms`) ; les
+contraires tapés ensemble (« solo -solo ») suivent la règle de l'ajout : le dernier l'emporte.
+
+**Pop-in de création (VIEW-46).** Nom dans une boîte de la ligne de texte, coupée à 2 lignes (propriétés
+`-webkit-line-clamp`, alignée en haut : un nom court reste au pixel près à sa place d'avant). La pop-in
+reste centrée puis remonte d'une demi-ligne par ligne de plus que les 2 de la phrase avec un nom
+court (option `lift` de `Modal`) : son bas et ses boutons ne bougent pas.

@@ -1,7 +1,8 @@
 // Recherche par tags de la barre latérale (SRCH-01 à SRCH-07), apparence v8 : champ avec
 // autocomplétion + bouton doré ; les termes actifs s'affichent en pastilles dessous, et
-// uniquement là (SRCH-07, SearchTerms). Entrée ou le bouton lancent la recherche ; les boutons
-// + / − des suggestions ajoutent un tag tout de suite (SRCH-21).
+// uniquement là (SRCH-07, SearchTerms). Entrée ou le bouton lancent une nouvelle recherche avec les
+// tags tapés, et eux seuls (SRCH-24) ; les boutons + / − des suggestions ajoutent un tag à la
+// recherche en cours (SRCH-21).
 
 import { useState } from "react";
 import { Search } from "lucide-react";
@@ -14,10 +15,11 @@ import { useSearch } from "@/stores/search";
 export function SearchBox() {
   const [text, setText] = useState("");
   const addTerms = useSearch((s) => s.addTerms);
+  const setTerms = useSearch((s) => s.setTerms);
 
   const submit = (raw: string) => {
     const parsed = parseTerms(raw);
-    if (parsed.length > 0) addTerms(parsed);
+    if (parsed.length > 0) setTerms(parsed);
     setText("");
   };
 

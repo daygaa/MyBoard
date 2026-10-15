@@ -16,9 +16,12 @@ type Props = {
   children?: ReactNode;
   footer?: ReactNode;
   zone: string;
+  /** Remonte la pop-in de `lift` px : un contenu plus haut que d'habitude la fait grandir vers le
+   *  haut, ses boutons restent à leur place (VIEW-46). */
+  lift?: number;
 };
 
-export function Modal({ open, onClose, title, description, children, footer, zone }: Props) {
+export function Modal({ open, onClose, title, description, children, footer, zone, lift = 0 }: Props) {
   useEscape(open, onClose, { modal: true });
   if (!open) return null;
   return createPortal(
@@ -33,6 +36,7 @@ export function Modal({ open, onClose, title, description, children, footer, zon
         aria-label={title}
         data-zone={zone}
         className="relative w-full max-w-md rounded-xl border border-border bg-card p-6 text-card-foreground shadow-xl"
+        style={lift ? { transform: `translateY(-${lift}px)` } : undefined}
       >
         <button
           type="button"

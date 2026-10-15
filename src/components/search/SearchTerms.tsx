@@ -1,9 +1,10 @@
 // Termes actifs de la recherche (SRCH-07), sous le champ de la barre latérale : « Tout effacer »
 // centré sur sa propre ligne (SRCH-19), puis UNE ligne de pastilles (SRCH-18). Les deux lignes
-// gardent leur place même sans recherche (« Tout effacer » grisé) : la liste des tags dessous ne
-// bouge jamais. Pastilles en trop : « +N » collé au bord droit ; la souris qui s'en approche
-// déplie les autres par-dessus la liste des tags, elles se replient quand elle s'éloigne (même
-// principe que la barre du bas en plein écran, VIEW-18). Clic droit : menu du terme (CTX-12).
+// gardent leur place même sans recherche (« Tout effacer » grisé, texte gris dans la ligne) : la
+// liste des tags dessous ne bouge jamais. Pastilles en trop : « +N » collé au bord droit ; la
+// souris qui s'approche de la ligne déplie les autres par-dessus la liste des tags, elles se
+// replient quand elle s'éloigne (même principe que la barre du bas en plein écran, VIEW-18).
+// Clic droit : menu du terme (CTX-12). Nom coupé par « … » : bulle avec le nom complet.
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -17,8 +18,9 @@ import { displayTag, splitTerm } from "@/lib/tags";
 import { cn } from "@/lib/utils";
 import { useSearch } from "@/stores/search";
 
-/** Distance d'approche du « +N » pour déplier, et marge autour des pastilles dépliées avant de
- *  les replier (choix du 15/10). Elle décide seulement du dépliage : elle ne bloque aucun clic. */
+/** Distance d'approche de la ligne de pastilles pour déplier, et marge autour des pastilles dépliées
+ *  avant de les replier (choix du 15/10), à gauche, à droite et en dessous seulement : au-dessus se
+ *  trouve « Tout effacer », qui ne doit rien déplier (16/10). Elle ne bloque aucun clic. */
 const BUFFER = 16;
 
 /** Pastille d'un terme actif : couleur de la catégorie du tag s'il existe. */
@@ -36,6 +38,7 @@ function TermPill({ term, className }: { term: string; className?: string }) {
       title={exclude ? `Exclut ${displayTag(name)}` : undefined}
       struck={exclude}
       onContextMenu={(e) => openContextMenu(e, () => termMenu(term, tag, list))}
+      fullTitleIfCut
       className={className}
     >
       {label}
@@ -50,9 +53,10 @@ const covered = (target: EventTarget | null) =>
   !target.closest('[data-zone="barre-laterale"]') ||
   target.closest('[data-zone$=".suggestions"]') !== null;
 
-/** Vrai quand les pastilles en trop sont dépliées : la souris est arrivée à BUFFER px du « +N », et
- *  ne s'est pas encore éloignée de plus de BUFFER px des pastilles dépliées. */
-function useUnfolded(plusRef: RefObject<HTMLElement | null>, panelRef: RefObject<HTMLElement | null>, active: boolean) {
+/** Vrai quand les pastilles en trop sont dépliées : la souris est arrivée près de la ligne de
+ *  pastilles, et ne s'est pas encore éloignée des pastilles dépliées (`panelRef` : l'une puis
+ *  l'autre). */
+function useUnfolded(panelRef: RefObject<HTMLElement | null>, active: boolean) {
   const [unfolded, setUnfolded] = useState(false);
   useEffect(() => {
     if (!active) return;
@@ -62,13 +66,10 @@ function useUnfolded(plusRef: RefObject<HTMLElement | null>, panelRef: RefObject
       was = next;
       setUnfolded(next);
     };
-    const near = (el: HTMLElement | null, x: number, y: number) => {
-      const r = el?.getBoundingClientRect();
-      return !!r && x >= r.left - BUFFER && x <= r.right + BUFFER && y >= r.top - BUFFER && y <= r.bottom + BUFFER;
-    };
     const onMove = (e: MouseEvent) => {
-      if (was) update(near(panelRef.current, e.clientX, e.clientY));
-      else update(!covered(e.target) && near(plusRef.current, e.clientX, e.clientY));
+      const r = panelRef.current?.getBoundingClientRect();
+      const near = !!r && e.clientX >= r.left - BUFFER && e.clientX <= r.right + BUFFER && e.clientY >= r.top && e.clientY <= r.bottom + BUFFER;
+      update(near && (was || !covered(e.target)));
     };
     const onLeave = () => update(false);
     window.addEventListener("mousemove", onMove);
@@ -78,7 +79,7 @@ function useUnfolded(plusRef: RefObject<HTMLElement | null>, panelRef: RefObject
       document.documentElement.removeEventListener("mouseleave", onLeave);
       setUnfolded(false);
     };
-  }, [plusRef, panelRef, active]);
+  }, [panelRef, active]);
   return unfolded;
 }
 
@@ -90,7 +91,7 @@ export function SearchTerms() {
   const plusRef = useRef<HTMLSpanElement>(null);
   /** Pastilles qui ne tiennent pas sur la ligne (les dernières). */
   const [hidden, setHidden] = useState(0);
-  const unfolded = useUnfolded(plusRef, panelRef, hidden > 0);
+  const unfolded = useUnfolded(panelRef, hidden > 0);
 
   // Mesure avant chaque affichage : le « +N » prend sa place au bout de la 1re ligne, qui peut alors
   // contenir une pastille de moins (nouvelle mesure, toujours avant que l'écran soit dessiné).
@@ -128,6 +129,7 @@ export function SearchTerms() {
       {/* Hauteur d'une ligne de pastilles, toujours réservée. Dépliée, la ligne garde sa place : les
           suivantes s'ajoutent dessous, sur un fond posé par-dessus la liste des tags. */}
       <div data-zone="barre-laterale.recherche.termes" className="relative mt-1.5 h-[22px]">
+        {terms.length === 0 && <p className="text-center text-xs leading-[22px] text-muted-foreground/60">Aucun tag dans la recherche</p>}
         <div ref={panelRef} className={cn("absolute inset-x-0 top-0 z-30", !unfolded && "h-full")}>
           {/* Fond : la marge du bas des pastilles (6 px) sert de marge intérieure. */}
           {unfolded && <div className="absolute -inset-x-2 -top-1.5 bottom-0 -z-10 rounded-lg border border-border bg-card shadow-lg" />}
