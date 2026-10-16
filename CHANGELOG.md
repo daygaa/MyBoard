@@ -3,6 +3,58 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Mesures des miniatures (LIB-15) (17/10/2026) — Backup v34
+
+SPEC : LIB-15 livrée `[~]` (mesures seulement, aucun code modifié). Cadrage de la phase 3 écrit
+avant : DEL-04, DEL-05, FAV-04 à 06, FOLD-06 à 11, PAGE-05, SET-14, SET-15, D-032.
+
+Mesuré dans la version compilée, sur une copie de la bibliothèque « booru » (3 300 médias Danbooru),
+sur les deux écrans (1920×1080 et 2560×1440, mise à l'échelle de Windows à 100 % sur les deux).
+
+**Poids réel dans `thumbs.db`** (moyenne / médiane) : 128 px 3,8 / 3,7 Ko (12 Mo pour 3 300 médias) ;
+320 px 15,2 / 14,7 Ko (49 Mo) ; grand aperçu 640 px 33 / 32 Ko.
+
+**Résolution selon la densité** : largeur réelle d'une vignette à l'écran, comparée à la miniature
+affichée (une miniature au moins aussi large que la vignette reste nette).
+
+| Colonnes | Vignette 1080p | Vignette 1440p | Miniature |
+|---|---|---|---|
+| 4 / 5 / 6 | 388 / 308 / 256 px | 548 / 436 / 362 px | 640 px |
+| 7 / 10 / 11 | 218 / 150 / 136 px | 309 / 214 / 194 px | 320 px |
+| 12 / 15 | 124 / 97 px | 177 / 140 px | 320 px |
+| 16 / 17 | 91 / 85 px | 131 / 123 px | 128 px |
+| 20 / 30 | 71 / 45 px | 103 / 66 px | 128 px |
+
+- Aucune densité n'affiche une miniature visiblement trop petite. Cas limites, sur le 1440p seulement :
+  16 colonnes (vignette de 131 px pour une miniature de 128 px : agrandie de 2 %, de 7 % pendant le
+  léger zoom du survol) et 7 colonnes (309 px pour 320 : agrandie de 2 % pendant le survol).
+- Sur le 1080p, les seuils sont prudents : de 12 à 15 colonnes, la miniature 320 px est 2,6 à 3,3 fois
+  plus large que la vignette (la 128 px suffirait) ; à 5 et 6 colonnes, l'aperçu 640 px est 2 à 2,5 fois
+  plus large (la 320 px suffirait).
+
+**Vitesse d'affichage** : page suivante jusqu'à ce que toutes les miniatures visibles soient affichées
+(médiane de 5 pages) :
+
+| Colonnes | Miniature | 1080p | 1440p |
+|---|---|---|---|
+| 5 | 320 px (puis 640) | 51 ms | 60 ms |
+| 10 | 320 px | 103 ms | 129 ms |
+| 15 | 320 px | 150 ms | 210 ms |
+| 16 | 128 px | 174 ms | 179 ms |
+| 20 | 128 px | 226 ms | 273 ms |
+| 30 | 128 px | 404 ms | 480 ms |
+
+- Lecture et décodage de 300 miniatures : 128 px ≈ 190 à 230 ms, 320 px ≈ 540 à 620 ms (2,7 fois plus).
+- Grands aperçus 640 px d'un écran de vignettes (15) : fabriqués en 1,0 à 1,3 s pour des images, 7 à
+  10 s pour des vidéos (image extraite par ffmpeg) ; déjà dans le cache : 35 à 60 ms.
+
+**Débordement du cache des aperçus (D-015)** : cache de la copie rempli à 1 033 Mo (1 030 aperçus
+factices de 1 Mo, plus anciens que les 99 vrais), puis deux pages neuves à 5 colonnes : le nettoyage
+s'est déclenché au premier nouvel aperçu et a supprimé les 112 plus anciens (factices n° 1 à 112),
+cache redescendu à 922 Mo (cible : 90 % de 1 Go) ; tous les vrais aperçus gardés (129, dont les 30
+nouveaux). Le fichier `thumbs.db` garde sa taille (1,1 Go) : la place libérée (111 Mo) est réutilisée
+par les aperçus suivants, SQLite ne rend pas la place au disque.
+
 ## Menu des vitesses fermé par un clic ailleurs, compte à rebours relancé par la vitesse (16/10/2026) — Backup v33
 
 SPEC : VIEW-48 validé `[x]` ; VIEW-47 précisé `[~]` ; VIEW-49 (nouvelle) livrée `[~]`. Choix : D-031.
