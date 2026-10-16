@@ -17,6 +17,7 @@ import { createPortal } from "react-dom";
 
 import { closeContextMenu, isContextMenuOpen, useContextMenu, type MenuItem, type OpenMenu } from "@/lib/contextMenu";
 import { useEscape } from "@/lib/escape";
+import { swallow, swallowClick } from "@/lib/swallowClick";
 import { ConfirmDialog } from "./confirm-dialog";
 import { fit, MenuList, nextUsable, usable } from "./menu-list";
 
@@ -29,11 +30,6 @@ const ZONE = '[data-zone^="menu-contextuel"]';
 let menuOnTop: () => boolean = () => false;
 const inMenu = (target: EventTarget | null) => target instanceof Element && target.closest(ZONE) !== null;
 
-const swallow = (e: Event) => {
-  e.preventDefault();
-  e.stopImmediatePropagation();
-};
-
 // Inscrits avant tous les composants : un clic ailleurs ferme le menu et ne fait rien d'autre.
 window.addEventListener(
   "pointerdown",
@@ -41,12 +37,7 @@ window.addEventListener(
     // Boutons 4 et 5 : pile d'Échap (escape.ts). Clic droit : il ouvrira le menu du nouvel endroit.
     if (!isContextMenuOpen() || !menuOnTop() || inMenu(e.target) || e.button > 2) return;
     closeContextMenu();
-    if (e.button === 2) return;
-    swallow(e);
-    const click = e.button === 1 ? "auxclick" : "click";
-    window.addEventListener(click, swallow, { capture: true, once: true });
-    // Pas de clic à la fin (souris relâchée hors de la fenêtre…) : rien à avaler ensuite.
-    window.addEventListener("pointerup", () => setTimeout(() => window.removeEventListener(click, swallow, true)), { capture: true, once: true });
+    if (e.button !== 2) swallowClick(e);
   },
   true,
 );

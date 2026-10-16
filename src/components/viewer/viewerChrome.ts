@@ -5,10 +5,11 @@
 //   (VIEW-32), donc au-dessus de la barre du bas.
 // - `idle` : vidéo en plein écran, souris immobile depuis 3 s : les commandes se cachent (VIEW-33).
 // - `lift` : de combien remonter quand la barre du bas dépliée les atteint (VIEW-39), en px.
+// - `restartIdle` : commandes affichées, relance le compte à rebours de 3 s (VIEW-47).
 
 import { createContext } from "react";
 
-export const ViewerChrome = createContext({ bottomInset: 0, idle: false, lift: 0 });
+export const ViewerChrome = createContext({ bottomInset: 0, idle: false, lift: 0, restartIdle: () => {} });
 
 /** Éléments sous la souris qui gardent les commandes à l'écran malgré l'immobilité (VIEW-48) :
  *  barre de lecture (et son menu des vitesses), notes, flèches, croix, barre du bas (et ses listes). */

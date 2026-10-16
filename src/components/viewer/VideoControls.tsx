@@ -4,12 +4,13 @@
 // lecture / pause, temps, barre de progression cliquable (temps au survol), volume + muet
 // (curseur continu), vitesse, boucle (VIEW-26), plein écran tout à droite (VIEW-18).
 
-import { useContext, useEffect, useReducer, useState, type PointerEvent, type RefObject } from "react";
+import { useContext, useEffect, useReducer, useRef, useState, type PointerEvent, type RefObject } from "react";
 import { Pause, Play, Repeat, Volume1, Volume2, VolumeX } from "lucide-react";
 
 import { useEscape } from "@/lib/escape";
 import { formatDuration } from "@/lib/format";
 import { VIDEO_SHORTCUTS } from "@/lib/shortcuts";
+import { swallowClick } from "@/lib/swallowClick";
 import { cn } from "@/lib/utils";
 import { isSilent, SPEEDS, speedLabel, usePlayer } from "@/stores/player";
 import { FullscreenButton } from "./FullscreenButton";
@@ -88,13 +89,32 @@ function ProgressBar({ video }: { video: HTMLVideoElement }) {
 /** Libellé de vitesse le plus long (« 0,75× ») : sa largeur sert pour toutes les vitesses. */
 const WIDEST_SPEED = SPEEDS.map(speedLabel).reduce((a, b) => (b.length > a.length ? b : a));
 
+/** Menu des vitesses : fermé par Échap, un clic ailleurs ou quand les commandes se cachent (VIEW-49).
+ *  Un clic sur un bouton ou dans la barre du bas agit en plus ; sur la vidéo ou le fond gris autour,
+ *  il ferme seulement le menu (ni pause, ni fermeture de la visionneuse). */
 function SpeedMenu() {
   const speed = usePlayer((s) => s.speed);
   const setSpeed = usePlayer((s) => s.setSpeed);
+  const { idle } = useContext(ViewerChrome);
   const [open, setOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
   useEscape(open, () => setOpen(false));
+  useEffect(() => {
+    if (idle) setOpen(false);
+  }, [idle]);
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: globalThis.PointerEvent) => {
+      // Boutons 4 et 5 : pile d'Échap (escape.ts).
+      if (e.button > 2 || !(e.target instanceof Element) || menuRef.current?.contains(e.target)) return;
+      setOpen(false);
+      if (e.button === 0 && e.target.closest('[data-zone="visionneuse.video"]')) swallowClick(e);
+    };
+    window.addEventListener("pointerdown", onDown, true);
+    return () => window.removeEventListener("pointerdown", onDown, true);
+  }, [open]);
   return (
-    <div className="relative">
+    <div ref={menuRef} className="relative">
       <button
         type="button"
         data-zone="visionneuse.lecteur.vitesse"

@@ -3,6 +3,27 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Menu des vitesses fermé par un clic ailleurs, compte à rebours relancé par la vitesse (16/10/2026) — Backup v33
+
+SPEC : VIEW-48 validé `[x]` ; VIEW-47 précisé `[~]` ; VIEW-49 (nouvelle) livrée `[~]`. Choix : D-031.
+
+- VIEW-49 : menu des vitesses de la barre de lecture fermé par un clic ailleurs, Échap ou la
+  disparition des commandes (3 s sans mouvement en plein écran). Un clic sur la vidéo ou le fond
+  gris autour ferme seulement le menu (pas de pause, la visionneuse reste ouverte) ; un clic sur un
+  bouton ou dans la barre du bas ferme le menu et agit.
+- VIEW-47 : commandes affichées, `<` / `>` relancent le compte à rebours de 3 s ; commandes cachées :
+  rien ne change.
+- Le « clic avalé » du menu du clic droit est partagé (`lib/swallowClick.ts`), même comportement.
+
+Vérifié dans la version compilée (bibliothèque « booru », une vidéo) : menu des vitesses ouvert,
+clic sur la vidéo → menu fermé, vidéo toujours en lecture ; clic sur le fond gris → menu fermé,
+visionneuse ouverte ; clic sur lecture / pause → menu fermé et vidéo en pause ; clic dans le champ
+d'ajout de tag → menu fermé, champ actif ; Échap → menu fermé ; clic droit → menu fermé, menu du clic
+droit ouvert ; plein écran, 3,5 s sans bouger → commandes cachées et menu fermé. Souris immobile 2 s,
+`>`, puis 2 s : commandes toujours affichées ; cachées 3,3 s après `>` ; `<` commandes cachées : elles
+restent cachées. VIEW-48 inchangé (mêmes mesures qu'en v32). Menu du clic droit : un clic gauche
+ailleurs le ferme sans ouvrir la vignette ; le clic suivant l'ouvre.
+
 ## Lecteur vidéo : badge de vitesse 2 s, largeur fixe, commandes gardées sous la souris (16/10/2026) — Backup v32
 
 SPEC : NAV-07 validé `[x]` ; VIEW-47 précisé `[~]` ; VIEW-48 (nouvelle) livrée `[~]`. Choix : D-031.

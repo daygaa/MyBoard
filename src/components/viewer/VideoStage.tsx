@@ -73,7 +73,7 @@ export function VideoStage({ item, onClose, fallback }: { item: MediaItem; onClo
   const [natural, setNatural] = useState<Size>({ w: item.width ?? 0, h: item.height ?? 0 });
   const [failed, setFailed] = useState(false);
   const { volume, muted, loop, speed } = usePlayer();
-  const { idle } = useContext(ViewerChrome);
+  const { idle, restartIdle } = useContext(ViewerChrome);
   const { view, zoomed, animate, handlers, reset, zoomTo, fitIsFullSize } = useZoom(stageRef, natural, onClose, () => toggle(videoRef.current));
   const frame = useFrameDuration(videoRef);
   const badge = usePlayerBadge();
@@ -103,13 +103,15 @@ export function VideoStage({ item, onClose, fallback }: { item: MediaItem; onClo
       } else {
         const action = videoActionFor(e);
         if (!action) return;
-        showBadge(runVideoShortcut(action), action === "slower" || action === "faster" ? SPEED_BADGE_MS : undefined);
+        const speed = action === "slower" || action === "faster";
+        showBadge(runVideoShortcut(action), speed ? SPEED_BADGE_MS : undefined);
+        if (speed) restartIdle(); // commandes affichées : encore 3 s (VIEW-47)
       }
       e.preventDefault(); // Espace n'active pas en plus le bouton qui a le focus
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [frame, showBadge]);
+  }, [frame, showBadge, restartIdle]);
 
   if (failed) return <>{fallback}</>;
   return (

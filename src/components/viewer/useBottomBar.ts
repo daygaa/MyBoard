@@ -4,7 +4,7 @@
 // Souris sortie de la fenêtre (vers un autre écran, VIEW-37) : barre et commandes se cachent
 // tout de suite ; à son retour, le premier mouvement les fait réapparaître comme d'habitude.
 
-import { useEffect, useState, type RefObject } from "react";
+import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
 
 import { isTyping } from "./navigation";
 
@@ -73,29 +73,42 @@ export function useHeight(ref: RefObject<HTMLElement | null>): number {
 
 /** Vrai quand la souris n'a pas bougé depuis IDLE_DELAY, ou dès qu'elle sort de la fenêtre
  *  (seulement si `active`). Souris immobile sur un élément de `keep` (sélecteur CSS) : rien ne se
- *  cache ; le compte à rebours repart quand elle en sort, puisqu'elle bouge (VIEW-48). */
-export function useIdle(active: boolean, keep?: string): boolean {
+ *  cache ; le compte à rebours repart quand elle en sort, puisqu'elle bouge (VIEW-48).
+ *  `restart` : commandes affichées, le compte à rebours repart de zéro (raccourci de vitesse,
+ *  VIEW-47) ; commandes cachées, rien ne change. */
+export function useIdle(active: boolean, keep?: string): { idle: boolean; restart: () => void } {
   const [idle, setIdle] = useState(false);
+  const restartRef = useRef(() => {});
   useEffect(() => {
     if (!active) return;
     let x = -1;
     let y = -1;
+    let hidden = false;
     // Ce qui est sous la souris au moment de cacher (un menu a pu se fermer sous elle entre-temps).
     const sleep = () => {
       if (keep && x >= 0 && document.elementFromPoint(x, y)?.closest(keep)) return;
+      hidden = true;
       setIdle(true);
     };
     let timer = setTimeout(sleep, IDLE_DELAY);
-    const wake = (e: MouseEvent) => {
-      x = e.clientX;
-      y = e.clientY;
-      setIdle(false);
+    const rearm = () => {
       clearTimeout(timer);
       timer = setTimeout(sleep, IDLE_DELAY);
     };
+    const wake = (e: MouseEvent) => {
+      x = e.clientX;
+      y = e.clientY;
+      hidden = false;
+      setIdle(false);
+      rearm();
+    };
     const leave = () => {
       clearTimeout(timer);
+      hidden = true;
       setIdle(true);
+    };
+    restartRef.current = () => {
+      if (!hidden) rearm();
     };
     window.addEventListener("mousemove", wake);
     window.addEventListener("pointerdown", wake);
@@ -105,8 +118,10 @@ export function useIdle(active: boolean, keep?: string): boolean {
       window.removeEventListener("mousemove", wake);
       window.removeEventListener("pointerdown", wake);
       document.documentElement.removeEventListener("mouseleave", leave);
+      restartRef.current = () => {};
       setIdle(false);
     };
   }, [active, keep]);
-  return idle;
+  const restart = useCallback(() => restartRef.current(), []);
+  return { idle, restart };
 }

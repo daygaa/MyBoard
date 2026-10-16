@@ -70,7 +70,7 @@ function ViewerOverlay({ base }: { base: ListBase }) {
   const barVisible = useBottomBarVisible(barRef, shown);
   const [panel, setPanel] = useState<PanelMetrics>({ rise: 0, oneLine: 0, anchor: 0, height: 0 });
   const barHeight = panel.height;
-  const idle = useIdle(shown && item?.kind === "video", KEEP_SHOWN);
+  const { idle, restart: restartIdle } = useIdle(shown && item?.kind === "video", KEEP_SHOWN);
   // Plein écran : barre du bas affichée (souris proche, message d'erreur, « Copié » d'un
   // raccourci VIEW-35, ou saisie d'un tag ; un bouton cliqué ne compte pas, VIEW-43).
   const typing = useTypingIn(barRef);
@@ -87,7 +87,7 @@ function ViewerOverlay({ base }: { base: ListBase }) {
   // Elles glissent si la barre dépliée les atteint, au-delà de l'avance qu'elles ont déjà sur le
   // bord haut de la barre repliée.
   const lift = Math.max(0, rise - (bottomInset - (shown ? barHeight : 0)));
-  const chrome = { bottomInset, idle, lift };
+  const chrome = { bottomInset, idle, lift, restartIdle };
   // Flèches (VIEW-38) : centrées comme si la barre du bas n'avait qu'une ligne de tags (plein
   // écran : centre de l'écran) ; elles montent si la barre dépliée arrive à leur hauteur. Arrondi
   // au pixel : à un demi-pixel, la flèche est calée sur un pixel entier mais le bouton rond rangé à

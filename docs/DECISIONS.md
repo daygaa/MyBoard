@@ -658,3 +658,11 @@ Commandes gardées (VIEW-48) : au moment de cacher les commandes (3 s sans mouve
 qui est sous la souris (`elementFromPoint`, car un menu a pu se fermer sous elle) ; si c'est un des
 éléments de `KEEP_SHOWN` (`viewerChrome.ts` : barre de lecture et menu des vitesses, notes, flèches,
 croix, barre du bas), rien ne se cache ; le compte à rebours repart au mouvement suivant.
+
+**Menu des vitesses et compte à rebours (VIEW-47, VIEW-49, 16/10).** Le « clic avalé » du menu du
+clic droit (CTX-01 : l'appui et le clic qui suit n'atteignent pas l'élément visé) est sorti dans
+`lib/swallowClick.ts` et sert aussi au menu des vitesses : un clic sur la vidéo ou le fond gris
+(zone `visionneuse.video`) ferme seulement le menu ; ailleurs (boutons, barre du bas), le clic
+ferme le menu et agit. Le menu se ferme aussi quand les commandes se cachent. `useIdle` renvoie
+`restart` (passé aux éléments par `ViewerChrome.restartIdle`) : les touches de vitesse relancent le
+compte à rebours de 3 s seulement si les commandes sont affichées.
