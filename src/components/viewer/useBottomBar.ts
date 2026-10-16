@@ -72,16 +72,26 @@ export function useHeight(ref: RefObject<HTMLElement | null>): number {
 }
 
 /** Vrai quand la souris n'a pas bougé depuis IDLE_DELAY, ou dès qu'elle sort de la fenêtre
- *  (seulement si `active`). */
-export function useIdle(active: boolean): boolean {
+ *  (seulement si `active`). Souris immobile sur un élément de `keep` (sélecteur CSS) : rien ne se
+ *  cache ; le compte à rebours repart quand elle en sort, puisqu'elle bouge (VIEW-48). */
+export function useIdle(active: boolean, keep?: string): boolean {
   const [idle, setIdle] = useState(false);
   useEffect(() => {
     if (!active) return;
-    let timer = setTimeout(() => setIdle(true), IDLE_DELAY);
-    const wake = () => {
+    let x = -1;
+    let y = -1;
+    // Ce qui est sous la souris au moment de cacher (un menu a pu se fermer sous elle entre-temps).
+    const sleep = () => {
+      if (keep && x >= 0 && document.elementFromPoint(x, y)?.closest(keep)) return;
+      setIdle(true);
+    };
+    let timer = setTimeout(sleep, IDLE_DELAY);
+    const wake = (e: MouseEvent) => {
+      x = e.clientX;
+      y = e.clientY;
       setIdle(false);
       clearTimeout(timer);
-      timer = setTimeout(() => setIdle(true), IDLE_DELAY);
+      timer = setTimeout(sleep, IDLE_DELAY);
     };
     const leave = () => {
       clearTimeout(timer);
@@ -97,6 +107,6 @@ export function useIdle(active: boolean): boolean {
       document.documentElement.removeEventListener("mouseleave", leave);
       setIdle(false);
     };
-  }, [active]);
+  }, [active, keep]);
   return idle;
 }

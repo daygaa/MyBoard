@@ -10,6 +10,17 @@ import { createContext } from "react";
 
 export const ViewerChrome = createContext({ bottomInset: 0, idle: false, lift: 0 });
 
+/** Éléments sous la souris qui gardent les commandes à l'écran malgré l'immobilité (VIEW-48) :
+ *  barre de lecture (et son menu des vitesses), notes, flèches, croix, barre du bas (et ses listes). */
+export const KEEP_SHOWN = [
+  '[data-zone="visionneuse.lecteur"]',
+  '[data-zone^="visionneuse.note"]',
+  '[data-zone="visionneuse.precedent"]',
+  '[data-zone="visionneuse.suivant"]',
+  '[data-zone="visionneuse.fermer"]',
+  '[data-zone="visionneuse.bas"]',
+].join(", ");
+
 /** Classes d'un élément qui se cache quand la souris est immobile (VIEW-33). */
 export function idleClass(idle: boolean): string {
   return idle ? "pointer-events-none opacity-0" : "opacity-100";

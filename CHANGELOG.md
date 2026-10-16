@@ -3,6 +3,23 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Lecteur vidéo : badge de vitesse 2 s, largeur fixe, commandes gardées sous la souris (16/10/2026) — Backup v32
+
+SPEC : NAV-07 validé `[x]` ; VIEW-47 précisé `[~]` ; VIEW-48 (nouvelle) livrée `[~]`. Choix : D-031.
+
+- VIEW-47 : badges de vitesse affichés 2 s (son et boucle : 1,2 s) ; le libellé de vitesse de la
+  barre de lecture a toujours la largeur de « 0,75× » : le volume et la barre de progression ne
+  bougent plus d'une vitesse à l'autre.
+- VIEW-48 : vidéo en plein écran, souris immobile sur la barre de lecture, le menu des vitesses, le
+  bouton des notes, une flèche, la croix ou la barre du bas : les commandes restent affichées ; elles
+  se cachent de nouveau 3 s après que la souris en est sortie.
+
+Vérifié dans la version compilée (bibliothèque « booru », vidéo en plein écran) : bouton de vitesse
+52 px et barre de progression 426,8 px pour les 6 vitesses ; badge de vitesse encore là à 1,6 s,
+parti à 2,3 s ; badge du son parti à 1,4 s ; souris immobile 3,6 s : commandes cachées sur la vidéo,
+affichées sur la barre de progression, le bouton et le menu des vitesses, les notes, les deux flèches,
+la croix et la barre du bas ; ressortie sur la vidéo : cachées de nouveau.
+
 ## Raccourcis du lecteur vidéo, favoris sur S (16/10/2026) — Backup v31
 
 SPEC : VIEW-47 (nouvelle) livrée `[~]` ; VIEW-36 modifié (favoris : `S`) ; FUT-08 (nouvelle) :

@@ -18,7 +18,7 @@ import { cn } from "@/lib/utils";
 import { isSilent, speedLabel, usePlayer } from "@/stores/player";
 
 import { videoMenu } from "./mediaMenus";
-import { PlayerBadge, usePlayerBadge } from "./PlayerBadge";
+import { PlayerBadge, SPEED_BADGE_MS, usePlayerBadge } from "./PlayerBadge";
 import { ANIM_MS, useZoom, type Size } from "./useZoom";
 import { VideoControls } from "./VideoControls";
 import { ViewerChrome } from "./viewerChrome";
@@ -103,7 +103,7 @@ export function VideoStage({ item, onClose, fallback }: { item: MediaItem; onClo
       } else {
         const action = videoActionFor(e);
         if (!action) return;
-        showBadge(runVideoShortcut(action));
+        showBadge(runVideoShortcut(action), action === "slower" || action === "faster" ? SPEED_BADGE_MS : undefined);
       }
       e.preventDefault(); // Espace n'active pas en plus le bouton qui a le focus
     };

@@ -33,7 +33,7 @@ import { NotesButton } from "./NotesButton";
 import { isTyping, itemAt, usePageAt, usePreload } from "./navigation";
 import { removePrintHolder } from "./printMedia";
 import { useBottomBarVisible, useHeight, useIdle, useTypingIn } from "./useBottomBar";
-import { idleClass, ViewerChrome } from "./viewerChrome";
+import { idleClass, KEEP_SHOWN, ViewerChrome } from "./viewerChrome";
 
 const NAV_BUTTON =
   "absolute z-20 grid h-12 w-12 -translate-y-1/2 place-items-center rounded-md bg-black/60 text-white transition hover:bg-black/85";
@@ -70,7 +70,7 @@ function ViewerOverlay({ base }: { base: ListBase }) {
   const barVisible = useBottomBarVisible(barRef, shown);
   const [panel, setPanel] = useState<PanelMetrics>({ rise: 0, oneLine: 0, anchor: 0, height: 0 });
   const barHeight = panel.height;
-  const idle = useIdle(shown && item?.kind === "video");
+  const idle = useIdle(shown && item?.kind === "video", KEEP_SHOWN);
   // Plein écran : barre du bas affichée (souris proche, message d'erreur, « Copié » d'un
   // raccourci VIEW-35, ou saisie d'un tag ; un bouton cliqué ne compte pas, VIEW-43).
   const typing = useTypingIn(barRef);

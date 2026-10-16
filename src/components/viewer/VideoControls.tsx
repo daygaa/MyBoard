@@ -85,6 +85,9 @@ function ProgressBar({ video }: { video: HTMLVideoElement }) {
   );
 }
 
+/** Libellé de vitesse le plus long (« 0,75× ») : sa largeur sert pour toutes les vitesses. */
+const WIDEST_SPEED = SPEEDS.map(speedLabel).reduce((a, b) => (b.length > a.length ? b : a));
+
 function SpeedMenu() {
   const speed = usePlayer((s) => s.speed);
   const setSpeed = usePlayer((s) => s.setSpeed);
@@ -99,7 +102,14 @@ function SpeedMenu() {
         title={`Vitesse de lecture (${VIDEO_SHORTCUTS.slower.label} / ${VIDEO_SHORTCUTS.faster.label})`}
         className="h-8 min-w-12 rounded-md px-2 font-mono text-xs text-zinc-200 transition hover:bg-white/10 hover:text-white"
       >
-        {speedLabel(speed)}
+        {/* Toujours la largeur du libellé le plus long : le volume et la barre de progression ne
+            bougent plus d'une vitesse à l'autre (VIEW-47). */}
+        <span className="grid">
+          <span aria-hidden className="invisible [grid-area:1/1]">
+            {WIDEST_SPEED}
+          </span>
+          <span className="[grid-area:1/1]">{speedLabel(speed)}</span>
+        </span>
       </button>
       {open && (
         <ul className="absolute right-0 bottom-full z-30 mb-1 rounded-md border border-border bg-popover p-1 shadow-lg">

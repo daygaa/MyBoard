@@ -650,3 +650,11 @@ une seule touche, Maj pour `>` ; écartés : `[` `]` de VLC, qui demandent AltGr
 sont réunis dans `lib/shortcuts.ts` (personnalisables plus tard, SET-10) et affichés dans les bulles
 d'aide et le menu du clic droit. Badge bref (`PlayerBadge`, aspect du badge du zoom) : il ne se cache
 pas avec les commandes (souris immobile en plein écran), c'est là qu'il sert.
+
+**Retouches du 16/10 (VIEW-47, VIEW-48).** Badges de vitesse affichés 2 s (les autres 1,2 s). Libellé
+de vitesse de la barre de lecture : l'étiquette la plus longue (« 0,75× ») est posée invisible sous
+l'étiquette affichée, dans la même case : toutes les vitesses ont sa largeur, la barre ne bouge plus.
+Commandes gardées (VIEW-48) : au moment de cacher les commandes (3 s sans mouvement), on regarde ce
+qui est sous la souris (`elementFromPoint`, car un menu a pu se fermer sous elle) ; si c'est un des
+éléments de `KEEP_SHOWN` (`viewerChrome.ts` : barre de lecture et menu des vitesses, notes, flèches,
+croix, barre du bas), rien ne se cache ; le compte à rebours repart au mouvement suivant.
