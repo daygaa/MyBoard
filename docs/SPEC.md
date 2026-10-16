@@ -40,7 +40,7 @@ Les fichiers sources sont dans `Versions historiques/` (lecture seule).
 - [~] **GEN-03** Thème sombre froid `#111214`, accent doré `#d9a94e`, **pas d'indigo ni de bleu vif**. `PY`
 - [~] **GEN-04** **Aucun emoji** dans l'interface : icônes uniquement (Lucide). `PY`
 - [~] **GEN-05** Pied de page collé en bas de la fenêtre. `R1`
-- [~] **GEN-06** Interface en français.
+- [~] **GEN-06** Interface en français. — Traduction en anglais un jour : FUT-08.
 - [~] **GEN-07** Fluidité à grande échelle : bibliothèque de **100 000+ médias**, grille **sans lag jusqu'à 30 colonnes**. L'utilisateur a 100k+ fichiers réels (C: SSD, D: HDD) pour tester. `R2 R3 R4 D 11/10` — Phase 1 : mesuré sur 100 000 médias (CHANGELOG, D-014).
 - [~] **GEN-08** Chaque zone de l'interface porte un **nom court et stable** (attribut `data-zone`, ex. `visionneuse.barre-tags`) pour que l'utilisateur puisse la désigner dans ses retours sans copier de classes HTML. Remplace la demande « nettoyer les noms des div ». `R1 R2 D 11/10`
 - [~] **GEN-09** Marges et alignements cohérents au pixel près (pas de décalages de 1–2 px). `R1` — 13/10 : texte des pastilles de tags 1 px trop bas, corrigé (`T2`, capture « Screen 1 »).
@@ -82,35 +82,38 @@ inactives** (comme les boutons « bientôt » de la visionneuse) et s'activent a
 
 ## LIB — Bibliothèque et stockage
 
-- [~] **LIB-01** Par défaut, les médias sont **référencés sur place** : l'application indexe les fichiers là où ils sont, sans les copier. `D 11/10`
-- [>] **LIB-02** Option dans les paramètres : **importer dans la bibliothèque gérée** (copie dans `originals/<2 hex>/<reste>.<ext>`, 256 sous-dossiers par hash). `D 11/10` `PY`
-- [~] **LIB-03** Détection des doublons exacts par empreinte du contenu (hash) : un fichier déjà indexé n'est pas ré-ajouté, même renommé. `PY FC`
+- [x] **LIB-01** Par défaut, les médias sont **référencés sur place** : l'application indexe les fichiers là où ils sont, sans les copier. `D 11/10` — Option « bibliothèque gérée » : LIB-02.
+- [>] **LIB-02** Option dans les paramètres : **importer dans la bibliothèque gérée** (copie dans `originals/<2 hex>/<reste>.<ext>`, 256 sous-dossiers par hash). `D 11/10` `PY` — À traiter dès le début de la phase 4.
+- [x] **LIB-03** Détection des doublons exacts par empreinte du contenu (hash) : un fichier déjà indexé n'est pas ré-ajouté, même renommé. `PY FC`
 - [x] **LIB-04** Les tags sont liés au média (identifiant interne), jamais au nom de fichier. `PY`
-- [?] **LIB-05** Comportement quand un fichier référencé est **déplacé, renommé ou supprimé hors de l'application** (signaler « fichier introuvable », retrouver automatiquement par hash lors d'un nouveau scan…). → Q-01
-- [~] **LIB-06** **Petites miniatures** (~320 px, format WebP) générées **en arrière-plan après l'import**, stockées sur le SSD ; l'import n'attend pas leur génération, elles apparaissent au fur et à mesure. `D 11/10` (Q-02, D-011) — Phase 1 : rangées dans `thumbs.db` (D-014).
-- [~] **LIB-07** Base de données et miniatures sur un disque rapide (SSD) même si les médias sont sur HDD. `D 11/10`
-- [~] **LIB-08** Sauvegarde simple : copier le dossier de données de l'application suffit. `PY` — Phase 1 : copier `%LOCALAPPDATA%\MyBoard`, application fermée.
-- [~] **LIB-09** **Grands aperçus** (~640 px) pour les densités 4–6 colonnes, **générés à la demande** : la petite miniature s'affiche immédiatement puis est remplacée par le grand aperçu ; un aperçu n'est demandé que si la vignette reste visible ~150 ms ; les demandes des vignettes sorties de l'écran sont annulées ; génération en arrière-plan sans jamais bloquer l'interface. `D 11/10` (D-011)
-- [~] **LIB-10** Cache des grands aperçus **de taille limitée** : les moins récemment utilisés sont supprimés en premier. `D 11/10` — Phase 1 : limite 1 Go (D-015).
-- [>] **LIB-11** Paramètres du cache : taille maximale, bouton « Vider le cache », emplacement. `D 11/10`
-- [~] **LIB-12** **Miniatures 128 px** pour les grilles denses (à partir de 16 colonnes) : décodage plus rapide, sans perte visible. `D 12/10` (D-015)
+- [ ] **LIB-05** Comportement quand un fichier référencé est **déplacé, renommé ou supprimé hors de l'application** : à la prochaine ouverture de MyBoard, pop-in « **Ces médias ont été supprimés ou déplacés de vos fichiers** » listant chaque média (nom, chemin dans l'explorateur de fichiers, miniature), avec 2 boutons : « **Supprimer de la bibliothèque** » et « **Conserver la miniature** » (au survol, une explication du type « si ces fichiers sont ré-importés, la miniature sera remplacée par le fichier réel »). Les emplacements inaccessibles ne sont pas concernés : LIB-14. Phase : à préciser. `D 16/10` (Q-01)
+- [x] **LIB-06** **Petites miniatures** (~320 px, format WebP) générées **en arrière-plan après l'import**, stockées sur le SSD ; l'import n'attend pas leur génération, elles apparaissent au fur et à mesure. `D 11/10` (Q-02, D-011) — Phase 1 : rangées dans `thumbs.db` (D-014).
+- [~] **LIB-07** Base de données et miniatures sur un disque rapide (SSD) même si les médias sont sur HDD. `D 11/10` — Jamais testé avec seulement des disques durs, ni avec des médias sur un NAS. À prévoir : LIB-13 (emplacement des données), LIB-14 (emplacement inaccessible).
+- [~] **LIB-08** Sauvegarde simple : copier le dossier de données de l'application suffit. `PY` — Phase 1 : copier `%LOCALAPPDATA%\MyBoard`, application fermée. — Principe à garder jusqu'à la fin du développement ; bouton de sauvegarde : SET-13.
+- [~] **LIB-09** **Grands aperçus** (~640 px) pour les densités 4–6 colonnes, **générés à la demande** : la petite miniature s'affiche immédiatement puis est remplacée par le grand aperçu ; un aperçu n'est demandé que si la vignette reste visible ~150 ms ; les demandes des vignettes sorties de l'écran sont annulées ; génération en arrière-plan sans jamais bloquer l'interface. `D 11/10` (D-011) — Mesures à refaire : LIB-15 (phase 3).
+- [~] **LIB-10** Cache des grands aperçus **de taille limitée** : les moins récemment utilisés sont supprimés en premier. `D 11/10` — Phase 1 : limite 1 Go (D-015). — Mesures à refaire : LIB-15 (phase 3).
+- [>] **LIB-11** Paramètres du cache : taille maximale, bouton « Vider le cache », emplacement. `D 11/10` — Phase 5. Emplacement : un seul réglage pour le cache et les données, voir LIB-13.
+- [~] **LIB-12** **Miniatures 128 px** pour les grilles denses (à partir de 16 colonnes) : décodage plus rapide, sans perte visible. `D 12/10` (D-015) — Mesures à refaire : LIB-15 (phase 3).
+- [>] **LIB-13** **Emplacement des données au choix** dans les paramètres : un seul réglage pour la base, les miniatures et le cache des aperçus, rangés au même endroit. Aujourd'hui : toujours `%LOCALAPPDATA%\MyBoard` sur C: (seule la variable de test `MYBOARD_DATA_DIR` permet d'en changer). Utile si C: n'est pas un SSD (LIB-07). Phase 5, avec LIB-11. `D 16/10`
+- [ ] **LIB-14** **Emplacement inaccessible ≠ fichier supprimé** : un NAS éteint, un disque débranché ou un dossier réseau injoignable ne doit jamais faire croire que ses médias ont été supprimés (pas de pop-in LIB-05 pour eux, message distinct). `D 16/10` (LIB-05, LIB-07)
+- [ ] **LIB-15** **Mesures des trois tailles de miniatures à refaire** (LIB-09, LIB-10, LIB-12) : taille réelle des miniatures 128, 320 et 640 px sur le disque ; vitesse d'affichage pour chacune des 3 tailles sur les 2 écrans (1920×1080 et 2560×1440) ; faire **déborder le cache des aperçus au-delà de 1 Go** et vérifier que les plus anciens sont bien supprimés. Phase 3. `D 16/10`
 
 ## IMP — Import
 
 ### Sélection des fichiers
-- [~] **IMP-01** Importer **un ou plusieurs fichiers** via la fenêtre de sélection Windows. `FC R2`
-- [~] **IMP-02** Importer **un dossier** via la fenêtre de sélection Windows (bouton distinct « Importer un dossier » qui fonctionne réellement). `FC R2 R3 R4`
-- [~] **IMP-03** Glisser-déposer de fichiers **et** de dossiers (récursif). `FC R1` (v8 ✓)
-- [~] **IMP-04** Option « Importer le contenu des sous-dossiers ». `FC`
-- [~] **IMP-05** Formats acceptés : images, vidéos, audio, + PDF, PowerPoint/Slides, Excel/Sheets. Les autres fichiers sont ignorés (avec compteur « X fichiers ignorés »). `R1`
-- [ ] **IMP-06** Lecture adaptée au disque : en parallèle sur SSD, séquentielle sur HDD. `D 11/10`
-- [~] **IMP-07** Documents Word acceptés en plus de IMP-05 : `.doc`, `.docx`, `.odt` (les `.txt` restent ignorés). `D 11/10`
+- [x] **IMP-01** Importer **un ou plusieurs fichiers** via la fenêtre de sélection Windows. `FC R2`
+- [x] **IMP-02** Importer **un dossier** via la fenêtre de sélection Windows (bouton distinct « Importer un dossier » qui fonctionne réellement). `FC R2 R3 R4`
+- [x] **IMP-03** Glisser-déposer de fichiers **et** de dossiers (récursif). `FC R1` (v8 ✓)
+- [x] **IMP-04** Option « Importer le contenu des sous-dossiers ». `FC`
+- [~] **IMP-05** Formats acceptés : images, vidéos, audio, + PDF, PowerPoint/Slides, Excel/Sheets. Les autres fichiers sont ignorés (avec compteur « X fichiers ignorés »). `R1` — Pas encore testé avec tous les types de fichiers : à faire en phase 4.
+- [ ] **IMP-06** Lecture adaptée au disque : en parallèle sur SSD, séquentielle sur HDD. `D 11/10` — Jamais codé (les fichiers sont lus un par un partout) ni testé sur disque dur : phase 4.
+- [~] **IMP-07** Documents Word acceptés en plus de IMP-05 : `.doc`, `.docx`, `.odt` (les `.txt` restent ignorés). `D 11/10` — Pas encore testé avec tous les types de fichiers : à faire en phase 4.
 
 ### Aperçu avant import
-- [ ] **IMP-10** Liste des fichiers sélectionnés **sous** la barre d'actions, avec miniature d'aperçu, nom, poids, format. `R1` (v8 ✓)
-- [ ] **IMP-11** Liste plafonnée à 100 aperçus + texte « et X supplémentaires » + bouton « voir plus » (+100 par clic). `R2` (v8 ✓)
-- [ ] **IMP-12** Rester fluide même avec 10 000 – 100 000 fichiers sélectionnés. `R1`
-- [?] **IMP-13** Réutiliser les miniatures déjà calculées par l'explorateur Windows si c'est possible et plus rapide. `FC`
+- [ ] **IMP-10** Liste des fichiers sélectionnés **sous** la barre d'actions, avec miniature d'aperçu, nom, poids, format. `R1` (v8 ✓) — À faire en phase 4.
+- [ ] **IMP-11** Liste plafonnée à 100 aperçus + texte « et X supplémentaires » + bouton « voir plus » (+100 par clic). `R2` (v8 ✓) — À faire en phase 4.
+- [ ] **IMP-12** Rester fluide même avec 10 000 – 100 000 fichiers sélectionnés. `R1` — À faire en phase 4.
+- [?] **IMP-13** Réutiliser les miniatures déjà calculées par l'explorateur Windows si c'est possible et plus rapide. `FC` — Question à poser au début de la phase 4.
 
 ### Options
 - [ ] **IMP-20** « Compresser les images » + curseur de qualité **20–95**. `R1` (v8 ✓)
@@ -119,7 +122,7 @@ inactives** (comme les boutons « bientôt » de la visionneuse) et s'activent a
 - [ ] **IMP-23** Bulle ⓘ à côté du menu vidéo, textes exacts : MP4 standard « Conseillé - Compatibilité totale » · MP4 H.265 « Meilleure compression, nécessite une extension HEVC pour les lecteurs Windows » · WebM « Meilleure compression, compatible sur navigateur mais pas sur les lecteurs Windows » · AV1 « Compression maximale, lent à encoder, peu de compatibilité disponible ». `R3`
 - [ ] **IMP-24** « Qualité vidéo » : **curseur à 5 crans** Minimale / Basse / Moyenne (défaut) / Haute / Maximale. `R2` (v8 ✓)
 - [ ] **IMP-25** Compression vidéo : conserver la résolution et le nombre d'images par seconde ; images : conserver la résolution. Moteur : ffmpeg (voir IMP-48 / IMP-49). `FC R2`
-- [~] **IMP-26** Pas d'option « Générer miniatures » (toujours actif). `R1`
+- [x] **IMP-26** Pas d'option « Générer miniatures » (toujours actif). `R1`
 - [?] **IMP-27** Avec le référencement sur place (LIB-01), où vont les fichiers **convertis / compressés** ? (remplacer l'original, créer un fichier à côté, ou réservé au mode bibliothèque gérée LIB-02). → Q-03
 - [>] **IMP-28** Option « Supprimer les originaux » (n'a de sens qu'en mode bibliothèque gérée). `FC`
 - [ ] **IMP-29** Les réglages par défaut des options viennent des Paramètres (SET-05). `FC`
@@ -130,50 +133,52 @@ inactives** (comme les boutons « bientôt » de la visionneuse) et s'activent a
 - [ ] **IMP-52** **Liste des suggestions des tags par défaut** : elle s'ouvre sous le champ, placé bas dans la page, et dépasse du bas de la fenêtre (vu le 16/10, déjà le cas avant SRCH-25). L'ouvrir **vers le haut** quand la place manque en dessous. Noté le 16/10, à faire plus tard. `D 16/10` (IMP-31, SRCH-25)
 
 ### Déroulement
-- [~] **IMP-40** La progression s'affiche **dans** la barre d'actions d'import (cachée au repos), au-dessus de la liste des fichiers. `R2` (v8 ✓)
+- [x] **IMP-40** La progression s'affiche **dans** la barre d'actions d'import (cachée au repos), au-dessus de la liste des fichiers. `R2` (v8 ✓)
 - [~] **IMP-41** Progression : barre 0–100 % globale, fraction « X / Y », et pendant une compression : barre du fichier en cours + sa miniature + son nom. `FC` — Phase 1 : barre globale + « X / Y » + nom du fichier en cours ; barre et miniature du fichier en compression : phase 4.
 - [>] **IMP-51** Bouton pour **vider les fichiers choisis** dans la zone d'import (repartir de zéro). `D 15/10` — Reporté en phase 4 (choix de l'utilisateur, 15/10).
 - [~] **IMP-42** Boutons **Pause** et **Arrêter**. `IDEES` — Phase 1 : « Arrêter » fait (avancé à ta demande, `D 11/10`) ; « Pause » plus tard.
-- [ ] **IMP-43** Annuler (avec confirmation) arrête proprement : supprime les fichiers résiduels, aucun processus ne reste en arrière-plan. `FC`
-- [~] **IMP-44** Le bouton « Importer » est bloqué une fois l'import terminé (jusqu'à une nouvelle sélection). `IDEES`
-- [ ] **IMP-45** Pop-in de fin : « X importés sur Y », nombre d'erreurs + noms des fichiers en erreur ; si compression : taux moyen %, place gagnée, poids avant/après, détail images/vidéos au survol. `FC`
-- [~] **IMP-46** Les vidéos importées ont une miniature. `R2 R3 R4`
+- [ ] **IMP-43** Annuler (avec confirmation) arrête proprement : supprime les fichiers résiduels, aucun processus ne reste en arrière-plan. `FC` — À faire en phase 4.
+- [x] **IMP-44** Le bouton « Importer » est bloqué une fois l'import terminé (jusqu'à une nouvelle sélection). `IDEES`
+- [ ] **IMP-45** Pop-in de fin : « X importés sur Y », nombre d'erreurs + noms des fichiers en erreur ; si compression : taux moyen %, place gagnée, poids avant/après, détail images/vidéos au survol. `FC` — À faire en phase 4.
+- [x] **IMP-46** Les vidéos importées ont une miniature. `R2 R3 R4`
 - [ ] **IMP-47** Un fichier converti s'affiche avec sa **vraie extension** (nom affiché mis à jour). `R4`
-- [~] **IMP-48** Pendant le développement : utiliser le **ffmpeg installé sur le PC**, détecté de façon fiable sous Windows (PATH et emplacements connus), avec un message clair s'il est absent. `D 11/10` (D-012)
-- [>] **IMP-49** Version finale : **ffmpeg fourni avec l'application** (téléchargement du binaire uniquement avec l'accord de l'utilisateur, au moment venu). `D 11/10` (D-007, D-012)
-- [~] **IMP-50** Après un import, l'encadré de dépôt revient à son état de départ (plus de chemin affiché ni de résumé du choix précédent). `T1`
+- [x] **IMP-48** Pendant le développement : utiliser le **ffmpeg installé sur le PC**, détecté de façon fiable sous Windows (PATH et emplacements connus), avec un message clair s'il est absent. `D 11/10` (D-012)
+- [>] **IMP-49** Version finale : **ffmpeg fourni avec l'application** (téléchargement du binaire uniquement avec l'accord de l'utilisateur, au moment venu). `D 11/10` (D-007, D-012) — Phase 4. À ce moment-là : supprimer le texte de détection de ffmpeg de la page d'import. Suggestion à reproposer quand cette partie sera développée : un interrupteur de test (ex. `MYBOARD_SANS_FFMPEG=1`) pour simuler l'absence de ffmpeg.
+- [x] **IMP-50** Après un import, l'encadré de dépôt revient à son état de départ (plus de chemin affiché ni de résumé du choix précédent). `T1`
+- [ ] **IMP-53** **Revérification complète de l'import en phase 4** : retester tout ce qui touche à l'import (LIB-01, LIB-03, LIB-06, LIB-07, IMP-01 à IMP-07, IMP-26, IMP-30, IMP-31, IMP-40 à IMP-50), en plus des nouveautés de la phase 4. `D 16/10`
+- [ ] **IMP-54** **Fichier supprimé ou dossier inaccessible pendant l'import** : détecter qu'un fichier en cours d'import a été supprimé, ou que son dossier n'est plus accessible, et le signaler. Phase 4. `D 16/10`
 
 ## GRID — Page d'accueil et grille
 
-- [~] **GRID-01** Bibliothèque vide : message d'accueil spécifique (« Bienvenue… commencez par importer ») + bouton Importer fonctionnel. Recherche sans résultat : message distinct. `R1` (v8 ✓)
-- [~] **GRID-02** Densité **4 à 30 colonnes, limites fixes** quelle que soit la résolution d'écran ; les vignettes s'adaptent en largeur. `R1` (v8 ✓)
-- [~] **GRID-03** Bouton « Disposition » : préréglages + curseur ; aucun texte explicatif sous le curseur. `R1` (v8 ✓)
-- [~] **GRID-04** Ctrl + molette change la densité (comme l'explorateur Windows). `FC`
-- [~] **GRID-05** Nombre de médias par page **adapté à la densité** : 50 à 4 colonnes → 500 à 30 colonnes. `R1` (v8 ✓)
-- [~] **GRID-06** **Aucun lag** en changeant de densité ni à 30 colonnes (voir GEN-07). `R2 R3 R4`
-- [~] **GRID-07** Changer de filtre ou de tri ne réinitialise pas la densité / le nombre par page. `BUG`
+- [x] **GRID-01** Bibliothèque vide : message d'accueil spécifique (« Bienvenue… commencez par importer ») + bouton Importer fonctionnel. Recherche sans résultat : message distinct. `R1` (v8 ✓)
+- [x] **GRID-02** Densité **4 à 30 colonnes, limites fixes** quelle que soit la résolution d'écran ; les vignettes s'adaptent en largeur. `R1` (v8 ✓)
+- [x] **GRID-03** Bouton « Disposition » : préréglages + curseur ; aucun texte explicatif sous le curseur. `R1` (v8 ✓)
+- [x] **GRID-04** Ctrl + molette change la densité (comme l'explorateur Windows). `FC`
+- [x] **GRID-05** Nombre de médias par page **adapté à la densité** : 50 à 4 colonnes → 500 à 30 colonnes. `R1` (v8 ✓)
+- [x] **GRID-06** **Aucun lag** en changeant de densité ni à 30 colonnes (voir GEN-07). `R2 R3 R4`
+- [x] **GRID-07** Changer de filtre ou de tri ne réinitialise pas la densité / le nombre par page. `BUG`
 - [~] **GRID-08** Vignette : pas de badge d'extension, pas d'icône plein écran, pas de mini-tags. Restent : badge durée vidéo, badge GIF, étoile favori, case de sélection, infos au survol (nom, poids, dimensions). `R1` (v8 ✓) — Phase 1 : badges durée et GIF, infos au survol ; étoile et case de sélection : phase 3.
-- [~] **GRID-09** Au survol d'une vignette, le badge durée (vidéo) ou GIF remonte sur la ligne du nom de fichier : il ne cache plus les dimensions. `T1`
+- [x] **GRID-09** Au survol d'une vignette, le badge durée (vidéo) ou GIF remonte sur la ligne du nom de fichier : il ne cache plus les dimensions. `T1`
 - [~] **GRID-10** Grilles denses (problème vu depuis la phase 1) : à partir de ≈ 15 colonnes, le texte et les badges des vignettes se gênent (nom coupé « .mp » au lieu de « .mp4 », badge vidéo remonté, poids sur 2 lignes, dimensions coupées — captures « Screen 4 » et « Screen 5 »). Badge vidéo / GIF, nom, poids, dimensions — et plus tard l'étoile favori et la case de sélection — sont **réduits progressivement jusqu'à 30 colonnes** pour que tout reste visible. Réduction **selon la largeur réelle de la vignette** (choix de l'utilisateur) : elle commence dès que la vignette devient trop étroite pour tout afficher (≈ 15 colonnes sur l'écran 1440p, ≈ 11 sur le 1080p), même disposition qu'en grand, juste plus petite. Remplace la réduction de 25 % de SEL-05. `D 13/10`
 - [x] **GRID-11** Étape suivante de GRID-10, pour les vignettes encore plus petites (à partir de **18 colonnes sur l'écran 24" 1080p** et **22 colonnes sur l'écran 27" 1440p**, jusqu'à 30) : le badge vidéo / GIF, le poids et les dimensions sont **masqués** ; au survol, le **nom** prend toute la largeur de la vignette et s'agrandit au maximum, jusqu'en bas de l'ancienne ligne poids / dimensions — sur **une seule ligne**, aussi grand que possible pour tenir en entier ; un nom trop long garde la taille normale et finit par « … ». Seuil = **taille réelle de la vignette à l'écran** (≈ 2,2 cm de large, densité réelle de l'écran lue auprès de Windows) : mêmes 18 et 22 colonnes sur ces écrans, adaptation automatique aux autres (4K…). `D 13/10`
 
 ## PAGE — Pagination
 
-- [~] **PAGE-01** Pagination en haut et en bas de la grille : numéros autour de la page courante, flèches précédent/suivant, champ « aller à la page », impossible d'aller à une page inexistante. `FC`
-- [~] **PAGE-02** Ctrl + ← / → change de page. `FC` (v8 ✓)
-- [~] **PAGE-04** La page active reste toujours au **centre exact de la fenêtre** (alignée avec le logo), dans les paginations du haut et du bas ; les pages précédentes à sa gauche, les suivantes à sa droite. `D 12/10`
+- [x] **PAGE-01** Pagination en haut et en bas de la grille : numéros autour de la page courante, flèches précédent/suivant, champ « aller à la page », impossible d'aller à une page inexistante. `FC`
+- [x] **PAGE-02** Ctrl + ← / → change de page. `FC` (v8 ✓)
+- [x] **PAGE-04** La page active reste toujours au **centre exact de la fenêtre** (alignée avec le logo), dans les paginations du haut et du bas ; les pages précédentes à sa gauche, les suivantes à sa droite. `D 12/10`
 - [-] **PAGE-03** ~~Menu 50/100/200/500/1000 par page~~ → remplacé par GRID-05. `R1`
 
 ## FILT — Filtres et tri
 
-- [~] **FILT-01** Filtres par type (Images, Vidéos, Audio, Documents…) **à sélection multiple** (ex. Images + Vidéos). `R2`
-- [~] **FILT-02** Filtres et tri sont **totalement indépendants du système de tags** : jamais de `type:` / `order:` en interne, jamais de pastille de tag pour eux. `R3 R4`
+- [x] **FILT-01** Filtres par type (Images, Vidéos, Audio, Documents…) **à sélection multiple** (ex. Images + Vidéos). `R2`
+- [x] **FILT-02** Filtres et tri sont **totalement indépendants du système de tags** : jamais de `type:` / `order:` en interne, jamais de pastille de tag pour eux. `R3 R4`
 - [x] **FILT-03** Changer de filtre ne retire jamais les tags recherchés. `R3`
-- [~] **FILT-04** Tris : récents / anciens, **poids** + / −, **taille (résolution)** + / −, nombre de tags + / −, aléatoire. Pas de « favoris » dans le menu de tri. `FC IDEES`
-- [~] **FILT-05** Tri par **date de création** du fichier (en plus de la date d'import). `FC`
-- [~] **FILT-06** Le tri et les filtres sont **mémorisés** (retour de la visionneuse, redémarrage). `R2`
-- [~] **FILT-07** Corriger : le filtre revient parfois tout seul sur « Tout » ; médias non affichés tant qu'on ne change pas de filtre. `BUG`
-- [~] **FILT-08** Ouvrir le menu de tri (ou tout menu déroulant) ne décale pas l'interface de quelques pixels. `T1`
+- [x] **FILT-04** Tris : récents / anciens, **poids** + / −, **taille (résolution)** + / −, nombre de tags + / −, aléatoire. Pas de « favoris » dans le menu de tri. `FC IDEES`
+- [x] **FILT-05** Tri par **date de création** du fichier (en plus de la date d'import). `FC`
+- [x] **FILT-06** Le tri et les filtres sont **mémorisés** (retour de la visionneuse, redémarrage). `R2`
+- [x] **FILT-07** Corriger : le filtre revient parfois tout seul sur « Tout » ; médias non affichés tant qu'on ne change pas de filtre. `BUG`
+- [x] **FILT-08** Ouvrir le menu de tri (ou tout menu déroulant) ne décale pas l'interface de quelques pixels. `T1`
 
 ## SRCH — Recherche et barre latérale des tags
 
@@ -304,8 +309,8 @@ inactives** (comme les boutons « bientôt » de la visionneuse) et s'activent a
 
 ## TAGM — Tags, catégories et gestionnaire de tags
 
-- [~] **TAGM-01** Catégories = **données** (table en base, avec nom, couleur, ordre), pas figées dans le code. `D 11/10` — Phase 1 : table en base ; phase 2 : nom, couleur et ordre lus en base par l'interface.
-- [~] **TAGM-02** Catégories initiales : Safebooru (général, artiste, personnage, copyright, méta) **et** flowchart (personnes, date, lieu). `D 11/10` `FC` — Phase 1 : 8 catégories créées en base (ordre et couleurs : TAGM-03).
+- [x] **TAGM-01** Catégories = **données** (table en base, avec nom, couleur, ordre), pas figées dans le code. `D 11/10` — Phase 1 : table en base ; phase 2 : nom, couleur et ordre lus en base par l'interface.
+- [x] **TAGM-02** Catégories initiales : Safebooru (général, artiste, personnage, copyright, méta) **et** flowchart (personnes, date, lieu). `D 11/10` `FC` — Phase 1 : 8 catégories créées en base (ordre et couleurs : TAGM-03).
 - [x] **TAGM-03** Ordre d'affichage et couleurs des catégories. Ordre « personnelles en premier » : Personnes, Lieu, Date, Copyright, Personnage, Artiste, Général, Méta. Couleurs « convention booru » (palette B) : Personnes `#f9a8d4`, Lieu `#5eead4`, Date `#e7d7b0`, Copyright `#d48cf5`, Personnage `#4ade80`, Artiste `#f87171`, Général `#7dd3fc`, Méta `#fb923c`. `D 12/10` (Q-05)
 - [ ] **TAGM-04** Page « Gestionnaire de tags » : voir tous les tags, filtrer, renommer, changer de catégorie, supprimer (confirmation avec nombre de médias), masquer. `R2` (v8 ✓ partiel)
 - [ ] **TAGM-05** Tag **masqué** : n'apparaît plus dans les suggestions, mais une recherche explicite fonctionne toujours. `FC`
@@ -315,9 +320,9 @@ inactives** (comme les boutons « bientôt » de la visionneuse) et s'activent a
 
 ## NAV — En-tête et menu burger
 
-- [~] **NAV-01** Logo au **centre** de l'en-tête, centré **horizontalement et verticalement** ; clic = accueil. `R2 R3 R4` — Corrigé le 12/10 (`T1`) : centré sur la fenêtre (il l'était sur l'en-tête, décalé de 5 px).
-- [~] **NAV-02** Menu burger dépliant (à gauche). Ordre : **Bibliothèque** (accueil) · Importer · Favoris · Gestionnaire de tags · Dossiers (liste + « Nouveau ») · … · **Paramètres en dernier**, même style que les autres. `FC R1 R2 IDEES` — Phase 1 : ordre en place ; Favoris, Gestionnaire, Dossiers, Paramètres grisés « bientôt ».
-- [~] **NAV-03** Statistiques (images / vidéos / tags) dans l'en-tête. (v8 ✓)
+- [x] **NAV-01** Logo au **centre** de l'en-tête, centré **horizontalement et verticalement** ; clic = accueil. `R2 R3 R4` — Corrigé le 12/10 (`T1`) : centré sur la fenêtre (il l'était sur l'en-tête, décalé de 5 px).
+- [~] **NAV-02** Menu burger dépliant (à gauche). Ordre : **Bibliothèque** (accueil) · Importer · Favoris · Gestionnaire de tags · Dossiers (liste + « Nouveau ») · … · **Paramètres en dernier**, même style que les autres. `FC R1 R2 IDEES` — Phase 1 : ordre en place ; Favoris, Gestionnaire, Dossiers, Paramètres grisés « bientôt ». — À compléter au fur et à mesure du développement.
+- [x] **NAV-03** Statistiques (images / vidéos / tags) dans l'en-tête. (v8 ✓)
 - [~] **NAV-04** **Barre de titre MyBoard** à la place de celle de Windows, aux couleurs de l'application : titre, **flèches précédent / suivant à droite du titre** (même effet que les boutons 4 / 5 de la souris, VIEW-03, VIEW-27, VIEW-30, toujours visibles même visionneuse ouverte), réduire / agrandir / fermer, déplacement de la fenêtre, double-clic pour agrandir ; aimantation et redimensionnement par les bords de Windows à conserver. Prévue juste après la validation de la phase 2, comme tâche séparée (recommandation de Claude, à confirmer). `D 13/10` — Précisé 13/10 : timing confirmé par l'utilisateur (juste après la phase 2). Inclut **VIEW-34** : plein écran de la visionneuse **sans aucun mouvement** de la barre de lecture et des boutons. Essai du 13/10 : sans la barre de titre de Windows, le haut de la fenêtre ne bouge plus pendant la bascule (barre de lecture immobile, mesuré), mais le plein écran de Tauri ne couvre alors plus la barre des tâches (fenêtre agrandie restée à 1040 px) : MyBoard devra gérer lui-même son plein écran. — Choix du 13/10 : **barre fine séparée** (32 px) au-dessus de l'en-tête actuel, inchangé ; titre « **MyBoard** » seul (icône dorée) ; flèches **grisées** quand le bouton 4 / 5 ne ferait rien ; bouton Fermer **rouge** au survol, comme Windows ; la visionneuse s'ouvre sous la barre (cachée en plein écran). Le menu du clic droit de Windows sur la barre de titre (Restaurer, Déplacer…) disparaît : à traiter avec GEN-12. La page défile désormais dans la zone sous la barre (la barre de défilement commence sous la barre de titre).
 - [x] **NAV-05** **Double-clic sur le bord haut** de la fenêtre (curseur ↕, fenêtre non agrandie) : agrandissement classique, comme le bouton carré, au lieu de l'agrandissement en hauteur seulement de Windows. Le curseur ↕ et le redimensionnement en tirant ce bord restent ; le bord bas garde le comportement de Windows (choix de l'utilisateur). `D 14/10`
 - [x] **NAV-06** **Les recherches comptent dans l'historique** : aujourd'hui, une recherche par tag (clic sur une pastille de la visionneuse, recherche dans la barre latérale…) grise les flèches précédent / suivant (barre de titre, boutons 4 / 5 de la souris), comme si l'historique était effacé. Chaque recherche doit être une étape : on revient en arrière ou en avant entre les recherches. `D 15/10` (NAV-04, VIEW-27, VIEW-30, SRCH-12)
@@ -337,6 +342,7 @@ inactives** (comme les boutons « bientôt » de la visionneuse) et s'activent a
 - [>] **SET-10** **Paramètres > Raccourcis** : les raccourcis de la barre du bas de la visionneuse (VIEW-36) sont personnalisables. `D 13/10`
 - [>] **SET-11** **Paramètres > Préférences : fond de la visionneuse au choix** parmi plusieurs (noir, gris sombre, damier gardé de côté…). `D 15/10` (VIEW-44)
 - [>] **SET-12** **Captures d'écran des vidéos** (CTX-07) : paramètre pour **choisir le dossier** où elles sont enregistrées, et une **case à cocher** pour les enregistrer directement dans ce dossier, **sans ouvrir la fenêtre « Enregistrer sous »**. `D 15/10` (CTX-07)
+- [>] **SET-13** Paramètres : bouton **« Créer une sauvegarde de mes données »** → fenêtre Windows d'enregistrement → **copie complète du dossier** `%LOCALAPPDATA%\MyBoard` (base, miniatures, aperçus) à l'endroit choisi. Principe : LIB-08. Avec la page Paramètres (phase 5, D-010). `D 16/10`
 
 ## DUP — Doublons (phase ultérieure)
 
@@ -372,7 +378,7 @@ inactives** (comme les boutons « bientôt » de la visionneuse) et s'activent a
 
 | ID | Question | Statut |
 |---|---|---|
-| Q-01 | Fichier référencé déplacé / renommé / supprimé hors de l'app : que faire ? | ouverte |
+| Q-01 | Fichier référencé déplacé / renommé / supprimé hors de l'app : que faire ? | **résolue 16/10** : pop-in à l'ouverture → LIB-05, LIB-14 |
 | Q-02 | Miniatures : à l'import, à la demande, ou hybride ? taille ? nettoyage du cache ? | **résolue 11/10** : hybride → LIB-06, LIB-09 à LIB-11, D-011 |
 | Q-03 | Conversion / compression avec le référencement sur place : où écrire le résultat ? | ouverte |
 | Q-04 | « Supprimer » avec le référencement sur place : retirer de la bibliothèque seulement, ou aussi le fichier ? | ouverte |
