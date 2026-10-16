@@ -666,3 +666,29 @@ clic droit (CTX-01 : l'appui et le clic qui suit n'atteignent pas l'élément vi
 ferme le menu et agit. Le menu se ferme aussi quand les commandes se cachent. `useIdle` renvoie
 `restart` (passé aux éléments par `ViewerChrome.restartIdle`) : les touches de vitesse relancent le
 compte à rebours de 3 s seulement si les commandes sont affichées.
+
+## D-032 — Cadrage de la phase 3 : mesures, suppression, favoris, dossiers (17/10/2026)
+
+Réponses de l'utilisateur aux questions posées avant de coder.
+
+**Ordre.** Mesures des miniatures (LIB-15), lot 1 (suppression + favoris), lot 2 (dossiers + menu
+burger), puis test par l'utilisateur ; ensuite lot 3 (sélection multiple) et lot 4 (gestionnaire de
+tags), dont les questions seront posées à ce moment-là.
+
+**Suppression (Q-04, DEL-04, DEL-05).** Par défaut, le média est retiré de la bibliothèque sans toucher
+au fichier ; ses données restent en réserve 1 mois et sont proposées à la restauration si le fichier est
+réimporté. Les fichiers ne sont supprimés du disque que si l'utilisateur coche la case de la pop-in puis
+confirme une 2e fois ; ils sont alors effacés définitivement, sans la Corbeille de Windows : un fichier
+trop gros pour elle déclencherait une confirmation de plus à la fin (choix de l'utilisateur : confirmer
+deux fois avant, puis supprimer sans autre question). Principe retenu pour la réserve : les données sont
+**rangées à part** (par empreinte du fichier) et les lignes du média réellement supprimées, plutôt que
+gardées en place et cachées : les compteurs tenus par la base (D-005) et l'index de recherche (D-027)
+restent exacts par construction, sans exception à prévoir dans chaque requête.
+
+**Favoris et dossiers (FAV-04 à 06, FOLD-02, FOLD-07, FOLD-09).** Vue Favoris et page d'un dossier = la
+page de la bibliothèque (un seul composant) avec une ligne de titre sous la barre des filtres, qui ne
+bouge pas d'un pixel. Tri et filtres communs à toutes les pages, plus un tri par date d'ajout propre à
+chaque vue ; recherche vide à l'entrée. Dossier masqué : retiré des listes seulement ; ligne
+« Dossiers masqués » provisoire jusqu'au gestionnaire de dossiers (FOLD-05, FOLD-06, phase 5). Couleur
+attribuée automatiquement, changeable parmi des couleurs prédéfinies. Liste à cocher (ajouter / retirer)
+pour le bouton Dossier de la visionneuse et les menus.
