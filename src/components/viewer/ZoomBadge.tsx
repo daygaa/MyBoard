@@ -8,13 +8,17 @@ import { useContext } from "react";
 import { cn } from "@/lib/utils";
 import { idleClass, ViewerChrome } from "./viewerChrome";
 
+/** Aspect commun des badges de la visionneuse (zoom, raccourcis du lecteur VIEW-47). */
+export const BADGE = "rounded bg-black/70 px-2 py-1 text-xs text-white";
+
 export function ZoomBadge({ scale }: { scale: number }) {
   const { idle } = useContext(ViewerChrome);
   return (
     <div
       data-zone="visionneuse.facteur-zoom"
       className={cn(
-        "pointer-events-none absolute top-16 left-4 z-20 rounded bg-black/70 px-2 py-1 font-mono text-xs text-white transition-opacity duration-300",
+        "pointer-events-none absolute top-16 left-4 z-20 font-mono transition-opacity duration-300",
+        BADGE,
         idleClass(idle),
       )}
     >

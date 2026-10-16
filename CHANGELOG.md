@@ -3,6 +3,24 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Raccourcis du lecteur vidéo, favoris sur S (16/10/2026) — Backup v31
+
+SPEC : VIEW-47 (nouvelle) livrée `[~]` ; VIEW-36 modifié (favoris : `S`) ; FUT-08 (nouvelle) :
+traduction de l'application en anglais, un jour. Choix : D-031.
+
+- VIEW-47 : `M` couper / rétablir le son ; `<` / `>` vitesse d'un palier (0,5× à 2×) ; `L` boucle.
+  Badge bref en haut au centre (« Son coupé », « 1,25× », « Boucle désactivée »…), visible même
+  commandes cachées. Raccourcis affichés dans le menu du clic droit de la vidéo et dans les bulles
+  d'aide de la barre de lecture.
+- VIEW-36 : « Ajouter aux favoris » passe de `L` à `S` (« Star ») ; `L` = boucle (« Loop »).
+
+Vérifié dans la version compilée (bibliothèque « booru », une vidéo) : M → muet puis son rétabli ;
+> ×5 → 2× (arrêt à 2×) ; < ×6 → 0,5× (arrêt) ; L → boucle coupée puis remise ; badge disparu après
+1,4 s ; en plein écran, souris immobile 3,5 s (barre de lecture cachée) : > → badge « 1,25× » visible ;
+bulles « Couper le son (M) », « Vitesse de lecture (< / >) », « … (L) » ; menu : « Couper le son M »,
+« Lecture en boucle L », « Vitesse < / > ▸ » ; pendant la saisie d'un tag, ces touches ne font rien ;
+bouton Favoris : « Ajouter aux favoris (S) ».
+
 ## Flèches précédent / suivant et liste des suggestions (16/10/2026) — Backup v30
 
 SPEC : SRCH-25 validé `[x]` ; NAV-07 (nouvelle) livrée `[~]` ; IMP-52 (nouvelle, à faire plus tard) :

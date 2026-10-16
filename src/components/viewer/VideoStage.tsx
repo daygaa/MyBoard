@@ -4,6 +4,7 @@
 // - Échap : revient d'abord à la taille d'origine, puis ferme la visionneuse.
 // - Espace = lecture / pause ; image par image, vidéo en pause : touche « , ? » = reculer,
 //   touche « ; . » = avancer.
+// - M = son, < et > = vitesse, L = boucle (VIEW-47), avec un badge bref.
 // Lecture automatique, avec le son, en boucle (VIEW-26) ; fichier original lu par morceaux.
 // Clic droit sur la vidéo (pas sur le fond) : son menu (CTX-07).
 
@@ -12,10 +13,12 @@ import { useContext, useEffect, useRef, useState, type ReactNode, type RefObject
 import { mediaUrl, type MediaItem } from "@/lib/api";
 import { openContextMenu } from "@/lib/contextMenu";
 import { hasModalLayer, useEscape } from "@/lib/escape";
+import { videoActionFor, type VideoAction } from "@/lib/shortcuts";
 import { cn } from "@/lib/utils";
-import { usePlayer } from "@/stores/player";
+import { isSilent, speedLabel, usePlayer } from "@/stores/player";
 
 import { videoMenu } from "./mediaMenus";
+import { PlayerBadge, usePlayerBadge } from "./PlayerBadge";
 import { ANIM_MS, useZoom, type Size } from "./useZoom";
 import { VideoControls } from "./VideoControls";
 import { ViewerChrome } from "./viewerChrome";
@@ -31,6 +34,18 @@ function isTyping(target: EventTarget | null): boolean {
 }
 
 const toggle = (video: HTMLVideoElement | null) => void (video && (video.paused ? video.play() : video.pause()));
+
+/** Raccourci du lecteur (VIEW-47) appliqué ; renvoie le texte de son badge. */
+function runVideoShortcut(action: VideoAction): string {
+  const player = usePlayer.getState();
+  if (action === "mute") player.toggleSound();
+  else if (action === "loop") player.setLoop(!player.loop);
+  else player.stepSpeed(action === "faster" ? 1 : -1);
+  const after = usePlayer.getState();
+  if (action === "mute") return isSilent(after) ? "Son coupé" : "Son rétabli";
+  if (action === "loop") return after.loop ? "Boucle activée" : "Boucle désactivée";
+  return speedLabel(after.speed);
+}
 
 /** Mesure la durée réelle d'une image pendant la lecture (pour l'image par image). */
 function useFrameDuration(ref: RefObject<HTMLVideoElement | null>) {
@@ -61,6 +76,8 @@ export function VideoStage({ item, onClose, fallback }: { item: MediaItem; onClo
   const { idle } = useContext(ViewerChrome);
   const { view, zoomed, animate, handlers, reset, zoomTo, fitIsFullSize } = useZoom(stageRef, natural, onClose, () => toggle(videoRef.current));
   const frame = useFrameDuration(videoRef);
+  const badge = usePlayerBadge();
+  const showBadge = badge.show;
   useEscape(zoomed, reset);
 
   // Réglages du lecteur appliqués à la vidéo (volume retenu, vitesse, boucle).
@@ -73,7 +90,7 @@ export function VideoStage({ item, onClose, fallback }: { item: MediaItem; onClo
     video.loop = loop;
   }, [volume, muted, speed, loop]);
 
-  // Espace et image par image (sauf pendant une saisie).
+  // Espace, image par image et raccourcis du lecteur (sauf pendant une saisie).
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const video = videoRef.current;
@@ -83,12 +100,16 @@ export function VideoStage({ item, onClose, fallback }: { item: MediaItem; onClo
         video.pause();
         const step = BACK_KEYS.includes(e.key) ? -frame.current : frame.current;
         video.currentTime = Math.min(video.duration || 0, Math.max(0, video.currentTime + step));
-      } else return;
+      } else {
+        const action = videoActionFor(e);
+        if (!action) return;
+        showBadge(runVideoShortcut(action));
+      }
       e.preventDefault(); // Espace n'active pas en plus le bouton qui a le focus
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [frame]);
+  }, [frame, showBadge]);
 
   if (failed) return <>{fallback}</>;
   return (
@@ -126,6 +147,7 @@ export function VideoStage({ item, onClose, fallback }: { item: MediaItem; onClo
           }}
         />
         {zoomed && <ZoomBadge scale={view.scale} />}
+        <PlayerBadge text={badge.text} />
       </div>
       <VideoControls videoRef={videoRef} />
     </>

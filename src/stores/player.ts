@@ -20,8 +20,10 @@ type PlayerState = {
   setMuted: (muted: boolean) => void;
   setLoop: (loop: boolean) => void;
   setSpeed: (speed: number) => void;
-  /** Couper / rétablir le son (bouton haut-parleur, menu de la vidéo). */
+  /** Couper / rétablir le son (bouton haut-parleur, menu de la vidéo, touche M). */
   toggleSound: () => void;
+  /** Palier de vitesse suivant (1) ou précédent (-1), sans dépasser 0,5× ni 2× (touches < et >). */
+  stepSpeed: (direction: 1 | -1) => void;
 };
 
 /** Son coupé, ou volume à zéro. */
@@ -45,6 +47,10 @@ export const usePlayer = create<PlayerState>()(
         if (!isSilent(get())) set({ muted: true });
         else if (volume === 0) get().setVolume(0.5);
         else set({ muted: false });
+      },
+      stepSpeed: (direction) => {
+        const i = SPEEDS.findIndex((s) => s === get().speed);
+        set({ speed: SPEEDS[Math.min(SPEEDS.length - 1, Math.max(0, i + direction))] });
       },
     }),
     {

@@ -635,3 +635,18 @@ contraires tapés ensemble (« solo -solo ») suivent la règle de l'ajout : le 
 `-webkit-line-clamp`, alignée en haut : un nom court reste au pixel près à sa place d'avant). La pop-in
 reste centrée puis remonte d'une demi-ligne par ligne de plus que les 2 de la phrase avec un nom
 court (option `lift` de `Modal`) : son bas et ses boutons ne bougent pas.
+
+## D-031 — Navigation et liste des suggestions, raccourcis du lecteur vidéo (NAV-07, VIEW-36, VIEW-47) (16/10/2026)
+
+**Liste des suggestions (NAV-07).** Elle reste sur la pile des éléments ouverts (Échap la ferme d'abord,
+sans fermer la visionneuse derrière), avec l'option « Échap seulement » : les boutons 4 / 5 de la
+souris et les flèches de la barre de titre l'ignorent et agissent sur ce qui est dessous (choix de
+l'utilisateur : flèches et boutons font toujours la même chose).
+
+**Raccourcis (VIEW-36, VIEW-47).** Lettres des mots anglais, en vue de la traduction (FUT-08) :
+`L` = Loop (boucle des vidéos), donc les favoris passent de `L` à `S` (« Star » : l'icône est une
+étoile ; convention de Gmail). Vitesse : `<` et `>` d'un palier (convention de YouTube ; sur AZERTY
+une seule touche, Maj pour `>` ; écartés : `[` `]` de VLC, qui demandent AltGr). Tous les raccourcis
+sont réunis dans `lib/shortcuts.ts` (personnalisables plus tard, SET-10) et affichés dans les bulles
+d'aide et le menu du clic droit. Badge bref (`PlayerBadge`, aspect du badge du zoom) : il ne se cache
+pas avec les commandes (souris immobile en plein écran), c'est là qu'il sert.

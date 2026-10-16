@@ -5,7 +5,7 @@
 
 import type { MediaItem } from "@/lib/api";
 import type { MenuEntry } from "@/lib/contextMenu";
-import { VIEWER_SHORTCUTS } from "@/lib/shortcuts";
+import { VIDEO_SHORTCUTS, VIEWER_SHORTCUTS } from "@/lib/shortcuts";
 import { isSilent, SPEEDS, speedLabel, usePlayer } from "@/stores/player";
 import { useViewer } from "@/stores/viewer";
 import { copyFile, copyImage, copyName, copyPath, openFile, revealFile, saveFrame, setWallpaper } from "./mediaActions";
@@ -73,10 +73,11 @@ export function videoMenu(item: MediaItem, video: HTMLVideoElement, zoom: ZoomCo
   const time = video.currentTime;
   return [
     { label: video.paused ? "Lire" : "Pause", shortcut: "Espace", run: () => void (video.paused ? video.play() : video.pause()) },
-    { label: isSilent(player) ? "Rétablir le son" : "Couper le son", run: player.toggleSound },
-    { label: "Lecture en boucle", checked: player.loop, run: () => player.setLoop(!player.loop) },
+    { label: isSilent(player) ? "Rétablir le son" : "Couper le son", shortcut: VIDEO_SHORTCUTS.mute.label, run: player.toggleSound },
+    { label: "Lecture en boucle", shortcut: VIDEO_SHORTCUTS.loop.label, checked: player.loop, run: () => player.setLoop(!player.loop) },
     {
       label: "Vitesse",
+      shortcut: `${VIDEO_SHORTCUTS.slower.label} / ${VIDEO_SHORTCUTS.faster.label}`,
       submenu: [...SPEEDS].reverse().map((speed) => ({ label: speedLabel(speed), checked: speed === player.speed, run: () => player.setSpeed(speed) })),
     },
     fullscreenEntry(),

@@ -9,6 +9,7 @@ import { Pause, Play, Repeat, Volume1, Volume2, VolumeX } from "lucide-react";
 
 import { useEscape } from "@/lib/escape";
 import { formatDuration } from "@/lib/format";
+import { VIDEO_SHORTCUTS } from "@/lib/shortcuts";
 import { cn } from "@/lib/utils";
 import { isSilent, SPEEDS, speedLabel, usePlayer } from "@/stores/player";
 import { FullscreenButton } from "./FullscreenButton";
@@ -95,7 +96,7 @@ function SpeedMenu() {
         type="button"
         data-zone="visionneuse.lecteur.vitesse"
         onClick={() => setOpen(!open)}
-        title="Vitesse de lecture"
+        title={`Vitesse de lecture (${VIDEO_SHORTCUTS.slower.label} / ${VIDEO_SHORTCUTS.faster.label})`}
         className="h-8 min-w-12 rounded-md px-2 font-mono text-xs text-zinc-200 transition hover:bg-white/10 hover:text-white"
       >
         {speedLabel(speed)}
@@ -164,8 +165,8 @@ export function VideoControls({ videoRef }: { videoRef: RefObject<HTMLVideoEleme
         type="button"
         className={BUTTON}
         onClick={toggleSound}
-        aria-label={silent ? "Rétablir le son" : "Couper le son"}
-        title={silent ? "Rétablir le son" : "Couper le son"}
+        aria-label={`${silent ? "Rétablir le son" : "Couper le son"} (${VIDEO_SHORTCUTS.mute.label})`}
+        title={`${silent ? "Rétablir le son" : "Couper le son"} (${VIDEO_SHORTCUTS.mute.label})`}
       >
         <VolumeIcon className="h-4 w-4" />
       </button>
@@ -185,7 +186,7 @@ export function VideoControls({ videoRef }: { videoRef: RefObject<HTMLVideoEleme
         data-zone="visionneuse.boucle"
         aria-pressed={loop}
         onClick={() => setLoop(!loop)}
-        title={loop ? "Lecture en boucle activée : cliquer pour la désactiver" : "Lecture en boucle désactivée : cliquer pour l'activer"}
+        title={`${loop ? "Lecture en boucle activée : cliquer pour la désactiver" : "Lecture en boucle désactivée : cliquer pour l'activer"} (${VIDEO_SHORTCUTS.loop.label})`}
         className={cn(BUTTON, loop ? "text-[#d9a94e] hover:text-[#e3b75f]" : "text-zinc-500")}
       >
         <Repeat className="h-4 w-4" />
