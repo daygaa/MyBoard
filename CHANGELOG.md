@@ -3,6 +3,73 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Phase 3, lot 1 : suppression et favoris (17/10/2026) — Backup v35
+
+SPEC : livrées `[~]` : DEL-01 à DEL-05, FAV-01 à FAV-06, PAGE-05, VIEW-11, VIEW-14, GRID-08 (étoile) ;
+NAV-02 (« Favoris » actif) ; entrées actives dans les menus CTX-05, CTX-06, CTX-07. Choix : D-032, D-033.
+Base de données : schéma v5 (migration automatique au lancement).
+
+- **Supprimer** (bouton rouge et touche Suppr de la visionneuse, « Supprimer de la bibliothèque… » des
+  menus de la vignette, de l'image et de la vidéo) : pop-in « Supprimer « nom » de la bibliothèque ? ».
+  Par défaut le fichier n'est pas touché : le média disparaît aussitôt de toutes les pages, sa vignette et
+  ses miniatures sont effacées, ses tags, son favori, ses dossiers et sa note sont gardés 1 mois. Case
+  « Supprimer les fichiers de votre stockage » (décochée à chaque ouverture) : 2e pop-in à bordure rouge,
+  puis fichier effacé définitivement (sans la Corbeille) et données effacées. Fichier impossible à
+  effacer : son média revient avec toutes ses données, une pop-in donne l'erreur de Windows.
+- Visionneuse : après une suppression, le média suivant s'affiche (le précédent si c'était le dernier,
+  fermeture s'il n'en reste aucun).
+- Suppression réelle en arrière-plan, reprise au lancement suivant si MyBoard a été fermé entre-temps ;
+  données gardées effacées au bout d'un mois (sans toucher aux compteurs).
+- **Réimport** d'un fichier supprimé il y a moins d'un mois : à la fin de l'import, pop-in « Restaurer les
+  données… » (miniature, nom, date de suppression, tags, favori, dossiers, note ; une case par média) ;
+  « Restaurer » ou « Ne rien restaurer ».
+- **Favoris** : étoile en haut à droite de chaque vignette (toujours visible, dorée pour un favori, réduite
+  avec la vignette), bouton de la visionneuse (touche S), « Ajouter aux favoris » / « Retirer des favoris »
+  du menu d'une vignette ; l'étoile change partout à la fois.
+- **Vue Favoris** (menu burger) : la page de la bibliothèque limitée aux favoris, titre « Favoris · N
+  médias » à gauche de la pagination du haut, « Recherche dans les favoris », tris « Ajout aux favoris :
+  récents / anciens » en plus ; recherche vide en y entrant, le retour arrière retrouve celle d'avant.
+  Sans favori : « Aucun favori pour le moment ».
+- **PAGE-05** : la ligne de la pagination du haut est toujours là, même sans autre page ; la grille ne
+  remonte plus.
+
+Vérifié dans la version compilée, sur une copie de la bibliothèque « booru » et 6 fichiers créés pour le
+test (aucun fichier de l'utilisateur) :
+- étoile d'une vignette : dorée au clic, la visionneuse ne s'ouvre pas ; touche S dans la visionneuse puis
+  fermeture : l'étoile de la vignette a suivi ; menu : « Retirer des favoris » pour un favori ;
+- vue Favoris : titre « Favoris · 2 médias », 2 vignettes, tris d'ajout (ordre vérifié dans les deux
+  sens) ; bibliothèque : tri affiché « Récents » ; grille à 205 px du haut avec ou sans pagination ;
+- recherche « zz_test_suppression » dans la bibliothèque → Favoris : aucune recherche → retour : la
+  recherche et ses 6 résultats reviennent ;
+- suppression simple : vignette absente 0,17 s après « Oui » ; compteur du tag 6 → 5 ; fichier toujours
+  sur le disque ; réserve : tag, favori et note ; Échap sur la pop-in ouverte d'un menu : le menu reste ;
+- réimport du fichier : pop-in de restauration (Échap ne la ferme pas) ; « Restaurer » : compteur 6, favori
+  et note revenus, réserve vide ;
+- suppression avec le fichier : 2e pop-in à bordure rouge, « Annuler » revient à la 1re (case toujours
+  cochée) ; « Oui » : fichier effacé, rien en réserve ;
+- fichier ouvert en exclusivité par un autre programme : pop-in « Erreur Windows 32 », média revenu,
+  fichier intact, compteur inchangé ;
+- visionneuse : Suppr → pop-in → « Oui » : le suivant s'affiche ; sur le dernier : le précédent ;
+- 300 médias d'un coup : absents de la grille 8 ms après la demande, retirés réellement en 0,13 s ;
+  compteur de « 1girl » diminué exactement de 171 ; aucun tag au compteur faux ; aucune miniature restée ;
+- suppression interrompue (média resté marqué) : retiré au lancement suivant ; réserve vieille de 31 jours :
+  effacée au lancement, compteurs inchangés.
+
+**Fluidité de la grille avec l'étoile** (bibliothèque de 100 000 médias, `bench-grid --ecran 1920x1080`,
+avant : moyenne de 2 mesures ; avec l'étoile : 1 mesure de la version livrée) :
+
+| Colonnes | Changer de densité | Page suivante | Défilement (images/s) |
+|---|---|---|---|
+| 20, avant (v34) | 370 ms | 217 ms | 170 |
+| 20, avec l'étoile | 474 ms | 231 ms | 160 |
+| 30, avant (v34) | 700 ms | 387 ms | 168 |
+| 30, avec l'étoile | 916 ms | 425 ms | 153 |
+
+Jusqu'à 14 colonnes : pas de différence nette. L'étoile a été sortie du calque réduit des infos (dans ce
+calque, le défilement tombait à 140 images/s) ; une étoile en caractère de police au lieu de l'icône
+Lucide a aussi été mesurée (≈ 840 ms et 160 images/s à 30 colonnes, captures dans
+`new V2\Explications étoile`) : proposée, pas appliquée.
+
 ## Mesures des miniatures (LIB-15) (17/10/2026) — Backup v34
 
 SPEC : LIB-15 livrée `[~]` (mesures seulement, aucun code modifié). Cadrage de la phase 3 écrit

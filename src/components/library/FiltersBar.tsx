@@ -6,7 +6,8 @@ import { ArrowDownWideNarrow } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { formatNumber, plural } from "@/lib/format";
-import { KIND_FILTERS, SORTS } from "@/lib/grid";
+import { effectiveSort, KIND_FILTERS, sortsFor, type SortScope } from "@/lib/grid";
+import { useRoute } from "@/lib/router";
 import { cn } from "@/lib/utils";
 import { useLibrary } from "@/stores/library";
 import { LayoutPopover } from "./LayoutPopover";
@@ -40,8 +41,13 @@ function KindFilter() {
   );
 }
 
+/** Tris de la vue : « Ajout aux favoris » / « Ajout au dossier » en plus, dans leur vue (FAV-05) ;
+ *  ailleurs, un tri d'ajout choisi s'affiche en « Récents ». */
 function SortMenu() {
-  const sort = useLibrary((s) => s.sort);
+  const route = useRoute();
+  const scope: SortScope = route === "favorites" ? "favorites" : route === "folder" ? "folder" : "library";
+  const options = sortsFor(scope);
+  const sort = effectiveSort(useLibrary((s) => s.sort), scope);
   const setSort = useLibrary((s) => s.setSort);
   return (
     <DropdownMenu>
@@ -53,11 +59,11 @@ function SortMenu() {
           className="gap-1.5 border-border bg-card/60 text-xs hover:bg-secondary hover:text-foreground"
         >
           <ArrowDownWideNarrow className="h-3.5 w-3.5" />
-          {SORTS.find((s) => s.value === sort)?.label ?? "Récents"}
+          {options.find((s) => s.value === sort)?.label ?? "Récents"}
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent data-zone="tri.menu" align="start" className="border-border bg-popover text-popover-foreground">
-        {SORTS.map((s) => (
+        {options.map((s) => (
           <DropdownMenuItem
             key={s.value}
             onSelect={() => setSort(s.value)}

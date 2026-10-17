@@ -1,10 +1,12 @@
 // Squelette de l'application : barre de titre MyBoard (NAV-04), puis la zone qui défile (en-tête,
 // page courante, pied de page) ; menu burger, visionneuse, menu du clic droit (CTX-01) et message
-// d'échec d'une action lancée de la grille (CTX-19) par-dessus.
+// d'échec d'une action lancée de la grille (CTX-19) et restauration des données en fin d'import
+// (DEL-05) par-dessus.
 
 import { useEffect, useRef } from "react";
 
 import { ImportPage } from "@/components/import/ImportPage";
+import { RestoreDialog } from "@/components/import/RestoreDialog";
 import { BurgerMenu } from "@/components/layout/BurgerMenu";
 import { Footer } from "@/components/layout/Footer";
 import { Header } from "@/components/layout/Header";
@@ -44,6 +46,7 @@ export function App() {
       <Viewer />
       <ContextMenuHost />
       <ErrorDialog />
+      <RestoreDialog />
     </div>
   );
 }

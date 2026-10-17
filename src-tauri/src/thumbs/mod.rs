@@ -343,7 +343,7 @@ fn flush(shared: &Shared, force: bool) {
 }
 
 /// Les miniatures passent après l'interface : elle reste fluide pendant le travail.
-fn lower_thread_priority() {
+pub(crate) fn lower_thread_priority() {
     #[cfg(windows)]
     {
         unsafe extern "system" {

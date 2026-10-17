@@ -9,6 +9,7 @@ import { Search } from "lucide-react";
 
 import { SearchTerms } from "@/components/search/SearchTerms";
 import { TagInput } from "@/components/tags/TagInput";
+import { useRoute } from "@/lib/router";
 import { parseTerms } from "@/lib/tags";
 import { useSearch } from "@/stores/search";
 
@@ -16,6 +17,9 @@ export function SearchBox() {
   const [text, setText] = useState("");
   const addTerms = useSearch((s) => s.addTerms);
   const setTerms = useSearch((s) => s.setTerms);
+  const route = useRoute();
+  // Recherche limitée à la vue (FAV-02, FOLD-04), comme les titres de la v8.
+  const title = route === "favorites" ? "Recherche dans les favoris" : route === "folder" ? "Recherche dans le dossier" : "Recherche";
 
   const submit = (raw: string) => {
     const parsed = parseTerms(raw);
@@ -25,7 +29,7 @@ export function SearchBox() {
 
   return (
     <section data-zone="barre-laterale.recherche">
-      <h3 className="mb-2 px-1 text-xs font-semibold tracking-wider text-muted-foreground uppercase">Recherche</h3>
+      <h3 className="mb-2 px-1 text-xs font-semibold tracking-wider text-muted-foreground uppercase">{title}</h3>
       <div className="flex gap-2">
         <TagInput
           zone="barre-laterale.recherche.champ"

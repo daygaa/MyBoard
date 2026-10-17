@@ -32,6 +32,8 @@ pub struct MediaDetail {
     pub tags: Vec<TagInfo>,
     /// Note libre (VIEW-19).
     pub notes: Option<String>,
+    /// Favori (FAV-01) : étoile de la visionneuse (VIEW-11).
+    pub favorite: bool,
 }
 
 /// Échec d'une ouverture externe (VIEW-28) : code d'erreur Windows quand il est connu, et
@@ -60,11 +62,14 @@ impl From<std::io::Error> for OpenFailure {
 
 pub fn detail(db: &Connection, id: i64) -> rusqlite::Result<Option<MediaDetail>> {
     let row = db
-        .prepare_cached("SELECT path, file_created_at, imported_at, notes FROM media WHERE id = ?1")?
-        .query_row([id], |r| Ok((r.get::<_, String>(0)?, r.get(1)?, r.get(2)?, r.get(3)?)))
+        .prepare_cached(
+            "SELECT path, file_created_at, imported_at, notes, EXISTS (SELECT 1 FROM favorites WHERE media_id = media.id)
+             FROM media WHERE id = ?1",
+        )?
+        .query_row([id], |r| Ok((r.get::<_, String>(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?)))
         .optional()?;
-    let Some((path, file_created_at, imported_at, notes)) = row else { return Ok(None) };
-    Ok(Some(MediaDetail { id, path, file_created_at, imported_at, tags: tags_of_media(db, &[id])?, notes }))
+    let Some((path, file_created_at, imported_at, notes, favorite)) = row else { return Ok(None) };
+    Ok(Some(MediaDetail { id, path, file_created_at, imported_at, tags: tags_of_media(db, &[id])?, notes, favorite }))
 }
 
 /// Chemin du fichier d'un média ; erreur claire s'il a disparu du disque.

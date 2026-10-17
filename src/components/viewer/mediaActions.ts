@@ -4,8 +4,11 @@
 // ailleurs), curseur d'attente pendant l'appel (externalOpen.ts).
 
 import { api, type MediaItem } from "@/lib/api";
+import { queryClient } from "@/lib/queryClient";
+import { deleteMedia } from "@/stores/deletion";
 import { useViewer } from "@/stores/viewer";
 import { runExternal } from "./externalOpen";
+import { itemAt } from "./navigation";
 
 /** Le fichier lui-même dans le presse-papiers ; « Copié » s'affiche sur le bouton (VIEW-35). */
 export async function copyFile(item: MediaItem) {
@@ -50,4 +53,22 @@ export function saveFrame(item: MediaItem, seconds: number) {
   // Date du jour dans le nom proposé : « JJ-MM-AA » (« / » est interdit dans un nom de fichier).
   const date = new Date().toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "2-digit" }).replaceAll("/", "-");
   void runExternal("Enregistrer une capture d'écran", () => api.saveVideoFrame(item.id, seconds, date));
+}
+
+/** Supprime le média affiché par la visionneuse (DEL-04), puis montre le suivant : le précédent s'il
+ *  était le dernier, fermeture s'il n'en reste aucun (VIEW-14, comme l'app Photos de Windows). */
+export async function deleteShown(item: MediaItem, deleteFiles: boolean) {
+  if (!(await deleteMedia([item.id], deleteFiles))) return;
+  const { open, base, index } = useViewer.getState();
+  if (!open || !base || useViewer.getState().item?.id !== item.id) return;
+  const pageOf = (i: number) => {
+    const query = { ...base, page: Math.floor(i / base.pageSize) + 1 };
+    return queryClient.fetchQuery({ queryKey: ["media", query], queryFn: () => api.listMedia(query) });
+  };
+  let page = await pageOf(index);
+  if (page.total === 0) return useViewer.getState().close();
+  const next = Math.min(index, page.total - 1);
+  if (next !== index) page = await pageOf(next);
+  const found = itemAt(page, next);
+  if (found) useViewer.getState().show(next, found, page.total);
 }

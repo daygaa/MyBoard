@@ -4,6 +4,8 @@
 // Chaque recherche est une étape de l'historique de la fenêtre (NAV-06) : précédent / suivant
 // (flèches de la barre de titre, boutons 4 / 5 de la souris, Alt + ← / →) passent d'une
 // recherche à l'autre.
+// La bibliothèque, les favoris et chaque dossier ont leur propre recherche : entrer dans une autre vue
+// repart d'une recherche vide, revenir en arrière retrouve celle d'avant (FAV-06).
 
 import { create } from "zustand";
 
@@ -52,12 +54,28 @@ export const useSearch = create<SearchState>()((set, get) => ({
  *  un changement de page de l'application). */
 const termsOf = (state: unknown) => (state as { terms?: string[] } | null)?.terms;
 
+/** Vue qui a sa propre recherche (FAV-06) ; la page Importer n'en a pas (`null`). */
+function searchView(hash: string): string | null {
+  if (hash.startsWith("#/import")) return null;
+  if (hash.startsWith("#/favoris")) return "favoris";
+  return /^#\/dossier\/\d+/.exec(hash)?.[0] ?? "bibliotheque";
+}
+let lastView = searchView(window.location.hash) ?? "bibliotheque";
+
 // Étape de départ : aucune recherche.
 window.history.replaceState({ ...window.history.state, terms: [] }, "");
-// Étape créée par un changement de page de l'application (Importer…) : la recherche du moment y est
+// Étape créée par un changement de page de l'application : dans une autre vue (favoris, dossier,
+// bibliothèque), la recherche repart de zéro, page 1 ; sinon (Importer…), la recherche du moment y est
 // notée, pour la retrouver en y revenant.
 window.addEventListener("hashchange", () => {
-  if (!termsOf(window.history.state)) window.history.replaceState({ ...window.history.state, terms: useSearch.getState().terms }, "");
+  const view = searchView(window.location.hash);
+  const changed = view !== null && view !== lastView;
+  if (view !== null) lastView = view;
+  if (changed) useLibrary.getState().setPage(1); // aussi en revenant en arrière : autre vue, page 1
+  if (termsOf(window.history.state)) return; // retour / avance : popstate a remis la recherche
+  const terms = changed ? [] : useSearch.getState().terms;
+  window.history.replaceState({ ...window.history.state, terms }, "");
+  if (changed) useSearch.setState(apply(terms, false));
 });
 // Retour ou avance dans l'historique : la recherche de cette étape revient, sans nouvelle étape.
 window.addEventListener("popstate", (e) => {

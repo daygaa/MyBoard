@@ -76,7 +76,7 @@ function MenuLayer({ menu }: { menu: OpenMenu }) {
   const pick = (item: MenuItem, index: number) => {
     if (!usable(item)) return;
     if (item.submenu) return openSub(index, true);
-    if (item.confirm) return setConfirming(item);
+    if (item.confirm || item.dialog) return setConfirming(item);
     closeContextMenu();
     item.run?.();
   };
@@ -181,6 +181,7 @@ function MenuLayer({ menu }: { menu: OpenMenu }) {
           }}
         />
       )}
+      {confirming?.dialog?.({ onCancel: () => setConfirming(null), onDone: closeContextMenu })}
       {confirming?.confirm && (
         <ConfirmDialog
           {...confirming.confirm}

@@ -1,17 +1,21 @@
 //! Lecture de la bibliothèque pour la grille : pages, filtres, tris, statistiques. Une demande avec
-//! des termes de recherche passe par l'index de recherche (`search.rs`, SRCH-17).
+//! des termes de recherche passe par l'index de recherche (`search.rs`, SRCH-17). Vue affichée
+//! (bibliothèque, favoris, dossier) : `scope.rs`. Les médias en cours de suppression (DEL-01)
+//! n'apparaissent nulle part.
 
 use rusqlite::{Connection, params_from_iter, types::Value};
 use serde::{Deserialize, Serialize};
 use tauri::State;
 
 use crate::ffmpeg::FfmpegStatus;
+use crate::scope::Scope;
 use crate::AppState;
 
 pub const KINDS: [&str; 4] = ["image", "video", "audio", "document"];
 
-/// Colonnes d'un média de la grille, dans l'ordre lu par `media_from_row`.
-const MEDIA_COLUMNS: &str = "id, hash, file_name, ext, kind, size, width, height, duration_ms, thumb_status";
+/// Colonnes d'un média de la grille, dans l'ordre lu par `media_from_row` (préfixées : la requête
+/// peut joindre les favoris ou un dossier).
+const MEDIA_COLUMNS: &str = "media.id, media.hash, media.file_name, media.ext, media.kind, media.size, media.width,      media.height, media.duration_ms, media.thumb_status, EXISTS (SELECT 1 FROM favorites f WHERE f.media_id = media.id)";
 
 /// Demande d'une page de la grille. Filtres et tri sont indépendants des tags (FILT-02).
 #[derive(Debug, Deserialize)]
@@ -27,6 +31,18 @@ pub struct ListQuery {
     pub seed: u32,
     pub page: u32,
     pub page_size: u32,
+    /// Vue Favoris (FAV-02).
+    #[serde(default)]
+    pub favorites: bool,
+    /// Page d'un dossier (FOLD-04).
+    #[serde(default)]
+    pub folder: Option<i64>,
+}
+
+impl ListQuery {
+    pub fn scope(&self) -> Scope {
+        Scope::new(self.favorites, self.folder)
+    }
 }
 
 #[derive(Debug, Serialize)]
@@ -42,6 +58,8 @@ pub struct MediaItem {
     pub height: Option<i64>,
     pub duration_ms: Option<i64>,
     pub thumb_status: i64,
+    /// Favori (FAV-01) : étoile de la vignette.
+    pub favorite: bool,
 }
 
 #[derive(Debug, Serialize)]
@@ -66,6 +84,8 @@ pub struct Stats {
     pub documents: u64,
     pub tags: u64,
     pub thumbs_pending: u64,
+    /// Nombre de favoris (titre de la vue Favoris, FAV-04).
+    pub favorites: u64,
 }
 
 /// Clause ORDER BY de chaque tri (FILT-04, FILT-05). L'id départage les égalités :
@@ -101,6 +121,7 @@ fn media_from_row(r: &rusqlite::Row) -> rusqlite::Result<MediaItem> {
         height: r.get(7)?,
         duration_ms: r.get(8)?,
         thumb_status: r.get(9)?,
+        favorite: r.get(10)?,
     })
 }
 
@@ -125,42 +146,65 @@ pub fn media_rows(db: &Connection, ids: &[u32]) -> rusqlite::Result<Vec<MediaIte
     Ok(rows)
 }
 
-/// Page de la grille sans recherche par tags : filtre par type et tri, dans la base.
-pub fn list(db: &Connection, query: &ListQuery) -> rusqlite::Result<ListPage> {
-    let kinds: Vec<&str> = KINDS.into_iter().filter(|k| query.kinds.iter().any(|q| q == k)).collect();
-    let mut filter_params: Vec<Value> = Vec::new();
-    let mut filter = String::new();
-    if !kinds.is_empty() && kinds.len() < KINDS.len() {
-        filter_params.extend(kinds.iter().map(|k| Value::Text((*k).to_string())));
-        filter = format!("WHERE kind IN ({})", vec!["?"; kinds.len()].join(","));
-    }
+/// Types cochés, dans l'ordre de `KINDS` ; vide = tous (aucun filtre).
+pub fn selected_kinds(kinds: &[String]) -> Vec<&'static str> {
+    let selected: Vec<&str> = KINDS.into_iter().filter(|k| kinds.iter().any(|q| q == k)).collect();
+    if selected.len() == KINDS.len() { Vec::new() } else { selected }
+}
 
-    let total = db.query_row(
-        &format!("SELECT COUNT(*) FROM media {filter}"),
-        params_from_iter(&filter_params),
-        |r| r.get::<_, i64>(0),
-    )? as u64;
+fn count(db: &Connection, sql: &str, params: &[Value]) -> rusqlite::Result<u64> {
+    db.prepare_cached(sql)?.query_row(params_from_iter(params), |r| r.get::<_, i64>(0)).map(|n| n as u64)
+}
+
+/// Page de la grille sans recherche par tags : vue, filtre par type et tri, dans la base.
+pub fn list(db: &Connection, query: &ListQuery) -> rusqlite::Result<ListPage> {
+    let scope = query.scope();
+    let kinds = selected_kinds(&query.kinds);
+    let mut params: Vec<Value> = kinds.iter().map(|k| Value::Text((*k).to_string())).collect();
+    let mut filter = if kinds.is_empty() { String::new() } else { format!(" AND media.kind IN ({})", vec!["?"; kinds.len()].join(",")) };
+    // Médias en cours de suppression : presque toujours aucun (index partiel `media_pending`). Le
+    // filtre n'est ajouté que s'il y en a : sinon une page lointaine devrait relire chaque média sauté.
+    let pending = count(db, &format!("SELECT COUNT(*) FROM media WHERE pending_delete != 0{filter}"), &params)?;
+    let total = if scope == Scope::Library {
+        count(db, &format!("SELECT COUNT(*) FROM media WHERE 1{filter}"), &params)? - pending
+    } else {
+        let live = if pending > 0 { " AND media.pending_delete = 0" } else { "" };
+        count(db, &format!("SELECT COUNT(*) FROM media{} WHERE 1{filter}{live}", scope.join()), &params)?
+    };
+    if pending > 0 {
+        filter.push_str(" AND media.pending_delete = 0");
+    }
     let (page, page_count, page_size) = paging(total, query.page_size, query.page);
 
-    let mut params = filter_params;
-    if query.sort == "random" {
+    if scope.sort(&query.sort) == "random" {
         params.push(Value::Integer(query.seed as i64));
     }
     params.push(Value::Integer(page_size as i64));
     params.push(Value::Integer(((page - 1) * page_size) as i64));
-    let sql = format!("SELECT {MEDIA_COLUMNS} FROM media {filter} ORDER BY {} LIMIT ? OFFSET ?", order_by(&query.sort));
+    let sql = format!(
+        "SELECT {MEDIA_COLUMNS} FROM media{} WHERE 1{filter} ORDER BY {} LIMIT ? OFFSET ?",
+        scope.join(),
+        scope.order_by(&query.sort)
+    );
     let mut stmt = db.prepare_cached(&sql)?;
     let items = stmt.query_map(params_from_iter(&params), media_from_row)?.collect::<Result<Vec<_>, _>>()?;
     Ok(ListPage { items, total, page, page_count, page_size })
 }
 
 pub fn stats(db: &Connection) -> rusqlite::Result<Stats> {
-    let mut stats = Stats { total: 0, images: 0, videos: 0, audio: 0, documents: 0, tags: 0, thumbs_pending: 0 };
+    let mut stats = Stats { total: 0, images: 0, videos: 0, audio: 0, documents: 0, tags: 0, thumbs_pending: 0, favorites: 0 };
+    // Médias en cours de suppression retirés des comptes (DEL-01), lus par l'index partiel.
+    let mut pending = std::collections::HashMap::new();
+    let mut stmt = db.prepare_cached("SELECT kind, COUNT(*) FROM media WHERE pending_delete != 0 GROUP BY kind")?;
+    for row in stmt.query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, i64>(1)?)))? {
+        let (kind, n) = row?;
+        pending.insert(kind, n);
+    }
     let mut stmt = db.prepare_cached("SELECT kind, COUNT(*) FROM media GROUP BY kind")?;
     let rows = stmt.query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, i64>(1)?)))?;
     for row in rows {
         let (kind, count) = row?;
-        let count = count as u64;
+        let count = (count - pending.get(&kind).copied().unwrap_or(0)) as u64;
         stats.total += count;
         match kind.as_str() {
             "image" => stats.images = count,
@@ -173,6 +217,7 @@ pub fn stats(db: &Connection) -> rusqlite::Result<Stats> {
     let count = |sql: &str| db.query_row(sql, [], |r| r.get::<_, i64>(0)).map(|n| n as u64);
     stats.tags = count("SELECT COUNT(*) FROM tags")?;
     stats.thumbs_pending = count("SELECT COUNT(*) FROM media WHERE thumb_status = 0")?;
+    stats.favorites = count("SELECT COUNT(*) FROM favorites JOIN media ON media.id = favorites.media_id WHERE media.pending_delete = 0")?;
     Ok(stats)
 }
 

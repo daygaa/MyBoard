@@ -23,6 +23,18 @@ export function EmptyLibrary() {
   );
 }
 
+/** Vue Favoris sans aucun favori (FAV-02). */
+export function NoFavorites() {
+  return (
+    <div data-zone="grille.vide" className={BOX}>
+      <p className="text-lg font-medium text-foreground">Aucun favori pour le moment</p>
+      <p className="mt-1 text-sm text-muted-foreground">
+        Ajoutez un média aux favoris avec l'étoile de sa vignette, ou dans la visionneuse (touche S).
+      </p>
+    </div>
+  );
+}
+
 /** Aucun résultat : message distinct pour une recherche par tags (GRID-01, texte de la v8). */
 export function NoResults() {
   const searching = useSearch((s) => s.terms.length > 0);

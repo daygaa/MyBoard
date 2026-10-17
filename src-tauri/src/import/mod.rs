@@ -1,5 +1,7 @@
 //! Import sur place de fichiers et de dossiers (IMP-01, IMP-02, IMP-03, IMP-04, IMP-40,
-//! IMP-41, IMP-42 « Arrêter », IMP-44), avec tags par défaut (IMP-30, IMP-31).
+//! IMP-41, IMP-42 « Arrêter », IMP-44), avec tags par défaut (IMP-30, IMP-31). Un fichier supprimé
+//! de la bibliothèque il y a moins d'un mois et réimporté : la fin de l'import propose de remettre
+//! ses données (DEL-05, `reserve.rs`).
 //!
 //! L'état de l'import vit ici, côté Rust : l'interface reçoit une photo complète de
 //! cet état (`import-state`) à chaque changement. Changer de page puis revenir, ou
@@ -7,20 +9,22 @@
 
 mod index;
 mod scan;
+mod state;
 
 use std::path::PathBuf;
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::time::{Duration, Instant};
 
-use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager, State};
 
+use crate::reserve;
 use crate::tags::{self, NewTag};
 use crate::{AppState, db};
 use index::{Indexer, Outcome};
 pub use scan::ScanSummary;
 use scan::ScanFile;
+pub use state::{FileError, ImportResult, Phase, Progress, Snapshot};
 
 /// Un lot de fichiers est validé en base toutes les 200 entrées ou 300 ms.
 const COMMIT_EVERY: usize = 200;
@@ -30,58 +34,6 @@ const PROGRESS_INTERVAL: Duration = Duration::from_millis(100);
 const LIBRARY_INTERVAL: Duration = Duration::from_millis(1000);
 /// Nombre maximal de fichiers en erreur listés dans le résumé.
 const MAX_LISTED_ERRORS: usize = 200;
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub enum Phase {
-    Idle,
-    Scanning,
-    Ready,
-    Importing,
-    Finished,
-}
-
-#[derive(Clone, Debug, Default, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Progress {
-    pub total: u64,
-    pub processed: u64,
-    pub imported: u64,
-    pub updated: u64,
-    pub already_present: u64,
-    pub duplicates: u64,
-    pub errors: u64,
-    pub current_file: Option<String>,
-}
-
-#[derive(Clone, Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct FileError {
-    pub path: String,
-    pub message: String,
-}
-
-#[derive(Clone, Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ImportResult {
-    pub cancelled: bool,
-    /// Erreur qui a interrompu tout l'import (base inaccessible…).
-    pub fatal: Option<String>,
-    pub error_files: Vec<FileError>,
-    pub elapsed_ms: u64,
-}
-
-#[derive(Clone, Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Snapshot {
-    pub phase: Phase,
-    /// Fichiers et dossiers choisis (bouton ou glisser-déposer).
-    pub sources: Vec<String>,
-    pub recursive: bool,
-    pub scan: Option<ScanSummary>,
-    pub progress: Option<Progress>,
-    pub result: Option<ImportResult>,
-}
 
 struct Inner {
     snapshot: Snapshot,
@@ -120,6 +72,15 @@ impl ImportManager {
 
     pub fn snapshot(&self) -> Snapshot {
         self.inner.lock().unwrap().snapshot.clone()
+    }
+
+    /// La pop-in de restauration a reçu sa réponse (DEL-05) : elle ne revient plus.
+    pub fn clear_restorable(&self) {
+        self.update(false, |inner| {
+            if let Some(result) = &mut inner.snapshot.result {
+                result.restorable.clear();
+            }
+        });
     }
 
     /// Modifie l'état puis prévient l'interface (`throttle` : au plus 10 fois par seconde).
@@ -226,6 +187,7 @@ fn run_import(app: &AppHandle, files: Vec<ScanFile>, default_tags: Vec<NewTag>) 
     let mut progress = Progress { total: files.len() as u64, ..Progress::default() };
     let mut error_files = Vec::new();
     let mut cancelled = false;
+    let mut restorable = Vec::new();
 
     let fatal = (|| -> anyhow::Result<()> {
         let mut conn = db::open(&state.paths.db)?;
@@ -240,6 +202,8 @@ fn run_import(app: &AppHandle, files: Vec<ScanFile>, default_tags: Vec<NewTag>) 
             ids
         };
         let mut indexer = Indexer::new();
+        // Médias nouveaux dont les données sont en réserve (DEL-05).
+        let mut found = Vec::new();
         let mut in_batch = 0;
         let mut last_commit = Instant::now();
         let mut last_library = Instant::now();
@@ -258,6 +222,11 @@ fn run_import(app: &AppHandle, files: Vec<ScanFile>, default_tags: Vec<NewTag>) 
                 for tag_id in &tag_ids {
                     tags::attach(&conn, *id, *tag_id)?;
                 }
+            }
+            if let Ok(Outcome::Imported(id)) = &outcome
+                && reserve::has_kept(&conn, *id)?
+            {
+                found.push(*id);
             }
             match outcome {
                 Ok(Outcome::Imported(_)) => progress.imported += 1,
@@ -288,6 +257,7 @@ fn run_import(app: &AppHandle, files: Vec<ScanFile>, default_tags: Vec<NewTag>) 
             manager.update(true, |inner| inner.snapshot.progress = Some(snapshot));
         }
         conn.execute_batch("COMMIT")?;
+        restorable = reserve::candidates(&conn, &found)?;
         Ok(())
     })()
     .err()
@@ -296,7 +266,7 @@ fn run_import(app: &AppHandle, files: Vec<ScanFile>, default_tags: Vec<NewTag>) 
     state.thumbs.wake();
     let _ = app.emit("library-changed", ());
     progress.current_file = None;
-    let result = ImportResult { cancelled, fatal, error_files, elapsed_ms: start.elapsed().as_millis() as u64 };
+    let result = ImportResult { cancelled, fatal, error_files, elapsed_ms: start.elapsed().as_millis() as u64, restorable };
     manager.update(false, |inner| {
         inner.snapshot.phase = Phase::Finished;
         inner.snapshot.progress = Some(progress);

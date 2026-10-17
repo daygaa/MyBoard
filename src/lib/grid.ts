@@ -75,4 +75,26 @@ export const SORTS = [
   { label: "Aléatoire", value: "random" },
 ] as const;
 
-export type SortValue = (typeof SORTS)[number]["value"];
+/** Tris par date d'ajout (FAV-05) : seulement dans la vue Favoris ou la page d'un dossier. */
+type AddedSort = "added_desc" | "added_asc";
+export type SortValue = (typeof SORTS)[number]["value"] | AddedSort;
+
+/** Vue de la grille, pour ses tris : bibliothèque, favoris ou dossier. */
+export type SortScope = "library" | "favorites" | "folder";
+
+/** Tris proposés dans une vue : les tris d'ajout en premier, dans leur vue seulement. */
+export function sortsFor(scope: SortScope): { label: string; value: SortValue }[] {
+  if (scope === "library") return [...SORTS];
+  const what = scope === "favorites" ? "Ajout aux favoris" : "Ajout au dossier";
+  const added: { label: string; value: AddedSort }[] = [
+    { label: `${what} : récents`, value: "added_desc" },
+    { label: `${what} : anciens`, value: "added_asc" },
+  ];
+  return [...added, ...SORTS];
+}
+
+/** Tri appliqué : un tri d'ajout choisi dans les favoris ou un dossier s'affiche en « Récents »
+ *  ailleurs (le choix est gardé, commun à toutes les pages). */
+export function effectiveSort(sort: SortValue, scope: SortScope): SortValue {
+  return scope === "library" && sort.startsWith("added") ? "recent" : sort;
+}

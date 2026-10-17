@@ -15,7 +15,10 @@ const EDGE = 4;
 
 /** Entrée qui fait quelque chose (ni séparateur, ni grisée, ni fonction à venir). */
 export const usable = (entry: MenuEntry | undefined): entry is MenuItem =>
-  entry !== undefined && entry !== "separator" && !entry.disabled && (entry.run !== undefined || entry.submenu !== undefined);
+  entry !== undefined &&
+  entry !== "separator" &&
+  !entry.disabled &&
+  (entry.run !== undefined || entry.submenu !== undefined || entry.dialog !== undefined);
 
 /** Entrée utilisable suivante dans le sens `step` (en boucle), ou `null`. */
 export function nextUsable(entries: MenuEntry[], from: number | null, step: number): number | null {

@@ -19,6 +19,8 @@ export type MediaItem = {
   height: number | null;
   durationMs: number | null;
   thumbStatus: number;
+  /** Favori (FAV-01). */
+  favorite: boolean;
 };
 
 export type ListQuery = {
@@ -29,6 +31,10 @@ export type ListQuery = {
   seed: number;
   page: number;
   pageSize: number;
+  /** Vue Favoris (FAV-02). */
+  favorites?: boolean;
+  /** Page d'un dossier (FOLD-04). */
+  folder?: number | null;
 };
 
 export type ListPage = {
@@ -48,6 +54,8 @@ export type Stats = {
   documents: number;
   tags: number;
   thumbsPending: number;
+  /** Nombre de favoris (titre de la vue Favoris, FAV-04). */
+  favorites: number;
 };
 
 export type FfmpegStatus = { found: boolean; path: string | null; version: string | null };
@@ -75,6 +83,8 @@ export type MediaDetail = {
   tags: TagInfo[];
   /** Note libre (VIEW-19). */
   notes: string | null;
+  /** Favori (FAV-01). */
+  favorite: boolean;
 };
 
 /** Résultat d'une miniature, envoyé par lots (événement `thumbs-ready`). */
@@ -108,12 +118,29 @@ export type ImportProgress = {
   currentFile: string | null;
 };
 
+/** Média réimporté dont les données sont en réserve (DEL-05). */
+export type RestoreCandidate = {
+  mediaId: number;
+  hash: string;
+  fileName: string;
+  deletedAt: number;
+  tags: { name: string; category: number }[];
+  favorite: boolean;
+  folders: { name: string; exists: boolean }[];
+  notes: string | null;
+};
+
 export type ImportResult = {
   cancelled: boolean;
   fatal: string | null;
   errorFiles: { path: string; message: string }[];
   elapsedMs: number;
+  /** Pop-in de fin d'import (DEL-05) ; vide une fois réglée. */
+  restorable: RestoreCandidate[];
 };
+
+/** Fichier qui n'a pas pu être effacé (DEL-04) : son média est revenu dans la bibliothèque. */
+export type FailedFile = { id: number; path: string; code: number | null; message: string };
 
 export type ImportPhase = "idle" | "scanning" | "ready" | "importing" | "finished";
 
@@ -161,6 +188,10 @@ export const api = {
   saveVideoFrame: (id: number, seconds: number, date: string) => invoke<void>("save_video_frame", { id, seconds, date }),
   /** Commande du menu de la fenêtre (CTX-13) : comme celui de Windows. */
   windowCommand: (command: WindowCommand) => invoke<void>("window_command", { command }),
+  setFavorite: (ids: number[], on: boolean) => invoke<void>("set_favorite", { ids, on }),
+  /** Marque les médias à supprimer (DEL-01) ; `deleteFiles` : effacer aussi leurs fichiers (DEL-04). */
+  deleteMedia: (ids: number[], deleteFiles: boolean) => invoke<void>("delete_media", { ids, deleteFiles }),
+  restoreMediaData: (restore: number[], discard: number[]) => invoke<void>("restore_media_data", { restore, discard }),
 };
 
 export type WindowCommand = "restore" | "move" | "size" | "minimize" | "maximize" | "close";
@@ -173,6 +204,10 @@ export const EVENTS = {
   importState: "import-state",
   /** Alt + Espace : ouvrir le menu de la fenêtre de MyBoard (CTX-13). */
   windowMenu: "menu-fenetre",
+  /** Médias réellement supprimés (DEL-02). */
+  mediaDeleted: "media-deleted",
+  /** Fichiers impossibles à effacer (DEL-04). */
+  deletionFailed: "deletion-failed",
 } as const;
 
 /** Tailles servies par le protocole `thumb://` : 320 px, 128 px (LIB-12), aperçu 640 px (LIB-09). */

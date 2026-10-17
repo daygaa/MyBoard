@@ -8,6 +8,8 @@
 //! compteur `search_generation`, tenu par des déclencheurs de la base (schéma v4), change à chaque
 //! ajout ou retrait d'un lien tag-média ou d'un média : l'index repart alors de la base. Il a sa
 //! propre connexion : une recherche n'attend jamais une écriture de l'interface.
+//! Vue Favoris ou dossier (FAV-02, FOLD-04) : l'ensemble de ses médias limite le résultat ; les
+//! médias en cours de suppression (DEL-01) en sont retirés.
 
 use std::collections::HashMap;
 use std::path::Path;
@@ -16,7 +18,8 @@ use std::sync::{Arc, Mutex};
 use roaring::RoaringBitmap;
 use rusqlite::{Connection, params_from_iter};
 
-use crate::library::{KINDS, ListPage, ListQuery, media_rows, order_by, paging};
+use crate::library::{KINDS, ListPage, ListQuery, media_rows, order_by, paging, selected_kinds};
+use crate::scope::Scope;
 use crate::tags::normalize;
 
 enum Term {
@@ -80,19 +83,20 @@ impl SearchIndex {
         if cache.sets.len() > MAX_SETS {
             cache.sets.clear();
         }
-        let kinds: Vec<&str> = KINDS.into_iter().filter(|k| query.kinds.iter().any(|q| q == k)).collect();
-        let key = format!("{:?}|{:?}", query.terms, kinds);
+        let kinds = selected_kinds(&query.kinds);
+        let scope = query.scope();
+        let key = format!("{:?}|{:?}|{:?}", query.terms, kinds, scope);
         let result = match &cache.last {
             Some((last, set)) if *last == key => set.clone(),
             _ => {
-                let set = Arc::new(matching(db, &mut cache.sets, &terms, &kinds)?);
+                let set = Arc::new(matching(db, &mut cache.sets, &terms, &kinds, scope)?);
                 cache.last = Some((key, set.clone()));
                 set
             }
         };
         let (page, page_count, page_size) = paging(result.len(), query.page_size, query.page);
         let offset = ((page - 1) * page_size) as usize;
-        let ids = page_ids(db, &result, &query.sort, query.seed, offset, page_size as usize)?;
+        let ids = page_ids(db, &result, scope, &query.sort, query.seed, offset, page_size as usize)?;
         let items = media_rows(db, &ids)?;
         Ok(Some(ListPage { items, total: result.len(), page, page_count, page_size }))
     }
@@ -136,8 +140,15 @@ fn term_set(db: &Connection, sets: &mut HashMap<String, Arc<RoaringBitmap>>, ter
     }
 }
 
-/// Médias qui portent tous les termes demandés, aucun des termes exclus, et d'un des types cochés.
-fn matching(db: &Connection, sets: &mut HashMap<String, Arc<RoaringBitmap>>, terms: &[(Term, bool)], kinds: &[&str]) -> rusqlite::Result<RoaringBitmap> {
+/// Médias de la vue qui portent tous les termes demandés, aucun des termes exclus, et d'un des types
+/// cochés ; jamais ceux en cours de suppression.
+fn matching(
+    db: &Connection,
+    sets: &mut HashMap<String, Arc<RoaringBitmap>>,
+    terms: &[(Term, bool)],
+    kinds: &[&str],
+    scope: Scope,
+) -> rusqlite::Result<RoaringBitmap> {
     let mut included = Vec::new();
     let mut excluded = Vec::new();
     for (term, exclude) in terms {
@@ -164,6 +175,10 @@ fn matching(db: &Connection, sets: &mut HashMap<String, Arc<RoaringBitmap>>, ter
     for set in &excluded {
         result -= set.as_ref();
     }
+    if let Some((key, sql)) = scope.set_query() {
+        result &= set(db, sets, key, &sql, &[])?.as_ref();
+    }
+    result -= set(db, sets, "suppression".into(), "SELECT id FROM media WHERE pending_delete != 0 ORDER BY id", &[])?.as_ref();
     Ok(result)
 }
 
@@ -171,8 +186,30 @@ fn matching(db: &Connection, sets: &mut HashMap<String, Arc<RoaringBitmap>>, ter
 /// au-delà, on parcourt l'index du tri en ne gardant que les résultats.
 const SORT_IN_QUERY: u64 = 5000;
 
-/// Identifiants de la page, dans l'ordre du tri (mêmes ordres que `library::order_by`).
-fn page_ids(db: &Connection, result: &RoaringBitmap, sort: &str, seed: u32, offset: usize, limit: usize) -> rusqlite::Result<Vec<u32>> {
+/// Identifiants de la page, dans l'ordre du tri (mêmes ordres que `library::order_by`, et tris d'ajout
+/// des favoris et des dossiers, FAV-05).
+fn page_ids(
+    db: &Connection,
+    result: &RoaringBitmap,
+    scope: Scope,
+    sort: &str,
+    seed: u32,
+    offset: usize,
+    limit: usize,
+) -> rusqlite::Result<Vec<u32>> {
+    if let Some((source, dir)) = scope.added_source(sort) {
+        let order = format!("ORDER BY added_at {dir}, media_id {dir}");
+        return if result.len() <= SORT_IN_QUERY {
+            let marks = vec!["?"; result.len() as usize].join(",");
+            let sql = format!("{source} AND media_id IN ({marks}) {order} LIMIT {limit} OFFSET {offset}");
+            let mut stmt = db.prepare(&sql)?;
+            stmt.query_map(params_from_iter(result.iter()), |r| r.get::<_, u32>(0))?.collect()
+        } else {
+            let mut stmt = db.prepare_cached(&format!("{source} {order}"))?;
+            first_in(stmt.query([])?, result, offset, limit)
+        };
+    }
+    let sort = scope.sort(sort);
     let ids = match sort {
         "oldest" => result.iter().skip(offset).take(limit).collect(),
         "random" => {
@@ -197,25 +234,29 @@ fn page_ids(db: &Connection, result: &RoaringBitmap, sort: &str, seed: u32, offs
         }
         _ => {
             let mut stmt = db.prepare_cached(&format!("SELECT id FROM media ORDER BY {}", order_by(sort)))?;
-            let mut rows = stmt.query([])?;
-            let mut ids = Vec::with_capacity(limit);
-            let mut skipped = 0;
-            while let Some(row) = rows.next()? {
-                let id: u32 = row.get(0)?;
-                if !result.contains(id) {
-                    continue;
-                }
-                if skipped < offset {
-                    skipped += 1;
-                } else {
-                    ids.push(id);
-                    if ids.len() == limit {
-                        break;
-                    }
-                }
-            }
-            ids
+            first_in(stmt.query([])?, result, offset, limit)?
         }
     };
+    Ok(ids)
+}
+
+/// Parcourt des identifiants déjà triés en ne gardant que les résultats : la page `offset..+limit`.
+fn first_in(mut rows: rusqlite::Rows, result: &RoaringBitmap, offset: usize, limit: usize) -> rusqlite::Result<Vec<u32>> {
+    let mut ids = Vec::with_capacity(limit);
+    let mut skipped = 0;
+    while let Some(row) = rows.next()? {
+        let id: u32 = row.get(0)?;
+        if !result.contains(id) {
+            continue;
+        }
+        if skipped < offset {
+            skipped += 1;
+        } else {
+            ids.push(id);
+            if ids.len() == limit {
+                break;
+            }
+        }
+    }
     Ok(ids)
 }

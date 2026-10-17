@@ -87,7 +87,7 @@ export function BurgerMenu() {
         <nav data-zone="menu.navigation" className="space-y-0.5 p-2">
           <NavItem item={{ label: "Bibliothèque", icon: LibraryBig, route: "library" }} onDone={close} />
           <NavItem item={{ label: "Importer des médias", icon: Upload, route: "import" }} onDone={close} />
-          <NavItem item={{ label: "Favoris", icon: Star }} onDone={close} />
+          <NavItem item={{ label: "Favoris", icon: Star, route: "favorites" }} onDone={close} />
           <NavItem item={{ label: "Gestionnaire de Tags", icon: Tags }} onDone={close} />
         </nav>
 

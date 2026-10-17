@@ -692,3 +692,39 @@ chaque vue ; recherche vide à l'entrée. Dossier masqué : retiré des listes s
 « Dossiers masqués » provisoire jusqu'au gestionnaire de dossiers (FOLD-05, FOLD-06, phase 5). Couleur
 attribuée automatiquement, changeable parmi des couleurs prédéfinies. Liste à cocher (ajouter / retirer)
 pour le bouton Dossier de la visionneuse et les menus.
+
+## D-033 — Lot 1 de la phase 3 : suppression, réserve, favoris, vues (17/10/2026)
+
+**Suppression en deux temps (DEL-01 à DEL-03).** La commande marque les médias (`pending_delete` : 1 =
+bibliothèque seulement, 2 = fichier aussi) dans une transaction et rend la main (~5 ms pour 300) ; la
+grille, la recherche et les statistiques les ignorent aussitôt. Un fil en priorité basse (`deletion.rs`)
+efface d'abord les fichiers (sorte 2), puis retire les médias par lots de 500 en une transaction
+(déclencheurs : compteurs des tags et des dossiers, génération de la recherche), puis leurs vignette,
+miniature 128 px et grand aperçu. Marqués en base, ils sont repris au lancement suivant. Un fichier
+impossible à effacer : son média est démarqué (il revient avec ses données) et l'interface reçoit la liste
+(`deletion-failed`). Pour ne pas ralentir les pages lointaines (où chaque média sauté serait relu), le
+filtre « non marqué » n'est ajouté aux requêtes que s'il existe des médias marqués (index partiel
+`media_pending`, presque toujours vide) ; les comptes soustraient les marqués.
+
+**Réserve (DEL-05).** Table `media_reserve` (schéma v5), une ligne par empreinte : tags (nom +
+catégorie), date d'ajout aux favoris, dossiers (id + date de création, pour ne jamais confondre avec un
+dossier créé plus tard au même numéro) et note, en JSON écrit par la base elle-même au moment de la
+suppression. Vidée des lignes de plus de 30 jours au lancement puis toutes les heures. Un média nouveau
+d'un import dont l'empreinte est en réserve est proposé à la restauration en fin d'import
+(`ImportResult.restorable`) ; la pop-in ne se ferme que par ses boutons (un Échap ne doit pas faire
+perdre les données).
+
+**Vues (FAV-02, FOLD-04).** `ListQuery` porte `favorites` / `folder` (`scope.rs`) : jointure sur les
+favoris ou les liens du dossier pour la grille sans recherche, ensemble gardé par l'index de recherche
+(invalidé par de nouveaux déclencheurs sur `favorites` et `folder_media`), tris d'ajout dans leur vue
+seulement (ailleurs : « Récents »). L'adresse (`#/favoris`, `#/dossier/<id>`) fixe la vue ; changer de vue
+repart d'une recherche vide et de la page 1, le retour arrière retrouve la recherche d'avant.
+
+**Étoile des vignettes (GRID-08, D-008), mesurée sur 100 000 médias (écran 1920×1080, fenêtre au rythme
+de l'écran principal à 180 Hz).** Dessinée dans le calque réduit par transformation (GRID-10), elle
+coûtait 15 à 20 % de fluidité au défilement à 20 et 30 colonnes (168 → 140 images/s) : son dessin
+vectoriel était refait à une taille fractionnaire. Sortie du calque et réduite par sa propre taille
+(`.tile-star`) : 153 à 160 images/s. Reste : changement de densité à 30 colonnes ≈ 900 ms contre ≈ 700 ms
+sans étoile (création de 500 boutons de plus). Mesuré aussi : une étoile en caractère de police au lieu de
+l'icône Lucide ferait 159 à 169 images/s et ≈ 840 ms ; non retenue sans l'accord de l'utilisateur (règle
+« icônes Lucide »), proposée.

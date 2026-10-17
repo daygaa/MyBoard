@@ -3,7 +3,9 @@
 
 pub mod clipboard_text;
 pub mod db;
+pub mod deletion;
 pub mod display;
+pub mod favorites;
 pub mod ffmpeg;
 pub mod formats;
 pub mod fullscreen;
@@ -11,6 +13,8 @@ pub mod import;
 pub mod library;
 pub mod media;
 pub mod paths;
+pub mod reserve;
+pub mod scope;
 pub mod search;
 pub mod system_menu;
 pub mod tags;
@@ -24,6 +28,7 @@ use std::sync::Mutex;
 use rusqlite::Connection;
 use tauri::Manager;
 
+use deletion::DeletionService;
 use import::ImportManager;
 use paths::DataPaths;
 use search::SearchIndex;
@@ -40,6 +45,8 @@ pub struct AppState {
     pub import: ImportManager,
     /// Index de la recherche par tags (SRCH-17).
     pub search: SearchIndex,
+    /// Suppression en arrière-plan (DEL-02, DEL-03).
+    pub deletion: DeletionService,
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -59,6 +66,7 @@ pub fn run() {
             let search = SearchIndex::open(&paths.db)?;
             let thumbs = ThumbService::start(handle.clone(), &paths.db, &paths.thumbs_db)?;
             let previews = PreviewService::start(handle.clone(), thumbs.clone(), &paths.db, &paths.thumbs_db)?;
+            let deletion = DeletionService::start(handle.clone(), &paths.db, &paths.thumbs_db, previews.clone())?;
             app.manage(AppState {
                 paths,
                 db: Mutex::new(db),
@@ -66,6 +74,7 @@ pub fn run() {
                 previews,
                 import: ImportManager::new(handle),
                 search,
+                deletion,
             });
             if let Some(window) = app.get_webview_window("main") {
                 fullscreen::install(&window)?;
@@ -107,6 +116,9 @@ pub fn run() {
             media::picture::set_wallpaper,
             media::picture::save_video_frame,
             system_menu::window_command,
+            favorites::set_favorite,
+            deletion::delete_media,
+            reserve::restore_media_data,
         ])
         .run(tauri::generate_context!())
         .expect("erreur au lancement de MyBoard");

@@ -2,24 +2,27 @@
 // Ligne 1 : infos du fichier (VIEW-10), juste à droite le champ d'ajout de tag (VIEW-20),
 // puis les actions : Copier le fichier (VIEW-35), Favori (VIEW-11), Dossier (VIEW-15),
 // Explorer (VIEW-13), Ouvrir avec l'application par défaut (VIEW-24), Imprimer (VIEW-17, images
-// seulement), Supprimer (VIEW-14). Pas de « Télécharger » (VIEW-12). Favori, Dossier et
-// Supprimer : grisés « bientôt » jusqu'à la phase 3 (D-016). Échec d'une action : message
-// d'erreur (VIEW-28). Chaque action a son raccourci clavier (VIEW-36, lib/shortcuts.ts).
+// seulement), Supprimer (VIEW-14 : pop-in DEL-04, puis le média suivant). Pas de « Télécharger »
+// (VIEW-12). Favori : étoile dorée si favori, à jour partout (FAV-03). Dossier : grisé « bientôt »
+// jusqu'au lot des dossiers. Échec d'une action : message d'erreur (VIEW-28). Chaque action a son
+// raccourci clavier (VIEW-36, lib/shortcuts.ts).
 // Clic droit sur le nom du fichier : son menu (CTX-08).
 // Dessous : les tags du média (`children`, zone dépliable de BottomPanel, VIEW-23, VIEW-39).
 
-import { useEffect, type ComponentType, type ReactNode } from "react";
+import { useEffect, useState, type ComponentType, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Check, Copy, ExternalLink, FolderOpen, FolderPlus, Printer, Star, Trash2 } from "lucide-react";
 
+import { DeleteDialog } from "@/components/library/DeleteDialog";
 import { api, type MediaItem } from "@/lib/api";
 import { openContextMenu } from "@/lib/contextMenu";
 import { hasModalLayer } from "@/lib/escape";
 import { formatBytes, formatDuration } from "@/lib/format";
 import { viewerActionFor, withShortcut, type ViewerAction } from "@/lib/shortcuts";
 import { cn } from "@/lib/utils";
+import { setFavorite, useIsFavorite } from "@/stores/favorites";
 import { useViewer } from "@/stores/viewer";
-import { copyFile, openFile, revealFile } from "./mediaActions";
+import { copyFile, deleteShown, openFile, revealFile } from "./mediaActions";
 import { fileNameMenu } from "./mediaMenus";
 import { isTyping } from "./navigation";
 import { printImage } from "./printMedia";
@@ -38,9 +41,10 @@ type ActionDef = {
   /** Raison pour laquelle l'action est grisée pour ce média. */
   unavailable?: string;
   className?: string;
+  iconClassName?: string;
 };
 
-function Action({ zone, icon: Icon, label, title, run, unavailable, className, action }: ActionDef) {
+function Action({ zone, icon: Icon, label, title, run, unavailable, className, iconClassName, action }: ActionDef) {
   const disabled = !run || unavailable !== undefined;
   const hint = withShortcut(title, action);
   return (
@@ -56,7 +60,7 @@ function Action({ zone, icon: Icon, label, title, run, unavailable, className, a
         className ?? "text-muted-foreground",
       )}
     >
-      <Icon className="h-4 w-4" />
+      <Icon className={cn("h-4 w-4", iconClassName)} />
       <span className="hidden xl:inline">{label}</span>
     </button>
   );
@@ -86,6 +90,8 @@ function useShortcuts(actions: ActionDef[]) {
 export function InfoBar({ item, children }: { item: MediaItem; children: ReactNode }) {
   const { data: detail } = useQuery({ queryKey: ["media-detail", item.id], queryFn: () => api.mediaDetail(item.id) });
   const copied = useViewer((s) => s.copied === item.id);
+  const favorite = useIsFavorite(item.id, detail?.favorite ?? item.favorite);
+  const [deleting, setDeleting] = useState(false);
   const meta = [
     item.width && item.height ? `${item.width}×${item.height}` : "",
     formatBytes(item.size),
@@ -103,7 +109,16 @@ export function InfoBar({ item, children }: { item: MediaItem; children: ReactNo
       run: () => void copyFile(item),
       className: copied ? "text-[#d9a94e]" : undefined,
     },
-    { action: "favorite", zone: "visionneuse.favori", icon: Star, label: "Ajouter aux favoris", title: "Ajouter aux favoris" },
+    {
+      action: "favorite",
+      zone: "visionneuse.favori",
+      icon: Star,
+      label: favorite ? "Retirer des favoris" : "Ajouter aux favoris",
+      title: favorite ? "Retirer des favoris" : "Ajouter aux favoris",
+      run: () => void setFavorite([item.id], !favorite),
+      className: favorite ? "text-[#d9a94e]" : undefined,
+      iconClassName: favorite ? "fill-[#d9a94e]" : undefined,
+    },
     { action: "folder", zone: "visionneuse.dossier", icon: FolderPlus, label: "Ajouter à un dossier", title: "Ajouter à un dossier" },
     {
       action: "reveal",
@@ -130,7 +145,15 @@ export function InfoBar({ item, children }: { item: MediaItem; children: ReactNo
       run: () => void printImage(item),
       unavailable: item.kind === "image" ? undefined : "Imprimer : réservé aux images",
     },
-    { action: "delete", zone: "visionneuse.supprimer", icon: Trash2, label: "Supprimer", title: "Supprimer", className: "text-rose-400" },
+    {
+      action: "delete",
+      zone: "visionneuse.supprimer",
+      icon: Trash2,
+      label: "Supprimer",
+      title: "Supprimer de la bibliothèque",
+      run: () => setDeleting(true),
+      className: "text-rose-400",
+    },
   ];
   useShortcuts(actions);
 
@@ -158,6 +181,16 @@ export function InfoBar({ item, children }: { item: MediaItem; children: ReactNo
       </div>
 
       {children}
+      {deleting && (
+        <DeleteDialog
+          items={[item]}
+          onCancel={() => setDeleting(false)}
+          onConfirm={(deleteFiles) => {
+            setDeleting(false);
+            void deleteShown(item, deleteFiles);
+          }}
+        />
+      )}
     </div>
   );
 }

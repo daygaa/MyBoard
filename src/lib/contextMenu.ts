@@ -31,6 +31,9 @@ export type MenuItem = {
   /** Pastille de couleur avant le libellé (catégories). */
   color?: string;
   confirm?: Confirm;
+  /** Pop-in plus riche qu'une confirmation (suppression avec sa case, DEL-04), dessinée par le menu :
+   *  `onCancel` la ferme et laisse le menu ouvert (CTX-02), `onDone` ferme tout. */
+  dialog?: (close: { onCancel: () => void; onDone: () => void }) => ReactNode;
   /** Sous-menu « ▸ » (un seul niveau). */
   submenu?: MenuEntry[];
 };

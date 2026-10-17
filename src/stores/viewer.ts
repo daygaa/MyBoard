@@ -10,6 +10,7 @@ import { create } from "zustand";
 
 import { api, type ListQuery, type MediaItem } from "@/lib/api";
 import { setMouseFallbacks } from "@/lib/escape";
+import { scopeOf } from "@/lib/router";
 import { useLibrary } from "./library";
 import { useSearch } from "./search";
 
@@ -148,7 +149,8 @@ export const useViewer = create<ViewerState>()((set, get) => {
     openAt: (index, item, pageSize) => {
       const { kinds, sort, seed } = useLibrary.getState();
       const { terms } = useSearch.getState();
-      const base = { kinds, terms, sort, seed, pageSize };
+      // Même vue que la grille (favoris, dossier) : précédent / suivant restent dans cette vue.
+      const base = { kinds, terms, sort, seed, pageSize, ...scopeOf(location.hash) };
       // Nouveau média ouvert par un clic : nouveau chemin, placé sur sa dernière étape.
       set({ open: true, index, item, base, trail: { shown: { index, item, base }, step: LAST_STEP, snapshot: "" } });
       refreshGap();

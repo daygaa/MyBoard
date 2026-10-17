@@ -1,16 +1,22 @@
-// Page d'accueil : barre latérale + filtres + pagination (haut et bas) + grille.
+// Page d'accueil : barre latérale + filtres + pagination (haut et bas) + grille. Même page pour la
+// vue Favoris (FAV-02), avec sa ligne de titre (FAV-04) dans la ligne de la pagination du haut,
+// toujours réservée (PAGE-05).
 
 import { useEffect } from "react";
+import { Star } from "lucide-react";
 
 import { Sidebar } from "@/components/layout/Sidebar";
 import { useGridShortcuts } from "@/hooks/useGridShortcuts";
 import { useMediaPage, useStats } from "@/hooks/useLibraryData";
 import { useBusy } from "@/lib/busy";
+import { useRoute } from "@/lib/router";
 import { scrollToTop } from "@/lib/scroller";
 import { useLibrary } from "@/stores/library";
-import { EmptyLibrary, NoResults } from "./EmptyState";
+import { useSearch } from "@/stores/search";
+import { EmptyLibrary, NoFavorites, NoResults } from "./EmptyState";
 import { FiltersBar } from "./FiltersBar";
 import { MediaGrid } from "./MediaGrid";
+import { PageHead, ViewTitle } from "./PageHead";
 import { Pagination } from "./Pagination";
 
 export function LibraryPage() {
@@ -18,6 +24,9 @@ export function LibraryPage() {
   const { data: stats } = useStats();
   const density = useLibrary((s) => s.density);
   const page = useLibrary((s) => s.page);
+  const filtered = useLibrary((s) => s.kinds.length > 0);
+  const searching = useSearch((s) => s.terms.length > 0);
+  const route = useRoute();
   useGridShortcuts(data?.pageCount ?? 1);
   // Autre page, filtre, tri ou recherche qui tarde : curseur d'attente passé 0,3 s (GEN-13).
   useBusy(isPlaceholderData, 300);
@@ -28,8 +37,8 @@ export function LibraryPage() {
   }, [page]);
 
   let content = null;
-  if (stats && stats.total === 0) content = <EmptyLibrary />;
-  else if (data && data.total === 0) content = <NoResults />;
+  if (route === "library" && stats && stats.total === 0) content = <EmptyLibrary />;
+  else if (data && data.total === 0) content = route === "favorites" && !searching && !filtered ? <NoFavorites /> : <NoResults />;
   else if (data) {
     content = (
       <MediaGrid items={data.items} density={density} firstIndex={(data.page - 1) * data.pageSize} pageSize={data.pageSize} />
@@ -41,11 +50,12 @@ export function LibraryPage() {
       <Sidebar items={data?.items ?? []} />
       <main data-zone="grille" className="min-w-0 flex-1 px-4 py-5 lg:px-6">
         <FiltersBar total={data?.total ?? 0} />
-        {data && data.total > 0 && (
-          <div className="mb-4">
-            <Pagination zone="grille.pagination-haut" page={data.page} pageCount={data.pageCount} total={data.total} />
-          </div>
-        )}
+        <PageHead
+          data={data}
+          title={
+            route === "favorites" ? <ViewTitle icon={<Star className="h-4 w-4 fill-current" />} name="Favoris" count={stats?.favorites} /> : null
+          }
+        />
         {content}
         {data && data.total > 0 && (
           <div className="mt-6">

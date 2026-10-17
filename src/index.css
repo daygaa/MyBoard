@@ -149,6 +149,22 @@
     transform-origin: 0 0;
   }
 
+  /* Étoile favori des vignettes (GRID-08) : réduite avec la vignette comme le calque des infos
+     (GRID-10), mais dessinée directement à sa taille, sans transformation : dans le calque réduit,
+     son dessin coûtait 15 à 20 % de fluidité au défilement à 20 et 30 colonnes (mesuré le 17/10,
+     D-008). Bouton 24 px, étoile 14 px, à 6 px des bords sur une vignette de 150 px et plus. */
+  .tile-star {
+    top: calc(6px * var(--tile-scale, 1));
+    right: calc(6px * var(--tile-scale, 1));
+    width: calc(24px * var(--tile-scale, 1));
+    height: calc(24px * var(--tile-scale, 1));
+    border-radius: calc(6px * var(--tile-scale, 1));
+  }
+  .tile-star svg {
+    width: calc(14px * var(--tile-scale, 1));
+    height: calc(14px * var(--tile-scale, 1));
+  }
+
   /* Fond en damier de la visionneuse (v8), remplacé par un fond uni (VIEW-44) ; gardé pour le
      choix du fond dans les préférences (SET-11). */
   .checker {

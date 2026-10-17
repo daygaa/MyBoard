@@ -68,6 +68,12 @@ impl PreviewService {
         Ok(Self { inner })
     }
 
+    /// Aperçus effacés avec leurs médias (DEL-02) : la taille connue du cache diminue d'autant.
+    pub fn forget(&self, bytes: i64) {
+        let mut size = self.inner.cache_bytes.lock().unwrap();
+        *size = (*size - bytes).max(0);
+    }
+
     /// `want` : vignettes visibles depuis ~150 ms ; `cancel` : vignettes sorties de l'écran.
     pub fn request(&self, want: &[i64], cancel: &[i64]) -> anyhow::Result<()> {
         let inner = &self.inner;

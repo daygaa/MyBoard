@@ -39,7 +39,7 @@ export function ErrorDialog() {
       description={
         <div className="space-y-1">
           {code && <p className="font-mono text-xs text-rose-300/80">{code}</p>}
-          <p className="break-all text-rose-200/90">{error.message}</p>
+          <p className="break-all whitespace-pre-line text-rose-200/90">{error.message}</p>
           {explanation && <p>{explanation}</p>}
         </div>
       }

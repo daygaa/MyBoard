@@ -1,14 +1,15 @@
 // Menus du clic droit de la visionneuse (ordre et libellés de l'utilisateur) : image (CTX-06) et
 // vidéo (CTX-07), ouverts sur le média lui-même ; nom du fichier (CTX-08). Raccourcis affichés :
-// ceux de la visionneuse (lib/shortcuts.ts, touche F du plein écran, Espace). Les entrées sans
-// action sont grisées jusqu'à leur phase (suppression : DEL).
+// ceux de la visionneuse (lib/shortcuts.ts, touche F du plein écran, Espace). Suppression : pop-in
+// avec sa case (DEL-04), puis le média suivant (VIEW-14).
 
+import { deleteEntry } from "@/components/library/DeleteDialog";
 import type { MediaItem } from "@/lib/api";
 import type { MenuEntry } from "@/lib/contextMenu";
 import { VIDEO_SHORTCUTS, VIEWER_SHORTCUTS } from "@/lib/shortcuts";
 import { isSilent, SPEEDS, speedLabel, usePlayer } from "@/stores/player";
 import { useViewer } from "@/stores/viewer";
-import { copyFile, copyImage, copyName, copyPath, openFile, revealFile, saveFrame, setWallpaper } from "./mediaActions";
+import { copyFile, copyImage, copyName, copyPath, deleteShown, openFile, revealFile, saveFrame, setWallpaper } from "./mediaActions";
 import { printImage } from "./printMedia";
 
 function fullscreenEntry(): MenuEntry {
@@ -40,7 +41,7 @@ const fileEntries = (item: MediaItem) => ({
   path: { label: "Copier le chemin du fichier", run: () => copyPath(item) },
   open: { label: "Ouvrir avec l'application par défaut", shortcut: VIEWER_SHORTCUTS.open.label, run: () => openFile(item) },
   reveal: { label: "Afficher dans l'explorateur de fichiers", shortcut: VIEWER_SHORTCUTS.reveal.label, run: () => revealFile(item) },
-  remove: { label: "Supprimer de la bibliothèque…", danger: true },
+  remove: deleteEntry([item], (deleteFiles) => void deleteShown(item, deleteFiles)),
 });
 
 export function imageMenu(item: MediaItem, zoom: ZoomControls): MenuEntry[] {

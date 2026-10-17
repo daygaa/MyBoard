@@ -8,6 +8,8 @@ import { api } from "@/lib/api";
 type PreviewsState = {
   ready: Record<number, true>;
   markReady: (ids: number[]) => void;
+  /** Médias supprimés (DEL-02) : un nouveau média peut reprendre leur numéro. */
+  forget: (ids: number[]) => void;
 };
 
 export const usePreviews = create<PreviewsState>()((set) => ({
@@ -16,6 +18,12 @@ export const usePreviews = create<PreviewsState>()((set) => ({
     set((state) => {
       const ready = { ...state.ready };
       for (const id of ids) ready[id] = true;
+      return { ready };
+    }),
+  forget: (ids) =>
+    set((state) => {
+      const ready = { ...state.ready };
+      for (const id of ids) delete ready[id];
       return { ready };
     }),
 }));

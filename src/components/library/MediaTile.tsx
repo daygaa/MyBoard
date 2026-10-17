@@ -1,7 +1,10 @@
 // Vignette de la grille (GRID-08), apparence v8 : carrée, survol = nom, poids, dimensions ;
-// badge durée pour les vidéos, badge GIF. L'étoile favori et la case de sélection
-// arrivent en phase 3, dans le calque réduit `tile-overlay` (GRID-10, remplace la réduction
-// de SEL-05). Vignettes de moins de ~2,2 cm : nom seul, agrandi (GRID-11, index.css).
+// badge durée pour les vidéos, badge GIF ; étoile favori en haut à droite, toujours visible, dorée
+// pour un favori (FAV-03 : à jour partout en temps réel), réduite avec la vignette (GRID-10) mais
+// hors du calque réduit `tile-overlay` (`.tile-star`, index.css : D-008). La case de sélection
+// arrivera avec la sélection multiple (GRID-10 remplace la réduction de SEL-05). Vignettes de
+// moins de ~2,2 cm : nom seul, agrandi (GRID-11, index.css) ; l'étoile reste. Un média supprimé
+// disparaît à l'instant du clic (DEL-01).
 // Clic = visionneuse plein écran (VIEW-01) ; clic droit = menu de la vignette (CTX-05).
 //
 // Taille de l'image selon la densité : 128 px pour les grilles denses (LIB-12), 320 px sinon,
@@ -10,13 +13,15 @@
 // change ; aucun flou ni animation permanente.
 
 import { memo, useRef, useState } from "react";
-import { File, FileSpreadsheet, FileText, Film, Image as ImageIcon, Music, Play } from "lucide-react";
+import { File, FileSpreadsheet, FileText, Film, Image as ImageIcon, Music, Play, Star } from "lucide-react";
 
 import { usePreview } from "@/hooks/usePreview";
 import { THUMB, thumbUrl, type MediaItem } from "@/lib/api";
 import { openContextMenu } from "@/lib/contextMenu";
 import { formatBytes, formatDuration } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { useDeletion } from "@/stores/deletion";
+import { setFavorite, useIsFavorite } from "@/stores/favorites";
 import { useThumbs } from "@/stores/thumbs";
 import { useViewer } from "@/stores/viewer";
 import { tileMenu } from "./tileMenu";
@@ -75,6 +80,28 @@ function fitName(name: HTMLElement) {
   name.style.setProperty("--name-size", `${size.toFixed(2)}px`);
 }
 
+/** Étoile favori (GRID-08, FAV-03) : un clic ajoute ou retire le favori, sans ouvrir la visionneuse. */
+function FavoriteStar({ id, favorite }: { id: number; favorite: boolean }) {
+  return (
+    <button
+      type="button"
+      data-zone="grille.vignette.favori"
+      aria-pressed={favorite}
+      title={favorite ? "Retirer des favoris" : "Ajouter aux favoris"}
+      onClick={(e) => {
+        e.stopPropagation();
+        void setFavorite([id], !favorite);
+      }}
+      className={cn(
+        "tile-star absolute z-10 grid place-items-center bg-black/60 transition hover:bg-black/85",
+        favorite ? "text-[#d9a94e]" : "text-white/85 hover:text-white",
+      )}
+    >
+      <Star className={cn(favorite && "fill-[#d9a94e]")} />
+    </button>
+  );
+}
+
 /** Badge durée (vidéo) ou GIF (masqué en mode « nom seul », GRID-11). */
 function Badge({ video, duration, className }: { video: boolean; duration: number | null; className?: string }) {
   return (
@@ -113,6 +140,8 @@ export const MediaTile = memo(function MediaTile({ item, index, pageSize, compac
   const ref = useRef<HTMLDivElement>(null);
   const nameRef = useRef<HTMLParagraphElement>(null);
   const update = useThumbs((s) => s.updates[item.id]);
+  const favorite = useIsFavorite(item.id, item.favorite);
+  const hidden = useDeletion((s) => s.hidden[item.id] === true);
   const [failed, setFailed] = useState(false);
   const [smallFailed, setSmallFailed] = useState(false);
   const [previewFailed, setPreviewFailed] = useState(false);
@@ -133,7 +162,10 @@ export const MediaTile = memo(function MediaTile({ item, index, pageSize, compac
       onClick={() => useViewer.getState().openAt(index, item, pageSize)}
       onContextMenu={(e) => openContextMenu(e, () => tileMenu(item, index, pageSize))}
       onMouseEnter={() => nameRef.current && fitName(nameRef.current)}
-      className="group relative block aspect-square w-full cursor-pointer overflow-hidden rounded-lg bg-[#0d0e12] ring-1 ring-border transition-all duration-200 hover:ring-[#d9a94e]/60"
+      className={cn(
+        "group relative block aspect-square w-full cursor-pointer overflow-hidden rounded-lg bg-[#0d0e12] ring-1 ring-border transition-all duration-200 hover:ring-[#d9a94e]/60",
+        hidden && "invisible",
+      )}
     >
       {ready ? (
         <div className="absolute inset-0 transition-transform duration-300 group-hover:scale-105">
@@ -167,6 +199,7 @@ export const MediaTile = memo(function MediaTile({ item, index, pageSize, compac
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent opacity-0 transition-opacity duration-200 group-hover:opacity-100" />
 
       {/* Badges et infos réduits avec la vignette quand elle est étroite (GRID-10). */}
+      <FavoriteStar id={item.id} favorite={favorite} />
       <div className="tile-overlay">
         {/* Badge en bas à droite ; au survol, il remonte sur la ligne du nom (GRID-09). */}
         {hasBadge && (
