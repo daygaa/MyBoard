@@ -21,6 +21,7 @@ import { useEffect, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
 
 import type { MediaItem } from "@/lib/api";
+import { closeContextMenu, useContextMenu } from "@/lib/contextMenu";
 import { hasModalLayer, useEscape } from "@/lib/escape";
 import { scroller } from "@/lib/scroller";
 import { cn } from "@/lib/utils";
@@ -74,7 +75,9 @@ function ViewerOverlay({ base }: { base: ListBase }) {
   // Plein écran : barre du bas affichée (souris proche, message d'erreur, « Copié » d'un
   // raccourci VIEW-35, ou saisie d'un tag ; un bouton cliqué ne compte pas, VIEW-43).
   const typing = useTypingIn(barRef);
-  const barShown = barVisible || hasError || copied || typing;
+  // Liste des dossiers ouverte depuis la barre (FOLD-09) : la barre reste là tant qu'elle est ouverte.
+  const barMenu = useContextMenu((s) => s.menu?.owner === "visionneuse.barre");
+  const barShown = barVisible || hasError || copied || typing || barMenu;
   // Barre dépliée (VIEW-39) : de combien elle monte au-dessus de sa place, si elle est visible.
   const rise = !shown || barShown ? panel.rise : 0;
   // Commandes flottantes (barre de lecture, bouton plein écran des images) : posées comme si la
@@ -108,6 +111,11 @@ function ViewerOverlay({ base }: { base: ListBase }) {
   const target = useRef(index);
 
   useEscape(true, close, { onForward: forward, canForward });
+  // Les commandes se cachent (souris immobile, VIEW-33) : la liste ouverte depuis la barre se ferme
+  // avec elles, comme le menu des vitesses (VIEW-49).
+  useEffect(() => {
+    if (idle && useContextMenu.getState().menu?.owner === "visionneuse.barre") closeContextMenu();
+  }, [idle]);
   // Inscrit après la visionneuse : en plein écran, Échap et le bouton 4 le quittent d'abord.
   useEscape(fullscreen, () => setFullscreen(false));
   useEffect(() => {

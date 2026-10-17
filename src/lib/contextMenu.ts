@@ -50,6 +50,10 @@ export type OpenMenu = {
   keyboard: boolean;
   /** Change à chaque ouverture : le menu est recréé (sélection, sous-menu remis à zéro). */
   id: number;
+  /** Ouvert au-dessus du point (liste du bouton Dossier de la visionneuse, FOLD-09). */
+  above?: boolean;
+  /** Qui l'a ouvert, quand ça compte (barre du bas de la visionneuse : elle reste affichée). */
+  owner?: string;
 };
 
 export const useContextMenu = create<{ menu: OpenMenu | null }>(() => ({ menu: null }));
@@ -81,9 +85,10 @@ function show(e: MouseEvent, entries: MenuEntry[]) {
 }
 
 /** Ouvre un menu à un point de la fenêtre, sans clic droit (Alt + Espace : menu de la fenêtre,
- *  CTX-13) ; `keyboard` : la première entrée est déjà choisie. */
-export function openMenuAt(x: number, y: number, entries: MenuEntry[], keyboard: boolean) {
-  useContextMenu.setState({ menu: { x, y, entries, keyboard, id: nextId++ } });
+ *  CTX-13 ; menu ⋮ d'un dossier ; bouton Dossier de la visionneuse) ; `keyboard` : la première entrée
+ *  est déjà choisie. */
+export function openMenuAt(x: number, y: number, entries: MenuEntry[], keyboard: boolean, options: { above?: boolean; owner?: string } = {}) {
+  useContextMenu.setState({ menu: { x, y, entries, keyboard, id: nextId++, ...options } });
 }
 
 /** Ouvre le menu de l'élément. Sans effet sur un champ de saisie ou un texte sélectionné : leur

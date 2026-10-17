@@ -3,9 +3,9 @@
 // puis les actions : Copier le fichier (VIEW-35), Favori (VIEW-11), Dossier (VIEW-15),
 // Explorer (VIEW-13), Ouvrir avec l'application par défaut (VIEW-24), Imprimer (VIEW-17, images
 // seulement), Supprimer (VIEW-14 : pop-in DEL-04, puis le média suivant). Pas de « Télécharger »
-// (VIEW-12). Favori : étoile dorée si favori, à jour partout (FAV-03). Dossier : grisé « bientôt »
-// jusqu'au lot des dossiers. Échec d'une action : message d'erreur (VIEW-28). Chaque action a son
-// raccourci clavier (VIEW-36, lib/shortcuts.ts).
+// (VIEW-12). Favori : étoile dorée si favori, à jour partout (FAV-03). Dossier : liste à cocher des
+// dossiers ouverte au-dessus du bouton (FOLD-09). Échec d'une action : message d'erreur (VIEW-28).
+// Chaque action a son raccourci clavier (VIEW-36, lib/shortcuts.ts).
 // Clic droit sur le nom du fichier : son menu (CTX-08).
 // Dessous : les tags du média (`children`, zone dépliable de BottomPanel, VIEW-23, VIEW-39).
 
@@ -13,9 +13,10 @@ import { useEffect, useState, type ComponentType, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Check, Copy, ExternalLink, FolderOpen, FolderPlus, Printer, Star, Trash2 } from "lucide-react";
 
+import { folderPickEntries } from "@/components/folders/folderMenus";
 import { DeleteDialog } from "@/components/library/DeleteDialog";
 import { api, type MediaItem } from "@/lib/api";
-import { openContextMenu } from "@/lib/contextMenu";
+import { openContextMenu, openMenuAt } from "@/lib/contextMenu";
 import { hasModalLayer } from "@/lib/escape";
 import { formatBytes, formatDuration } from "@/lib/format";
 import { viewerActionFor, withShortcut, type ViewerAction } from "@/lib/shortcuts";
@@ -119,7 +120,20 @@ export function InfoBar({ item, children }: { item: MediaItem; children: ReactNo
       className: favorite ? "text-[#d9a94e]" : undefined,
       iconClassName: favorite ? "fill-[#d9a94e]" : undefined,
     },
-    { action: "folder", zone: "visionneuse.dossier", icon: FolderPlus, label: "Ajouter à un dossier", title: "Ajouter à un dossier" },
+    {
+      action: "folder",
+      zone: "visionneuse.dossier",
+      icon: FolderPlus,
+      label: "Ajouter à un dossier",
+      title: "Ajouter à un dossier",
+      // Liste ouverte au-dessus du bouton ; la barre du bas reste affichée tant qu'elle est ouverte.
+      run: () => {
+        const r = document.querySelector('[data-zone="visionneuse.dossier"]')?.getBoundingClientRect();
+        if (!r) return;
+        const entries = folderPickEntries(item.id, detail?.folders ?? item.folders);
+        openMenuAt(r.left, r.top - 4, entries, false, { above: true, owner: "visionneuse.barre" });
+      },
+    },
     {
       action: "reveal",
       zone: "visionneuse.explorer",

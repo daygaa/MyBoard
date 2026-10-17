@@ -728,3 +728,17 @@ vectoriel était refait à une taille fractionnaire. Sortie du calque et réduit
 sans étoile (création de 500 boutons de plus). Mesuré aussi : une étoile en caractère de police au lieu de
 l'icône Lucide ferait 159 à 169 images/s et ≈ 840 ms ; non retenue sans l'accord de l'utilisateur (règle
 « icônes Lucide »), proposée.
+
+## D-034 — Lot 2 de la phase 3 : dossiers (17/10/2026)
+
+**Données.** Tables `folders` et `folder_media` du schéma v1 (compteur tenu par des déclencheurs) ;
+`folders.rs` : nom unique sans tenir compte des majuscules (colonne NOCASE), refusé s'il est pris avec un
+nom libre proposé (`nom-2`, `nom-3`…) ; couleur suivante de la palette à la création (nombre de dossiers
+modulo 8). Chaque média de la grille porte la liste de ses dossiers (`group_concat`, index
+`folder_media_media`) : les menus du clic droit, calculés au clic, savent cocher sans demander au cœur Rust.
+
+**Menus.** Le menu ⋮ d'un dossier, sa version du clic droit et la liste à cocher sont des menus maison
+(CTX-01). Le menu peut s'ouvrir au-dessus d'un point (`above`) et garder qui l'a ouvert (`owner`) : la
+visionneuse garde sa barre du bas affichée tant que la liste ouverte depuis le bouton Dossier est
+ouverte, et la ferme quand les commandes se cachent (VIEW-49). Les menus ouverts sont ajoutés à
+`KEEP_SHOWN` (VIEW-48). Libellés de menu de plus de 20rem coupés par « … » (noms de dossiers longs).

@@ -21,7 +21,12 @@ export type MediaItem = {
   thumbStatus: number;
   /** Favori (FAV-01). */
   favorite: boolean;
+  /** Dossiers qui contiennent le média (FOLD-09). */
+  folders: number[];
 };
+
+/** Dossier manuel (FOLD-01) ; masqué : absent des listes (FOLD-02). */
+export type Folder = { id: number; name: string; color: string; hidden: boolean; mediaCount: number };
 
 export type ListQuery = {
   kinds: MediaKind[];
@@ -85,6 +90,8 @@ export type MediaDetail = {
   notes: string | null;
   /** Favori (FAV-01). */
   favorite: boolean;
+  /** Dossiers qui contiennent le média (FOLD-09). */
+  folders: number[];
 };
 
 /** Résultat d'une miniature, envoyé par lots (événement `thumbs-ready`). */
@@ -192,6 +199,14 @@ export const api = {
   /** Marque les médias à supprimer (DEL-01) ; `deleteFiles` : effacer aussi leurs fichiers (DEL-04). */
   deleteMedia: (ids: number[], deleteFiles: boolean) => invoke<void>("delete_media", { ids, deleteFiles }),
   restoreMediaData: (restore: number[], discard: number[]) => invoke<void>("restore_media_data", { restore, discard }),
+  listFolders: () => invoke<Folder[]>("list_folders"),
+  /** Nom refusé : erreur `NameError` (lib/folders.ts). */
+  createFolder: (name: string, mediaIds: number[]) => invoke<Folder>("create_folder", { name, mediaIds }),
+  renameFolder: (id: number, name: string) => invoke<void>("rename_folder", { id, name }),
+  setFolderHidden: (id: number, hidden: boolean) => invoke<void>("set_folder_hidden", { id, hidden }),
+  setFolderColor: (id: number, color: string) => invoke<void>("set_folder_color", { id, color }),
+  deleteFolder: (id: number) => invoke<void>("delete_folder", { id }),
+  setFolderMedia: (folderId: number, mediaIds: number[], on: boolean) => invoke<void>("set_folder_media", { folderId, mediaIds, on }),
 };
 
 export type WindowCommand = "restore" | "move" | "size" | "minimize" | "maximize" | "close";

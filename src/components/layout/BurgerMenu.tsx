@@ -1,9 +1,12 @@
 // Menu burger dépliant à gauche (NAV-02), apparence v8.
 // Ordre : Bibliothèque · Importer · Favoris · Gestionnaire de tags · Dossiers · Paramètres (dernier).
 // Les fonctions des phases suivantes sont visibles mais grisées, avec la mention « bientôt ».
+// Dossiers : liste, « + Nouveau », menu ⋮ de chacun (FolderList, FOLD-01, FOLD-02).
 
 import type { ComponentType } from "react";
-import { LibraryBig, Plus, Settings, Star, Tags, Upload, X } from "lucide-react";
+import { LibraryBig, Settings, Star, Tags, Upload, X } from "lucide-react";
+
+import { FolderList } from "@/components/folders/FolderList";
 
 import { useEscape } from "@/lib/escape";
 import { navigate, useRoute, type Route } from "@/lib/router";
@@ -91,20 +94,7 @@ export function BurgerMenu() {
           <NavItem item={{ label: "Gestionnaire de Tags", icon: Tags }} onDone={close} />
         </nav>
 
-        <div data-zone="menu.dossiers" className="mt-2 border-t border-border p-2">
-          <div className="flex items-center justify-between px-3 py-1.5">
-            <h3 className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">Dossiers</h3>
-            <button
-              type="button"
-              disabled
-              title="Bientôt disponible"
-              className="inline-flex cursor-not-allowed items-center gap-1 rounded-md px-1.5 py-0.5 text-xs text-muted-foreground/60"
-            >
-              <Plus className="h-3.5 w-3.5" /> Nouveau
-            </button>
-          </div>
-          <p className="px-3 py-3 text-xs text-muted-foreground">Aucun dossier pour le moment.</p>
-        </div>
+        <FolderList onDone={close} />
 
         <nav data-zone="menu.parametres" className="border-t border-border p-2">
           <NavItem item={{ label: "Paramètres", icon: Settings }} onDone={close} />

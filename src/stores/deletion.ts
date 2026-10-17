@@ -21,9 +21,10 @@ function setHidden(ids: number[], hidden: boolean) {
   });
 }
 
-/** Tout ce qui dépend des médias présents : grille, compteurs, tags de la page et leurs compteurs. */
+/** Tout ce qui dépend des médias présents : grille, compteurs, tags de la page et leurs compteurs,
+ *  nombre de médias des dossiers. */
 export function refreshLibrary(): Promise<unknown> {
-  const keys = [["media"], ["stats"], ["page-tags"], ["autocomplete"], ["tag"]];
+  const keys = [["media"], ["stats"], ["page-tags"], ["autocomplete"], ["tag"], ["folders"]];
   return Promise.all(keys.map((queryKey) => queryClient.invalidateQueries({ queryKey })));
 }
 

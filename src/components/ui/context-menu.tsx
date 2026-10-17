@@ -95,7 +95,9 @@ function MenuLayer({ menu }: { menu: OpenMenu }) {
   useLayoutEffect(() => {
     const el = rootRef.current;
     if (!el) return;
-    const { left, top } = fit(menu.x, menu.y, el.offsetWidth, el.offsetHeight);
+    // Au-dessus du point si demandé (et s'il y a la place), sinon dessous comme d'habitude.
+    const y = menu.above && menu.y - el.offsetHeight >= 0 ? menu.y - el.offsetHeight : menu.y;
+    const { left, top } = fit(menu.x, y, el.offsetWidth, el.offsetHeight);
     setRootPos({ left, top, transformOrigin: `${left < menu.x ? "right" : "left"} ${top < menu.y ? "bottom" : "top"}` });
   }, [menu]);
   useLayoutEffect(() => {

@@ -15,7 +15,8 @@ pub const KINDS: [&str; 4] = ["image", "video", "audio", "document"];
 
 /// Colonnes d'un média de la grille, dans l'ordre lu par `media_from_row` (préfixées : la requête
 /// peut joindre les favoris ou un dossier).
-const MEDIA_COLUMNS: &str = "media.id, media.hash, media.file_name, media.ext, media.kind, media.size, media.width,      media.height, media.duration_ms, media.thumb_status, EXISTS (SELECT 1 FROM favorites f WHERE f.media_id = media.id)";
+const MEDIA_COLUMNS: &str = "media.id, media.hash, media.file_name, media.ext, media.kind, media.size, media.width,      media.height, media.duration_ms, media.thumb_status, EXISTS (SELECT 1 FROM favorites f WHERE f.media_id = media.id), \
+     (SELECT group_concat(fm.folder_id) FROM folder_media fm WHERE fm.media_id = media.id)";
 
 /// Demande d'une page de la grille. Filtres et tri sont indépendants des tags (FILT-02).
 #[derive(Debug, Deserialize)]
@@ -60,6 +61,8 @@ pub struct MediaItem {
     pub thumb_status: i64,
     /// Favori (FAV-01) : étoile de la vignette.
     pub favorite: bool,
+    /// Dossiers qui contiennent le média (liste à cocher, FOLD-09).
+    pub folders: Vec<i64>,
 }
 
 #[derive(Debug, Serialize)]
@@ -109,6 +112,11 @@ pub fn order_by(sort: &str) -> &'static str {
     }
 }
 
+/// Identifiants lus dans une liste « 3,12,40 » (`group_concat`).
+pub fn ids_of(list: Option<String>) -> Vec<i64> {
+    list.map(|l| l.split(',').filter_map(|id| id.parse().ok()).collect()).unwrap_or_default()
+}
+
 fn media_from_row(r: &rusqlite::Row) -> rusqlite::Result<MediaItem> {
     Ok(MediaItem {
         id: r.get(0)?,
@@ -122,6 +130,7 @@ fn media_from_row(r: &rusqlite::Row) -> rusqlite::Result<MediaItem> {
         duration_ms: r.get(8)?,
         thumb_status: r.get(9)?,
         favorite: r.get(10)?,
+        folders: ids_of(r.get(11)?),
     })
 }
 

@@ -35,6 +35,18 @@ export function NoFavorites() {
   );
 }
 
+/** Page d'un dossier vide (FOLD-04). */
+export function EmptyFolder() {
+  return (
+    <div data-zone="grille.vide" className={BOX}>
+      <p className="text-lg font-medium text-foreground">Ce dossier est vide</p>
+      <p className="mt-1 text-sm text-muted-foreground">
+        Ajoutez-y des médias avec « Ajouter à un dossier » (menu d'une vignette, ou touche D dans la visionneuse).
+      </p>
+    </div>
+  );
+}
+
 /** Aucun résultat : message distinct pour une recherche par tags (GRID-01, texte de la v8). */
 export function NoResults() {
   const searching = useSearch((s) => s.terms.length > 0);

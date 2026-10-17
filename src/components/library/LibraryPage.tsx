@@ -1,19 +1,20 @@
 // Page d'accueil : barre latérale + filtres + pagination (haut et bas) + grille. Même page pour la
-// vue Favoris (FAV-02), avec sa ligne de titre (FAV-04) dans la ligne de la pagination du haut,
-// toujours réservée (PAGE-05).
+// vue Favoris (FAV-02) et la page d'un dossier (FOLD-04), avec leur ligne de titre (FAV-04) dans la
+// ligne de la pagination du haut, toujours réservée (PAGE-05).
 
 import { useEffect } from "react";
-import { Star } from "lucide-react";
+import { Folder as FolderIcon, Star } from "lucide-react";
 
 import { Sidebar } from "@/components/layout/Sidebar";
+import { useFolders } from "@/hooks/useFolders";
 import { useGridShortcuts } from "@/hooks/useGridShortcuts";
 import { useMediaPage, useStats } from "@/hooks/useLibraryData";
 import { useBusy } from "@/lib/busy";
-import { useRoute } from "@/lib/router";
+import { navigate, useFolderId, useRoute } from "@/lib/router";
 import { scrollToTop } from "@/lib/scroller";
 import { useLibrary } from "@/stores/library";
 import { useSearch } from "@/stores/search";
-import { EmptyLibrary, NoFavorites, NoResults } from "./EmptyState";
+import { EmptyFolder, EmptyLibrary, NoFavorites, NoResults } from "./EmptyState";
 import { FiltersBar } from "./FiltersBar";
 import { MediaGrid } from "./MediaGrid";
 import { PageHead, ViewTitle } from "./PageHead";
@@ -27,7 +28,14 @@ export function LibraryPage() {
   const filtered = useLibrary((s) => s.kinds.length > 0);
   const searching = useSearch((s) => s.terms.length > 0);
   const route = useRoute();
+  const folderId = useFolderId();
+  const { data: folders } = useFolders();
+  const folder = route === "folder" ? folders?.find((f) => f.id === folderId) : undefined;
   useGridShortcuts(data?.pageCount ?? 1);
+  // Dossier inexistant (supprimé entre-temps…) : retour à la bibliothèque.
+  useEffect(() => {
+    if (route === "folder" && folders && !folder) navigate("library");
+  }, [route, folders, folder]);
   // Autre page, filtre, tri ou recherche qui tarde : curseur d'attente passé 0,3 s (GEN-13).
   useBusy(isPlaceholderData, 300);
 
@@ -38,7 +46,12 @@ export function LibraryPage() {
 
   let content = null;
   if (route === "library" && stats && stats.total === 0) content = <EmptyLibrary />;
-  else if (data && data.total === 0) content = route === "favorites" && !searching && !filtered ? <NoFavorites /> : <NoResults />;
+  else if (data && data.total === 0) {
+    if (searching || filtered) content = <NoResults />;
+    else if (route === "favorites") content = <NoFavorites />;
+    else if (route === "folder") content = <EmptyFolder />;
+    else content = <NoResults />;
+  }
   else if (data) {
     content = (
       <MediaGrid items={data.items} density={density} firstIndex={(data.page - 1) * data.pageSize} pageSize={data.pageSize} />
@@ -53,7 +66,11 @@ export function LibraryPage() {
         <PageHead
           data={data}
           title={
-            route === "favorites" ? <ViewTitle icon={<Star className="h-4 w-4 fill-current" />} name="Favoris" count={stats?.favorites} /> : null
+            route === "favorites" ? (
+              <ViewTitle icon={<Star className="h-4 w-4 fill-current" />} name="Favoris" count={stats?.favorites} />
+            ) : folder ? (
+              <ViewTitle icon={<FolderIcon className="h-4 w-4" />} name={folder.name} count={folder.mediaCount} />
+            ) : null
           }
         />
         {content}

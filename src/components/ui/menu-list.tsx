@@ -81,7 +81,8 @@ export function MenuList({ entries, active, listRef, style, zone, onHover, onLea
           >
             {checks && <span className="grid w-4 shrink-0 place-items-center">{entry.checked && <Check className="h-3.5 w-3.5" />}</span>}
             {entry.color && <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: entry.color }} />}
-            <span className="flex-1 whitespace-nowrap">{entry.label}</span>
+            {/* Libellé très long (nom de dossier…) : coupé par « … ». */}
+            <span className="max-w-80 flex-1 truncate whitespace-nowrap">{entry.label}</span>
             {entry.shortcut && (
               <span className={cn("ml-6 text-xs whitespace-nowrap", on ? "opacity-70" : "text-muted-foreground")}>{entry.shortcut}</span>
             )}

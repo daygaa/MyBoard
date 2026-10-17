@@ -6,6 +6,7 @@ pub mod db;
 pub mod deletion;
 pub mod display;
 pub mod favorites;
+pub mod folders;
 pub mod ffmpeg;
 pub mod formats;
 pub mod fullscreen;
@@ -119,6 +120,13 @@ pub fn run() {
             favorites::set_favorite,
             deletion::delete_media,
             reserve::restore_media_data,
+            folders::list_folders,
+            folders::create_folder,
+            folders::rename_folder,
+            folders::set_folder_hidden,
+            folders::set_folder_color,
+            folders::delete_folder,
+            folders::set_folder_media,
         ])
         .run(tauri::generate_context!())
         .expect("erreur au lancement de MyBoard");

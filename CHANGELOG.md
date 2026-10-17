@@ -3,6 +3,50 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Phase 3, lot 2 : dossiers (17/10/2026) — Backup v36
+
+SPEC : livrées `[~]` : FOLD-01 à FOLD-04, FOLD-07, FOLD-09, VIEW-15 ; NAV-02 (« Dossiers ») ; menu CTX-05
+(« Ajouter à un dossier ▸ », « Retirer de ce dossier ») ; CTX-16 (menus des dossiers). FOLD-09 corrigé :
+seul le menu d'une vignette a « Ajouter à un dossier ▸ » (pas ceux de l'image et de la vidéo). Choix :
+D-032, D-034.
+
+- **Menu burger, Dossiers** : « + Nouveau » (pop-in du nom), puis les dossiers par ordre alphabétique :
+  pastille de couleur, nom, nombre de médias, menu ⋮ (le clic droit sur la ligne ouvre le même) :
+  Renommer… · Couleur ▸ (8 couleurs) · Masquer ‖ Supprimer… (rouge, « Ses N médias resteront disponibles
+  dans la bibliothèque. »). Nom déjà pris : « Ce nom est déjà utilisé, voulez-vous le renommer « nom-2 » ? »
+  (Non = retour au champ). Couleur attribuée automatiquement à la création, à tour de rôle.
+- **Masquer** : le dossier quitte la liste et les listes à cocher, ses médias restent partout ; ligne
+  « Dossiers masqués (N) » en bas (provisoire, FOLD-06) qui les montre en gris, avec « Ne plus masquer ».
+- **Liste à cocher** : « Ajouter à un dossier ▸ » du menu d'une vignette et bouton Dossier de la
+  visionneuse (touche D, liste au-dessus du bouton) : coche = le média y est ; clic = ajouter ou retirer ;
+  « Créer un dossier… » en bas (le média y est rangé aussitôt).
+- **Page d'un dossier** : la page de la bibliothèque limitée au dossier, titre « nom · N médias »,
+  « Recherche dans le dossier », tris « Ajout au dossier : récents / anciens », recherche vide en y
+  entrant ; menu d'une vignette : « Retirer de ce dossier » au-dessus de « Supprimer de la bibliothèque… » ;
+  dossier vide : « Ce dossier est vide ».
+- Suppression d'un média (DEL-05) : ses dossiers sont gardés avec ses données ; à la restauration, un
+  dossier supprimé entre-temps est signalé « (supprimé depuis) » et n'est pas recréé.
+
+Vérifié dans la version compilée, sur une copie de la bibliothèque « booru » (fichiers de test créés pour
+l'occasion) :
+- création de « Vacances » (doré) et « Fonds d'écran » (vert), liste alphabétique ; « vacances » refusé →
+  « vacances-2 » proposé, « Oui » le crée ; renommer « Vacances » en « Fonds d'écran » → « Fonds
+  d'écran-2 » proposé, « Non » revient au champ, puis « Voyage » ; couleur « Rose » appliquée ;
+- menu d'une vignette : liste « Fonds d'écran · vacances-2 · Voyage ‖ Créer un dossier… », clic sur
+  « Voyage » : coché, enregistré en base ; visionneuse, touche D : liste au-dessus du bouton (bas de la
+  liste 4 px au-dessus), ajout dans « Fonds d'écran », « Créer un dossier… » → « Nouveau test » créé et
+  coché ;
+- page de « Fonds d'écran » : titre « Fonds d'écran · 1 média », grille au même endroit (205 px),
+  « Retirer de ce dossier » → « Ce dossier est vide » et « · 0 média » ;
+- « Masquer » « Voyage » : « Dossiers masqués (1) », dépliée : « Voyage » en gris, menu « Ne plus
+  masquer » ; absent de la liste à cocher ;
+- dossier « Nouveau test » supprimé pendant qu'on le regarde : retour à la bibliothèque ; média dans
+  « Voyage » et « Nouveau test » supprimé puis réimporté : pop-in « Dossiers : Voyage, Nouveau test
+  (supprimé depuis) », « Restaurer » : de nouveau dans « Voyage » seulement, compteurs justes ;
+- vidéo en plein écran, touche D : la barre du bas reste affichée tant que la liste est ouverte (souris en
+  haut de l'écran) ; 3,6 s immobile sur la vidéo : commandes cachées et liste fermée ; immobile sur la
+  liste : rien ne se cache.
+
 ## Phase 3, lot 1 : suppression et favoris (17/10/2026) — Backup v35
 
 SPEC : livrées `[~]` : DEL-01 à DEL-05, FAV-01 à FAV-06, PAGE-05, VIEW-11, VIEW-14, GRID-08 (étoile) ;
