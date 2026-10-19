@@ -742,3 +742,27 @@ modulo 8). Chaque média de la grille porte la liste de ses dossiers (`group_con
 visionneuse garde sa barre du bas affichée tant que la liste ouverte depuis le bouton Dossier est
 ouverte, et la ferme quand les commandes se cachent (VIEW-49). Les menus ouverts sont ajoutés à
 `KEEP_SHOWN` (VIEW-48). Libellés de menu de plus de 20rem coupés par « … » (noms de dossiers longs).
+
+## D-035 — Taille des miniatures selon la taille réelle des vignettes (LIB-16) (19/10/2026)
+
+Remplace les seuils en colonnes de D-015 (128 px dès 16 colonnes, 640 px de 4 à 6).
+
+**Choix.** La grille calcule la largeur d'une vignette en pixels réels de l'écran (largeur dans la page ×
+mise à l'échelle de Windows) et prend la plus petite des tailles 128, 320, 640 et 1 280 px au moins aussi
+large, à 5 % près ; au-delà, 1 280 px. 128 et 320 px restent faites à l'import ; 640 et 1 280 px à la
+demande, avec les mêmes règles (vignette visible 150 ms, demande annulée si elle sort de l'écran, 320 px
+affichée en attendant). La mise à l'échelle est relue quand la fenêtre change d'écran (signal de Windows
+`onScaleChanged`, et requête « resolution » de la page) : un écran 4K et un écran 1440p sur le même PC
+fonctionnent sans réglage. Hook `useScreen` (densité de GRID-11 et mise à l'échelle, une seule écoute).
+
+**Rangement.** Table `previews_large` dans `thumbs.db`, adresse `l/<hash>.webp` ; le cache des aperçus
+(1 Go) compte les deux tailles ensemble et supprime d'abord les moins récemment demandés, quelle que soit
+leur taille. Une image plus petite que 1 280 px garde sa taille (jamais agrandie).
+
+**Pas de taille intermédiaire (mesures du 19/10, version compilée, 100 images de la banque Danbooru).**
+Fabrication (2 fils) : 640 px 5,9 s, 1 280 px 10,5 s ; poids moyen 43 et 99 Ko ; décodage dans la page :
+320 px 198 ms, 640 px 519 ms, 1 280 px 1 354 ms (une seule fois par page, ensuite gardé en mémoire). Le
+pire cas, 5K à 200 % et 12 colonnes (vignette de 354 px servie en 640 px), coûte ≈ 0,3 s de décodage de
+plus pour la page, en arrière-plan, la 320 px étant déjà affichée ; une taille de plus obligerait à
+refaire des aperçus à chaque changement de densité dans cette plage. Page suivante sur l'écran 1080p :
+inchangée (15 colonnes 150 ms, 16 colonnes 173 ms, comme en LIB-15).

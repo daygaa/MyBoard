@@ -166,7 +166,7 @@ export const api = {
   listMedia: (query: ListQuery) => invoke<ListPage>("list_media", { query }),
   stats: () => invoke<Stats>("library_stats"),
   prioritizeThumbs: (ids: number[]) => invoke<void>("prioritize_thumbs", { ids }),
-  requestPreviews: (want: number[], cancel: number[]) => invoke<void>("request_previews", { want, cancel }),
+  requestPreviews: (want: PreviewKey[], cancel: PreviewKey[]) => invoke<void>("request_previews", { want, cancel }),
   ffmpegStatus: () => invoke<FfmpegStatus>("ffmpeg_status"),
   importSnapshot: () => invoke<ImportSnapshot>("import_snapshot"),
   scanPaths: (paths: string[], recursive: boolean) => invoke<void>("scan_paths", { paths, recursive }),
@@ -225,10 +225,15 @@ export const EVENTS = {
   deletionFailed: "deletion-failed",
 } as const;
 
-/** Tailles servies par le protocole `thumb://` : 320 px, 128 px (LIB-12), aperçu 640 px (LIB-09). */
-export type ThumbTier = "normal" | "small" | "preview";
+/** Tailles servies par le protocole `thumb://` : 320 px, 128 px (LIB-12), aperçus 640 px (LIB-09)
+ *  et 1 280 px (LIB-16). */
+export type ThumbTier = "normal" | "small" | "preview" | "large";
 
-const TIER_PREFIX: Record<ThumbTier, string> = { normal: "", small: "s/", preview: "p/" };
+const TIER_PREFIX: Record<ThumbTier, string> = { normal: "", small: "s/", preview: "p/", large: "l/" };
+
+/** Grand aperçu fait à la demande : un média et sa taille (LIB-09, LIB-16). */
+export type PreviewSize = 640 | 1280;
+export type PreviewKey = { id: number; size: PreviewSize };
 
 /** Racine du protocole (`http://thumb.localhost/` sous Windows). On ajoute le chemin
  *  nous-mêmes : `convertFileSrc` encoderait le « / » de « s/… » en « %2F ». */

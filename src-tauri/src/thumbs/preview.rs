@@ -1,17 +1,21 @@
-//! Grands aperçus 640 px à la demande, pour les grilles de 4 à 6 colonnes (LIB-09, LIB-10).
+//! Grands aperçus à la demande (LIB-09, LIB-10, LIB-16) : 640 px, et 1 280 px pour les vignettes
+//! encore plus grandes (écrans 4K et 5K).
 //!
 //! L'interface demande l'aperçu d'une vignette restée visible ~150 ms et annule la demande
 //! si la vignette sort de l'écran avant. Deux fils de travail en priorité basse fabriquent les
-//! aperçus ; la petite miniature reste affichée en attendant. Le cache est limité : au-delà,
-//! les aperçus les moins récemment demandés sont supprimés.
+//! aperçus ; la petite miniature reste affichée en attendant. Le cache, commun aux deux tailles,
+//! est limité : au-delà, les aperçus les moins récemment demandés sont supprimés.
 
 use std::collections::{HashSet, VecDeque};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Condvar, Mutex};
 
 use rusqlite::{Connection, OptionalExtension, params_from_iter};
+use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter};
 
+use super::image::{LARGE_SIZE, PREVIEW_SIZE};
+use super::store::Tier;
 use super::{ThumbService, lower_thread_priority, make_preview, status, store};
 use crate::db;
 
@@ -22,13 +26,31 @@ const CACHE_LIMIT: i64 = 1 << 30; // 1 Go
 /// Après un nettoyage, le cache redescend à 90 % de la limite (évite de nettoyer à chaque ajout).
 const CACHE_TARGET: i64 = CACHE_LIMIT / 10 * 9;
 
+/// Un aperçu : un média et sa taille (640 ou 1 280 px).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct PreviewKey {
+    pub id: i64,
+    pub size: u32,
+}
+
+impl PreviewKey {
+    /// Table de rangement ; `None` pour une taille inconnue (demande ignorée).
+    fn tier(self) -> Option<Tier> {
+        match self.size {
+            PREVIEW_SIZE => Some(Tier::Preview),
+            LARGE_SIZE => Some(Tier::Large),
+            _ => None,
+        }
+    }
+}
+
 #[derive(Default)]
 struct Queue {
-    order: VecDeque<i64>,
-    /// Demandes encore valables (une annulation retire l'id d'ici).
-    wanted: HashSet<i64>,
+    order: VecDeque<PreviewKey>,
+    /// Demandes encore valables (une annulation retire la clé d'ici).
+    wanted: HashSet<PreviewKey>,
     /// Aperçus impossibles à fabriquer (fichier introuvable…) : pas de nouvel essai.
-    failed: HashSet<i64>,
+    failed: HashSet<PreviewKey>,
 }
 
 struct Inner {
@@ -75,25 +97,26 @@ impl PreviewService {
     }
 
     /// `want` : vignettes visibles depuis ~150 ms ; `cancel` : vignettes sorties de l'écran.
-    pub fn request(&self, want: &[i64], cancel: &[i64]) -> anyhow::Result<()> {
+    pub fn request(&self, want: &[PreviewKey], cancel: &[PreviewKey]) -> anyhow::Result<()> {
         let inner = &self.inner;
         let mut queue = inner.queue.lock().unwrap();
-        for id in cancel {
-            queue.wanted.remove(id);
+        for key in cancel {
+            queue.wanted.remove(key);
         }
-        let candidates: Vec<i64> = want.iter().copied().filter(|id| !queue.failed.contains(id)).collect();
+        let candidates: Vec<PreviewKey> = want.iter().copied().filter(|k| k.tier().is_some() && !queue.failed.contains(k)).collect();
         drop(queue);
         if candidates.is_empty() {
             return Ok(());
         }
 
         // Seuls les médias dont la miniature est prête ont un aperçu (images et vidéos).
-        let rows: Vec<(i64, String)> = {
+        let hashes: Vec<(i64, String)> = {
             let db = inner.db.lock().unwrap();
-            let marks = vec!["?"; candidates.len()].join(",");
+            let ids: Vec<i64> = candidates.iter().map(|k| k.id).collect();
+            let marks = vec!["?"; ids.len()].join(",");
             let sql = format!("SELECT id, hash FROM media WHERE thumb_status = {} AND id IN ({marks})", status::READY);
             let mut stmt = db.prepare(&sql)?;
-            stmt.query_map(params_from_iter(&candidates), |r| Ok((r.get(0)?, r.get(1)?)))?
+            stmt.query_map(params_from_iter(&ids), |r| Ok((r.get(0)?, r.get(1)?)))?
                 .collect::<Result<_, _>>()?
         };
 
@@ -103,11 +126,12 @@ impl PreviewService {
         let mut missing = Vec::new();
         {
             let store = inner.store.lock().unwrap();
-            for (id, hash) in rows {
-                if store::touch_preview(&store, &hash, now)? {
-                    ready.push(id);
+            for key in candidates {
+                let (Some(tier), Some((_, hash))) = (key.tier(), hashes.iter().find(|(id, _)| *id == key.id)) else { continue };
+                if store::touch_preview(&store, tier, hash, now)? {
+                    ready.push(key);
                 } else {
-                    missing.push(id);
+                    missing.push(key);
                 }
             }
         }
@@ -116,9 +140,9 @@ impl PreviewService {
         }
         if !missing.is_empty() {
             let mut queue = inner.queue.lock().unwrap();
-            for id in missing {
-                if queue.wanted.insert(id) {
-                    queue.order.push_back(id);
+            for key in missing {
+                if queue.wanted.insert(key) {
+                    queue.order.push_back(key);
                 }
             }
             inner.wake.notify_all();
@@ -130,48 +154,49 @@ impl PreviewService {
 fn worker_loop(inner: &Inner) {
     lower_thread_priority();
     loop {
-        let id = next_job(inner);
-        let made = fabricate(inner, id);
+        let key = next_job(inner);
+        let made = fabricate(inner, key);
         let mut queue = inner.queue.lock().unwrap();
-        queue.wanted.remove(&id);
+        queue.wanted.remove(&key);
         match made {
             Ok(()) => {
                 drop(queue);
-                let _ = inner.app.emit("previews-ready", vec![id]);
+                let _ = inner.app.emit("previews-ready", vec![key]);
             }
             Err(e) => {
-                queue.failed.insert(id);
-                eprintln!("[aperçus] média {id} : {e:#}");
+                queue.failed.insert(key);
+                eprintln!("[aperçus] média {} ({} px) : {e:#}", key.id, key.size);
             }
         }
     }
 }
 
 /// Prochaine demande encore valable (les demandes annulées sont sautées).
-fn next_job(inner: &Inner) -> i64 {
+fn next_job(inner: &Inner) -> PreviewKey {
     let mut queue = inner.queue.lock().unwrap();
     loop {
-        while let Some(id) = queue.order.pop_front() {
-            if queue.wanted.contains(&id) {
-                return id;
+        while let Some(key) = queue.order.pop_front() {
+            if queue.wanted.contains(&key) {
+                return key;
             }
         }
         queue = inner.wake.wait(queue).unwrap();
     }
 }
 
-fn fabricate(inner: &Inner, id: i64) -> anyhow::Result<()> {
+fn fabricate(inner: &Inner, key: PreviewKey) -> anyhow::Result<()> {
+    let Some(tier) = key.tier() else { return Ok(()) };
     let row: Option<(String, String, String)> = inner
         .db
         .lock()
         .unwrap()
-        .query_row("SELECT hash, path, kind FROM media WHERE id = ?1", [id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))
+        .query_row("SELECT hash, path, kind FROM media WHERE id = ?1", [key.id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))
         .optional()?;
     let Some((hash, path, kind)) = row else { return Ok(()) };
-    let data = make_preview(inner.thumbs.ffmpeg(), &kind, &PathBuf::from(path))?;
+    let data = make_preview(inner.thumbs.ffmpeg(), &kind, &PathBuf::from(path), key.size)?;
 
     let store = inner.store.lock().unwrap();
-    store::put_preview(&store, &hash, &data, db::now_ms())?;
+    store::put_preview(&store, tier, &hash, &data, db::now_ms())?;
     let mut size = inner.cache_bytes.lock().unwrap();
     *size += data.len() as i64;
     if *size > CACHE_LIMIT {

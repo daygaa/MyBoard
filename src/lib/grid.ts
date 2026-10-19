@@ -18,12 +18,19 @@ export const DENSITY_PRESETS = [
  *  plus l'extension. (La réduction des boutons prévue par SEL-05 est remplacée par GRID-10.) */
 export const COMPACT_DENSITY = 20;
 
-/** À partir de cette densité, la grille utilise les miniatures 128 px (LIB-12) :
- *  6 fois moins de pixels à décoder, sans perte visible (vignettes de ~130 px et moins). */
-export const SMALL_THUMB_DENSITY = 16;
+/** Tailles des miniatures (LIB-16) : 128 et 320 px faites à l'import, 640 et 1 280 px à la demande
+ *  (cache des aperçus, LIB-09). */
+export const THUMB_SIZES = [128, 320, 640, 1280] as const;
+export type ThumbSize = (typeof THUMB_SIZES)[number];
 
-/** Jusqu'à cette densité, les grands aperçus 640 px remplacent les miniatures (LIB-09). */
-export const PREVIEW_MAX_DENSITY = 6;
+/** Une miniature jusqu'à 5 % plus petite que la vignette reste nette (le zoom du survol est de 5 %). */
+const SIZE_TOLERANCE = 1.05;
+
+/** Plus petite miniature au moins aussi large que la vignette en pixels réels de l'écran (mise à
+ *  l'échelle de Windows comprise), à 5 % près (LIB-16) ; au-delà de toutes : la plus grande. */
+export function thumbSizeFor(tilePixels: number): ThumbSize {
+  return THUMB_SIZES.find((size) => size * SIZE_TOLERANCE >= tilePixels) ?? 1280;
+}
 
 /** Une vignette doit rester visible ce temps avant de demander son grand aperçu (LIB-09). */
 export const PREVIEW_DELAY_MS = 150;

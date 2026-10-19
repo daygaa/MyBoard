@@ -1,28 +1,31 @@
-// Grand aperçu d'une vignette (LIB-09) : demandé seulement si la vignette reste visible
-// PREVIEW_DELAY_MS, annulé si elle sort de l'écran avant. Renvoie `true` quand il est prêt.
+// Grand aperçu d'une vignette (LIB-09, LIB-16) : demandé seulement si la vignette reste visible
+// PREVIEW_DELAY_MS, annulé si elle sort de l'écran avant. `size` : taille voulue, ou `null` (pas
+// d'aperçu). Renvoie `true` quand il est prêt.
 
 import { useEffect, type RefObject } from "react";
 
+import type { PreviewSize } from "@/lib/api";
 import { PREVIEW_DELAY_MS } from "@/lib/grid";
-import { cancelPreview, usePreviews, wantPreview } from "@/stores/previews";
+import { cancelPreview, usePreviewReady, wantPreview } from "@/stores/previews";
 
-export function usePreview(ref: RefObject<HTMLElement | null>, id: number, enabled: boolean): boolean {
-  const ready = usePreviews((s) => s.ready[id] === true);
+export function usePreview(ref: RefObject<HTMLElement | null>, id: number, size: PreviewSize | null): boolean {
+  const ready = usePreviewReady(id, size ?? 640) && size !== null;
 
   useEffect(() => {
     const el = ref.current;
-    if (!enabled || ready || !el) return;
+    if (size === null || ready || !el) return;
+    const key = { id, size };
     let timer: ReturnType<typeof setTimeout> | undefined;
     let requested = false;
     const observer = new IntersectionObserver(([entry]) => {
       if (entry?.isIntersecting) {
         timer = setTimeout(() => {
           requested = true;
-          wantPreview(id);
+          wantPreview(key);
         }, PREVIEW_DELAY_MS);
       } else {
         clearTimeout(timer);
-        if (requested) cancelPreview(id);
+        if (requested) cancelPreview(key);
         requested = false;
       }
     });
@@ -30,9 +33,9 @@ export function usePreview(ref: RefObject<HTMLElement | null>, id: number, enabl
     return () => {
       observer.disconnect();
       clearTimeout(timer);
-      if (requested) cancelPreview(id);
+      if (requested) cancelPreview(key);
     };
-  }, [ref, id, enabled, ready]);
+  }, [ref, id, size, ready]);
 
   return ready;
 }

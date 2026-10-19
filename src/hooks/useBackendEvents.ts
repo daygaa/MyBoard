@@ -4,7 +4,7 @@
 import { useEffect } from "react";
 import { listen } from "@tauri-apps/api/event";
 
-import { EVENTS, api, type FailedFile, type ImportSnapshot, type ThumbUpdate } from "@/lib/api";
+import { EVENTS, api, type FailedFile, type ImportSnapshot, type PreviewKey, type ThumbUpdate } from "@/lib/api";
 import { refreshLibrary, settleDeletion } from "@/stores/deletion";
 import { forgetFavorites } from "@/stores/favorites";
 import { useImport } from "@/stores/import";
@@ -38,7 +38,7 @@ export function useBackendEvents() {
         showFailures(event.payload);
       }),
       listen<ThumbUpdate[]>(EVENTS.thumbsReady, (event) => useThumbs.getState().apply(event.payload)),
-      listen<number[]>(EVENTS.previewsReady, (event) => usePreviews.getState().markReady(event.payload)),
+      listen<PreviewKey[]>(EVENTS.previewsReady, (event) => usePreviews.getState().markReady(event.payload)),
       listen<ImportSnapshot>(EVENTS.importState, (event) => useImport.getState().setSnapshot(event.payload)),
     ];
     // État de l'import au démarrage (un import peut déjà tourner).

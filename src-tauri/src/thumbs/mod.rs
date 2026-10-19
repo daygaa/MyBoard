@@ -280,14 +280,15 @@ fn process(shared: &Shared, job: &Job) -> Option<ThumbUpdate> {
     Some(update)
 }
 
-/// Grand aperçu 640 px d'un média (LIB-09) ; utilisé par le service des aperçus.
-pub fn make_preview(ff: Option<&Ffmpeg>, kind: &str, path: &Path) -> anyhow::Result<Vec<u8>> {
+/// Grand aperçu d'un média, de côté `side` (640 ou 1 280 px : LIB-09, LIB-16) ; utilisé par le
+/// service des aperçus.
+pub fn make_preview(ff: Option<&Ffmpeg>, kind: &str, path: &Path, side: u32) -> anyhow::Result<Vec<u8>> {
     match (kind, ff) {
-        ("image", ff) => image::open_image(path).and_then(image::preview_of).or_else(|e| match ff {
-            Some(ff) => video::image_preview(ff, path),
+        ("image", ff) => image::open_image(path).and_then(|img| image::preview_of(img, side)).or_else(|e| match ff {
+            Some(ff) => video::image_preview(ff, path, side),
             None => Err(e),
         }),
-        ("video", Some(ff)) => video::video_preview(ff, path),
+        ("video", Some(ff)) => video::video_preview(ff, path, side),
         _ => anyhow::bail!("pas d'aperçu pour ce type de média"),
     }
 }

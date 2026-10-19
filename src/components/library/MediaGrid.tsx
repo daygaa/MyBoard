@@ -6,17 +6,10 @@
 import { useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 
-import { useScreenDensity } from "@/hooks/useScreenDensity";
+import { useScreen } from "@/hooks/useScreen";
 import type { MediaItem } from "@/lib/api";
 import { scroller } from "@/lib/scroller";
-import {
-  COMPACT_DENSITY,
-  GRID_GAP,
-  NAME_ONLY_TILE_INCHES,
-  PREVIEW_MAX_DENSITY,
-  SMALL_THUMB_DENSITY,
-  TILE_FULL_WIDTH,
-} from "@/lib/grid";
+import { COMPACT_DENSITY, GRID_GAP, NAME_ONLY_TILE_INCHES, TILE_FULL_WIDTH, thumbSizeFor } from "@/lib/grid";
 import { MediaTile } from "./MediaTile";
 
 /** Largeur de la grille et sa position dans la zone qui défile, tenues à jour. */
@@ -58,10 +51,10 @@ export function MediaGrid({ items, density, firstIndex, pageSize }: Props) {
   const rowHeight = tile + GRID_GAP;
   const rowCount = Math.ceil(items.length / density);
   const compact = density >= COMPACT_DENSITY;
-  const small = density >= SMALL_THUMB_DENSITY;
-  const preview = density <= PREVIEW_MAX_DENSITY;
+  const { pixelRatio, pxPerInch } = useScreen();
+  // Miniature d'après la largeur réelle des vignettes (LIB-16) : densité, fenêtre et écran.
+  const thumbSize = thumbSizeFor(tile * pixelRatio);
   // Vignettes de moins de ~2,2 cm à l'écran : nom seul, agrandi au survol (GRID-11).
-  const pxPerInch = useScreenDensity();
   const nameOnly = tile > 0 && tile < NAME_ONLY_TILE_INCHES * pxPerInch;
 
   const virtualizer = useVirtualizer({
@@ -109,8 +102,7 @@ export function MediaGrid({ items, density, firstIndex, pageSize }: Props) {
                 index={firstIndex + row.index * density + col}
                 pageSize={pageSize}
                 compact={compact}
-                small={small}
-                preview={preview}
+                thumbSize={thumbSize}
               />
             ))}
           </div>

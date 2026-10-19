@@ -3,6 +3,28 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Phase 3, LIB-16 : taille des miniatures selon la taille réelle des vignettes (19/10/2026) — Backup v38
+
+SPEC : livrée `[~]` : LIB-16. Choix : D-035 (remplace les seuils en colonnes de D-015).
+
+- La grille prend la plus petite miniature (128, 320, 640 ou **1 280 px**, nouvelle) au moins aussi
+  large que la vignette en pixels réels de l'écran (mise à l'échelle de Windows comprise), à 5 % près ;
+  recalculé au changement de densité, de taille de fenêtre ou d'écran.
+- 128 et 320 px faites à l'import comme avant ; 640 et 1 280 px à la demande, dans le même cache de 1 Go.
+- Sur tes écrans à 100 % : 1080p : 640 px à 4 colonnes (avant 4 à 6), 320 de 5 à 11, 128 dès 12 (avant
+  16) ; 1440p : inchangé (640 de 4 à 6, 320 de 7 à 15, 128 dès 16).
+
+Vérifié dans la version compilée, sur une copie de la bibliothèque « booru » (écrans simulés par le
+protocole de pilotage) :
+- densités 4 à 30 sur 1080p, 1440p, 4K à 100 / 150 / 200 % et 5K à 200 % : la taille affichée est celle
+  prévue partout (0 écart) ; 5K 200 %, 4 colonnes : les 12 vignettes visibles affichent l'aperçu 1 280 px ;
+- mise à l'échelle passée de 200 à 100 % sans relancer : 640 → 320 px ;
+- média supprimé : ses aperçus 640 et 1 280 px partent avec lui ; cache au-delà de 1 Go : les plus anciens
+  sont supprimés d'abord, dans les deux tailles ;
+- mesures (D-035) : fabrication de 100 aperçus 5,9 s (640) / 10,5 s (1 280) ; page suivante inchangée.
+- Non vérifiable ici : un vrai écran 4K ou 5K, et le passage réel d'un écran à 100 % à un écran à une
+  autre mise à l'échelle (les deux écrans de test sont à 100 %).
+
 ## Phase 3, petits correctifs après les lots 1 et 2 (19/10/2026) — Backup v37
 
 SPEC : livrées `[~]` : CTX-20, VIEW-50, FOLD-12, GEN-19, GEN-20, DEL-06 ; FOLD-04 (texte du dossier vide) et

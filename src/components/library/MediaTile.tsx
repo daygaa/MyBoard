@@ -3,12 +3,13 @@
 // pour un favori (FAV-03 : à jour partout en temps réel), réduite avec la vignette (GRID-10) mais
 // hors du calque réduit `tile-overlay` (`.tile-star`, index.css : D-008). La case de sélection
 // arrivera avec la sélection multiple (GRID-10 remplace la réduction de SEL-05). Vignettes de
-// moins de ~2,2 cm : nom seul, agrandi (GRID-11, index.css) ; l'étoile reste. Un média supprimé
+// moins de ~2,2 cm : nom seul, agrandi, sans l'étoile (GRID-11, GRID-08, index.css). Un média supprimé
 // disparaît à l'instant du clic (DEL-01).
 // Clic = visionneuse plein écran (VIEW-01) ; clic droit = menu de la vignette (CTX-05).
 //
-// Taille de l'image selon la densité : 128 px pour les grilles denses (LIB-12), 320 px sinon,
-// et grand aperçu 640 px par-dessus pour 4–6 colonnes (LIB-09).
+// Taille de l'image choisie par la grille d'après la largeur réelle de la vignette (LIB-16) :
+// 128 px (LIB-12) ou 320 px ; pour 640 et 1 280 px, la 320 px s'affiche puis le grand aperçu,
+// fait à la demande, la recouvre (LIB-09).
 // Performance (D-008) : composant mémorisé, il ne se redessine que si SA miniature
 // change ; aucun flou ni animation permanente.
 
@@ -16,9 +17,10 @@ import { memo, useRef, useState } from "react";
 import { File, FileSpreadsheet, FileText, Film, Image as ImageIcon, Music, Play, Star } from "lucide-react";
 
 import { usePreview } from "@/hooks/usePreview";
-import { THUMB, thumbUrl, type MediaItem } from "@/lib/api";
+import { THUMB, thumbUrl, type MediaItem, type PreviewSize } from "@/lib/api";
 import { openContextMenu } from "@/lib/contextMenu";
 import { formatBytes, formatDuration } from "@/lib/format";
+import type { ThumbSize } from "@/lib/grid";
 import { cn } from "@/lib/utils";
 import { useDeletion } from "@/stores/deletion";
 import { setFavorite, useIsFavorite } from "@/stores/favorites";
@@ -130,13 +132,11 @@ type TileProps = {
   index: number;
   pageSize: number;
   compact: boolean;
-  /** Miniatures 128 px (grilles denses, LIB-12). */
-  small: boolean;
-  /** Grand aperçu 640 px (4–6 colonnes, LIB-09). */
-  preview: boolean;
+  /** Taille de miniature voulue (LIB-16). */
+  thumbSize: ThumbSize;
 };
 
-export const MediaTile = memo(function MediaTile({ item, index, pageSize, compact, small, preview }: TileProps) {
+export const MediaTile = memo(function MediaTile({ item, index, pageSize, compact, thumbSize }: TileProps) {
   const ref = useRef<HTMLDivElement>(null);
   const nameRef = useRef<HTMLParagraphElement>(null);
   const update = useThumbs((s) => s.updates[item.id]);
@@ -144,10 +144,13 @@ export const MediaTile = memo(function MediaTile({ item, index, pageSize, compac
   const hidden = useDeletion((s) => s.hidden[item.id] === true);
   const [failed, setFailed] = useState(false);
   const [smallFailed, setSmallFailed] = useState(false);
-  const [previewFailed, setPreviewFailed] = useState(false);
+  /** Taille d'aperçu impossible à afficher : la 320 px reste. */
+  const [previewFailed, setPreviewFailed] = useState<PreviewSize | null>(null);
   const status = update?.status ?? item.thumbStatus;
   const ready = status === THUMB.ready && !failed;
-  const previewReady = usePreview(ref, item.id, preview && ready && !previewFailed);
+  const small = thumbSize === 128;
+  const preview = thumbSize === 640 || thumbSize === 1280 ? thumbSize : null;
+  const previewReady = usePreview(ref, item.id, ready && preview !== previewFailed ? preview : null);
   const width = update?.width ?? item.width;
   const height = update?.height ?? item.height;
   const duration = update?.durationMs ?? item.durationMs;
@@ -178,15 +181,16 @@ export const MediaTile = memo(function MediaTile({ item, index, pageSize, compac
             onError={() => (small && !smallFailed ? setSmallFailed(true) : setFailed(true))}
             className="h-full w-full object-cover"
           />
-          {preview && previewReady && !previewFailed && (
+          {preview && previewReady && (
             <img
-              src={thumbUrl(item.hash, "preview")}
+              key={preview}
+              src={thumbUrl(item.hash, preview === 1280 ? "large" : "preview")}
               alt=""
               decoding="async"
               draggable={false}
               // Apparaît une fois chargé, par-dessus la miniature : pas de case vide entre les deux.
               onLoad={(e) => (e.currentTarget.dataset.loaded = "")}
-              onError={() => setPreviewFailed(true)}
+              onError={() => setPreviewFailed(preview)}
               className="absolute inset-0 h-full w-full object-cover opacity-0 transition-opacity duration-200 data-loaded:opacity-100"
             />
           )}

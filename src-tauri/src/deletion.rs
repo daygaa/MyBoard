@@ -20,6 +20,7 @@ use serde::Serialize;
 use tauri::{AppHandle, Emitter, State};
 
 use crate::thumbs::preview::PreviewService;
+use crate::thumbs::store::PREVIEW_TABLES;
 use crate::{AppState, db, reserve};
 
 /// Médias traités par passage : un lot = une transaction.
@@ -170,7 +171,7 @@ fn process_batch(inner: &Inner) -> anyhow::Result<bool> {
     Ok(true)
 }
 
-/// Vignette, miniature 128 px et grand aperçu des médias supprimés (une transaction).
+/// Vignette, miniature 128 px et grands aperçus des médias supprimés (une transaction).
 fn forget_thumbs(inner: &Inner, removed: &[Pending]) -> anyhow::Result<()> {
     if removed.is_empty() {
         return Ok(());
@@ -179,12 +180,15 @@ fn forget_thumbs(inner: &Inner, removed: &[Pending]) -> anyhow::Result<()> {
     let marks = vec!["?"; hashes.len()].join(",");
     let mut store = inner.store.lock().unwrap();
     let tx = store.transaction()?;
-    let preview_bytes: i64 = tx.query_row(
-        &format!("SELECT COALESCE(SUM(bytes), 0) FROM previews WHERE hash IN ({marks})"),
-        params_from_iter(&hashes),
-        |r| r.get(0),
-    )?;
-    for table in ["thumbs", "thumbs_small", "previews"] {
+    let mut preview_bytes = 0;
+    for table in PREVIEW_TABLES {
+        preview_bytes += tx.query_row(
+            &format!("SELECT COALESCE(SUM(bytes), 0) FROM {table} WHERE hash IN ({marks})"),
+            params_from_iter(&hashes),
+            |r| r.get::<_, i64>(0),
+        )?;
+    }
+    for table in ["thumbs", "thumbs_small"].into_iter().chain(PREVIEW_TABLES) {
         tx.execute(&format!("DELETE FROM {table} WHERE hash IN ({marks})"), params_from_iter(&hashes))?;
     }
     tx.commit()?;

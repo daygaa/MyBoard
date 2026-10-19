@@ -9,6 +9,7 @@ use tauri::State;
 
 use crate::ffmpeg::FfmpegStatus;
 use crate::scope::Scope;
+use crate::thumbs::preview::PreviewKey;
 use crate::AppState;
 
 pub const KINDS: [&str; 4] = ["image", "video", "audio", "document"];
@@ -254,9 +255,10 @@ pub async fn prioritize_thumbs(state: State<'_, AppState>, ids: Vec<i64>) -> Res
     state.thumbs.prioritize(&ids).map_err(|e| e.to_string())
 }
 
-/// Grands aperçus (LIB-09) : `want` = vignettes visibles depuis ~150 ms, `cancel` = sorties de l'écran.
+/// Grands aperçus 640 ou 1 280 px (LIB-09, LIB-16) : `want` = vignettes visibles depuis ~150 ms,
+/// `cancel` = sorties de l'écran.
 #[tauri::command]
-pub async fn request_previews(state: State<'_, AppState>, want: Vec<i64>, cancel: Vec<i64>) -> Result<(), String> {
+pub async fn request_previews(state: State<'_, AppState>, want: Vec<PreviewKey>, cancel: Vec<PreviewKey>) -> Result<(), String> {
     state.previews.request(&want, &cancel).map_err(|e| e.to_string())
 }
 

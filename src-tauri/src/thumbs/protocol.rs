@@ -1,7 +1,8 @@
 //! Protocole `thumb://` : sert les miniatures (lues dans `thumbs.db`) à l'interface.
 //!
 //! Adresses (sous Windows `http://thumb.localhost/…`) :
-//! `<hash>.webp` = 320 px · `s/<hash>.webp` = 128 px · `p/<hash>.webp` = grand aperçu 640 px.
+//! `<hash>.webp` = 320 px · `s/<hash>.webp` = 128 px · `p/<hash>.webp` = grand aperçu 640 px ·
+//! `l/<hash>.webp` = grand aperçu 1 280 px (LIB-16).
 //!
 //! Comparé le 11/10/2026 à un serveur HTTP local, ce protocole est 2,5 fois plus rapide dans
 //! la fenêtre (≈400 ms contre ≈1 100 ms pour une page de 500 vignettes) : voir D-014.
@@ -34,6 +35,7 @@ fn respond(thumbs_db: &Path, name: &str) -> Response<Vec<u8>> {
     let (tier, file) = match name.split_once('/') {
         Some(("s", file)) => (Tier::Small, file),
         Some(("p", file)) => (Tier::Preview, file),
+        Some(("l", file)) => (Tier::Large, file),
         _ => (Tier::Normal, name),
     };
     let body = file

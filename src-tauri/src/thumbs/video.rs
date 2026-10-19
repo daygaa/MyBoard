@@ -8,7 +8,7 @@ use std::time::{Duration, Instant};
 use anyhow::{Context, bail};
 use serde_json::Value;
 
-use super::image::{PREVIEW_SIZE, THUMB_SIZE, Thumb, decode, preview_of, thumbs_of};
+use super::image::{THUMB_SIZE, Thumb, decode, preview_of, thumbs_of};
 use crate::ffmpeg::{self, Ffmpeg};
 
 /// Au-delà, le fichier est considéré comme bloquant (fichier corrompu, disque lent…).
@@ -39,10 +39,10 @@ pub fn video_thumb(ff: &Ffmpeg, path: &Path) -> anyhow::Result<VideoThumb> {
     Ok(VideoThumb { thumb, duration_ms: probe.duration_ms })
 }
 
-/// Grand aperçu 640 px d'une vidéo (LIB-09).
-pub fn video_preview(ff: &Ffmpeg, path: &Path) -> anyhow::Result<Vec<u8>> {
+/// Grand aperçu d'une vidéo, de côté `side` (640 ou 1 280 px : LIB-09, LIB-16).
+pub fn video_preview(ff: &Ffmpeg, path: &Path, side: u32) -> anyhow::Result<Vec<u8>> {
     let probe = probe(ff, path)?;
-    preview_of(decode(&video_frame(ff, path, &probe, PREVIEW_SIZE * 3 / 2)?)?)
+    preview_of(decode(&video_frame(ff, path, &probe, side * 3 / 2)?)?, side)
 }
 
 /// Miniatures d'une image que le décodeur Rust ne gère pas (AVIF, HEIC…).
@@ -56,9 +56,9 @@ pub fn image_thumb(ff: &Ffmpeg, path: &Path) -> anyhow::Result<Thumb> {
     Ok(thumb)
 }
 
-/// Grand aperçu d'une image passée par ffmpeg.
-pub fn image_preview(ff: &Ffmpeg, path: &Path) -> anyhow::Result<Vec<u8>> {
-    preview_of(decode(&frame_png(ff, path, 0.0, PREVIEW_SIZE * 3 / 2)?)?)
+/// Grand aperçu d'une image passée par ffmpeg, de côté `side`.
+pub fn image_preview(ff: &Ffmpeg, path: &Path, side: u32) -> anyhow::Result<Vec<u8>> {
+    preview_of(decode(&frame_png(ff, path, 0.0, side * 3 / 2)?)?, side)
 }
 
 /// Image entière en JPEG haute qualité, pleine résolution : pour afficher dans la visionneuse

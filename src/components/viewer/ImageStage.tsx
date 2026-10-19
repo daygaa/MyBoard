@@ -9,7 +9,7 @@ import { useRef, useState } from "react";
 import { THUMB, mediaUrl, thumbUrl, type MediaItem } from "@/lib/api";
 import { openContextMenu } from "@/lib/contextMenu";
 import { cn } from "@/lib/utils";
-import { usePreviews } from "@/stores/previews";
+import { usePreviewReady } from "@/stores/previews";
 import { imageMenu } from "./mediaMenus";
 import { ANIM_MS, useZoom, type Size } from "./useZoom";
 import { ZoomBadge } from "./ZoomBadge";
@@ -20,7 +20,7 @@ export function ImageStage({ item, onClose }: { item: MediaItem; onClose: () => 
   const [natural, setNatural] = useState<Size>({ w: item.width ?? 0, h: item.height ?? 0 });
   const [loaded, setLoaded] = useState(false);
   const { view, zoomed, animate, handlers, zoomTo, fitIsFullSize } = useZoom(stageRef, natural, onClose);
-  const previewReady = usePreviews((s) => s.ready[item.id] === true);
+  const previewReady = usePreviewReady(item.id, 640);
   const side = Math.min(natural.w, natural.h);
 
   return (

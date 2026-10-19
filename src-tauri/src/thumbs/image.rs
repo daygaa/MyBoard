@@ -6,10 +6,11 @@ use std::path::Path;
 use fast_image_resize::{self as fir, IntoImageView};
 use image::{DynamicImage, ImageDecoder, ImageReader, metadata::Orientation};
 
-/// Côté des miniatures (D-011, D-015).
+/// Côté des miniatures (D-011, D-015) et du plus grand aperçu (écrans 4K et 5K, LIB-16).
 pub const THUMB_SIZE: u32 = 320;
 pub const SMALL_SIZE: u32 = 128;
 pub const PREVIEW_SIZE: u32 = 640;
+pub const LARGE_SIZE: u32 = 1280;
 /// Qualité WebP : bon compromis netteté / poids (~10–20 Ko par miniature 320 px).
 const WEBP_QUALITY: f32 = 78.0;
 
@@ -39,9 +40,9 @@ pub fn small_of(img: DynamicImage) -> anyhow::Result<Vec<u8>> {
     Ok(encode(&square(img, SMALL_SIZE)?))
 }
 
-/// Grand aperçu 640 px (LIB-09).
-pub fn preview_of(img: DynamicImage) -> anyhow::Result<Vec<u8>> {
-    Ok(encode(&square(img, PREVIEW_SIZE)?))
+/// Grand aperçu de côté `side` : 640 px (LIB-09) ou 1 280 px (LIB-16).
+pub fn preview_of(img: DynamicImage, side: u32) -> anyhow::Result<Vec<u8>> {
+    Ok(encode(&square(img, side)?))
 }
 
 /// Décode en se fiant au contenu (pas à l'extension) et applique la rotation EXIF :
