@@ -91,7 +91,7 @@ export function BurgerMenu() {
           <NavItem item={{ label: "Bibliothèque", icon: LibraryBig, route: "library" }} onDone={close} />
           <NavItem item={{ label: "Importer des médias", icon: Upload, route: "import" }} onDone={close} />
           <NavItem item={{ label: "Favoris", icon: Star, route: "favorites" }} onDone={close} />
-          <NavItem item={{ label: "Gestionnaire de Tags", icon: Tags }} onDone={close} />
+          <NavItem item={{ label: "Gestionnaire de Tags", icon: Tags, route: "tags" }} onDone={close} />
         </nav>
 
         <FolderList onDone={close} />

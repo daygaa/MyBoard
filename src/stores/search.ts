@@ -9,6 +9,7 @@
 
 import { create } from "zustand";
 
+import { navigate } from "@/lib/router";
 import { useLibrary } from "./library";
 
 type SearchState = {
@@ -54,13 +55,22 @@ export const useSearch = create<SearchState>()((set, get) => ({
  *  un changement de page de l'application). */
 const termsOf = (state: unknown) => (state as { terms?: string[] } | null)?.terms;
 
-/** Vue qui a sa propre recherche (FAV-06) ; la page Importer n'en a pas (`null`). */
+/** Vue qui a sa propre recherche (FAV-06) ; les pages Importer et Gestionnaire de tags n'en ont pas
+ *  (`null`). */
 function searchView(hash: string): string | null {
-  if (hash.startsWith("#/import")) return null;
+  if (hash.startsWith("#/import") || hash.startsWith("#/tags")) return null;
   if (hash.startsWith("#/favoris")) return "favoris";
   return /^#\/dossier\/\d+/.exec(hash)?.[0] ?? "bibliotheque";
 }
 let lastView = searchView(window.location.hash) ?? "bibliotheque";
+
+/** Clic sur un tag du gestionnaire (TAGM-04) : la bibliothèque s'ouvre avec ce tag dans la recherche,
+ *  en une seule étape d'historique (le retour arrière ramène au gestionnaire). */
+export function searchInLibrary(terms: string[]) {
+  lastView = "bibliotheque";
+  useSearch.setState(apply(merge([], terms), false));
+  navigate("library");
+}
 
 // Étape de départ : aucune recherche.
 window.history.replaceState({ ...window.history.state, terms: [] }, "");

@@ -19,6 +19,7 @@ pub mod scope;
 pub mod search;
 pub mod selection;
 pub mod system_menu;
+pub mod tag_manager;
 pub mod tags;
 mod test_screen;
 pub mod thumbs;
@@ -132,6 +133,15 @@ pub fn run() {
             selection::selection_info,
             selection::selection_tags,
             selection::edit_selection_tags,
+            tag_manager::list_managed_tags,
+            tag_manager::rename_tag,
+            tag_manager::merge_tags,
+            tag_manager::set_tags_category,
+            tag_manager::set_tags_hidden,
+            tag_manager::delete_tags,
+            tag_manager::set_tag_description,
+            tag_manager::import_tags,
+            tag_manager::ignore_similar,
         ])
         .run(tauri::generate_context!())
         .expect("erreur au lancement de MyBoard");

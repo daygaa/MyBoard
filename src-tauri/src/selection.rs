@@ -9,7 +9,7 @@ use serde::Serialize;
 use tauri::State;
 
 use crate::library::ListQuery;
-use crate::tags::{NewTag, TagInfo, get_or_create, tag_from_row};
+use crate::tags::{NewTag, TAG_COLUMNS, TagInfo, get_or_create, tag_from_row};
 use crate::{AppState, db};
 
 /// Médias de la sélection, pour une requête : `media_id IN (SELECTION)` avec `?1` = liste JSON.
@@ -46,7 +46,7 @@ fn info(db: &Connection, ids: &str) -> rusqlite::Result<SelectionInfo> {
 /// leur nombre total de médias, les plus utilisés d'abord.
 fn tags(db: &Connection, ids: &str) -> rusqlite::Result<Vec<TagInfo>> {
     let mut stmt = db.prepare(&format!(
-        "SELECT id, name, category_id, media_count FROM tags
+        "SELECT {TAG_COLUMNS} FROM tags
          WHERE id IN (SELECT DISTINCT tag_id FROM media_tags WHERE media_id IN ({SELECTION}))
          ORDER BY media_count DESC, name"
     ))?;

@@ -11,9 +11,11 @@ import { cn } from "@/lib/utils";
 
 type Props = {
   value: number | null;
-  onChange: (id: number) => void;
+  onChange: (id: number | null) => void;
   zone: string;
   className?: string;
+  /** Filtre du gestionnaire de tags : entrée « toutes les catégories » (`null`) en premier. */
+  allLabel?: string;
 };
 
 /** Catégorie proposée par défaut : « Général » (comme la v8). */
@@ -22,7 +24,7 @@ export function useDefaultCategory(): number | null {
   return list.find((c) => c.key === "general")?.id ?? list[0]?.id ?? null;
 }
 
-export function CategorySelect({ value, onChange, zone, className }: Props) {
+export function CategorySelect({ value, onChange, zone, className, allLabel }: Props) {
   const { list, byId } = useCategories();
   const [open, setOpen] = useState(false);
   // Échap ferme le menu seul, pas la pop-in qui le contient.
@@ -40,13 +42,14 @@ export function CategorySelect({ value, onChange, zone, className }: Props) {
           )}
         >
           <span className="flex items-center gap-2 truncate">
-            <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: current?.color }} />
-            {current?.name ?? "Catégorie"}
+            {current && <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: current.color }} />}
+            {current?.name ?? allLabel ?? "Catégorie"}
           </span>
           <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="z-[130] border-border bg-popover text-popover-foreground">
+        {allLabel && <DropdownMenuItem onSelect={() => onChange(null)}>{allLabel}</DropdownMenuItem>}
         {list.map((c) => (
           <DropdownMenuItem key={c.id} onSelect={() => onChange(c.id)} className="gap-2">
             <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: c.color }} />

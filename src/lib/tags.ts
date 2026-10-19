@@ -40,3 +40,11 @@ export function splitTerm(term: string): { exclude: boolean; name: string; prefi
   const prefix = term.endsWith("*");
   return { exclude, prefix, name: term.slice(exclude ? 1 : 0, prefix ? -1 : undefined) };
 }
+
+/** Bulle d'aide d'un tag : sa description (TAGM-14) au-dessus de la bulle habituelle (« Rechercher… »). */
+export function withDescription(title: string | undefined, description: string | null | undefined): string | undefined {
+  if (!description) return title;
+  return title ? `${description}
+
+${title}` : description;
+}

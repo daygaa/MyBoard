@@ -14,7 +14,7 @@ import { TagPill } from "@/components/tags/TagPill";
 import { FALLBACK_COLOR, useCategories } from "@/hooks/useCategories";
 import { api } from "@/lib/api";
 import { openContextMenu } from "@/lib/contextMenu";
-import { displayTag, splitTerm } from "@/lib/tags";
+import { displayTag, splitTerm, withDescription } from "@/lib/tags";
 import { cn } from "@/lib/utils";
 import { useSearch } from "@/stores/search";
 
@@ -35,7 +35,7 @@ function TermPill({ term, className }: { term: string; className?: string }) {
       color={tag ? color(tag.categoryId) : prefix ? "#d9a94e" : FALLBACK_COLOR}
       onRemove={() => removeTerm(term)}
       removeLabel={`Retirer « ${label} » de la recherche`}
-      title={exclude ? `Exclut ${displayTag(name)}` : undefined}
+      title={withDescription(exclude ? `Exclut ${displayTag(name)}` : undefined, tag?.description)}
       struck={exclude}
       onContextMenu={(e) => openContextMenu(e, () => termMenu(term, tag, list))}
       fullTitleIfCut

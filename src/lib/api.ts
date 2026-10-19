@@ -74,7 +74,28 @@ export type TagInfo = {
   categoryId: number;
   /** Nombre total de médias de la bibliothèque qui portent ce tag (SRCH-10). */
   mediaCount: number;
+  /** Masqué de la recherche (TAGM-05) : gris clair et en dernier dans la visionneuse (CTX-04). */
+  hidden: boolean;
+  /** Bulle d'aide au survol du tag (TAGM-14). */
+  description: string | null;
 };
+
+/** Tag du gestionnaire (TAGM-04) : avec sa date de création (TAGM-12). */
+export type ManagedTag = TagInfo & { createdAt: number };
+
+export type TagManagerData = {
+  tags: ManagedTag[];
+  /** Médias qui portent au moins un tag. */
+  taggedMedia: number;
+  /** Groupes de tags proches ignorés (TAGM-13) : identifiants triés, « 12,40,77 ». */
+  ignored: string[];
+};
+
+/** Renommage : fait, nom vide, ou nom déjà porté par un autre tag (fusion proposée, CTX-04). */
+export type Renamed = { kind: "done" } | { kind: "empty" } | { kind: "exists"; id: number; name: string; mediaCount: number };
+
+/** Tag d'une liste partagée (TAGM-10) : catégorie par sa clé (« general »…). */
+export type SharedTag = { name: string; category: string; hidden: boolean };
 
 /** Tag à créer s'il n'existe pas ; la catégorie est ignorée pour un tag existant (IMP-31). */
 export type NewTag = { name: string; categoryId: number | null };
@@ -215,6 +236,17 @@ export const api = {
   /** Tags présents sur la sélection (champ « Retirer des tags », SEL-07). */
   selectionTags: (ids: number[]) => invoke<TagInfo[]>("selection_tags", { ids }),
   editSelectionTags: (ids: number[], add: NewTag[], remove: number[]) => invoke<void>("edit_selection_tags", { ids, add, remove }),
+  // Gestionnaire de tags (TAGM-04 et suivants) et menus des tags (CTX-04, CTX-12).
+  listManagedTags: () => invoke<TagManagerData>("list_managed_tags"),
+  renameTag: (id: number, name: string) => invoke<Renamed>("rename_tag", { id, name }),
+  mergeTags: (sources: number[], target: number) => invoke<void>("merge_tags", { sources, target }),
+  setTagsCategory: (ids: number[], categoryId: number) => invoke<number>("set_tags_category", { ids, categoryId }),
+  setTagsHidden: (ids: number[], hidden: boolean) => invoke<number>("set_tags_hidden", { ids, hidden }),
+  deleteTags: (ids: number[]) => invoke<number>("delete_tags", { ids }),
+  setTagDescription: (id: number, text: string) => invoke<void>("set_tag_description", { id, text }),
+  /** Renvoie les identifiants des tags créés (pour annuler l'import). */
+  importTags: (tags: SharedTag[]) => invoke<number[]>("import_tags", { tags }),
+  ignoreSimilar: (ids: number[]) => invoke<void>("ignore_similar", { ids }),
 };
 
 /** Ce que contient une sélection : favoris, et nombre de ses médias dans chaque dossier (SEL-08). */

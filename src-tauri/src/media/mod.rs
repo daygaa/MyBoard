@@ -73,7 +73,7 @@ pub fn detail(db: &Connection, id: i64) -> rusqlite::Result<Option<MediaDetail>>
         .query_row([id], |r| Ok((r.get::<_, String>(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?)))
         .optional()?;
     let Some((path, file_created_at, imported_at, notes, favorite, folders)) = row else { return Ok(None) };
-    let (tags, folders) = (tags_of_media(db, &[id])?, ids_of(folders));
+    let (tags, folders) = (tags_of_media(db, &[id], true)?, ids_of(folders));
     Ok(Some(MediaDetail { id, path, file_created_at, imported_at, tags, notes, favorite, folders }))
 }
 

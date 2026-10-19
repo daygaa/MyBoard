@@ -1,6 +1,7 @@
 // Tags dans la visionneuse : champ d'ajout avec autocomplétion ouverte AU-DESSUS (VIEW-21),
 // pop-in de création si le tag n'existe pas (VIEW-22), pastilles colorées retirables ; un clic
 // sur une pastille lance la recherche de ce tag (VIEW-23), un clic droit ouvre son menu (CTX-04).
+// Tag masqué (TAGM-05) : gris clair et en dernier ; description en bulle d'aide (TAGM-14).
 
 import { useState } from "react";
 import { Plus } from "lucide-react";
@@ -13,7 +14,7 @@ import { useCategories } from "@/hooks/useCategories";
 import { useTagChanges } from "@/hooks/useTagChanges";
 import { api, type MediaKind, type TagInfo } from "@/lib/api";
 import { openContextMenu } from "@/lib/contextMenu";
-import { displayTag, normalizeTag } from "@/lib/tags";
+import { displayTag, normalizeTag, withDescription } from "@/lib/tags";
 
 /** Champ d'ajout de tag (VIEW-20 : placé juste à droite des infos du fichier). */
 export function TagAdder({ mediaId }: { mediaId: number }) {
@@ -67,14 +68,18 @@ export function TagAdder({ mediaId }: { mediaId: number }) {
   );
 }
 
-/** Pastilles des tags du média, dans l'ordre des catégories (TAGM-03). */
+/** Couleur d'un tag masqué de la recherche (CTX-04). */
+const HIDDEN_COLOR = "#a1a1aa";
+
+/** Pastilles des tags du média, dans l'ordre des catégories (TAGM-03), les masqués en dernier. */
 type PillsProps = { mediaId: number; kind: MediaKind; tags: TagInfo[]; onSearch: (name: string) => void };
 
 export function TagPills({ mediaId, kind, tags, onSearch }: PillsProps) {
   const { list, color } = useCategories();
   const { remove } = useTagChanges();
   const order = new Map(list.map((c) => [c.id, c.sortOrder]));
-  const sorted = [...tags].sort((a, b) => (order.get(a.categoryId) ?? 99) - (order.get(b.categoryId) ?? 99));
+  const rank = (t: TagInfo) => (t.hidden ? 1000 : 0) + (order.get(t.categoryId) ?? 99);
+  const sorted = [...tags].sort((a, b) => rank(a) - rank(b));
 
   if (sorted.length === 0) {
     return <span className="text-xs text-muted-foreground italic">Aucun tag. Utilise le champ ci-dessus pour en ajouter.</span>;
@@ -84,12 +89,12 @@ export function TagPills({ mediaId, kind, tags, onSearch }: PillsProps) {
       {sorted.map((tag) => (
         <TagPill
           key={tag.id}
-          color={color(tag.categoryId)}
-          title={`Rechercher « ${displayTag(tag.name)} »`}
+          color={tag.hidden ? HIDDEN_COLOR : color(tag.categoryId)}
+          title={withDescription(`Rechercher « ${displayTag(tag.name)} »`, tag.description)}
           onClick={() => onSearch(tag.name)}
           onRemove={() => void remove(mediaId, tag.id)}
           removeLabel={`Retirer « ${displayTag(tag.name)} »`}
-          onContextMenu={(e) => openContextMenu(e, () => tagMenu(tag, list, { kind, run: () => void remove(mediaId, tag.id) }))}
+          onContextMenu={(e) => openContextMenu(e, () => tagMenu(tag, list, { removeFrom: { kind, run: () => void remove(mediaId, tag.id) } }))}
         >
           {displayTag(tag.name)}
         </TagPill>

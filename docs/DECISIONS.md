@@ -813,3 +813,29 @@ vignettes touchées se calculent par la géométrie régulière de la grille, sa
 **Mesuré (version compilée, 30 colonnes, écran 1080p).** Défilement : 173 images/s hors sélection,
 164 en mode sélection, 168 avec la page entière cochée ; cocher une vignette : 12 à 47 ms jusqu'à
 l'image affichée.
+
+## D-038 — Lot 4 de la phase 3 : gestionnaire de tags (20/10/2026)
+
+**Données (schéma v6).** `tags.description` (TAGM-14) ; table `tag_similar_ignored` (groupes de tags
+proches ignorés, TAGM-13) ; déclencheur : renommer un tag change `search_generation` (les recherches
+gardées en mémoire par nom ne valent plus, D-027). `tag_manager.rs` : liste, renommer (réponse
+« existe déjà » sans rien changer : l'interface propose la fusion), fusionner, catégorie, masquer,
+supprimer, description, import, ignorer un groupe ; chaque opération multiple en une transaction, les
+compteurs suivent par les déclencheurs (D-005). Les tags masqués sont retirés de la barre latérale par
+la requête (`tags_of_media(…, with_hidden)`), gardés dans la fiche de la visionneuse.
+
+**Liste.** Tous les tags sont lus en une fois puis filtrés et triés dans l'interface : mesuré sur
+13 098 tags (banque Danbooru), tri par nom en 118 ms, défilement à 144 images/s (liste virtualisée
+comme la grille, D-008).
+
+**Code de partage (TAGM-10).** « MYBOARD-TAGS-1: » suivi de la liste en JSON compact
+`[nom, clé de catégorie, masqué]`, en base 64 : la catégorie voyage par sa clé (« general »…), les
+identifiants changeant d'une bibliothèque à l'autre ; catégorie inconnue → Général. L'import renvoie
+les identifiants créés, ce qui permet « Annuler ».
+
+**Tags proches (TAGM-13).** Clé de rapprochement calculée dans l'interface : nom sans accents, sans
+« _ », « - », espaces ni points, sans « s » final ; un groupe = au moins deux tags de même clé.
+
+**Notes partagées.** La zone de note de la visionneuse (VIEW-19, VIEW-45, CTX-09, CTX-10) est devenue un
+composant commun (`components/notes/NoteEditor.tsx`) : la description d'un tag a exactement les mêmes
+fonctions, sans code recopié.

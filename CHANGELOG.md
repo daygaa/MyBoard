@@ -3,6 +3,47 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Phase 3, lot 4 : gestionnaire de tags (20/10/2026) — Backup v40
+
+SPEC : livrées `[~]` : TAGM-04, TAGM-05, TAGM-08, TAGM-10 à TAGM-14 ; CTX-04 et CTX-12 (entrées
+activées), CTX-16 (menu des lignes), NAV-02 (« Gestionnaire de tags »). Choix : D-036, D-038.
+
+- **Page « Gestionnaire de tags »** (menu burger) : bouton « Bibliothèque », titre et « N tags · M médias
+  taggés » ; boutons Tags proches (N) · Exporter ▾ · Importer · Supprimer les tags non utilisés ; filtres
+  nom, catégorie, Masqués, Rares ; tableau Nom · Catégorie · Médias · Créé le · Description · Actions
+  (œil, crayon, corbeille), trié par clic sur l'en-tête, fluide avec des milliers de tags.
+- **Dans une ligne** : clic sur le nom = recherche dans la bibliothèque (retour arrière = gestionnaire) ;
+  crayon = nom modifiable (Entrée, Échap ; fusion proposée si le nom existe) ; catégorie au choix ;
+  description (même zone que la note des médias) ; clic droit = menu du tag.
+- **Actions groupées** (cases) : catégorie, masquer, ne plus masquer, fusionner (nom gardé au choix),
+  supprimer.
+- **Tags proches** : groupes de noms presque identiques, « Fusionner » ou « Ignorer ».
+- **Exporter ▾** (affichés, tous, cochés) : code de partage copié, badge « N tags copiés » ;
+  **Importer** : code collé, aperçu « N à créer, M déjà présents », puis « N tags importés » avec Ok /
+  Annuler.
+- **Supprimer les tags non utilisés** : « Supprimer les N tags non utilisés ? », case « Sélection
+  manuelle » (liste cochée, décocher garde le tag).
+- **Partout** : menus des tags actifs (Renommer…, Changer de catégorie ▸, Masquer, Supprimer le tag…) ;
+  tag masqué absent des suggestions et de la barre latérale, gris clair et en dernier dans la
+  visionneuse ; description en bulle d'aide (barre latérale, visionneuse, termes de la recherche).
+
+Vérifié dans la version compilée, sur une copie de la bibliothèque « booru » (13 098 tags ; tags de
+test « zz_mgr_… » créés pour l'occasion) :
+- en-tête juste (13 098 tags, 3 306 médias taggés), 29 lignes dessinées, tri par défaut identique à la
+  base, tri par nom, filtres nom et Rares ;
+- renommer dans la ligne ; renommer en un nom existant → « « zz mgr y » existe déjà et 2 médias y sont
+  attachés… » → fusion, aucun compteur faux ;
+- masquer : absent de la barre latérale et des suggestions, recherche explicite (2 médias), filtre
+  Masqués, gris et dernier dans la fiche de la visionneuse ; description enregistrée et en bulle ;
+- clic droit d'une ligne (« Renommer… » ouvre la modification dans la ligne), corbeille, clic sur un nom
+  puis retour arrière ;
+- actions groupées : 3 masqués, catégorie « Artiste », fusion en 1, suppression ;
+- tags proches : fusion d'un groupe de 3, « Ignorer » enregistré ; export (badge, code dans le
+  presse-papiers, remis ensuite), import avec Annuler puis Ok ; tags non utilisés : décocher 1 (6 → 5),
+  les 5 autres supprimés ;
+- menus des tags de la barre latérale actifs ; note de la visionneuse : écrite, enregistrée, effacée ;
+- lot 3 revérifié (sélection) ; tableau : défilement 144 images/s, tri par nom 118 ms.
+
 ## Phase 3, lot 3 : sélection multiple (20/10/2026) — Backup v39
 
 SPEC : livrées `[~]` : SEL-01 à SEL-10, DEL-07 ; CTX-05 (« Sélectionner »), CTX-16 (menus de la

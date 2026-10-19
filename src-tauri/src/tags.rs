@@ -1,4 +1,5 @@
-//! Tags et catégories : autocomplétion, tags d'une page, ajout / retrait sur un média.
+//! Tags et catégories : autocomplétion, tags d'une page, ajout / retrait sur un média. Gestionnaire de
+//! tags (renommer, fusionner, masquer…) : `tag_manager.rs`.
 //!
 //! Les compteurs (`tags.media_count`, `media.tag_count`) sont tenus par les déclencheurs SQL
 //! (D-005) : ce module n'y touche jamais. Un tag est lié à l'identifiant du média, jamais à
@@ -33,7 +34,14 @@ pub struct TagInfo {
     pub category_id: i64,
     /// Nombre total de médias de la bibliothèque qui portent ce tag (SRCH-10).
     pub media_count: i64,
+    /// Masqué de la recherche (TAGM-05) : gris clair et en dernier dans la visionneuse (CTX-04).
+    pub hidden: bool,
+    /// Bulle d'aide au survol du tag (TAGM-14).
+    pub description: Option<String>,
 }
+
+/// Colonnes d'un tag, dans l'ordre lu par `tag_from_row`.
+pub const TAG_COLUMNS: &str = "id, name, category_id, media_count, hidden, description";
 
 /// Tag à créer s'il n'existe pas encore (visionneuse, tags par défaut de l'import).
 #[derive(Clone, Debug, Deserialize)]
@@ -53,7 +61,7 @@ pub fn normalize(raw: &str) -> Option<String> {
 }
 
 pub(crate) fn tag_from_row(r: &rusqlite::Row) -> rusqlite::Result<TagInfo> {
-    Ok(TagInfo { id: r.get(0)?, name: r.get(1)?, category_id: r.get(2)?, media_count: r.get(3)? })
+    Ok(TagInfo { id: r.get(0)?, name: r.get(1)?, category_id: r.get(2)?, media_count: r.get(3)?, hidden: r.get(4)?, description: r.get(5)? })
 }
 
 pub fn categories(db: &Connection) -> rusqlite::Result<Vec<Category>> {
@@ -71,21 +79,21 @@ pub fn autocomplete(db: &Connection, text: &str) -> rusqlite::Result<Vec<TagInfo
     // Bornes [prefix, prefix + U+10FFFF) : la recherche utilise l'index unique sur `name`.
     let upper = format!("{prefix}\u{10FFFF}");
     let mut found: Vec<TagInfo> = db
-        .prepare_cached(
-            "SELECT id, name, category_id, media_count FROM tags
+        .prepare_cached(&format!(
+            "SELECT {TAG_COLUMNS} FROM tags
              WHERE name >= ?1 AND name < ?2 AND hidden = 0
-             ORDER BY media_count DESC, name LIMIT ?3",
-        )?
+             ORDER BY media_count DESC, name LIMIT ?3"
+        ))?
         .query_map(params![prefix, upper, SUGGESTIONS], tag_from_row)?
         .collect::<Result<_, _>>()?;
     let missing = SUGGESTIONS as usize - found.len().min(SUGGESTIONS as usize);
     if missing > 0 {
         let more = db
-            .prepare_cached(
-                "SELECT id, name, category_id, media_count FROM tags
+            .prepare_cached(&format!(
+                "SELECT {TAG_COLUMNS} FROM tags
                  WHERE instr(name, ?1) > 1 AND hidden = 0
-                 ORDER BY media_count DESC, name LIMIT ?2",
-            )?
+                 ORDER BY media_count DESC, name LIMIT ?2"
+            ))?
             .query_map(params![prefix, missing as i64], tag_from_row)?
             .collect::<Result<Vec<_>, _>>()?;
         found.extend(more);
@@ -96,21 +104,23 @@ pub fn autocomplete(db: &Connection, text: &str) -> rusqlite::Result<Vec<TagInfo
 /// Tag existant portant exactement ce nom (après normalisation).
 pub fn find(db: &Connection, name: &str) -> rusqlite::Result<Option<TagInfo>> {
     let Some(name) = normalize(name) else { return Ok(None) };
-    db.prepare_cached("SELECT id, name, category_id, media_count FROM tags WHERE name = ?1")?
+    db.prepare_cached(&format!("SELECT {TAG_COLUMNS} FROM tags WHERE name = ?1"))?
         .query_row([name], tag_from_row)
         .optional()
 }
 
-/// Tags présents sur ces médias, chacun avec son nombre TOTAL de médias (SRCH-10).
-pub fn tags_of_media(db: &Connection, ids: &[i64]) -> rusqlite::Result<Vec<TagInfo>> {
+/// Tags présents sur ces médias, chacun avec son nombre TOTAL de médias (SRCH-10). Les tags masqués
+/// (TAGM-05) ne sont pas dans la barre latérale (`with_hidden` faux) mais restent sur les médias.
+pub fn tags_of_media(db: &Connection, ids: &[i64], with_hidden: bool) -> rusqlite::Result<Vec<TagInfo>> {
     if ids.is_empty() {
         return Ok(Vec::new());
     }
     let sql = format!(
-        "SELECT id, name, category_id, media_count FROM tags
-         WHERE id IN (SELECT DISTINCT tag_id FROM media_tags WHERE media_id IN ({}))
+        "SELECT {TAG_COLUMNS} FROM tags
+         WHERE id IN (SELECT DISTINCT tag_id FROM media_tags WHERE media_id IN ({})){}
          ORDER BY media_count DESC, name",
-        vec!["?"; ids.len()].join(",")
+        vec!["?"; ids.len()].join(","),
+        if with_hidden { "" } else { " AND hidden = 0" }
     );
     let mut stmt = db.prepare(&sql)?;
     let rows = stmt.query_map(params_from_iter(ids), tag_from_row)?;
@@ -161,10 +171,10 @@ pub async fn find_tag(state: State<'_, AppState>, name: String) -> Result<Option
     find(&state.db.lock().unwrap(), &name).map_err(|e| e.to_string())
 }
 
-/// Barre latérale : tags des médias de la page affichée (SRCH-10).
+/// Barre latérale : tags des médias de la page affichée (SRCH-10), sans les tags masqués (TAGM-05).
 #[tauri::command]
 pub async fn page_tags(state: State<'_, AppState>, ids: Vec<i64>) -> Result<Vec<TagInfo>, String> {
-    tags_of_media(&state.db.lock().unwrap(), &ids).map_err(|e| e.to_string())
+    tags_of_media(&state.db.lock().unwrap(), &ids, false).map_err(|e| e.to_string())
 }
 
 /// Ajoute un tag à un média (VIEW-22) ; le crée s'il n'existe pas (TAGM-07).

@@ -12,6 +12,7 @@ import { Footer } from "@/components/layout/Footer";
 import { Header } from "@/components/layout/Header";
 import { TitleBar } from "@/components/layout/TitleBar";
 import { LibraryPage } from "@/components/library/LibraryPage";
+import { TagManagerPage } from "@/components/tagmanager/TagManagerPage";
 import { ContextMenuHost } from "@/components/ui/context-menu";
 import { ErrorDialog } from "@/components/viewer/ErrorDialog";
 import { Viewer } from "@/components/viewer/Viewer";
@@ -38,7 +39,7 @@ export function App() {
       >
         <div className="flex min-h-full flex-col">
           <Header />
-          <div className="flex flex-1 flex-col">{route === "import" ? <ImportPage /> : <LibraryPage />}</div>
+          <div className="flex flex-1 flex-col">{route === "import" ? <ImportPage /> : route === "tags" ? <TagManagerPage /> : <LibraryPage />}</div>
           <Footer />
         </div>
       </div>

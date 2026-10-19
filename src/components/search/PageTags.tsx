@@ -21,7 +21,7 @@ import { api, type Category, type MediaItem, type TagInfo } from "@/lib/api";
 import { openContextMenu, type MenuEntry } from "@/lib/contextMenu";
 import { formatNumber } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { displayTag } from "@/lib/tags";
+import { displayTag, withDescription } from "@/lib/tags";
 import { useSearch } from "@/stores/search";
 
 type CategoryRow = Extract<Row, { kind: "category" }>;
@@ -68,7 +68,7 @@ function TagRow({ tag, color, categories }: { tag: TagInfo; color: string; categ
       <button
         type="button"
         onClick={() => setTerms([tag.name])}
-        title={`Rechercher « ${label} »`}
+        title={withDescription(`Rechercher « ${label} »`, tag.description)}
         className="ml-1 min-w-0 flex-1 truncate text-left text-sm hover:underline"
         style={{ color }}
       >

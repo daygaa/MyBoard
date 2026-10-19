@@ -1,19 +1,20 @@
 // Navigation minimale entre les pages, par l'adresse « #/… ».
 // Elle passe par l'historique : le bouton « retour » de la souris pourra s'en servir (VIEW-03).
 // Vue Favoris « #/favoris » (FAV-02) et page d'un dossier « #/dossier/<id> » (FOLD-04) : la page de
-// la bibliothèque, limitée à leurs médias.
+// la bibliothèque, limitée à leurs médias. Gestionnaire de tags « #/tags » (TAGM-04).
 
 import { useSyncExternalStore } from "react";
 
 import { scrollToTop } from "./scroller";
 
-export type Route = "library" | "import" | "favorites" | "folder";
+export type Route = "library" | "import" | "favorites" | "folder" | "tags";
 
-const PATHS: Record<Exclude<Route, "folder">, string> = { library: "#/", import: "#/import", favorites: "#/favoris" };
+const PATHS: Record<Exclude<Route, "folder">, string> = { library: "#/", import: "#/import", favorites: "#/favoris", tags: "#/tags" };
 
 function routeOf(hash: string): Route {
   if (hash.startsWith("#/import")) return "import";
   if (hash.startsWith("#/favoris")) return "favorites";
+  if (hash.startsWith("#/tags")) return "tags";
   if (folderIdOf(hash) !== null) return "folder";
   return "library";
 }
