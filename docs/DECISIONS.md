@@ -766,3 +766,24 @@ pire cas, 5K à 200 % et 12 colonnes (vignette de 354 px servie en 640 px), coû
 plus pour la page, en arrière-plan, la 320 px étant déjà affichée ; une taille de plus obligerait à
 refaire des aperçus à chaque changement de densité dans cette plage. Page suivante sur l'écran 1080p :
 inchangée (15 colonnes 150 ms, 16 colonnes 173 ms, comme en LIB-15).
+
+## D-036 — Cadrage des lots 3 à 5 de la phase 3 : sélection, gestionnaire de tags (19/10/2026)
+
+Réponses de l'utilisateur aux questions posées avant de coder (détail dans la SPEC).
+
+**Sélection (lot 3).** Bouton dans la barre des filtres ; en mode sélection, un clic coche, Maj + clic
+coche toute la rangée ; le rectangle ne marche qu'en mode sélection et ajoute à la sélection. **Une seule
+sélection**, gardée en changeant de page, de recherche ou de vue, en ouvrant la visionneuse (« Ouvrir » du
+clic droit) et après un retour arrière ou avant : elle est rangée dans l'état de l'application (la liste
+que lisent les actions), pas dans l'affichage. Le menu du clic droit d'une vignette cochée agit sur toute
+la sélection, avec les nombres dans les libellés et un badge après l'ajout à un dossier ; sur une vignette
+non cochée, il reste celui de la vignette.
+
+**Gestionnaire de tags (lot 4).** Même esprit que la v8, plus compact, redessiné par Claude ; tri par
+colonne, filtres « Masqués » et « Rares », actions groupées, colonne « Créé le », renommage dans la ligne,
+tags proches à fusionner, description d'un tag (bouton des notes de la visionneuse), export / import par
+un code de partage copié dans le presse-papiers (avec annulation de l'import), suppression des tags non
+utilisés avec sélection manuelle.
+
+**Lot 5.** Synonymes et tags parents (inspirés de Hydrus Network) : après le gestionnaire de tags, avant
+la phase 4 ; questions posées à ce moment-là.
