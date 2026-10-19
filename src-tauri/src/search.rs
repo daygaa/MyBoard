@@ -9,7 +9,9 @@
 //! ajout ou retrait d'un lien tag-média ou d'un média : l'index repart alors de la base. Il a sa
 //! propre connexion : une recherche n'attend jamais une écriture de l'interface.
 //! Vue Favoris ou dossier (FAV-02, FOLD-04) : l'ensemble de ses médias limite le résultat ; les
-//! médias en cours de suppression (DEL-01) en sont retirés.
+//! médias en cours de suppression (DEL-01) en sont retirés. Recherche par nom de fichier (SRCH-26) :
+//! les médias dont le nom contient le texte (sans tenir compte des majuscules, accents compris), en
+//! plus des tags.
 
 use std::collections::HashMap;
 use std::path::Path;
@@ -67,11 +69,11 @@ impl SearchIndex {
         Ok(Self { inner: Mutex::new((crate::db::open(db_path)?, Cache::default())) })
     }
 
-    /// Page de résultats d'une recherche ; `None` si la demande n'a aucun terme de recherche (la
-    /// grille passe alors par `library::list`).
+    /// Page de résultats d'une recherche ; `None` si la demande n'a ni terme de recherche ni nom de
+    /// fichier (la grille passe alors par `library::list`).
     pub fn list(&self, query: &ListQuery) -> rusqlite::Result<Option<ListPage>> {
         let terms = parse(&query.terms);
-        if terms.is_empty() {
+        if terms.is_empty() && query.file_text().is_none() {
             return Ok(None);
         }
         let mut guard = self.inner.lock().unwrap();
@@ -104,11 +106,12 @@ fn result_of(db: &Connection, cache: &mut Cache, query: &ListQuery, terms: &[(Te
     }
     let kinds = selected_kinds(&query.kinds);
     let scope = query.scope();
-    let key = format!("{:?}|{:?}|{:?}", query.terms, kinds, scope);
+    let file = query.file_text();
+    let key = format!("{:?}|{:?}|{:?}|{:?}", query.terms, kinds, scope, file);
     Ok(match &cache.last {
         Some((last, set)) if *last == key => set.clone(),
         _ => {
-            let set = Arc::new(matching(db, &mut cache.sets, terms, &kinds, scope)?);
+            let set = Arc::new(matching(db, &mut cache.sets, terms, &kinds, scope, file)?);
             cache.last = Some((key, set.clone()));
             set
         }
@@ -153,14 +156,36 @@ fn term_set(db: &Connection, sets: &mut HashMap<String, Arc<RoaringBitmap>>, ter
     }
 }
 
-/// Médias de la vue qui portent tous les termes demandés, aucun des termes exclus, et d'un des types
-/// cochés ; jamais ceux en cours de suppression.
+/// Médias dont le nom de fichier contient `text`, sans tenir compte des majuscules (SRCH-26). La
+/// comparaison se fait ici et non dans SQLite, dont `lower()` ignore les lettres accentuées.
+fn file_set(db: &Connection, sets: &mut HashMap<String, Arc<RoaringBitmap>>, text: &str) -> rusqlite::Result<Arc<RoaringBitmap>> {
+    let needle = text.to_lowercase();
+    let key = format!("f:{needle}");
+    if let Some(set) = sets.get(&key) {
+        return Ok(set.clone());
+    }
+    let mut stmt = db.prepare_cached("SELECT id, file_name FROM media")?;
+    let mut set = RoaringBitmap::new();
+    for row in stmt.query_map([], |r| Ok((r.get::<_, u32>(0)?, r.get::<_, String>(1)?)))? {
+        let (id, name) = row?;
+        if name.to_lowercase().contains(&needle) {
+            set.insert(id);
+        }
+    }
+    let set = Arc::new(set);
+    sets.insert(key, set.clone());
+    Ok(set)
+}
+
+/// Médias de la vue qui portent tous les termes demandés, aucun des termes exclus, d'un des types
+/// cochés et dont le nom contient le texte cherché ; jamais ceux en cours de suppression.
 fn matching(
     db: &Connection,
     sets: &mut HashMap<String, Arc<RoaringBitmap>>,
     terms: &[(Term, bool)],
     kinds: &[&str],
     scope: Scope,
+    file: Option<&str>,
 ) -> rusqlite::Result<RoaringBitmap> {
     let mut included = Vec::new();
     let mut excluded = Vec::new();
@@ -190,6 +215,9 @@ fn matching(
     }
     if let Some((key, sql)) = scope.set_query() {
         result &= set(db, sets, key, &sql, &[])?.as_ref();
+    }
+    if let Some(text) = file {
+        result &= file_set(db, sets, text)?.as_ref();
     }
     result -= set(db, sets, "suppression".into(), "SELECT id FROM media WHERE pending_delete != 0 ORDER BY id", &[])?.as_ref();
     Ok(result)

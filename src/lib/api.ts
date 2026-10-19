@@ -40,6 +40,8 @@ export type ListQuery = {
   favorites?: boolean;
   /** Page d'un dossier (FOLD-04). */
   folder?: number | null;
+  /** Texte cherché dans le nom des fichiers (SRCH-26). */
+  file?: string | null;
 };
 
 export type ListPage = {

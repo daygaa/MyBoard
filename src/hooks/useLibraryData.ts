@@ -17,9 +17,10 @@ export function useListBase(): Omit<ListQuery, "page"> {
   const sort = useLibrary((s) => s.sort);
   const seed = useLibrary((s) => s.seed);
   const terms = useSearch((s) => s.terms);
+  const file = useSearch((s) => s.file);
   const route = useRoute();
   const folder = useFolderId();
-  return { kinds, terms, sort, seed, pageSize: pageSizeForDensity(pageDensity), favorites: route === "favorites", folder };
+  return { kinds, terms, file, sort, seed, pageSize: pageSizeForDensity(pageDensity), favorites: route === "favorites", folder };
 }
 
 /** Page courante de la grille selon la densité, les filtres, la recherche et le tri. */

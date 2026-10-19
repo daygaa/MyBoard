@@ -81,7 +81,8 @@ function coversScreen(): boolean {
  *  filtres, tri, recherche, densité et page de l'application. */
 function librarySnapshot(): string {
   const { page, kinds, sort, seed, pageDensity } = useLibrary.getState();
-  return JSON.stringify([page, kinds, sort, seed, pageDensity, useSearch.getState().terms, location.hash]);
+  const { terms, file } = useSearch.getState();
+  return JSON.stringify([page, kinds, sort, seed, pageDensity, terms, file, location.hash]);
 }
 
 /** Espace entre le bas de la zone de travail de l'écran (au-dessus de la barre des tâches) et le
@@ -148,9 +149,10 @@ export const useViewer = create<ViewerState>()((set, get) => {
     trail: null,
     openAt: (index, item, pageSize) => {
       const { kinds, sort, seed } = useLibrary.getState();
-      const { terms } = useSearch.getState();
-      // Même vue que la grille (favoris, dossier) : précédent / suivant restent dans cette vue.
-      const base = { kinds, terms, sort, seed, pageSize, ...scopeOf(location.hash) };
+      const { terms, file } = useSearch.getState();
+      // Même vue que la grille (favoris, dossier, nom de fichier cherché, SRCH-26) : précédent /
+      // suivant restent dans ces résultats.
+      const base = { kinds, terms, file, sort, seed, pageSize, ...scopeOf(location.hash) };
       // Nouveau média ouvert par un clic : nouveau chemin, placé sur sa dernière étape.
       set({ open: true, index, item, base, trail: { shown: { index, item, base }, step: LAST_STEP, snapshot: "" } });
       refreshGap();

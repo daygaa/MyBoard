@@ -14,7 +14,7 @@ import { navigate, useFolderId, useRoute } from "@/lib/router";
 import { scrollToTop } from "@/lib/scroller";
 import { useLibrary } from "@/stores/library";
 import { useSearch } from "@/stores/search";
-import { EmptyFolder, EmptyLibrary, NoFavorites, NoResults } from "./EmptyState";
+import { EmptyFolder, EmptyLibrary, NoFavorites, NoFileMatch, NoResults } from "./EmptyState";
 import { FiltersBar } from "./FiltersBar";
 import { GridBadge } from "./GridBadge";
 import { MediaGrid } from "./MediaGrid";
@@ -29,6 +29,7 @@ export function LibraryPage() {
   const page = useLibrary((s) => s.page);
   const filtered = useLibrary((s) => s.kinds.length > 0);
   const searching = useSearch((s) => s.terms.length > 0);
+  const file = useSearch((s) => s.file);
   const route = useRoute();
   const folderId = useFolderId();
   const { data: folders } = useFolders();
@@ -49,7 +50,9 @@ export function LibraryPage() {
   let content = null;
   if (route === "library" && stats && stats.total === 0) content = <EmptyLibrary />;
   else if (data && data.total === 0) {
-    if (searching || filtered) content = <NoResults />;
+    const where = route === "favorites" ? "dans les favoris" : route === "folder" ? "dans ce dossier" : "dans la bibliothèque";
+    if (file) content = <NoFileMatch file={file} where={where} typed={filtered} />;
+    else if (searching || filtered) content = <NoResults />;
     else if (route === "favorites") content = <NoFavorites />;
     else if (route === "folder") content = <EmptyFolder />;
     else content = <NoResults />;

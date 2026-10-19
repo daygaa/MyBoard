@@ -839,3 +839,13 @@ les identifiants créés, ce qui permet « Annuler ».
 **Notes partagées.** La zone de note de la visionneuse (VIEW-19, VIEW-45, CTX-09, CTX-10) est devenue un
 composant commun (`components/notes/NoteEditor.tsx`) : la description d'un tag a exactement les mêmes
 fonctions, sans code recopié.
+
+## D-039 — Recherche par nom de fichier (SRCH-26) (20/10/2026)
+
+Le texte cherché fait partie de la recherche, à côté des termes de tags : `file` dans la demande de la
+grille (`ListQuery`) et dans chaque étape de l'historique (NAV-06), donc gardé par la visionneuse, le
+retour arrière et « Sélectionner tous les résultats ». Le cœur Rust le combine avec les tags dans
+l'index de recherche (D-027) : l'ensemble des médias dont le nom contient le texte est calculé une fois
+puis gardé, comme celui d'un tag. La comparaison sans majuscules se fait en Rust : `lower()` de SQLite
+ignore les lettres accentuées. Mesuré sur 100 000 médias (version compilée) : 40 à 100 ms la première
+fois, 3 ms ensuite.

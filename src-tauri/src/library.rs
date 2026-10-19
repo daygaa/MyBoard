@@ -39,11 +39,19 @@ pub struct ListQuery {
     /// Page d'un dossier (FOLD-04).
     #[serde(default)]
     pub folder: Option<i64>,
+    /// Texte cherché dans le nom des fichiers (SRCH-26), en plus des tags ; vide ou absent = aucun.
+    #[serde(default)]
+    pub file: Option<String>,
 }
 
 impl ListQuery {
     pub fn scope(&self) -> Scope {
         Scope::new(self.favorites, self.folder)
+    }
+
+    /// Texte du nom de fichier cherché, sans les espaces autour ; `None` s'il est vide.
+    pub fn file_text(&self) -> Option<&str> {
+        self.file.as_deref().map(str::trim).filter(|t| !t.is_empty())
     }
 }
 

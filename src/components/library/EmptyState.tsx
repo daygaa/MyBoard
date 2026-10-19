@@ -71,3 +71,26 @@ export function NoResults() {
     </div>
   );
 }
+
+/** Recherche d'un nom de fichier sans résultat (SRCH-26, texte proposé par Claude). `where` : « dans
+ *  la bibliothèque », « dans les favoris », « dans ce dossier ». */
+export function NoFileMatch({ file, where, typed }: { file: string; where: string; typed: boolean }) {
+  const withTags = useSearch((s) => s.terms.length > 0);
+  const setFile = useSearch((s) => s.setFile);
+  return (
+    <div data-zone="grille.vide" className={BOX}>
+      <p className="text-lg font-medium text-foreground">Aucun fichier trouvé</p>
+      <p className="mt-1 text-sm text-muted-foreground">
+        Aucun fichier {typed ? "de ce type " : ""}dont le nom contient « {file} » {where}
+        {withTags ? ", avec ces tags" : ""}.
+      </p>
+      <button
+        type="button"
+        onClick={() => setFile(null)}
+        className="mt-5 rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground transition hover:bg-secondary"
+      >
+        Retirer le nom de fichier
+      </button>
+    </div>
+  );
+}

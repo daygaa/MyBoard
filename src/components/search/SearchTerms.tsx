@@ -5,9 +5,12 @@
 // souris qui s'approche de la ligne déplie les autres par-dessus la liste des tags, elles se
 // replient quand elle s'éloigne (même principe que la barre du bas en plein écran, VIEW-18).
 // Clic droit : menu du terme (CTX-12). Nom coupé par « … » : bulle avec le nom complet.
+// Nom de fichier cherché (SRCH-26) : pastille blanche, la première, retirée par sa croix ; menu
+// proposé : Copier le texte · Retirer de la recherche ‖ Tout effacer.
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { FileSearch } from "lucide-react";
 
 import { termMenu } from "@/components/tags/tagMenu";
 import { TagPill } from "@/components/tags/TagPill";
@@ -42,6 +45,38 @@ function TermPill({ term, className }: { term: string; className?: string }) {
       className={className}
     >
       {label}
+    </TagPill>
+  );
+}
+
+/** Couleur de la pastille du nom de fichier : blanc (texte de l'interface). */
+const FILE_COLOR = "#ececef";
+
+/** Pastille du nom de fichier cherché (SRCH-26). */
+function FilePill({ file, className }: { file: string; className?: string }) {
+  const setFile = useSearch((s) => s.setFile);
+  const setTerms = useSearch((s) => s.setTerms);
+  return (
+    <TagPill
+      color={FILE_COLOR}
+      onRemove={() => setFile(null)}
+      removeLabel="Retirer le nom de fichier de la recherche"
+      title={`Nom de fichier contenant « ${file} »`}
+      onContextMenu={(e) =>
+        openContextMenu(e, () => [
+          { label: "Copier le texte", run: () => void api.writeClipboardText(file) },
+          { label: "Retirer de la recherche", run: () => setFile(null) },
+          "separator",
+          { label: "Tout effacer", run: () => setTerms([]) },
+        ])
+      }
+      fullTitleIfCut
+      className={className}
+    >
+      <span data-zone="barre-laterale.recherche.fichier" className="inline-flex min-w-0 items-center gap-1">
+        <FileSearch className="h-3 w-3 shrink-0" />
+        <span className="truncate">{file}</span>
+      </span>
     </TagPill>
   );
 }
@@ -85,7 +120,9 @@ function useUnfolded(panelRef: RefObject<HTMLElement | null>, active: boolean) {
 
 export function SearchTerms() {
   const terms = useSearch((s) => s.terms);
+  const file = useSearch((s) => s.file);
   const setTerms = useSearch((s) => s.setTerms);
+  const count = terms.length + (file ? 1 : 0);
   const panelRef = useRef<HTMLDivElement>(null);
   const lineRef = useRef<HTMLDivElement>(null);
   const plusRef = useRef<HTMLSpanElement>(null);
@@ -120,7 +157,7 @@ export function SearchTerms() {
           type="button"
           data-zone="barre-laterale.recherche.tout-effacer"
           onClick={() => setTerms([])}
-          disabled={terms.length === 0}
+          disabled={count === 0}
           className="px-1 text-xs text-muted-foreground transition enabled:hover:text-foreground disabled:text-muted-foreground/40"
         >
           Tout effacer
@@ -129,7 +166,7 @@ export function SearchTerms() {
       {/* Hauteur d'une ligne de pastilles, toujours réservée. Dépliée, la ligne garde sa place : les
           suivantes s'ajoutent dessous, sur un fond posé par-dessus la liste des tags. */}
       <div data-zone="barre-laterale.recherche.termes" className="relative mt-1.5 h-[22px]">
-        {terms.length === 0 && <p className="text-center text-xs leading-[22px] text-muted-foreground/60">Aucun tag dans la recherche</p>}
+        {count === 0 && <p className="text-center text-xs leading-[22px] text-muted-foreground/60">Aucun tag dans la recherche</p>}
         <div ref={panelRef} className={cn("absolute inset-x-0 top-0 z-30", !unfolded && "h-full")}>
           {/* Fond : la marge du bas des pastilles (6 px) sert de marge intérieure. */}
           {unfolded && <div className="absolute -inset-x-2 -top-1.5 bottom-0 -z-10 rounded-lg border border-border bg-card shadow-lg" />}
@@ -148,19 +185,23 @@ export function SearchTerms() {
                 +{hidden}
               </span>
             )}
-            {terms.map((term, i) => (
-              // Repliées, les pastilles en trop restent en place (mesurées) mais invisibles : ni clic
-              // ni Tab ne les atteignent.
-              <TermPill
-                key={term}
-                term={term}
-                className={cn(
-                  "mr-1.5 mb-1.5 align-top",
-                  i === 0 && "max-w-[calc(100%_-_var(--plus-w))]",
-                  !unfolded && i >= terms.length - hidden && "invisible",
-                )}
-              />
-            ))}
+            {file && <FilePill file={file} className={cn("mr-1.5 mb-1.5 max-w-[calc(100%_-_var(--plus-w))] align-top", !unfolded && count - 1 < hidden && "invisible")} />}
+            {terms.map((term, i) => {
+              const at = i + (file ? 1 : 0);
+              return (
+                // Repliées, les pastilles en trop restent en place (mesurées) mais invisibles : ni clic
+                // ni Tab ne les atteignent.
+                <TermPill
+                  key={term}
+                  term={term}
+                  className={cn(
+                    "mr-1.5 mb-1.5 align-top",
+                    at === 0 && "max-w-[calc(100%_-_var(--plus-w))]",
+                    !unfolded && at >= count - hidden && "invisible",
+                  )}
+                />
+              );
+            })}
           </div>
         </div>
       </div>

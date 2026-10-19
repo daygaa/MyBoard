@@ -3,6 +3,28 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Phase 3, SRCH-26 : recherche par nom de fichier (20/10/2026) — Backup v41
+
+SPEC : livrée `[~]` : SRCH-26. Choix : D-039.
+
+- **Menu burger, « Rechercher un fichier »** (sous la navigation, au-dessus des dossiers) : Entrée ou la
+  loupe ferment le menu ; la grille montre les médias de la vue en cours (bibliothèque, favoris, dossier)
+  dont le nom contient le texte, sans tenir compte des majuscules, en plus des tags.
+- **Pastille blanche** (petite loupe) en premier parmi les termes de la recherche ; sa croix la retire ;
+  clic droit : Copier le texte · Retirer de la recherche ‖ Tout effacer (proposé).
+- **Aucun résultat** : « Aucun fichier trouvé » / « Aucun fichier dont le nom contient « abc » dans la
+  bibliothèque… » et un bouton « Retirer le nom de fichier » (texte proposé).
+
+Vérifié dans la version compilée, sur une copie de la bibliothèque « booru » :
+- place de la section dans le menu ; « test » : 6 médias (comme en base), menu refermé ; « TEST » par la
+  loupe : mêmes 6 ; avec le tag des fichiers de test (bouton +) : 6 ; croix de la pastille ; retour
+  arrière (pastille revenue) puis avance ; menu de la pastille ; « 12363 » seul : 80 (comme en base) ;
+  clic sur un tag de la barre latérale : le nom de fichier part ; page sans résultat et son bouton ;
+- vue Favoris : 1 résultat (comme en base) ; depuis le gestionnaire de tags : bibliothèque avec le nom
+  de fichier ; visionneuse : précédent / suivant restent dans les 6 résultats ; « Sélectionner tous les
+  résultats » : 6 ; « Tout effacer » : tout retiré ;
+- lots 3 et 4 revérifiés ; sur 100 000 médias : 40 à 100 ms la première fois, 3 ms ensuite.
+
 ## Phase 3, lot 4 : gestionnaire de tags (20/10/2026) — Backup v40
 
 SPEC : livrées `[~]` : TAGM-04, TAGM-05, TAGM-08, TAGM-10 à TAGM-14 ; CTX-04 et CTX-12 (entrées

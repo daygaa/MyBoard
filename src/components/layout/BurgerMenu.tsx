@@ -1,12 +1,14 @@
 // Menu burger dépliant à gauche (NAV-02), apparence v8.
 // Ordre : Bibliothèque · Importer · Favoris · Gestionnaire de tags · Dossiers · Paramètres (dernier).
 // Les fonctions des phases suivantes sont visibles mais grisées, avec la mention « bientôt ».
-// Dossiers : liste, « + Nouveau », menu ⋮ de chacun (FolderList, FOLD-01, FOLD-02).
+// Dossiers : liste, « + Nouveau », menu ⋮ de chacun (FolderList, FOLD-01, FOLD-02). Entre les deux :
+// « Rechercher un fichier » (FileSearch, SRCH-26).
 
 import type { ComponentType } from "react";
 import { LibraryBig, Settings, Star, Tags, Upload, X } from "lucide-react";
 
 import { FolderList } from "@/components/folders/FolderList";
+import { FileSearch } from "@/components/search/FileSearch";
 
 import { useEscape } from "@/lib/escape";
 import { navigate, useRoute, type Route } from "@/lib/router";
@@ -94,6 +96,7 @@ export function BurgerMenu() {
           <NavItem item={{ label: "Gestionnaire de Tags", icon: Tags, route: "tags" }} onDone={close} />
         </nav>
 
+        <FileSearch onDone={close} />
         <FolderList onDone={close} />
 
         <nav data-zone="menu.parametres" className="border-t border-border p-2">

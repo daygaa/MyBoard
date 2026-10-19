@@ -5,24 +5,33 @@
 // (flèches de la barre de titre, boutons 4 / 5 de la souris, Alt + ← / →) passent d'une
 // recherche à l'autre.
 // La bibliothèque, les favoris et chaque dossier ont leur propre recherche : entrer dans une autre vue
-// repart d'une recherche vide, revenir en arrière retrouve celle d'avant (FAV-06).
+// repart d'une recherche vide, revenir en arrière retrouve celle d'avant (FAV-06). Le nom de fichier
+// cherché (SRCH-26) fait partie de la recherche, au même titre que les tags.
 
 import { create } from "zustand";
 
 import { navigate } from "@/lib/router";
 import { useLibrary } from "./library";
 
-type SearchState = {
+type Search = {
   /** Termes actifs, dans l'ordre d'ajout : `tag`, `-tag` (exclusion), `tag*` (joker). */
   terms: string[];
-  /** Remplace toute la recherche (clic sur un tag, SRCH-12 ; champ de recherche, SRCH-24). */
+  /** Texte cherché dans le nom des fichiers (SRCH-26), en plus des tags ; `null` = aucun. */
+  file: string | null;
+};
+
+type SearchState = Search & {
+  /** Remplace toute la recherche, nom de fichier compris (clic sur un tag, SRCH-12 ; champ de
+   *  recherche, SRCH-24 ; « Tout effacer »). */
   setTerms: (terms: string[]) => void;
   /** Ajoute des termes (boutons + / − des lignes de tags et des suggestions) ; un terme contraire est
-   *  remplacé. */
+   *  remplacé. Le nom de fichier cherché reste. */
   addTerms: (terms: string[]) => void;
   removeTerm: (term: string) => void;
   /** Inclure ↔ exclure un terme, à sa place dans la recherche (menu du clic droit, CTX-12). */
   invertTerm: (term: string) => void;
+  /** Nom de fichier cherché (menu burger, SRCH-26) ; les tags restent. */
+  setFile: (file: string | null) => void;
 };
 
 /** « tag » et « -tag » sont contraires : on ne garde que le dernier choisi. */
@@ -34,26 +43,32 @@ function merge(terms: string[], added: string[]) {
   return terms;
 }
 
-const same = (a: string[], b: string[]) => a.length === b.length && a.every((t, i) => t === b[i]);
+const same = (a: Search, b: Search) => a.file === b.file && a.terms.length === b.terms.length && a.terms.every((t, i) => t === b.terms[i]);
 
 /** Nouvelle recherche : page 1, et une étape de plus dans l'historique (`remember`). */
-function apply(terms: string[], remember = true) {
+function apply(next: Search, remember = true): Search {
   useLibrary.getState().setPage(1);
-  if (remember && !same(terms, useSearch.getState().terms)) window.history.pushState({ ...window.history.state, terms }, "");
-  return { terms };
+  const { terms, file } = useSearch.getState();
+  if (remember && !same(next, { terms, file })) window.history.pushState({ ...window.history.state, terms: next.terms, file: next.file }, "");
+  return next;
 }
 
 export const useSearch = create<SearchState>()((set, get) => ({
   terms: [],
-  setTerms: (terms) => set(apply(merge([], terms))),
-  addTerms: (added) => set(apply(merge(get().terms, added))),
-  removeTerm: (term) => set(apply(get().terms.filter((t) => t !== term))),
-  invertTerm: (term) => set(apply(get().terms.map((t) => (t === term ? opposite(term) : t)))),
+  file: null,
+  setTerms: (terms) => set(apply({ terms: merge([], terms), file: null })),
+  addTerms: (added) => set(apply({ terms: merge(get().terms, added), file: get().file })),
+  removeTerm: (term) => set(apply({ terms: get().terms.filter((t) => t !== term), file: get().file })),
+  invertTerm: (term) => set(apply({ terms: get().terms.map((t) => (t === term ? opposite(term) : t)), file: get().file })),
+  setFile: (file) => set(apply({ terms: get().terms, file: file?.trim() || null })),
 }));
 
 /** Recherche enregistrée dans une étape de l'historique ; absente : celle d'avant (étape créée par
  *  un changement de page de l'application). */
-const termsOf = (state: unknown) => (state as { terms?: string[] } | null)?.terms;
+function searchOf(state: unknown): Search | undefined {
+  const saved = state as { terms?: string[]; file?: string | null } | null;
+  return saved?.terms ? { terms: saved.terms, file: saved.file ?? null } : undefined;
+}
 
 /** Vue qui a sa propre recherche (FAV-06) ; les pages Importer et Gestionnaire de tags n'en ont pas
  *  (`null`). */
@@ -64,16 +79,28 @@ function searchView(hash: string): string | null {
 }
 let lastView = searchView(window.location.hash) ?? "bibliotheque";
 
+const NONE: Search = { terms: [], file: null };
+
 /** Clic sur un tag du gestionnaire (TAGM-04) : la bibliothèque s'ouvre avec ce tag dans la recherche,
  *  en une seule étape d'historique (le retour arrière ramène au gestionnaire). */
 export function searchInLibrary(terms: string[]) {
   lastView = "bibliotheque";
-  useSearch.setState(apply(merge([], terms), false));
+  useSearch.setState(apply({ terms: merge([], terms), file: null }, false));
   navigate("library");
 }
 
+/** Recherche d'un fichier depuis une page sans recherche (Importer, gestionnaire de tags) : dans la
+ *  bibliothèque ; ailleurs, dans la vue en cours (SRCH-26). */
+export function searchFile(file: string) {
+  if (searchView(window.location.hash) === null) {
+    lastView = "bibliotheque";
+    useSearch.setState(apply({ terms: [], file: file.trim() || null }, false));
+    navigate("library");
+  } else useSearch.getState().setFile(file);
+}
+
 // Étape de départ : aucune recherche.
-window.history.replaceState({ ...window.history.state, terms: [] }, "");
+window.history.replaceState({ ...window.history.state, ...NONE }, "");
 // Étape créée par un changement de page de l'application : dans une autre vue (favoris, dossier,
 // bibliothèque), la recherche repart de zéro, page 1 ; sinon (Importer…), la recherche du moment y est
 // notée, pour la retrouver en y revenant.
@@ -82,13 +109,15 @@ window.addEventListener("hashchange", () => {
   const changed = view !== null && view !== lastView;
   if (view !== null) lastView = view;
   if (changed) useLibrary.getState().setPage(1); // aussi en revenant en arrière : autre vue, page 1
-  if (termsOf(window.history.state)) return; // retour / avance : popstate a remis la recherche
-  const terms = changed ? [] : useSearch.getState().terms;
-  window.history.replaceState({ ...window.history.state, terms }, "");
-  if (changed) useSearch.setState(apply(terms, false));
+  if (searchOf(window.history.state)) return; // retour / avance : popstate a remis la recherche
+  const { terms, file } = useSearch.getState();
+  const next = changed ? NONE : { terms, file };
+  window.history.replaceState({ ...window.history.state, ...next }, "");
+  if (changed) useSearch.setState(apply(next, false));
 });
 // Retour ou avance dans l'historique : la recherche de cette étape revient, sans nouvelle étape.
 window.addEventListener("popstate", (e) => {
-  const terms = termsOf(e.state);
-  if (terms && !same(terms, useSearch.getState().terms)) useSearch.setState(apply(terms, false));
+  const saved = searchOf(e.state);
+  const { terms, file } = useSearch.getState();
+  if (saved && !same(saved, { terms, file })) useSearch.setState(apply(saved, false));
 });
