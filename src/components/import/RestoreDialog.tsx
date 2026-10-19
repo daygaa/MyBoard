@@ -101,12 +101,16 @@ export function RestoreDialog() {
       return next;
     });
   const one = candidates.length === 1;
+  const canRestore = !busy && unchecked.size !== candidates.length;
 
   return (
     <Modal
       open
       wide
       dismissible={false}
+      onEnter={() => {
+        if (canRestore) void answer(true);
+      }}
       onClose={() => {}}
       zone="restauration"
       title={one ? "Restaurer les données de ce média ?" : `Restaurer les données de ces ${candidates.length} médias ?`}
@@ -122,7 +126,7 @@ export function RestoreDialog() {
           </Button>
           <Button
             data-zone="restauration.restaurer"
-            disabled={busy || unchecked.size === candidates.length}
+            disabled={!canRestore}
             onClick={() => void answer(true)}
             className="bg-[#d9a94e] text-[#1a1408] hover:bg-[#e3b75f]"
           >

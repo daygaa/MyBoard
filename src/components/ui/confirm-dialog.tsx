@@ -21,6 +21,7 @@ export function ConfirmDialog({ title, message, danger = false, zone, onCancel, 
   return (
     <Modal
       open
+      even
       onClose={onCancel}
       zone={zone}
       title={title}

@@ -216,11 +216,12 @@ html.attente * {
 }
 
 /* Vignettes de moins de ~2,2 cm à l'écran (GRID-11, `data-nom-seul` posé sur la grille) : plus
-   de badge vidéo / GIF ni de poids / dimensions ; au survol, le nom prend toute la largeur, à la
-   taille calculée par la vignette (`--name-size`). Hors des couches Tailwind : passe avant
-   `text-xs`. */
+   de badge vidéo / GIF, de poids / dimensions ni d'étoile favori (GRID-08) ; au survol, le nom
+   prend toute la largeur, à la taille calculée par la vignette (`--name-size`). Hors des couches
+   Tailwind : passe avant `text-xs` et `grid`. */
 [data-nom-seul] .tile-chip,
-[data-nom-seul] .tile-meta {
+[data-nom-seul] .tile-meta,
+[data-nom-seul] .tile-star {
   display: none;
 }
 [data-nom-seul] .tile-name {

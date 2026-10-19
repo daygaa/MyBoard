@@ -177,6 +177,11 @@ export function VideoControls({ videoRef }: { videoRef: RefObject<HTMLVideoEleme
       )}
       // Glisse avec la barre du bas dépliée (VIEW-39), au même rythme qu'elle.
       style={{ bottom: bottomInset + FLOAT_GAP, transform: `translateY(${-lift}px)`, transition: "opacity 300ms ease, transform 200ms ease-out" }}
+      // Boutons : pas de focus au clic de la souris (le clavier y accède toujours), sinon ils
+      // gardaient les touches et un contour doré apparaissait après un appui sur F (VIEW-50).
+      onMouseDown={(e) => {
+        if (e.target instanceof Element && e.target.closest("button")) e.preventDefault();
+      }}
     >
       <button
         type="button"
@@ -207,6 +212,12 @@ export function VideoControls({ videoRef }: { videoRef: RefObject<HTMLVideoEleme
         step="any"
         value={silent ? 0 : volume}
         onChange={(e) => setVolume(Number(e.target.value))}
+        // Le curseur a besoin du focus pour glisser : il le rend une fois la souris relâchée, pour
+        // que F, Espace et les flèches reviennent à la visionneuse (VIEW-50).
+        onPointerDown={(e) => {
+          const slider = e.currentTarget;
+          window.addEventListener("pointerup", () => setTimeout(() => slider.blur()), { once: true });
+        }}
         aria-label="Volume"
         className="h-1 w-24 shrink-0 cursor-pointer accent-[#d9a94e]"
       />

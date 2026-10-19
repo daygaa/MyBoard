@@ -27,12 +27,14 @@ export function DeleteDialog({ items, onCancel, onConfirm }: Props) {
   const [deleteFiles, setDeleteFiles] = useState(false);
   const [sure, setSure] = useState(false);
   const one = items.length === 1;
+  const confirm = () => (deleteFiles ? setSure(true) : onConfirm(false));
 
   if (sure) {
     return (
       <Modal
         open
         danger
+        even
         onClose={() => setSure(false)}
         zone="suppression.confirmation-fichiers"
         title="Êtes-vous sûr de vouloir supprimer les fichiers de votre stockage ?"
@@ -54,11 +56,13 @@ export function DeleteDialog({ items, onCancel, onConfirm }: Props) {
   return (
     <Modal
       open
+      even
+      onEnter={confirm}
       onClose={onCancel}
       zone="suppression"
       title={one ? "Supprimer de la bibliothèque" : `Supprimer ${items.length} médias`}
       description={
-        <div className="space-y-2">
+        <div className="space-y-4">
           <p>
             {one ? (
               <>
@@ -89,7 +93,7 @@ export function DeleteDialog({ items, onCancel, onConfirm }: Props) {
           <Button variant="ghost" onClick={onCancel} className={CANCEL}>
             Annuler
           </Button>
-          <Button data-zone="suppression.oui" onClick={() => (deleteFiles ? setSure(true) : onConfirm(false))} className={YES}>
+          <Button data-zone="suppression.oui" onClick={confirm} className={YES}>
             Oui
           </Button>
         </>

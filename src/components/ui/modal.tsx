@@ -2,7 +2,7 @@
 // rien ne reste dans la page une fois fermé, donc aucun calque invisible ne peut bloquer
 // l'interface (bogue critique de la v5, VIEW-07). Échap et le bouton 4 de la souris ferment.
 
-import type { ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 
@@ -26,11 +26,35 @@ type Props = {
   dismissible?: boolean;
   /** Plus large, pour une liste (restauration des données, DEL-05). */
   wide?: boolean;
+  /** Confirmation : le même espace (16 px) entre le titre, le texte, le contenu et les boutons
+   *  (DEL-06). Le texte en plusieurs paragraphes les espace de même (`space-y-4`). */
+  even?: boolean;
+  /** Entrée = bouton de confirmation (GEN-20), même quand la case à cocher a le focus ; un autre
+   *  bouton de la pop-in qui a le focus (Annuler…) garde son rôle. */
+  onEnter?: () => void;
 };
 
-export function Modal({ open, onClose, title, description, children, footer, zone, lift = 0, danger = false, dismissible = true, wide = false }: Props) {
+export function Modal(props: Props) {
+  const { open, onClose, title, description, children, footer, zone, lift = 0, danger = false, dismissible = true, wide = false, even = false, onEnter } = props;
   const close = dismissible ? onClose : () => {};
-  useEscape(open, close, { modal: true });
+  const isTop = useEscape(open, close, { modal: true });
+  const dialogRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open || !onEnter) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Enter" || e.repeat || e.ctrlKey || e.altKey || e.shiftKey || e.metaKey || !isTop()) return;
+      const focused = document.activeElement;
+      if (focused instanceof HTMLButtonElement && focused.role !== "checkbox" && dialogRef.current?.contains(focused)) return;
+      // Ni la case, ni le bouton resté en focus derrière la pop-in ne réagissent en plus.
+      e.preventDefault();
+      e.stopPropagation();
+      onEnter();
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, [open, onEnter, isTop]);
+
   if (!open) return null;
   return createPortal(
     <div
@@ -39,6 +63,7 @@ export function Modal({ open, onClose, title, description, children, footer, zon
       onMouseDown={(e) => e.target === e.currentTarget && close()}
     >
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-label={title}
@@ -61,9 +86,9 @@ export function Modal({ open, onClose, title, description, children, footer, zon
           </button>
         )}
         <h2 className="pr-6 text-lg font-semibold text-foreground">{title}</h2>
-        {description && <div className="mt-1.5 text-sm text-muted-foreground">{description}</div>}
-        {children && <div className="mt-5">{children}</div>}
-        {footer && <div className="mt-6 flex justify-end gap-2">{footer}</div>}
+        {description && <div className={cn("text-sm text-muted-foreground", even ? "mt-4" : "mt-1.5")}>{description}</div>}
+        {children && <div className={even ? "mt-4" : "mt-5"}>{children}</div>}
+        {footer && <div className={cn("flex justify-end gap-2", even ? "mt-4" : "mt-6")}>{footer}</div>}
       </div>
     </div>,
     document.body,

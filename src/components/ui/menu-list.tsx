@@ -36,11 +36,13 @@ type ListProps = {
   style: CSSProperties;
   zone: string;
   onHover: (index: number) => void;
-  onLeave: () => void;
+  onLeave: (index: number) => void;
   onPick: (index: number) => void;
+  /** Souris entrée dans la liste (bords et séparateurs compris). */
+  onEnter?: () => void;
 };
 
-export function MenuList({ entries, active, listRef, style, zone, onHover, onLeave, onPick }: ListProps) {
+export function MenuList({ entries, active, listRef, style, zone, onHover, onLeave, onPick, onEnter }: ListProps) {
   const checks = entries.some((e) => e !== "separator" && e.checked !== undefined);
   return (
     <div
@@ -49,6 +51,7 @@ export function MenuList({ entries, active, listRef, style, zone, onHover, onLea
       data-zone={zone}
       className={cn(MENU_SURFACE, "fixed animate-in fade-in-0 zoom-in-95")}
       style={style}
+      onPointerEnter={onEnter}
       // Le menu ne prend ni le focus ni la sélection : un champ de saisie garde les siens.
       onMouseDown={(e) => e.preventDefault()}
     >
@@ -70,7 +73,7 @@ export function MenuList({ entries, active, listRef, style, zone, onHover, onLea
             aria-disabled={disabled || undefined}
             aria-haspopup={entry.submenu ? "menu" : undefined}
             onPointerMove={() => onHover(i)}
-            onPointerLeave={onLeave}
+            onPointerLeave={() => onLeave(i)}
             onClick={() => onPick(i)}
             className={cn(
               MENU_ITEM,

@@ -1,7 +1,8 @@
 // Pop-in du nom d'un dossier : création (« + Nouveau » du menu burger, « Créer un dossier… » des
 // listes, FOLD-01, FOLD-09 : les médias donnés y sont rangés aussitôt) et renommage (FOLD-02). Même
 // style que « Créer un nouveau tag ». Nom déjà pris : refusé, et une 2e pop-in propose « nom-2 »
-// (« -3 » si « -2 » est pris…) ; « Non » revient au champ.
+// (sinon le premier numéro libre, à partir du nom sans son suffixe, FOLD-12) ; « Non » revient au
+// champ.
 
 import { useState } from "react";
 
@@ -49,6 +50,7 @@ export function FolderNameDialog({ folder, mediaIds = [], onCancel, onDone }: Pr
     return (
       <Modal
         open
+        even
         onClose={() => setSuggestion(null)}
         zone="dossier-nom.deja-pris"
         title="Nom déjà utilisé"

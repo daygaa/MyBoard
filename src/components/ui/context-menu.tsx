@@ -21,8 +21,8 @@ import { swallow, swallowClick } from "@/lib/swallowClick";
 import { ConfirmDialog } from "./confirm-dialog";
 import { fit, MenuList, nextUsable, usable } from "./menu-list";
 
-/** Délai avant de fermer un sous-menu quand la souris passe sur une autre entrée : on peut
- *  rejoindre le sous-menu en diagonale. */
+/** Délai avant de fermer un sous-menu quand la souris quitte son entrée « ▸ » (pour une autre
+ *  entrée, un séparateur ou l'extérieur du menu, CTX-20) : on peut le rejoindre en diagonale. */
 const SUB_DELAY = 250;
 const ZONE = '[data-zone^="menu-contextuel"]';
 
@@ -73,6 +73,14 @@ function MenuLayer({ menu }: { menu: OpenMenu }) {
     const list = index === null ? null : (entries[index] as MenuItem).submenu;
     setSubActive(keyboard && list ? nextUsable(list, null, 1) : null);
   };
+  /** Ferme le sous-menu après le délai ; son entrée « ▸ » perd alors sa surbrillance. */
+  const closeSubLater = (index: number) => {
+    clearTimeout(timer.current);
+    timer.current = setTimeout(() => {
+      openSub(null);
+      setActive((a) => (a === index ? null : a));
+    }, SUB_DELAY);
+  };
   const pick = (item: MenuItem, index: number) => {
     if (!usable(item)) return;
     if (item.submenu) return openSub(index, true);
@@ -87,9 +95,11 @@ function MenuLayer({ menu }: { menu: OpenMenu }) {
     menuOnTop = isTop;
     return () => {
       menuOnTop = () => false;
-      clearTimeout(timer.current);
     };
   }, [isTop]);
+  // Minuteur du sous-menu annulé seulement à la fermeture du menu : `isTop` change à chaque
+  // affichage, et l'annuler alors perdait la fermeture demandée en survolant une autre entrée.
+  useEffect(() => () => clearTimeout(timer.current), []);
 
   // Placement, avant l'affichage : au point du clic, dans la fenêtre.
   useLayoutEffect(() => {
@@ -155,13 +165,13 @@ function MenuLayer({ menu }: { menu: OpenMenu }) {
             clearTimeout(timer.current);
             openSub(i);
           } else if (sub !== null && sub !== i) {
-            // Autre entrée : le sous-menu ouvert se ferme après un court délai (passage en
-            // diagonale vers lui).
-            clearTimeout(timer.current);
-            timer.current = setTimeout(() => openSub(null), SUB_DELAY);
+            // Autre entrée (même grisée) : le sous-menu ouvert se ferme après le délai.
+            closeSubLater(sub);
           }
         }}
-        onLeave={() => setActive(sub)}
+        // Entrée « ▸ » quittée : son sous-menu se ferme après le délai, sauf si la souris l'atteint.
+        // Autre entrée : la surbrillance revient à l'entrée dont le sous-menu est encore affiché.
+        onLeave={(i) => (i === sub ? closeSubLater(i) : setActive(sub))}
         onPick={(i) => pick(entries[i] as MenuItem, i)}
       />
       {subEntries && (
@@ -171,6 +181,7 @@ function MenuLayer({ menu }: { menu: OpenMenu }) {
           listRef={subRef}
           style={subPos}
           zone="menu-contextuel.sous-menu"
+          onEnter={() => clearTimeout(timer.current)}
           onHover={(i) => {
             clearTimeout(timer.current);
             setActive(sub);

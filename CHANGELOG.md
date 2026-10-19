@@ -3,6 +3,46 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Phase 3, petits correctifs après les lots 1 et 2 (19/10/2026) — Backup v37
+
+SPEC : livrées `[~]` : CTX-20, VIEW-50, FOLD-12, GEN-19, GEN-20, DEL-06 ; FOLD-04 (texte du dossier vide) et
+GRID-08 (étoile en mode « nom seul ») restent `[~]`. DEL-04 : moyen de provoquer l'échec corrigé.
+
+- **Sous-menus « ▸ »** (CTX-20) : le sous-menu se ferme 250 ms après que la souris a quitté son entrée
+  (autre entrée, même grisée, séparateur, hors du menu), et l'entrée perd sa surbrillance avec lui ; il
+  reste ouvert si la souris le rejoint, même en diagonale ou par son bord. Corrigé en même temps : en
+  passant sur une autre entrée, la fermeture pouvait se perdre si la souris s'arrêtait aussitôt.
+- **Barre de lecture** (VIEW-50) : après un clic sur le volume, la lecture, la boucle, le son, la vitesse ou
+  le plein écran, F et les autres touches marchent et aucun contour doré n'apparaît.
+- **Nom de dossier déjà pris** (FOLD-12) : le nom proposé part du nom sans son suffixe « -nombre »
+  (« abc-3 » pris, avec « abc-2 » à « abc-4 » existants → « abc-5 »).
+- **Dossier vide** (FOLD-04) : « (clic droit sur une vignette, ou touche D dans la visionneuse) ».
+- **Étoile des vignettes** (GRID-08) : masquée en mode « nom seul », au même seuil que les autres infos.
+- **Cases à cocher** (GEN-19) : bord gris clair, bien visible quand la case est décochée.
+- **Entrée** (GEN-20) : dans la pop-in de suppression et celle de restauration, Entrée vaut le bouton de
+  confirmation, même quand la case a le focus.
+- **Espaces des pop-ins** (DEL-06) : 16 px entre le titre, chaque paragraphe, la case et les boutons
+  (suppression d'un média, confirmations des menus, « Effacer la note », « Nom déjà utilisé »).
+
+Vérifié dans la version compilée, sur une copie de la bibliothèque « booru » (fichiers de test créés pour
+l'occasion) :
+- sous-menu « Ajouter à un dossier » : fermé et sans surbrillance 400 ms après être passé sur un séparateur,
+  hors du menu, sur « Sélectionner » (grisée) ou sur « Ajouter aux favoris » (alors en surbrillance) ;
+  toujours ouvert dans le sous-menu, sur son bord et après un passage en diagonale ; même chose pour
+  « Couleur » du menu ⋮ d'un dossier ;
+- vidéo : volume glissé de 0,26 à 0,74, focus rendu au relâchement, F passe en plein écran ; après un clic
+  sur chacun des cinq boutons : focus sur la page, aucun contour, F marche ;
+- « abc-3 », « abc-4 » → « abc-5 » (pop-in « Ce nom est déjà utilisé, voulez-vous le renommer « abc-5 » ? ») ;
+- étoile visible à 17 colonnes, masquée à 18 et 30 (écran 1080p) ; texte du dossier vide ;
+- bord de la case décochée gris clair, cochée dorée ; espaces mesurés : 16 / 16 / 16 / 16 (1re pop-in de
+  suppression), 16 / 16 (2e pop-in, confirmation d'un dossier, « Nom déjà utilisé ») ;
+- Entrée : focus sur la page → média retiré de la bibliothèque ; focus sur « Annuler » → annulé, menu
+  toujours ouvert ; case cochée et focus dessus → 2e pop-in ; pop-in de restauration au réimport, focus sur
+  une case → données remises (réserve vide, tag retrouvé) ;
+- DEL-04 : un fichier en **lecture seule** est quand même effacé par MyBoard (attribut vérifié) ; un fichier
+  **ouvert en exclusivité** par une commande PowerShell → « Erreur Windows 32 », le média revient avec ses
+  données, le fichier reste.
+
 ## Phase 3, lot 2 : dossiers (17/10/2026) — Backup v36
 
 SPEC : livrées `[~]` : FOLD-01 à FOLD-04, FOLD-07, FOLD-09, VIEW-15 ; NAV-02 (« Dossiers ») ; menu CTX-05

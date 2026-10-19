@@ -55,10 +55,20 @@ fn taken(db: &Connection, name: &str, except: Option<i64>) -> rusqlite::Result<b
         .query_row(params![name, except.unwrap_or(-1)], |r| r.get(0))
 }
 
-/// Nom proposé à la place d'un nom pris : « nom-2 », sinon « nom-3 »…
+/// Nom sans son suffixe « -nombre » : « abc-3 » → « abc » (FOLD-12).
+fn base_name(name: &str) -> &str {
+    match name.rsplit_once('-') {
+        Some((base, n)) if !base.is_empty() && !n.is_empty() && n.bytes().all(|b| b.is_ascii_digit()) => base,
+        _ => name,
+    }
+}
+
+/// Nom proposé à la place d'un nom pris : premier « base-2 », « base-3 »… libre, en partant du nom
+/// sans son suffixe (« abc-3 » pris → « abc-5 » si « abc-2 » à « abc-4 » existent, FOLD-12).
 fn free_name(db: &Connection, name: &str, except: Option<i64>) -> rusqlite::Result<String> {
+    let base = base_name(name);
     for n in 2.. {
-        let candidate = format!("{name}-{n}");
+        let candidate = format!("{base}-{n}");
         if !taken(db, &candidate, except)? {
             return Ok(candidate);
         }

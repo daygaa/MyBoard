@@ -41,7 +41,7 @@ export function EmptyFolder() {
     <div data-zone="grille.vide" className={BOX}>
       <p className="text-lg font-medium text-foreground">Ce dossier est vide</p>
       <p className="mt-1 text-sm text-muted-foreground">
-        Ajoutez-y des médias avec « Ajouter à un dossier » (menu d'une vignette, ou touche D dans la visionneuse).
+        Ajoutez-y des médias avec « Ajouter à un dossier » (clic droit sur une vignette, ou touche D dans la visionneuse).
       </p>
     </div>
   );
