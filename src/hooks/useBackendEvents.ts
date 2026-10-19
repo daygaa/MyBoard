@@ -9,6 +9,7 @@ import { refreshLibrary, settleDeletion } from "@/stores/deletion";
 import { forgetFavorites } from "@/stores/favorites";
 import { useImport } from "@/stores/import";
 import { usePreviews } from "@/stores/previews";
+import { removeFromSelection } from "@/stores/selection";
 import { useThumbs } from "@/stores/thumbs";
 import { useViewer } from "@/stores/viewer";
 
@@ -31,6 +32,8 @@ export function useBackendEvents() {
         forgetFavorites(event.payload);
         useThumbs.getState().forget(event.payload);
         usePreviews.getState().forget(event.payload);
+        // Un média supprimé (depuis la visionneuse ou ailleurs) quitte la sélection (SEL-09).
+        removeFromSelection(event.payload);
         void settleDeletion(event.payload);
       }),
       listen<FailedFile[]>(EVENTS.deletionFailed, (event) => {

@@ -1,11 +1,12 @@
 // Vignette de la grille (GRID-08), apparence v8 : carrée, survol = nom, poids, dimensions ;
 // badge durée pour les vidéos, badge GIF ; étoile favori en haut à droite, toujours visible, dorée
 // pour un favori (FAV-03 : à jour partout en temps réel), réduite avec la vignette (GRID-10) mais
-// hors du calque réduit `tile-overlay` (`.tile-star`, index.css : D-008). La case de sélection
-// arrivera avec la sélection multiple (GRID-10 remplace la réduction de SEL-05). Vignettes de
+// hors du calque réduit `tile-overlay` (`.tile-star`, index.css : D-008). En mode sélection (SEL-01,
+// SEL-05) : case dans le coin opposé, contour doré si cochée ; un clic coche ou décoche, Maj + clic
+// coche toute la rangée (SEL-10) ; clic droit d'une vignette cochée : menu de la sélection (SEL-08). Vignettes de
 // moins de ~2,2 cm : nom seul, agrandi, sans l'étoile (GRID-11, GRID-08, index.css). Un média supprimé
 // disparaît à l'instant du clic (DEL-01).
-// Clic = visionneuse plein écran (VIEW-01) ; clic droit = menu de la vignette (CTX-05).
+// Hors sélection : clic = visionneuse plein écran (VIEW-01) ; clic droit = menu de la vignette (CTX-05).
 //
 // Taille de l'image choisie par la grille d'après la largeur réelle de la vignette (LIB-16) :
 // 128 px (LIB-12) ou 320 px ; pour 640 et 1 280 px, la 320 px s'affiche puis le grand aperçu,
@@ -14,18 +15,20 @@
 // change ; aucun flou ni animation permanente.
 
 import { memo, useRef, useState } from "react";
-import { File, FileSpreadsheet, FileText, Film, Image as ImageIcon, Music, Play, Star } from "lucide-react";
+import { Check, File, FileSpreadsheet, FileText, Film, Image as ImageIcon, Music, Play, Star } from "lucide-react";
 
 import { usePreview } from "@/hooks/usePreview";
 import { THUMB, thumbUrl, type MediaItem, type PreviewSize } from "@/lib/api";
-import { openContextMenu } from "@/lib/contextMenu";
+import { openContextMenu, openContextMenuAsync } from "@/lib/contextMenu";
 import { formatBytes, formatDuration } from "@/lib/format";
 import type { ThumbSize } from "@/lib/grid";
 import { cn } from "@/lib/utils";
 import { useDeletion } from "@/stores/deletion";
 import { setFavorite, useIsFavorite } from "@/stores/favorites";
+import { isSelected, toggleRowOf, toggleSelected, useIsSelected, useSelection } from "@/stores/selection";
 import { useThumbs } from "@/stores/thumbs";
 import { useViewer } from "@/stores/viewer";
+import { loadSelection } from "./selectionMenu";
 import { tileMenu } from "./tileMenu";
 
 const SHEETS = ["xls", "xlsx", "xlsm", "ods", "csv", "gsheet"];
@@ -104,6 +107,21 @@ function FavoriteStar({ id, favorite }: { id: number; favorite: boolean }) {
   );
 }
 
+/** Case de sélection (SEL-05) : simple reflet, le clic est celui de la vignette. */
+function SelectBox({ checked }: { checked: boolean }) {
+  return (
+    <span
+      data-zone="grille.vignette.case"
+      className={cn(
+        "tile-check pointer-events-none absolute z-10 grid place-items-center border-2",
+        checked ? "border-[#d9a94e] bg-[#d9a94e] text-[#1a1408]" : "border-white/80 bg-black/50",
+      )}
+    >
+      {checked && <Check strokeWidth={3} />}
+    </span>
+  );
+}
+
 /** Badge durée (vidéo) ou GIF (masqué en mode « nom seul », GRID-11). */
 function Badge({ video, duration, className }: { video: boolean; duration: number | null; className?: string }) {
   return (
@@ -142,6 +160,8 @@ export const MediaTile = memo(function MediaTile({ item, index, pageSize, compac
   const update = useThumbs((s) => s.updates[item.id]);
   const favorite = useIsFavorite(item.id, item.favorite);
   const hidden = useDeletion((s) => s.hidden[item.id] === true);
+  const selecting = useSelection((s) => s.active);
+  const checked = useIsSelected(item.id);
   const [failed, setFailed] = useState(false);
   const [smallFailed, setSmallFailed] = useState(false);
   /** Taille d'aperçu impossible à afficher : la 320 px reste. */
@@ -162,11 +182,22 @@ export const MediaTile = memo(function MediaTile({ item, index, pageSize, compac
       ref={ref}
       data-zone="grille.vignette"
       title={item.fileName}
-      onClick={() => useViewer.getState().openAt(index, item, pageSize)}
-      onContextMenu={(e) => openContextMenu(e, () => tileMenu(item, index, pageSize))}
+      onClick={(e) => {
+        if (!selecting) useViewer.getState().openAt(index, item, pageSize);
+        else if (e.shiftKey) toggleRowOf(item.id);
+        else toggleSelected(item);
+      }}
+      // Maj + clic : pas de texte sélectionné au passage.
+      onMouseDown={(e) => selecting && e.shiftKey && e.preventDefault()}
+      onContextMenu={(e) =>
+        selecting && isSelected(item.id)
+          ? openContextMenuAsync(e, async () => tileMenu(item, index, pageSize, await loadSelection()))
+          : openContextMenu(e, () => tileMenu(item, index, pageSize))
+      }
       onMouseEnter={() => nameRef.current && fitName(nameRef.current)}
       className={cn(
-        "group relative block aspect-square w-full cursor-pointer overflow-hidden rounded-lg bg-[#0d0e12] ring-1 ring-border transition-all duration-200 hover:ring-[#d9a94e]/60",
+        "group relative block aspect-square w-full cursor-pointer overflow-hidden rounded-lg bg-[#0d0e12] transition-all duration-200",
+        checked ? "ring-2 ring-[#d9a94e]" : "ring-1 ring-border hover:ring-[#d9a94e]/60",
         hidden && "invisible",
       )}
     >
@@ -204,6 +235,7 @@ export const MediaTile = memo(function MediaTile({ item, index, pageSize, compac
 
       {/* Badges et infos réduits avec la vignette quand elle est étroite (GRID-10). */}
       <FavoriteStar id={item.id} favorite={favorite} />
+      {selecting && <SelectBox checked={checked} />}
       <div className="tile-overlay">
         {/* Badge en bas à droite ; au survol, il remonte sur la ligne du nom (GRID-09). */}
         {hasBadge && (

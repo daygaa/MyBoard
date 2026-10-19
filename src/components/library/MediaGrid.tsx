@@ -2,14 +2,18 @@
 // existent dans la page. N colonnes fixes (GRID-02) : les vignettes s'adaptent en largeur.
 // Changer de densité ne recharge rien : c'est un simple calcul de taille.
 // La page défile dans la zone sous la barre de titre (NAV-04, `lib/scroller`), pas la fenêtre.
+// Mode sélection : rectangle de sélection (SEL-06) ; la page affichée est donnée à la sélection pour
+// « Tout » (SEL-04) et Maj + clic (SEL-10).
 
-import { useLayoutEffect, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 
+import { useRectangleSelection } from "@/hooks/useRectangleSelection";
 import { useScreen } from "@/hooks/useScreen";
 import type { MediaItem } from "@/lib/api";
 import { scroller } from "@/lib/scroller";
 import { COMPACT_DENSITY, GRID_GAP, NAME_ONLY_TILE_INCHES, TILE_FULL_WIDTH, thumbSizeFor } from "@/lib/grid";
+import { setSelectionPage, useSelection } from "@/stores/selection";
 import { MediaTile } from "./MediaTile";
 
 /** Largeur de la grille et sa position dans la zone qui défile, tenues à jour. */
@@ -46,6 +50,7 @@ type Props = {
 
 export function MediaGrid({ items, density, firstIndex, pageSize }: Props) {
   const ref = useRef<HTMLDivElement>(null);
+  const rectangleRef = useRef<HTMLDivElement>(null);
   const { width, top } = useGridBox(ref);
   const tile = width > 0 ? (width - GRID_GAP * (density - 1)) / density : 0;
   const rowHeight = tile + GRID_GAP;
@@ -56,6 +61,13 @@ export function MediaGrid({ items, density, firstIndex, pageSize }: Props) {
   const thumbSize = thumbSizeFor(tile * pixelRatio);
   // Vignettes de moins de ~2,2 cm à l'écran : nom seul, agrandi au survol (GRID-11).
   const nameOnly = tile > 0 && tile < NAME_ONLY_TILE_INCHES * pxPerInch;
+
+  const selecting = useSelection((s) => s.active);
+  const startRectangle = useRectangleSelection(ref, rectangleRef, { tile, density, items });
+  useEffect(() => {
+    setSelectionPage(items, density);
+    return () => setSelectionPage([], density);
+  }, [items, density]);
 
   const virtualizer = useVirtualizer({
     count: rowCount,
@@ -74,6 +86,7 @@ export function MediaGrid({ items, density, firstIndex, pageSize }: Props) {
       ref={ref}
       data-zone="grille.vignettes"
       data-nom-seul={nameOnly || undefined}
+      onPointerDown={selecting ? startRectangle : undefined}
       className="relative w-full"
       style={
         {
@@ -107,6 +120,7 @@ export function MediaGrid({ items, density, firstIndex, pageSize }: Props) {
             ))}
           </div>
         ))}
+      <div ref={rectangleRef} data-zone="grille.rectangle" className="pointer-events-none absolute z-20 hidden rounded-sm border border-[#d9a94e] bg-[#d9a94e]/10" />
     </div>
   );
 }

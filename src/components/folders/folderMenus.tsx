@@ -3,12 +3,15 @@
 //   Masquer (« Ne plus masquer » pour un dossier masqué) ‖ Supprimer… (rouge, confirmation) ;
 // - liste à cocher « Ajouter à un dossier » (FOLD-09) : menu d'une vignette (sous-menu) et bouton
 //   Dossier de la visionneuse (touche D) : coche = le média y est déjà, clic = ajouter ou retirer,
-//   « Créer un dossier… » en bas (le média y est rangé aussitôt). Les dossiers masqués n'y sont pas.
+//   « Créer un dossier… » en bas (le média y est rangé aussitôt). Les dossiers masqués n'y sont pas ;
+// - même liste pour une sélection (SEL-08) : coche = tous les médias y sont (un clic les en retire),
+//   sinon un clic y range les autres ; un badge dit combien ont réellement été ajoutés ou retirés.
 
 import type { Folder } from "@/lib/api";
 import type { MenuEntry } from "@/lib/contextMenu";
 import { cachedFolders, deleteFolder, FOLDER_COLORS, setFolderColor, setFolderHidden, setFolderMedia } from "@/lib/folders";
-import { formatNumber } from "@/lib/format";
+import { formatNumber, plural } from "@/lib/format";
+import { showGridBadge } from "@/stores/badge";
 import { FolderNameDialog } from "./FolderNameDialog";
 
 function keepMessage(count: number): string {
@@ -44,11 +47,37 @@ export function folderMenu(folder: Folder): MenuEntry[] {
 }
 
 /** « Créer un dossier… » : pop-in du nom, les médias y sont rangés aussitôt. */
-export function createFolderEntry(mediaIds: number[]): MenuEntry {
+export function createFolderEntry(mediaIds: number[], onCreated?: (folder: Folder) => void): MenuEntry {
   return {
     label: "Créer un dossier…",
-    dialog: ({ onCancel, onDone }) => <FolderNameDialog mediaIds={mediaIds} onCancel={onCancel} onDone={onDone} />,
+    dialog: ({ onCancel, onDone }) => <FolderNameDialog mediaIds={mediaIds} onCancel={onCancel} onDone={onDone} onCreated={onCreated} />,
   };
+}
+
+/** Badge « 3 ajoutés au dossier « Vacances » » / « 3 retirés du dossier… » (SEL-08). */
+export function folderBadge(count: number, added: boolean, name: string) {
+  const verb = plural(count, added ? "ajouté" : "retiré");
+  showGridBadge(`${formatNumber(count)} ${verb} ${added ? "au" : "du"} dossier « ${name} »`);
+}
+
+/** Liste à cocher d'une sélection (`inFolders` : nombre de ses médias dans chaque dossier). */
+export function folderPickManyEntries(mediaIds: number[], inFolders: { id: number; count: number }[]): MenuEntry[] {
+  const folders = cachedFolders().filter((f) => !f.hidden);
+  const create = createFolderEntry(mediaIds, (f) => folderBadge(f.mediaCount, true, f.name));
+  if (folders.length === 0) return [create];
+  return [
+    ...folders.map((f): MenuEntry => {
+      const all = mediaIds.length > 0 && inFolders.find((c) => c.id === f.id)?.count === mediaIds.length;
+      return {
+        label: f.name,
+        color: f.color,
+        checked: all,
+        run: () => void setFolderMedia(f.id, mediaIds, !all).then((n) => n !== undefined && folderBadge(n, !all, f.name)),
+      };
+    }),
+    "separator",
+    create,
+  ];
 }
 
 /** Liste à cocher d'un média (`inFolders` : dossiers qui le contiennent déjà). */

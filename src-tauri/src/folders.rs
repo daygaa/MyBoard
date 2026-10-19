@@ -88,12 +88,15 @@ fn checked_name(db: &Connection, raw: &str, except: Option<i64>) -> Result<Strin
     Ok(name.to_string())
 }
 
-fn add_media(tx: &Connection, folder_id: i64, media_ids: &[i64], now: i64) -> rusqlite::Result<()> {
-    let mut stmt = tx.prepare_cached("INSERT OR IGNORE INTO folder_media (folder_id, media_id, added_at) VALUES (?1, ?2, ?3)")?;
+/// Range des médias dans le dossier ; renvoie le nombre réellement ajoutés (ceux déjà présents, ou
+/// supprimés entre-temps, ne comptent pas).
+fn add_media(tx: &Connection, folder_id: i64, media_ids: &[i64], now: i64) -> rusqlite::Result<usize> {
+    let mut stmt = tx.prepare_cached("INSERT OR IGNORE INTO folder_media (folder_id, media_id, added_at) SELECT ?1, id, ?3 FROM media WHERE id = ?2")?;
+    let mut added = 0;
     for id in media_ids {
-        stmt.execute(params![folder_id, id, now])?;
+        added += stmt.execute(params![folder_id, id, now])?;
     }
-    Ok(())
+    Ok(added)
 }
 
 // --- Commandes appelées par l'interface ---
@@ -159,24 +162,27 @@ pub async fn delete_folder(state: State<'_, AppState>, id: i64) -> Result<(), St
     db.execute("DELETE FROM folders WHERE id = ?1", [id]).map(|_| ()).map_err(|e| e.to_string())
 }
 
-/// Ajoute (`on`) ou retire des médias d'un dossier (FOLD-03, FOLD-09), en une transaction.
+/// Ajoute (`on`) ou retire des médias d'un dossier (FOLD-03, FOLD-09), en une transaction ; renvoie
+/// le nombre de médias réellement ajoutés ou retirés (badge de SEL-08).
 #[tauri::command]
-pub async fn set_folder_media(state: State<'_, AppState>, folder_id: i64, media_ids: Vec<i64>, on: bool) -> Result<(), String> {
+pub async fn set_folder_media(state: State<'_, AppState>, folder_id: i64, media_ids: Vec<i64>, on: bool) -> Result<usize, String> {
     let mut conn = state.db.lock().unwrap();
-    (|| -> rusqlite::Result<()> {
+    (|| -> rusqlite::Result<usize> {
         let tx = conn.transaction()?;
         let exists: Option<i64> = tx.query_row("SELECT id FROM folders WHERE id = ?1", [folder_id], |r| r.get(0)).optional()?;
+        let mut changed = 0;
         if exists.is_some() {
             if on {
-                add_media(&tx, folder_id, &media_ids, db::now_ms())?;
+                changed = add_media(&tx, folder_id, &media_ids, db::now_ms())?;
             } else {
                 let mut stmt = tx.prepare_cached("DELETE FROM folder_media WHERE folder_id = ?1 AND media_id = ?2")?;
                 for id in &media_ids {
-                    stmt.execute(params![folder_id, id])?;
+                    changed += stmt.execute(params![folder_id, id])?;
                 }
             }
         }
-        tx.commit()
+        tx.commit()?;
+        Ok(changed)
     })()
     .map_err(|e| e.to_string())
 }

@@ -76,30 +76,43 @@ impl SearchIndex {
         }
         let mut guard = self.inner.lock().unwrap();
         let (db, cache) = &mut *guard;
-        let generation: i64 = db.query_row("SELECT n FROM search_generation", [], |r| r.get(0))?;
-        if generation != cache.generation {
-            *cache = Cache { generation, ..Cache::default() };
-        }
-        if cache.sets.len() > MAX_SETS {
-            cache.sets.clear();
-        }
-        let kinds = selected_kinds(&query.kinds);
-        let scope = query.scope();
-        let key = format!("{:?}|{:?}|{:?}", query.terms, kinds, scope);
-        let result = match &cache.last {
-            Some((last, set)) if *last == key => set.clone(),
-            _ => {
-                let set = Arc::new(matching(db, &mut cache.sets, &terms, &kinds, scope)?);
-                cache.last = Some((key, set.clone()));
-                set
-            }
-        };
+        let result = result_of(db, cache, query, &terms)?;
         let (page, page_count, page_size) = paging(result.len(), query.page_size, query.page);
         let offset = ((page - 1) * page_size) as usize;
-        let ids = page_ids(db, &result, scope, &query.sort, query.seed, offset, page_size as usize)?;
+        let ids = page_ids(db, &result, query.scope(), &query.sort, query.seed, offset, page_size as usize)?;
         let items = media_rows(db, &ids)?;
         Ok(Some(ListPage { items, total: result.len(), page, page_count, page_size }))
     }
+
+    /// Tous les résultats de la demande, toutes pages confondues, avec ou sans termes de recherche :
+    /// « Sélectionner tous les résultats » (SEL-03).
+    pub fn all_ids(&self, query: &ListQuery) -> rusqlite::Result<Vec<u32>> {
+        let mut guard = self.inner.lock().unwrap();
+        let (db, cache) = &mut *guard;
+        Ok(result_of(db, cache, query, &parse(&query.terms))?.iter().collect())
+    }
+}
+
+/// Résultat de la demande (vue, termes, types), gardé pour changer de page sans recombiner.
+fn result_of(db: &Connection, cache: &mut Cache, query: &ListQuery, terms: &[(Term, bool)]) -> rusqlite::Result<Arc<RoaringBitmap>> {
+    let generation: i64 = db.query_row("SELECT n FROM search_generation", [], |r| r.get(0))?;
+    if generation != cache.generation {
+        *cache = Cache { generation, ..Cache::default() };
+    }
+    if cache.sets.len() > MAX_SETS {
+        cache.sets.clear();
+    }
+    let kinds = selected_kinds(&query.kinds);
+    let scope = query.scope();
+    let key = format!("{:?}|{:?}|{:?}", query.terms, kinds, scope);
+    Ok(match &cache.last {
+        Some((last, set)) if *last == key => set.clone(),
+        _ => {
+            let set = Arc::new(matching(db, &mut cache.sets, terms, &kinds, scope)?);
+            cache.last = Some((key, set.clone()));
+            set
+        }
+    })
 }
 
 /// Ensemble gardé, lu dans la base la première fois (`sql` renvoie des identifiants de médias).

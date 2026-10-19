@@ -195,7 +195,8 @@ export const api = {
   saveVideoFrame: (id: number, seconds: number, date: string) => invoke<void>("save_video_frame", { id, seconds, date }),
   /** Commande du menu de la fenêtre (CTX-13) : comme celui de Windows. */
   windowCommand: (command: WindowCommand) => invoke<void>("window_command", { command }),
-  setFavorite: (ids: number[], on: boolean) => invoke<void>("set_favorite", { ids, on }),
+  /** Renvoie le nombre de médias réellement ajoutés ou retirés (badge de SEL-08). */
+  setFavorite: (ids: number[], on: boolean) => invoke<number>("set_favorite", { ids, on }),
   /** Marque les médias à supprimer (DEL-01) ; `deleteFiles` : effacer aussi leurs fichiers (DEL-04). */
   deleteMedia: (ids: number[], deleteFiles: boolean) => invoke<void>("delete_media", { ids, deleteFiles }),
   restoreMediaData: (restore: number[], discard: number[]) => invoke<void>("restore_media_data", { restore, discard }),
@@ -206,8 +207,18 @@ export const api = {
   setFolderHidden: (id: number, hidden: boolean) => invoke<void>("set_folder_hidden", { id, hidden }),
   setFolderColor: (id: number, color: string) => invoke<void>("set_folder_color", { id, color }),
   deleteFolder: (id: number) => invoke<void>("delete_folder", { id }),
-  setFolderMedia: (folderId: number, mediaIds: number[], on: boolean) => invoke<void>("set_folder_media", { folderId, mediaIds, on }),
+  /** Renvoie le nombre de médias réellement ajoutés ou retirés (badge de SEL-08). */
+  setFolderMedia: (folderId: number, mediaIds: number[], on: boolean) => invoke<number>("set_folder_media", { folderId, mediaIds, on }),
+  /** Tous les résultats de la vue, toutes pages confondues (« Sélectionner tous les résultats », SEL-03). */
+  resultIds: (query: ListQuery) => invoke<number[]>("result_ids", { query }),
+  selectionInfo: (ids: number[]) => invoke<SelectionInfo>("selection_info", { ids }),
+  /** Tags présents sur la sélection (champ « Retirer des tags », SEL-07). */
+  selectionTags: (ids: number[]) => invoke<TagInfo[]>("selection_tags", { ids }),
+  editSelectionTags: (ids: number[], add: NewTag[], remove: number[]) => invoke<void>("edit_selection_tags", { ids, add, remove }),
 };
+
+/** Ce que contient une sélection : favoris, et nombre de ses médias dans chaque dossier (SEL-08). */
+export type SelectionInfo = { favorites: number; folders: { id: number; count: number }[] };
 
 export type WindowCommand = "restore" | "move" | "size" | "minimize" | "maximize" | "close";
 

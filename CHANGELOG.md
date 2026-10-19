@@ -3,6 +3,48 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Phase 3, lot 3 : sélection multiple (20/10/2026) — Backup v39
+
+SPEC : livrées `[~]` : SEL-01 à SEL-10, DEL-07 ; CTX-05 (« Sélectionner »), CTX-16 (menus de la
+sélection). Choix : D-036, D-037.
+
+- **Bouton « Sélection multiple »** à droite de « Disposition » ; en mode sélection : Tout (coche la
+  page, ajoute à la sélection) · Aucun (vide la sélection) · Terminer · ⋮. Les autres boutons ne bougent
+  pas. Case 24×24 en haut à gauche (réduite avec la vignette), contour doré si cochée.
+- **Clic** = coche / décoche ; **Maj + clic** = toute la rangée (déjà toute cochée : la décoche) ;
+  **rectangle** depuis n'importe où dans la grille, il ajoute (Ctrl : il décoche), la grille défile près
+  des bords. Échap ou « Terminer » quittent le mode.
+- **Une seule sélection**, gardée en changeant de page, de recherche, de vue, en ouvrant la visionneuse
+  (« Ouvrir » du clic droit) et après un retour arrière / avant ; compteur « N sélectionnés ».
+- **Menu d'une vignette cochée** : « Ajouter N aux favoris » (ou « Retirer X des favoris »), « Ajouter X à
+  un dossier ▸ » (dossier qui les contient tous : coché, un clic les en retire), « Désélectionner »,
+  « Retirer X de ce dossier » (page d'un dossier), « Supprimer X de la bibliothèque… ». Badge bref en haut :
+  « Y ajoutés au dossier « nom » », « N ajoutés aux favoris »… Vignette non cochée : son menu habituel.
+- **Menu ⋮** : mêmes entrées, « Ajouter des tags à la sélection », « Sélectionner tous les résultats ».
+- **Barre du bas** : « N sélectionnés · Ajouter des tags… · Retirer des tags… · Appliquer » (pastilles ;
+  « Retirer » ne propose que les tags de la sélection ; nouveau tag : pop-in de création).
+- **DEL-07** : 2e pop-in de suppression au singulier pour un seul média.
+
+Vérifié dans la version compilée, sur une copie de la bibliothèque « booru » (fichiers de test créés pour
+l'occasion) :
+- barre des filtres identique au pixel près avant / après le bouton ; 42 cases pour 42 vignettes ;
+  clic, Maj + clic (7 de la rangée, puis 0), Tout (102 = la page), Aucun (0) ; rectangle sur 6 vignettes,
+  Ctrl + rectangle (−2), nouveau rectangle (+1), défilement automatique (0 → 2 340 px) ; étoile sans effet
+  sur la sélection ; Échap dans le champ des tags sans effet, Échap ailleurs : mode quitté et vidé ;
+- menus : vignette cochée (« Ajouter 2 aux favoris · Ajouter 3 à un dossier ▸ · Désélectionner ·
+  Supprimer 3… »), non cochée (menu habituel) ; badges « 2 ajoutés aux favoris », « 3 retirés des
+  favoris », « 2 ajoutés au dossier « vacances-2 » » (1 y était déjà), « 3 retirés du dossier… »,
+  « 2 retirés du dossier « Fonds d'écran » » (page du dossier), « 3 ajoutés au dossier « zz sel
+  dossier » » (créé depuis la sélection) ;
+- visionneuse ouverte puis fermée, vue Favoris puis retour arrière, avant / arrière, bouton 4 : toujours
+  les 3 mêmes médias cochés ;
+- nouveau tag ajouté aux 3 médias (pop-in de création), puis retiré (proposé par « Retirer ») ; aucun
+  compteur faux ; « Sélectionner tous les résultats » : 3 306 ;
+- suppression de 2 médias (pop-ins au pluriel), 2e pop-in au singulier pour 1 média ; réimport et
+  « Restaurer » ;
+- fluidité à 30 colonnes : 173 images/s hors sélection, 164 en mode sélection, 168 page entière cochée ;
+  cocher une vignette : 12 à 47 ms.
+
 ## Phase 3, LIB-16 : taille des miniatures selon la taille réelle des vignettes (19/10/2026) — Backup v38
 
 SPEC : livrée `[~]` : LIB-16. Choix : D-035 (remplace les seuils en colonnes de D-015).

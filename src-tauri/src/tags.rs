@@ -52,7 +52,7 @@ pub fn normalize(raw: &str) -> Option<String> {
     (!name.is_empty()).then(|| name.to_string())
 }
 
-fn tag_from_row(r: &rusqlite::Row) -> rusqlite::Result<TagInfo> {
+pub(crate) fn tag_from_row(r: &rusqlite::Row) -> rusqlite::Result<TagInfo> {
     Ok(TagInfo { id: r.get(0)?, name: r.get(1)?, category_id: r.get(2)?, media_count: r.get(3)? })
 }
 

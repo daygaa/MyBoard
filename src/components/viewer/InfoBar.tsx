@@ -197,7 +197,8 @@ export function InfoBar({ item, children }: { item: MediaItem; children: ReactNo
       {children}
       {deleting && (
         <DeleteDialog
-          items={[item]}
+          count={1}
+          name={item.fileName}
           onCancel={() => setDeleting(false)}
           onConfirm={(deleteFiles) => {
             setDeleting(false);

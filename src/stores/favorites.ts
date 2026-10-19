@@ -35,19 +35,24 @@ function choose(ids: number[], on: boolean | undefined) {
   });
 }
 
-/** Ajoute aux favoris (ou en retire) ; la vue Favoris, les fiches et le titre sont relus ensuite. */
-export async function setFavorite(ids: number[], on: boolean) {
+/** Ajoute aux favoris (ou en retire) ; la vue Favoris, les fiches et le titre sont relus ensuite.
+ *  Renvoie le nombre de médias réellement ajoutés ou retirés (0 en cas d'erreur). */
+export async function setFavorite(ids: number[], on: boolean): Promise<number> {
   choose(ids, on);
+  let changed: number;
   try {
-    await api.setFavorite(ids, on);
+    changed = await api.setFavorite(ids, on);
   } catch (error) {
     choose(ids, undefined);
     useViewer.getState().setError({ action: on ? "Ajouter aux favoris" : "Retirer des favoris", code: null, message: String(error) });
-    return;
+    return 0;
   }
   void queryClient.invalidateQueries({ queryKey: ["media"] });
   void queryClient.invalidateQueries({ queryKey: ["stats"] });
-  for (const id of ids) void queryClient.invalidateQueries({ queryKey: ["media-detail", id] });
+  // Sélection de milliers de médias : on relit toutes les fiches d'un coup plutôt qu'une par une.
+  if (ids.length > 50) void queryClient.invalidateQueries({ queryKey: ["media-detail"] });
+  else for (const id of ids) void queryClient.invalidateQueries({ queryKey: ["media-detail", id] });
+  return changed;
 }
 
 /** Médias supprimés : leur état choisi est oublié (un nouveau média peut reprendre leur numéro). */

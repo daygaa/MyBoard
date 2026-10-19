@@ -18,12 +18,14 @@ type Props = {
   mediaIds?: number[];
   onCancel: () => void;
   onDone: () => void;
+  /** Création réussie (badge de la sélection, SEL-08). */
+  onCreated?: (folder: Folder) => void;
 };
 
 const CANCEL = "text-foreground hover:bg-secondary hover:text-foreground";
 const GOLD = "bg-[#d9a94e] text-[#1a1408] hover:bg-[#e3b75f]";
 
-export function FolderNameDialog({ folder, mediaIds = [], onCancel, onDone }: Props) {
+export function FolderNameDialog({ folder, mediaIds = [], onCancel, onDone, onCreated }: Props) {
   const [name, setName] = useState(folder?.name ?? "");
   const [suggestion, setSuggestion] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -34,7 +36,7 @@ export function FolderNameDialog({ folder, mediaIds = [], onCancel, onDone }: Pr
     setBusy(true);
     try {
       if (folder) await api.renameFolder(folder.id, value);
-      else await api.createFolder(value, mediaIds);
+      else onCreated?.(await api.createFolder(value, mediaIds));
       await refreshFolders();
       onDone();
     } catch (e) {

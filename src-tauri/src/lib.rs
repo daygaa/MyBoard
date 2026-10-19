@@ -17,6 +17,7 @@ pub mod paths;
 pub mod reserve;
 pub mod scope;
 pub mod search;
+pub mod selection;
 pub mod system_menu;
 pub mod tags;
 mod test_screen;
@@ -127,6 +128,10 @@ pub fn run() {
             folders::set_folder_color,
             folders::delete_folder,
             folders::set_folder_media,
+            selection::result_ids,
+            selection::selection_info,
+            selection::selection_tags,
+            selection::edit_selection_tags,
         ])
         .run(tauri::generate_context!())
         .expect("erreur au lancement de MyBoard");

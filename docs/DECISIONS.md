@@ -787,3 +787,29 @@ utilisés avec sélection manuelle.
 
 **Lot 5.** Synonymes et tags parents (inspirés de Hydrus Network) : après le gestionnaire de tags, avant
 la phase 4 ; questions posées à ce moment-là.
+
+## D-037 — Lot 3 de la phase 3 : sélection multiple (20/10/2026)
+
+**Où est la sélection.** Dans un magasin de l'interface (`stores/selection.ts`) : un ensemble
+d'identifiants modifié sur place et un numéro de version incrémenté à chaque changement. Chaque vignette
+lit seulement « suis-je cochée ? » : cocher une vignette ne redessine qu'elle (D-008). La sélection ne
+dépend ni de la page, ni de la vue, ni de l'affichage : elle survit à la visionneuse et à l'historique
+(SEL-09). Les actions envoient cette liste au cœur Rust ; « Sélectionner tous les résultats » demande au
+cœur Rust tous les résultats de la vue (index de recherche, D-027), avec ou sans termes.
+
+**Grandes sélections.** Les identifiants passent à SQLite en un seul texte JSON (`json_each`) au lieu d'un
+paramètre par média (limite de 32 766) : compter les favoris et les dossiers d'une sélection, lire ses
+tags, ajouter ou retirer des tags en une transaction. Les commandes des favoris et des dossiers renvoient
+le nombre de médias réellement ajoutés ou retirés (badges de SEL-08).
+
+**Menus.** Le menu d'une vignette cochée demande d'abord au cœur Rust ce que contient la sélection
+(elle peut compter des médias non affichés) puis s'ouvre au point du clic (`openContextMenuAsync`). Le
+mode sélection n'est pas sur la pile d'Échap : les boutons 4 / 5 et les flèches de la barre de titre
+naviguent normalement ; Échap ne le quitte que si rien d'autre n'est ouvert.
+
+**Rectangle.** Dessiné directement dans la page (style de son élément), sans redessiner la grille ; les
+vignettes touchées se calculent par la géométrie régulière de la grille, sans interroger la page.
+
+**Mesuré (version compilée, 30 colonnes, écran 1080p).** Défilement : 173 images/s hors sélection,
+164 en mode sélection, 168 avec la page entière cochée ; cocher une vignette : 12 à 47 ms jusqu'à
+l'image affichée.

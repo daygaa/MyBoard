@@ -1,32 +1,36 @@
 // Pop-in de suppression (DEL-04, textes validés le 17/10) : par défaut, le média est seulement retiré
 // de la bibliothèque (ses données sont gardées 1 mois, DEL-05). La case « Supprimer les fichiers de
 // votre stockage » est décochée à chaque ouverture ; cochée, « Oui » ouvre une 2e confirmation à
-// bordure rouge, dont « Annuler » (ou Échap) revient à la première. Partagée par la visionneuse
-// (bouton, touche Suppr, menus du clic droit) et le menu d'une vignette.
+// bordure rouge, dont « Annuler » (ou Échap) revient à la première, au singulier pour un seul média
+// (DEL-07). Partagée par la visionneuse (bouton, touche Suppr, menus du clic droit), le menu d'une
+// vignette et la sélection multiple (SEL-03, SEL-08).
 
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Modal } from "@/components/ui/modal";
-import type { MediaItem } from "@/lib/api";
 import type { MenuItem } from "@/lib/contextMenu";
+import { formatNumber } from "@/lib/format";
 import { titleIfCut } from "@/lib/utils";
 
 const CANCEL = "text-foreground hover:bg-secondary hover:text-foreground";
 const YES = "bg-destructive text-white hover:bg-destructive/90";
 
-type Props = {
-  items: MediaItem[];
+/** Médias à supprimer : leur nombre, et le nom du fichier quand il est seul et connu. */
+export type DeleteTarget = { count: number; name?: string };
+
+type Props = DeleteTarget & {
   onCancel: () => void;
   /** Confirmé ; `deleteFiles` : effacer aussi les fichiers du disque. */
   onConfirm: (deleteFiles: boolean) => void;
 };
 
-export function DeleteDialog({ items, onCancel, onConfirm }: Props) {
+export function DeleteDialog({ count, name, onCancel, onConfirm }: Props) {
   const [deleteFiles, setDeleteFiles] = useState(false);
   const [sure, setSure] = useState(false);
-  const one = items.length === 1;
+  const one = count === 1;
+  const many = formatNumber(count);
   const confirm = () => (deleteFiles ? setSure(true) : onConfirm(false));
 
   if (sure) {
@@ -37,8 +41,8 @@ export function DeleteDialog({ items, onCancel, onConfirm }: Props) {
         even
         onClose={() => setSure(false)}
         zone="suppression.confirmation-fichiers"
-        title="Êtes-vous sûr de vouloir supprimer les fichiers de votre stockage ?"
-        description="Ils seront effacés définitivement, sans passer par la Corbeille."
+        title={`Êtes-vous sûr de vouloir supprimer ${one ? "le fichier" : "les fichiers"} de votre stockage ?`}
+        description={`${one ? "Il sera effacé" : "Ils seront effacés"} définitivement, sans passer par la Corbeille.`}
         footer={
           <>
             <Button variant="ghost" onClick={() => setSure(false)} className={CANCEL}>
@@ -60,11 +64,11 @@ export function DeleteDialog({ items, onCancel, onConfirm }: Props) {
       onEnter={confirm}
       onClose={onCancel}
       zone="suppression"
-      title={one ? "Supprimer de la bibliothèque" : `Supprimer ${items.length} médias`}
+      title={one ? "Supprimer de la bibliothèque" : `Supprimer ${many} médias`}
       description={
         <div className="space-y-4">
           <p>
-            {one ? (
+            {one && name ? (
               <>
                 Supprimer «{" "}
                 <span
@@ -73,12 +77,14 @@ export function DeleteDialog({ items, onCancel, onConfirm }: Props) {
                   // Boîte dans la ligne, coupée à 2 lignes par « … » (comme la pop-in de création de tag).
                   style={{ display: "-webkit-inline-box", WebkitBoxOrient: "vertical", WebkitLineClamp: 2 }}
                 >
-                  {items[0]?.fileName}
+                  {name}
                 </span>{" "}
                 » de la bibliothèque ?
               </>
+            ) : one ? (
+              "Supprimer ce média de la bibliothèque ?"
             ) : (
-              `Supprimer ces ${items.length} médias de la bibliothèque ?`
+              `Supprimer ces ${many} médias de la bibliothèque ?`
             )}
           </p>
           <p>
@@ -108,14 +114,16 @@ export function DeleteDialog({ items, onCancel, onConfirm }: Props) {
 }
 
 /** Entrée « Supprimer de la bibliothèque… » d'un menu du clic droit (rouge, en dernier, CTX-01) ;
+ *  `counted` : libellé avec le nombre (« Supprimer 3 de la bibliothèque… », sélection, SEL-08) ;
  *  `confirm` : action une fois la pop-in confirmée. Annuler la pop-in laisse le menu ouvert (CTX-02). */
-export function deleteEntry(items: MediaItem[], confirm: (deleteFiles: boolean) => void): MenuItem {
+export function deleteEntry(target: DeleteTarget, confirm: (deleteFiles: boolean) => void, counted = false): MenuItem {
   return {
-    label: "Supprimer de la bibliothèque…",
+    label: counted ? `Supprimer ${formatNumber(target.count)} de la bibliothèque…` : "Supprimer de la bibliothèque…",
     danger: true,
+    disabled: target.count === 0,
     dialog: ({ onCancel, onDone }) => (
       <DeleteDialog
-        items={items}
+        {...target}
         onCancel={onCancel}
         onConfirm={(deleteFiles) => {
           onDone();

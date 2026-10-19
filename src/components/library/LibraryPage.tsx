@@ -16,9 +16,11 @@ import { useLibrary } from "@/stores/library";
 import { useSearch } from "@/stores/search";
 import { EmptyFolder, EmptyLibrary, NoFavorites, NoResults } from "./EmptyState";
 import { FiltersBar } from "./FiltersBar";
+import { GridBadge } from "./GridBadge";
 import { MediaGrid } from "./MediaGrid";
 import { PageHead, ViewTitle } from "./PageHead";
 import { Pagination } from "./Pagination";
+import { SelectionBar } from "./SelectionBar";
 
 export function LibraryPage() {
   const { data, isPlaceholderData } = useMediaPage();
@@ -85,6 +87,8 @@ export function LibraryPage() {
             />
           </div>
         )}
+        <SelectionBar />
+        <GridBadge />
       </main>
     </div>
   );

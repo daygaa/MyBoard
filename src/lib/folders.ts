@@ -32,16 +32,21 @@ export function cachedFolders(): Folder[] {
   return queryClient.getQueryData<Folder[]>(["folders"]) ?? [];
 }
 
-async function run(action: string, call: () => Promise<void>) {
+/** Appelle le cœur Rust, affiche une erreur éventuelle, puis relit les dossiers ; renvoie la réponse
+ *  (`undefined` en cas d'erreur). */
+async function run<T>(action: string, call: () => Promise<T>): Promise<T | undefined> {
+  let result: T | undefined;
   try {
-    await call();
+    result = await call();
   } catch (error) {
     useViewer.getState().setError({ action, code: null, message: String(error) });
   }
   await refreshFolders();
+  return result;
 }
 
-/** Ajoute (`on`) ou retire des médias d'un dossier (FOLD-03, FOLD-09). */
+/** Ajoute (`on`) ou retire des médias d'un dossier (FOLD-03, FOLD-09) ; renvoie le nombre de médias
+ *  réellement ajoutés ou retirés. */
 export function setFolderMedia(folderId: number, mediaIds: number[], on: boolean) {
   return run(on ? "Ajouter au dossier" : "Retirer du dossier", () => api.setFolderMedia(folderId, mediaIds, on));
 }

@@ -41,7 +41,7 @@ const fileEntries = (item: MediaItem) => ({
   path: { label: "Copier le chemin du fichier", run: () => copyPath(item) },
   open: { label: "Ouvrir avec l'application par défaut", shortcut: VIEWER_SHORTCUTS.open.label, run: () => openFile(item) },
   reveal: { label: "Afficher dans l'explorateur de fichiers", shortcut: VIEWER_SHORTCUTS.reveal.label, run: () => revealFile(item) },
-  remove: deleteEntry([item], (deleteFiles) => void deleteShown(item, deleteFiles)),
+  remove: deleteEntry({ count: 1, name: item.fileName }, (deleteFiles) => void deleteShown(item, deleteFiles)),
 });
 
 export function imageMenu(item: MediaItem, zoom: ZoomControls): MenuEntry[] {

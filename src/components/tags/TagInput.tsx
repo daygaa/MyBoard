@@ -9,6 +9,8 @@
 // place de ce mot, les boutons + / − l'ajoutent tout de suite à la recherche (SRCH-21).
 // Noms longs : la liste s'élargit jusqu'au double, puis le nom passe sur 2 lignes, puis « … » avec
 // le nom complet dans une bulle au survol (SRCH-22).
+// `source` : suggestions prises dans une liste donnée (champ « Retirer des tags » de la sélection :
+// seulement les tags qu'elle porte, SEL-07), dans le même ordre que l'autocomplétion.
 
 import { useLayoutEffect, useRef, useState, type KeyboardEvent, type MouseEvent, type Ref } from "react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
@@ -39,7 +41,19 @@ type Props = {
   /** Ajustements du champ lui-même (taille, fond…). */
   inputClassName?: string;
   inputRef?: Ref<HTMLInputElement>;
+  /** Suggestions prises dans cette liste (déjà triée par usage) plutôt que parmi tous les tags. */
+  source?: TagInfo[];
 };
+
+/** Suggestions au plus, comme l'autocomplétion du cœur Rust (D-016). */
+const MAX_SUGGESTIONS = 10;
+
+/** Même ordre que l'autocomplétion : les tags qui commencent par le texte, puis ceux qui le contiennent. */
+function suggestionsIn(source: TagInfo[], text: string): TagInfo[] {
+  const starts = source.filter((t) => t.name.startsWith(text));
+  const contains = source.filter((t) => !t.name.startsWith(text) && t.name.includes(text));
+  return [...starts, ...contains].slice(0, MAX_SUGGESTIONS);
+}
 
 /** Suggestion survolée ou choisie au clavier (SRCH-23) : gris plus clair que le fond de la liste
  *  (#1f2126), comme le survol des lignes de tags de la barre latérale. */
@@ -60,6 +74,7 @@ export function TagInput({
   className,
   inputClassName,
   inputRef,
+  source,
 }: Props) {
   const { color } = useCategories();
   const [focused, setFocused] = useState(false);
@@ -75,12 +90,13 @@ export function TagInput({
   const negated = search && typed.startsWith("-");
   const text = normalizeTag(typed);
 
-  const { data: suggestions = [] } = useQuery({
+  const { data: found = [] } = useQuery({
     queryKey: ["autocomplete", text],
     queryFn: () => api.autocompleteTags(text),
-    enabled: text.length > 0,
+    enabled: text.length > 0 && !source,
     placeholderData: keepPreviousData,
   });
+  const suggestions = source ? suggestionsIn(source, text) : found;
   const open = focused && text.length > 0 && suggestions.length > 0;
   // Échap ferme d'abord les suggestions, sans fermer la visionneuse derrière ; les boutons 4 / 5 et
   // les flèches de la barre de titre les ignorent (NAV-07).

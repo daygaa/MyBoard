@@ -100,6 +100,20 @@ export function openContextMenu(e: ReactMouseEvent | MouseEvent, entries: () => 
   show(native, entries());
 }
 
+/** Comme `openContextMenu`, pour des entrées qui demandent d'abord une réponse au cœur Rust (menu
+ *  d'une vignette cochée, SEL-08) : le menu s'ouvre au point du clic dès la réponse, sauf si un autre
+ *  menu s'est ouvert entre-temps. */
+export function openContextMenuAsync(e: ReactMouseEvent | MouseEvent, entries: () => Promise<MenuEntry[]>) {
+  const native = "nativeEvent" in e ? e.nativeEvent : e;
+  if (handled === native || textMenuFor(native)) return;
+  handled = native;
+  const anchor = anchorOf(native);
+  const before = useContextMenu.getState().menu;
+  void entries().then((list) => {
+    if (useContextMenu.getState().menu === before) useContextMenu.setState({ menu: { ...anchor, entries: list, id: nextId++ } });
+  });
+}
+
 // Après les éléments (phase de remontée, sur `window`) : le menu du navigateur n'apparaît jamais ;
 // si aucun élément n'a ouvert le sien : menu de texte, sinon rien (un menu ouvert se ferme).
 window.addEventListener("contextmenu", (e) => {
