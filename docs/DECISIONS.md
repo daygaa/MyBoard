@@ -849,3 +849,12 @@ l'index de recherche (D-027) : l'ensemble des médias dont le nom contient le te
 puis gardé, comme celui d'un tag. La comparaison sans majuscules se fait en Rust : `lower()` de SQLite
 ignore les lettres accentuées. Mesuré sur 100 000 médias (version compilée) : 40 à 100 ms la première
 fois, 3 ms ensuite.
+
+## D-040 — Cadrage du lot 5 de la phase 3 : synonymes et tags parents (20/10/2026)
+
+Réponses de l'utilisateur (détail dans TAGM-15, TAGM-16). **Synonymes = alias** : le tag secondaire est
+fusionné dans le principal et ne survit que comme nom de redirection (saisie, import, recherche,
+suggestions « A → B ») ; chaque alias peut être désactivé puis réactivé. **Parents rétroactifs** : la
+règle s'applique aux médias déjà tagués puis à chaque ajout, en chaîne ; le parent reste retirable à la
+main. Gestion dans le tableau du gestionnaire (colonnes « Synonymes » et « Parents ») et dans une page
+« Synonymes et parents » qui liste toutes les règles. À coder après le feu vert de l'utilisateur.
