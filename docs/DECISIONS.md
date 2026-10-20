@@ -858,3 +858,17 @@ suggestions « A → B ») ; chaque alias peut être désactivé puis réactivé
 règle s'applique aux médias déjà tagués puis à chaque ajout, en chaîne ; le parent reste retirable à la
 main. Gestion dans le tableau du gestionnaire (colonnes « Synonymes » et « Parents ») et dans une page
 « Synonymes et parents » qui liste toutes les règles. À coder après le feu vert de l'utilisateur.
+
+## D-041 — Lot 5 de la phase 3, 2e série de réponses : défaire plutôt qu'effacer (20/10/2026)
+
+Réponses de l'utilisateur (détail dans TAGM-15 à TAGM-19, GEN-21, SRCH-27, DEL-08, GRID-12, CTX-21).
+**Principe (GEN-21)** : toute opération doit pouvoir être défaite ; la base garde ce qu'il faut pour
+cela. D'où : un synonyme garde la liste des médias fusionnés (décocher défait la fusion, à l'identique) ;
+une règle de parent garde la liste des médias qui ont reçu le parent par elle (décocher le retire,
+recocher le remet, la corbeille le retire puis oublie). Une fusion peut garder les anciens noms comme
+synonymes (TAGM-17), et donc être défaite. Le code de partage (TAGM-10) porte aussi descriptions,
+synonymes et parents (TAGM-18), sous le même nom « MYBOARD-TAGS-1 ».
+
+**À reproposer au test manuel** : l'interrupteur « Auto » des règles de parents, les parents en chaîne
+(automatiques ou règle par règle), la corbeille des tags (TAGM-19). **À faire après le test manuel
+complet** : les actions sans sécurité du gestionnaire de tags repérées par l'utilisateur (GEN-21).
