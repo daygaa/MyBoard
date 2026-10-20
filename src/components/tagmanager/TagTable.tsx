@@ -1,6 +1,6 @@
 // Tableau du gestionnaire de tags (TAGM-04) : en-tête aux colonnes triables (clic ; flèche du sens),
 // case « tout cocher » (les tags affichés), puis les lignes, virtualisées comme la grille (D-008) :
-// fluide même avec des milliers de tags.
+// fluide même avec des milliers de tags. Colonnes « Synonymes » et « Parents » : TAGM-15, TAGM-16.
 
 import { useLayoutEffect, useRef, useState } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
@@ -8,13 +8,18 @@ import { ArrowDown, ArrowUp } from "lucide-react";
 
 import { Checkbox } from "@/components/ui/checkbox";
 import { useCategories } from "@/hooks/useCategories";
+import type { RulesIndex } from "@/hooks/useTagRules";
 import type { ManagedTag } from "@/lib/api";
 import { scroller } from "@/lib/scroller";
+import type { ParentRow } from "@/lib/rulesApi";
 import { cn } from "@/lib/utils";
+import type { TagOf } from "./RuleLines";
 import { COLUMNS, TagRow } from "./TagRow";
 import type { Sort, SortKey } from "./useTagList";
 
 const ROW_HEIGHT = 38;
+/** Liste vide partagée : la ligne mémorisée ne se redessine pas pour rien. */
+const NONE: never[] = [];
 
 type RowHandlers = Pick<React.ComponentProps<typeof TagRow>, "onCheck" | "onEdit" | "onRename" | "onSearch" | "onDelete" | "onMenu">;
 
@@ -25,6 +30,8 @@ type Props = RowHandlers & {
   sort: Sort;
   onSort: (key: SortKey) => void;
   onCheckAll: (on: boolean) => void;
+  rules: RulesIndex;
+  tagOf: TagOf;
 };
 
 function SortHeader({ label, sortKey, sort, onSort, className }: { label: string; sortKey: SortKey; sort: Sort; onSort: Props["onSort"]; className?: string }) {
@@ -43,7 +50,7 @@ function SortHeader({ label, sortKey, sort, onSort, className }: { label: string
   );
 }
 
-export function TagTable({ tags, checked, editing, sort, onSort, onCheckAll, ...row }: Props) {
+export function TagTable({ tags, checked, editing, sort, onSort, onCheckAll, rules, tagOf, ...row }: Props) {
   const { color } = useCategories();
   const bodyRef = useRef<HTMLDivElement>(null);
   const [top, setTop] = useState(0);
@@ -78,6 +85,8 @@ export function TagTable({ tags, checked, editing, sort, onSort, onCheckAll, ...
         <SortHeader label="Médias" sortKey="count" sort={sort} onSort={onSort} className="justify-end" />
         <SortHeader label="Créé le" sortKey="created" sort={sort} onSort={onSort} />
         <span className="text-center">Description</span>
+        <span className="text-center">Synonymes</span>
+        <span className="text-center">Parents</span>
         <span className="text-right">Actions</span>
       </div>
       <div ref={bodyRef} className="relative" style={{ height: virtualizer.getTotalSize() }}>
@@ -85,7 +94,17 @@ export function TagTable({ tags, checked, editing, sort, onSort, onCheckAll, ...
           const tag = tags[item.index];
           return (
             <div key={tag.id} className="absolute inset-x-0 top-0" style={{ height: ROW_HEIGHT, transform: `translateY(${item.start - top}px)` }}>
-              <TagRow tag={tag} color={color(tag.categoryId)} checked={checked.has(tag.id)} editing={editing === tag.id} {...row} />
+              <TagRow
+                tag={tag}
+                color={color(tag.categoryId)}
+                checked={checked.has(tag.id)}
+                editing={editing === tag.id}
+                aliases={rules.aliasesOf.get(tag.id) ?? NONE}
+                parents={rules.parentsOf.get(tag.id) ?? (NONE as ParentRow[])}
+                childRules={rules.childrenOf.get(tag.id) ?? NONE}
+                tagOf={tagOf}
+                {...row}
+              />
             </div>
           );
         })}

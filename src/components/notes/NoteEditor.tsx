@@ -11,9 +11,10 @@ import { Trash2 } from "lucide-react";
 
 import { runExternal } from "@/components/viewer/externalOpen";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { useOutsideClose } from "@/hooks/useOutsideClose";
 import { api } from "@/lib/api";
-import { isContextMenuOpen, openContextMenu, type Confirm } from "@/lib/contextMenu";
-import { hasModalLayer, useEscape } from "@/lib/escape";
+import { openContextMenu, type Confirm } from "@/lib/contextMenu";
+import { useEscape } from "@/lib/escape";
 import { cn } from "@/lib/utils";
 
 /** Délai d'enregistrement après la dernière frappe. */
@@ -98,23 +99,7 @@ export function useNoteEditor(saved: string, onSave: (value: string) => void) {
   };
 
   // Un clic en dehors de la zone la ferme, comme Échap : ce clic ne fait rien d'autre.
-  useEffect(() => {
-    if (!open) return;
-    const swallow = (e: Event) => {
-      e.preventDefault();
-      e.stopPropagation();
-    };
-    const onDown = (e: PointerEvent) => {
-      const target = e.target as Node;
-      // Menu du clic droit ou pop-in de confirmation ouverts : ce clic est pour eux (CTX-01).
-      if (e.button !== 0 || isContextMenuOpen() || hasModalLayer() || panelRef.current?.contains(target) || buttonRef.current?.contains(target)) return;
-      swallow(e);
-      window.addEventListener("click", swallow, { capture: true, once: true });
-      close();
-    };
-    window.addEventListener("pointerdown", onDown, true);
-    return () => window.removeEventListener("pointerdown", onDown, true);
-  });
+  useOutsideClose(open, [panelRef, buttonRef], close);
 
   const toggle = () => {
     if (open) return close();

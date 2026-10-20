@@ -139,11 +139,14 @@ fn set(
 fn term_set(db: &Connection, sets: &mut HashMap<String, Arc<RoaringBitmap>>, term: &Term) -> rusqlite::Result<Arc<RoaringBitmap>> {
     match term {
         // Tag inexistant : ensemble vide (aucun résultat s'il est demandé, sans effet s'il est exclu).
+        // Un synonyme actif donne les médias de son tag principal (TAGM-15).
         Term::Exact(name) => set(
             db,
             sets,
             format!("t:{name}"),
-            "SELECT media_id FROM media_tags WHERE tag_id = (SELECT id FROM tags WHERE name = ?1) ORDER BY media_id",
+            "SELECT media_id FROM media_tags WHERE tag_id = COALESCE(
+                 (SELECT id FROM tags WHERE name = ?1),
+                 (SELECT tag_id FROM tag_aliases WHERE alias = ?1 AND enabled = 1)) ORDER BY media_id",
             &[name],
         ),
         Term::Prefix(prefix) => set(

@@ -3,6 +3,58 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Phase 3, lot 5 : synonymes et tags parents (20/10/2026) — Backup v42
+
+SPEC : livrées `[~]` : TAGM-15, TAGM-16, TAGM-17, TAGM-18, SRCH-27, DEL-08, GRID-12, FOLD-13 ; GEN-21
+appliqué (laissé ouvert) ; notes ajoutées à DEL-04 et CTX-16. Restent à préciser `[?]` : TAGM-19, CTX-21.
+Choix : D-041, D-042.
+
+- **Gestionnaire de tags, onglet « Synonymes et parents »** (à côté de « Tags » ; chaque onglet est une
+  page de l'historique) : synonymes et règles de parents côte à côte, un formulaire pour en ajouter, une
+  case par ligne pour désactiver / réactiver, une corbeille, un filtre, un menu du clic droit.
+- **Synonymes (TAGM-15)** : déclarer « A = B » fusionne A dans B ; taper A (visionneuse, barre de la
+  sélection, tags par défaut de l'import, recherche) donne B ; suggestions « A → B ». Décocher défait la
+  fusion à l'identique (A revient sur ses médias, B quitte ceux qui ne l'avaient pas) ; recocher la refait.
+- **Tags parents (TAGM-16)** : « C → P » ajoute P aux médias qui ont déjà C (confirmation avec le nombre),
+  puis à chaque ajout de C, en chaîne. Décocher retire P des médias qui l'ont reçu par la règle ; recocher
+  le remet et propose les médias tagués entre-temps ; interrupteur « Auto » ; retirer P à la main d'un
+  média le fait oublier à la règle.
+- **Tableau des tags** : colonnes « Synonymes » et « Parents » (bouton → petite liste modifiable ; les
+  enfants y sont en lecture seule).
+- **Fusions (TAGM-17)** : case « Garder les anciens noms comme synonymes », cochée par défaut (renommage
+  vers un nom existant, fusion groupée, tags proches).
+- **Code de partage (TAGM-18)** : descriptions, synonymes et règles en plus ; aperçu de l'import exact ;
+  « Annuler » retire tout ce qui a été importé.
+- **Renommer un tag de la recherche (SRCH-27)** : la pastille prend le nouveau nom, aussi dans le retour
+  arrière ; de même après une fusion.
+- **Fichiers en lecture seule (DEL-08)** : refusés ; pop-in avec la liste des fichiers et leurs chemins
+  (clic = Explorateur), « Copier », « Supprimer quand même » (rouge) ; s'il reste des échecs, la pop-in se
+  met à jour avec la raison, sans le bouton ; en mode sélection, les médias revenus restent cochés.
+- **Pages sans résultat (GRID-12)** : « Aucune vidéo ni fichier audio dans ce dossier. », « Aucune image
+  dans les favoris. »… ; même règle pour « Aucun fichier trouvé » (SRCH-26).
+- **Création des dossiers (FOLD-13)** : « + Nouveau » du menu burger et « Créer un dossier… » d'un média
+  créent de nouveau le dossier (cassé depuis le lot 3) ; « Nom déjà utilisé » (FOLD-12) revient.
+
+Vérifié dans la version compilée, sur des copies de la bibliothèque « booru » :
+- 8 essais automatiques de la logique (base en mémoire, non gardés dans le dépôt) : fusion puis défaite
+  exacte, retrait à la main, parents en chaîne décochés / recochés / ajouts proposés, parent justifié par
+  une autre règle, « Auto », fusion avec synonymes et règles, défaire une fusion retire les parents qu'elle
+  avait apportés, chaîne créée après coup ;
+- synonymes : pop-in, badge, suggestions, recherche, visionneuse, décocher / recocher / corbeille ; parents :
+  tout le cycle, colonnes, petites listes, corbeille ; aucun compteur faux ; menus du clic droit ;
+- SRCH-27 (retour arrière compris), fusions avec et sans la case, renommer en un synonyme ; export, import,
+  « Annuler » (presse-papiers remis ensuite) ;
+- DEL-08 avec des fichiers créés pour l'essai (en lecture seule, tenus ouverts) : pop-in, « Supprimer quand
+  même », mise à jour, sélection, lecture seule remise ; le clic sur un chemin n'a pas pu être vérifié ;
+- GRID-12 ; FOLD-13 : « + Nouveau » avec un nom libre (Entrée) : créé et affiché ; nom pris (clic sur « Créer ») : « Nom déjà
+  utilisé » propose « vacances-3 », « Oui » le crée ; « Non » revient au champ ; renommer en un nom pris :
+  « vacances-4 » proposé ; clic droit d'une vignette et touche D de la visionneuse > « Créer un dossier… » :
+  créé avec ce média ; mode sélection : créé avec les 2 médias et son badge ;
+- lots 3, 4 et SRCH-26 revérifiés ;
+- 100 000 médias : règle sur 74 750 médias 2,0 s (décocher 3,2 s, recocher 2,1 s) ; synonyme sur 28 461
+  médias 1,4 s ; ajouter un tag sans règle à 50 000 médias 563 ms (837 ms avant), le retirer 643 ms
+  (615 ms avant) ; suggestions 3 à 5 ms ; suppression de 300 médias 255 ms (252 ms avant). Détail : D-042.
+
 ## Phase 3, SRCH-26 : recherche par nom de fichier (20/10/2026) — Backup v41
 
 SPEC : livrée `[~]` : SRCH-26. Choix : D-039.

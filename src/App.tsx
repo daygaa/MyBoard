@@ -11,6 +11,7 @@ import { BurgerMenu } from "@/components/layout/BurgerMenu";
 import { Footer } from "@/components/layout/Footer";
 import { Header } from "@/components/layout/Header";
 import { TitleBar } from "@/components/layout/TitleBar";
+import { DeleteFailedDialog } from "@/components/library/DeleteFailedDialog";
 import { LibraryPage } from "@/components/library/LibraryPage";
 import { TagManagerPage } from "@/components/tagmanager/TagManagerPage";
 import { ContextMenuHost } from "@/components/ui/context-menu";
@@ -47,6 +48,7 @@ export function App() {
       <Viewer />
       <ContextMenuHost />
       <ErrorDialog />
+      <DeleteFailedDialog />
       <RestoreDialog />
     </div>
   );

@@ -6,11 +6,12 @@
 //! et la vider ne change aucun compteur (D-032). Si le fichier est réimporté pendant ce mois, la fin
 //! de l'import propose de remettre ses données (`restore_media_data`).
 
-use rusqlite::{Connection, OptionalExtension, params};
+use rusqlite::{Connection, OptionalExtension, TransactionBehavior, params};
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, State};
 
-use crate::tags::{self, NewTag};
+use crate::tagging::{Tagger, resolve_or_create};
+use crate::tags::NewTag;
 use crate::{AppState, db};
 
 /// Durée de conservation (1 mois).
@@ -135,8 +136,9 @@ fn restore_one(tx: &Connection, media_id: i64, now: i64) -> anyhow::Result<()> {
             .prepare_cached("SELECT id FROM tag_categories WHERE id = ?1")?
             .query_row([tag.category], |r| r.get(0))
             .optional()?;
-        if let Some(tag_id) = tags::get_or_create(tx, &NewTag { name: tag.name, category_id: category }, now)? {
-            tags::attach(tx, media_id, tag_id)?;
+        // Synonymes et parents suivis comme pour tout ajout (TAGM-15, TAGM-16).
+        if let Some(target) = resolve_or_create(tx, &NewTag { name: tag.name, category_id: category }, now)? {
+            Tagger::load(tx)?.attach(tx, media_id, target)?;
         }
     }
     if let Some(at) = favorite_at {
@@ -170,7 +172,7 @@ pub async fn restore_media_data(app: AppHandle, state: State<'_, AppState>, rest
     {
         let mut conn = state.db.lock().unwrap();
         (|| -> anyhow::Result<()> {
-            let tx = conn.transaction()?;
+            let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
             let now = db::now_ms();
             for &id in &restore {
                 restore_one(&tx, id, now)?;

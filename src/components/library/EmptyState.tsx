@@ -1,7 +1,31 @@
-// Messages quand la grille est vide (GRID-01) : bibliothèque vide ≠ aucun résultat.
+// Messages quand la grille est vide (GRID-01) : bibliothèque vide ≠ aucun résultat. Avec un filtre de
+// type, le texte nomme les types et la page (GRID-12) : « Aucune vidéo dans ce dossier. ».
 
+import type { MediaKind } from "@/lib/api";
+import { KIND_FILTERS } from "@/lib/grid";
 import { navigate } from "@/lib/router";
 import { useSearch } from "@/stores/search";
+
+/** Nom de chaque type, et s'il est féminin (« Aucune image », « Aucun document »). */
+const NOUNS: Record<MediaKind, [string, boolean]> = {
+  image: ["image", true],
+  video: ["vidéo", true],
+  audio: ["fichier audio", false],
+  document: ["document", false],
+};
+
+/** « Aucune image », « Aucune image ni vidéo », « Aucune image, vidéo ni document » (ordre des
+ *  filtres ; le genre suit le premier type) ; aucun filtre : `null`. */
+function noneOf(kinds: MediaKind[]): string | null {
+  const names = KIND_FILTERS.filter((k) => kinds.includes(k.value)).map((k) => NOUNS[k.value]);
+  if (names.length === 0) return null;
+  const words = names.map(([word]) => word);
+  const list = words.length === 1 ? words[0] : `${words.slice(0, -1).join(", ")} ni ${words[words.length - 1]}`;
+  return `${names[0][1] ? "Aucune" : "Aucun"} ${list}`;
+}
+
+/** Où cherche la page : « dans la bibliothèque », « dans les favoris », « dans ce dossier ». */
+type Where = { kinds: MediaKind[]; where: string };
 
 const BOX = "grid place-items-center rounded-2xl border border-dashed border-border py-24 text-center";
 
@@ -48,7 +72,7 @@ export function EmptyFolder() {
 }
 
 /** Aucun résultat : message distinct pour une recherche par tags (GRID-01, texte de la v8). */
-export function NoResults() {
+export function NoResults({ kinds, where }: Where) {
   const searching = useSearch((s) => s.terms.length > 0);
   const setTerms = useSearch((s) => s.setTerms);
   return (
@@ -57,7 +81,7 @@ export function NoResults() {
       <p className="mt-1 text-sm text-muted-foreground">
         {searching
           ? "Aucun média ne correspond à votre recherche. Essayez de retirer des tags."
-          : "Aucun média de ce type dans la bibliothèque."}
+          : `${noneOf(kinds) ?? "Aucun média"} ${where}.`}
       </p>
       {searching && (
         <button
@@ -72,16 +96,16 @@ export function NoResults() {
   );
 }
 
-/** Recherche d'un nom de fichier sans résultat (SRCH-26, texte proposé par Claude). `where` : « dans
- *  la bibliothèque », « dans les favoris », « dans ce dossier ». */
-export function NoFileMatch({ file, where, typed }: { file: string; where: string; typed: boolean }) {
+/** Recherche d'un nom de fichier sans résultat (SRCH-26, texte proposé par Claude) ; avec un filtre de
+ *  type : « Aucune image dont le nom contient… » (GRID-12). */
+export function NoFileMatch({ file, kinds, where }: Where & { file: string }) {
   const withTags = useSearch((s) => s.terms.length > 0);
   const setFile = useSearch((s) => s.setFile);
   return (
     <div data-zone="grille.vide" className={BOX}>
       <p className="text-lg font-medium text-foreground">Aucun fichier trouvé</p>
       <p className="mt-1 text-sm text-muted-foreground">
-        Aucun fichier {typed ? "de ce type " : ""}dont le nom contient « {file} » {where}
+        {noneOf(kinds) ?? "Aucun fichier"} dont le nom contient « {file} » {where}
         {withTags ? ", avec ces tags" : ""}.
       </p>
       <button

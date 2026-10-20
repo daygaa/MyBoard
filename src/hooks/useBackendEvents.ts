@@ -5,21 +5,13 @@ import { useEffect } from "react";
 import { listen } from "@tauri-apps/api/event";
 
 import { EVENTS, api, type FailedFile, type ImportSnapshot, type PreviewKey, type ThumbUpdate } from "@/lib/api";
+import { addFailures, settleFailures } from "@/stores/deleteFailures";
 import { refreshLibrary, settleDeletion } from "@/stores/deletion";
 import { forgetFavorites } from "@/stores/favorites";
 import { useImport } from "@/stores/import";
 import { usePreviews } from "@/stores/previews";
-import { removeFromSelection } from "@/stores/selection";
+import { removeFromSelection, settleSelectionDeletion } from "@/stores/selection";
 import { useThumbs } from "@/stores/thumbs";
-import { useViewer } from "@/stores/viewer";
-
-/** Fichiers impossibles à effacer (DEL-04) : leurs médias sont revenus, le message les liste. */
-function showFailures(files: FailedFile[]) {
-  const one = files.length === 1 ? files[0] : null;
-  const lines = one ? [one.message, one.path] : files.map((f) => `${f.path} : ${f.message}`);
-  const back = one ? "Ce média est revenu dans la bibliothèque avec toutes ses données." : "Ces médias sont revenus dans la bibliothèque avec toutes leurs données.";
-  useViewer.getState().setError({ action: "Supprimer les fichiers de votre stockage", code: one?.code ?? null, message: [...lines, back].join("\n") });
-}
 
 export function useBackendEvents() {
   useEffect(() => {
@@ -34,11 +26,17 @@ export function useBackendEvents() {
         usePreviews.getState().forget(event.payload);
         // Un média supprimé (depuis la visionneuse ou ailleurs) quitte la sélection (SEL-09).
         removeFromSelection(event.payload);
+        settleSelectionDeletion(event.payload, false);
+        settleFailures(event.payload);
         void settleDeletion(event.payload);
       }),
+      // Fichiers impossibles à effacer (DEL-04, DEL-08) : leurs médias sont revenus ; la pop-in les
+      // liste, et ceux venus de la sélection y sont recochés.
       listen<FailedFile[]>(EVENTS.deletionFailed, (event) => {
-        void settleDeletion(event.payload.map((f) => f.id));
-        showFailures(event.payload);
+        const ids = event.payload.map((f) => f.id);
+        settleSelectionDeletion(ids, true);
+        addFailures(event.payload);
+        void settleDeletion(ids);
       }),
       listen<ThumbUpdate[]>(EVENTS.thumbsReady, (event) => useThumbs.getState().apply(event.payload)),
       listen<PreviewKey[]>(EVENTS.previewsReady, (event) => usePreviews.getState().markReady(event.payload)),

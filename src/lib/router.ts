@@ -1,7 +1,8 @@
 // Navigation minimale entre les pages, par l'adresse « #/… ».
 // Elle passe par l'historique : le bouton « retour » de la souris pourra s'en servir (VIEW-03).
 // Vue Favoris « #/favoris » (FAV-02) et page d'un dossier « #/dossier/<id> » (FOLD-04) : la page de
-// la bibliothèque, limitée à leurs médias. Gestionnaire de tags « #/tags » (TAGM-04).
+// la bibliothèque, limitée à leurs médias. Gestionnaire de tags « #/tags » (TAGM-04), et son onglet
+// « Synonymes et parents » « #/tags/regles » (TAGM-15, TAGM-16).
 
 import { useSyncExternalStore } from "react";
 
@@ -36,6 +37,20 @@ export function useRoute(): Route {
 
 export function useFolderId(): number | null {
   return useSyncExternalStore(subscribe, () => folderIdOf(window.location.hash));
+}
+
+/** Onglet du gestionnaire de tags. Chacun compte comme une page dans l'historique (Q2-1). */
+export type TagTab = "tags" | "rules";
+const RULES = "#/tags/regles";
+
+export function useTagTab(): TagTab {
+  return useSyncExternalStore(subscribe, () => (window.location.hash.startsWith(RULES) ? "rules" : "tags"));
+}
+
+export function openTagTab(tab: TagTab) {
+  const target = tab === "rules" ? RULES : PATHS.tags;
+  if (window.location.hash !== target) window.location.hash = target;
+  scrollToTop();
 }
 
 /** Vue de la grille selon l'adresse (la page Importer n'en a pas : bibliothèque). */

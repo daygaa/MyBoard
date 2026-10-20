@@ -872,3 +872,40 @@ synonymes et parents (TAGM-18), sous le même nom « MYBOARD-TAGS-1 ».
 **À reproposer au test manuel** : l'interrupteur « Auto » des règles de parents, les parents en chaîne
 (automatiques ou règle par règle), la corbeille des tags (TAGM-19). **À faire après le test manuel
 complet** : les actions sans sécurité du gestionnaire de tags repérées par l'utilisateur (GEN-21).
+
+## D-042 — Lot 5 de la phase 3 : synonymes et tags parents (20/10/2026)
+
+**Données (schéma v7).** `tag_aliases` (synonyme → tag principal, case, réglages du tag fusionné pour le
+recréer à l'identique) et `tag_alias_media` (médias qui portaient le synonyme, et s'ils avaient déjà le tag
+principal) ; `tag_parents` (enfant → parent, case, « Auto ») et `tag_parent_media` (tags posés par chaque
+règle, médias par médias, sous chaque règle du chemin) ; `tag_parent_skipped` (médias qui ont reçu l'enfant
+pendant que la règle ne s'appliquait pas). Un déclencheur sort un média des listes des règles et synonymes
+actifs quand on lui retire le tag (retrait à la main) ; d'autres invalident l'index de recherche quand un
+synonyme change (D-027).
+
+**Un seul chemin pour poser un tag** (`tagging.rs`) : résolution du nom (tag, sinon synonyme actif, sinon
+création), puis pose avec les parents en chaîne, notés sous chaque règle du chemin. Visionneuse, barre de la
+sélection, tags par défaut de l'import, import JSON (DEV-01), fusion et restauration (DEL-05) y passent.
+Défaire (GEN-21) : décocher une règle retire ce qu'elle a posé et, en chaîne, ce que ces tags avaient apporté
+(`remove_cascade`), puis remet ce qu'une autre règle cochée justifie encore (`restore_justified`) ; décocher un
+synonyme recrée le tag fusionné sur ses médias et retire le tag principal de ceux qui ne l'avaient pas.
+La logique a été vérifiée par 8 essais automatiques sur une base en mémoire (non gardés dans le dépôt), puis
+dans l'interface.
+
+**Recherche et suggestions.** Un terme exact cherche le tag, sinon le tag principal du synonyme (même index
+en mémoire) ; un joker ne regarde que les vrais noms. Les suggestions ajoutent les synonymes « A → B » (un seul
+par tag, et pas si le tag est déjà proposé par son nom).
+
+**Mesures (version compilée, copie de la bibliothèque de 100 000 médias, écran 1080p à 60 Hz).**
+- Règle « 1girl → zz_personne » sur 74 750 médias : vérification 118 ms, création (rétroactive) 2,0 s,
+  décocher 3,2 s, recocher 2,1 s, corbeille 3,3 s. Chaîne de règles (34 760 médias) : 1,2 s par règle,
+  décocher la première (chaîne retirée) 3,1 s, recocher 2,0 s.
+- Synonyme « smile » (28 461 médias) → « zz_sourire » : vérification 4 ms, fusion 1,4 s, fusion défaite
+  1,4 s, nouvelle fusion 1,4 s, corbeille 1,5 s.
+- 50 000 médias sélectionnés : ajouter un tag sans règle 563 ms (837 ms avec la version d'avant), le
+  retirer 643 ms (615 ms avant) ; ajouter un tag qui a un parent 1,9 s ; retirer ce tag et son parent 2,1 s.
+- 1 000 synonymes : liste des règles 21 ms ; suggestions 3 à 5 ms ; recherche d'un synonyme 96 ms la
+  première fois, 4 ms ensuite. Suppression de 300 médias : 255 ms (252 ms avant).
+- Écritures en transaction « immédiate » (l'écriture est réservée dès le début) : plus d'erreur « base
+  verrouillée » quand le service des miniatures ou un import écrit en même temps. Sans les conditions
+  ajoutées au déclencheur, retirer un tag ordinaire de 50 000 médias prenait 1,8 s : corrigé (643 ms).

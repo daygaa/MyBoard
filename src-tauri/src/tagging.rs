@@ -1,0 +1,183 @@
+//! Pose de tags sur des médias en suivant les synonymes (TAGM-15) et les règles de parents
+//! (TAGM-16). Tous les chemins qui ajoutent un tag passent par ici : visionneuse, barre du bas de la
+//! sélection, tags par défaut de l'import, import JSON (DEV-01), fusion, restauration (DEL-05).
+//!
+//! Un tag posé par une règle est noté sous chaque règle du chemin (chat → animal → être vivant :
+//! « être vivant » est noté sous les deux règles) : décocher l'une le retire (GEN-21). Un tag déjà
+//! présent n'est jamais noté : il a été posé à la main ou par une autre règle.
+
+use std::collections::{HashMap, HashSet};
+
+use rusqlite::{Connection, OptionalExtension, params};
+
+use crate::tags::{DEFAULT_CATEGORY, NewTag, normalize};
+
+/// Tag à poser : son identifiant, et le synonyme tapé s'il y en a un (noté pour pouvoir défaire la
+/// fusion, TAGM-15).
+#[derive(Clone, Copy, Debug)]
+pub struct Target {
+    pub tag_id: i64,
+    pub alias_id: Option<i64>,
+}
+
+/// Tag désigné par ce nom : un tag existant, sinon le tag principal d'un synonyme actif.
+pub fn resolve(db: &Connection, raw: &str) -> rusqlite::Result<Option<Target>> {
+    let Some(name) = normalize(raw) else { return Ok(None) };
+    let tag: Option<i64> = db.prepare_cached("SELECT id FROM tags WHERE name = ?1")?.query_row([&name], |r| r.get(0)).optional()?;
+    if let Some(tag_id) = tag {
+        return Ok(Some(Target { tag_id, alias_id: None }));
+    }
+    db.prepare_cached("SELECT tag_id, id FROM tag_aliases WHERE alias = ?1 AND enabled = 1")?
+        .query_row([&name], |r| Ok(Target { tag_id: r.get(0)?, alias_id: Some(r.get(1)?) }))
+        .optional()
+}
+
+/// Comme `resolve`, mais crée le tag s'il n'existe pas (TAGM-07). À appeler dans une transaction
+/// ouverte par l'appelant (D-005) ; `None` si le nom est vide après normalisation.
+pub fn resolve_or_create(db: &Connection, tag: &NewTag, now: i64) -> anyhow::Result<Option<Target>> {
+    if let Some(found) = resolve(db, &tag.name)? {
+        return Ok(Some(found));
+    }
+    let Some(name) = normalize(&tag.name) else { return Ok(None) };
+    let category = match tag.category_id {
+        Some(id) => id,
+        None => db.query_row("SELECT id FROM tag_categories WHERE key = ?1", [DEFAULT_CATEGORY], |r| r.get(0))?,
+    };
+    db.prepare_cached("INSERT INTO tags (name, category_id, created_at) VALUES (?1, ?2, ?3)")?.execute(params![name, category, now])?;
+    Ok(Some(Target { tag_id: db.last_insert_rowid(), alias_id: None }))
+}
+
+/// Une règle « enfant → parent ». `active` : case cochée et « Auto » allumé.
+#[derive(Clone, Copy)]
+struct Rule {
+    id: i64,
+    parent: i64,
+    active: bool,
+}
+
+/// Règles de parents lues une fois, pour une série d'ajouts dans la même transaction.
+pub struct Tagger {
+    by_child: HashMap<i64, Vec<Rule>>,
+}
+
+impl Tagger {
+    pub fn load(db: &Connection) -> rusqlite::Result<Self> {
+        let mut by_child: HashMap<i64, Vec<Rule>> = HashMap::new();
+        let mut stmt = db.prepare("SELECT id, child_id, parent_id, enabled = 1 AND auto = 1 FROM tag_parents")?;
+        let rows = stmt.query_map([], |r| Ok((r.get::<_, i64>(1)?, Rule { id: r.get(0)?, parent: r.get(2)?, active: r.get(3)? })))?;
+        for row in rows {
+            let (child, rule) = row?;
+            by_child.entry(child).or_default().push(rule);
+        }
+        Ok(Self { by_child })
+    }
+
+    /// Le tag a-t-il des règles de parents (cochées ou non) ? Sans règle ni synonyme, un ajout groupé
+    /// peut se faire en une seule requête.
+    pub fn has_rules(&self, tag: i64) -> bool {
+        self.by_child.contains_key(&tag)
+    }
+
+    /// Pose un tag (tapé, importé…) sur un média, avec ses parents en chaîne ; note le synonyme tapé.
+    /// Renvoie vrai si le tag est nouveau sur ce média.
+    pub fn attach(&self, db: &Connection, media: i64, target: Target) -> rusqlite::Result<bool> {
+        let added = self.put(db, media, target.tag_id, &mut Vec::new())?;
+        if let Some(alias) = target.alias_id {
+            db.prepare_cached("INSERT OR IGNORE INTO tag_alias_media (alias_id, media_id, had_target) VALUES (?1, ?2, ?3)")?
+                .execute(params![alias, media, !added])?;
+        }
+        Ok(added)
+    }
+
+    /// Applique une règle à un média qui porte son enfant (création, recochage, ajouts proposés).
+    pub fn apply_rule(&self, db: &Connection, rule: i64, parent: i64, media: i64) -> rusqlite::Result<bool> {
+        self.put(db, media, parent, &mut vec![rule])
+    }
+
+    /// Pose `tag` ; s'il est nouveau, le note sous les règles `via` qui y ont conduit, puis suit ses
+    /// propres règles. Un tag déjà présent arrête la chaîne : le parent n'est posé qu'au moment où
+    /// l'enfant est ajouté (on peut le retirer à la main ensuite).
+    fn put(&self, db: &Connection, media: i64, tag: i64, via: &mut Vec<i64>) -> rusqlite::Result<bool> {
+        let added = db.prepare_cached("INSERT OR IGNORE INTO media_tags (media_id, tag_id) VALUES (?1, ?2)")?.execute(params![media, tag])? > 0;
+        if !added {
+            return Ok(false);
+        }
+        for rule in via.iter() {
+            db.prepare_cached("INSERT OR IGNORE INTO tag_parent_media (rule_id, media_id, tag_id) VALUES (?1, ?2, ?3)")?
+                .execute(params![rule, media, tag])?;
+        }
+        let Some(rules) = self.by_child.get(&tag) else { return Ok(true) };
+        for rule in rules {
+            // Garde-fou : les boucles sont refusées à la création des règles.
+            if via.contains(&rule.id) {
+                continue;
+            }
+            if rule.active {
+                via.push(rule.id);
+                self.put(db, media, rule.parent, via)?;
+                via.pop();
+            } else {
+                // Règle décochée ou « Auto » éteint : proposé à sa réactivation (TAGM-16).
+                db.prepare_cached("INSERT OR IGNORE INTO tag_parent_skipped (rule_id, media_id) VALUES (?1, ?2)")?.execute(params![rule.id, media])?;
+            }
+        }
+        Ok(true)
+    }
+}
+
+/// Retire `tag` d'un média puis, en chaîne, les tags que ses règles de parents lui avaient posés
+/// (« animal » retiré : « être vivant », posé par animal → être vivant, part aussi), quel que soit
+/// l'ordre de création des règles. Renvoie les parents retirés : `restore_justified` remet ceux
+/// qu'une autre règle justifie encore.
+pub fn remove_cascade(db: &Connection, media: i64, tag: i64) -> rusqlite::Result<Vec<(i64, i64)>> {
+    let mut removed = Vec::new();
+    let mut seen = HashSet::new();
+    let mut todo = vec![tag];
+    while let Some(t) = todo.pop() {
+        if !seen.insert(t) {
+            continue;
+        }
+        let mut stmt = db.prepare_cached(
+            "SELECT DISTINCT l.tag_id FROM tag_parent_media l JOIN tag_parents r ON r.id = l.rule_id
+             WHERE l.media_id = ?1 AND r.child_id = ?2",
+        )?;
+        let given = stmt.query_map(params![media, t], |r| r.get::<_, i64>(0))?.collect::<rusqlite::Result<Vec<_>>>()?;
+        db.prepare_cached("DELETE FROM media_tags WHERE media_id = ?1 AND tag_id = ?2")?.execute(params![media, t])?;
+        if t != tag {
+            removed.push((media, t));
+        }
+        todo.extend(given);
+    }
+    Ok(removed)
+}
+
+/// Après le retrait de tags posés par une règle (décochée, supprimée, fusion défaite) : remet ceux
+/// qu'une autre règle cochée justifie encore, son enfant étant toujours sur le média.
+pub fn restore_justified(db: &Connection, removed: &[(i64, i64)]) -> rusqlite::Result<()> {
+    let tagger = Tagger::load(db)?;
+    loop {
+        let mut changed = false;
+        for &(media, tag) in removed {
+            let present: bool = db
+                .prepare_cached("SELECT EXISTS(SELECT 1 FROM media_tags WHERE media_id = ?1 AND tag_id = ?2)")?
+                .query_row(params![media, tag], |r| r.get(0))?;
+            if present {
+                continue;
+            }
+            let rule: Option<i64> = db
+                .prepare_cached(
+                    "SELECT r.id FROM tag_parents r JOIN media_tags c ON c.media_id = ?1 AND c.tag_id = r.child_id
+                     WHERE r.parent_id = ?2 AND r.enabled = 1 LIMIT 1",
+                )?
+                .query_row(params![media, tag], |r| r.get(0))
+                .optional()?;
+            if let Some(rule) = rule {
+                tagger.apply_rule(db, rule, tag, media)?;
+                changed = true;
+            }
+        }
+        if !changed {
+            return Ok(());
+        }
+    }
+}

@@ -1,7 +1,8 @@
 // Pop-in de confirmation maison (GEN-10) : « Annuler » et « Oui » (rouge pour une action
 // dangereuse, CTX-01). Échap, le bouton 4 de la souris, la croix ou un clic sur le fond annulent.
 // Utilisée par les menus du clic droit (CTX-02) et par les boutons qui demandent confirmation
-// (« Effacer la note », VIEW-45).
+// (« Effacer la note », VIEW-45). `confirmLabel` remplace « Oui » ; `children` : contenu sous le
+// texte (une case à cocher…).
 
 import type { ReactNode } from "react";
 
@@ -15,9 +16,11 @@ type Props = {
   zone: string;
   onCancel: () => void;
   onConfirm: () => void;
+  confirmLabel?: string;
+  children?: ReactNode;
 };
 
-export function ConfirmDialog({ title, message, danger = false, zone, onCancel, onConfirm }: Props) {
+export function ConfirmDialog({ title, message, danger = false, zone, onCancel, onConfirm, confirmLabel = "Oui", children }: Props) {
   return (
     <Modal
       open
@@ -32,13 +35,16 @@ export function ConfirmDialog({ title, message, danger = false, zone, onCancel, 
             Annuler
           </Button>
           <Button
+            data-zone={`${zone}.oui`}
             onClick={onConfirm}
             className={danger ? "bg-destructive text-white hover:bg-destructive/90" : "bg-[#d9a94e] text-[#1a1408] hover:bg-[#e3b75f]"}
           >
-            Oui
+            {confirmLabel}
           </Button>
         </>
       }
-    />
+    >
+      {children}
+    </Modal>
   );
 }

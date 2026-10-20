@@ -11,7 +11,7 @@ import { formatNumber, plural } from "@/lib/format";
 import { showGridBadge } from "@/stores/badge";
 import { deleteMedia } from "@/stores/deletion";
 import { setFavorite } from "@/stores/favorites";
-import { addToSelection, removeFromSelection, selectedIds, singleName } from "@/stores/selection";
+import { addToSelection, removeDeletedFromSelection, selectedIds, settleSelectionDeletion, singleName } from "@/stores/selection";
 import { useViewer } from "@/stores/viewer";
 import { deleteEntry } from "./DeleteDialog";
 import { focusTagAdder } from "./SelectionBar";
@@ -61,11 +61,16 @@ export function removeFromFolderEntry({ ids }: SelectionContext, folderId: numbe
 }
 
 /** « Supprimer X de la bibliothèque… » : pop-in de DEL-04 au pluriel ; les médias supprimés quittent
- *  la sélection. */
+ *  la sélection (ceux dont le fichier n'a pas pu être effacé y reviennent, DEL-08). */
 export function deleteSelectionEntry({ ids }: SelectionContext): MenuItem {
   return deleteEntry(
     { count: ids.length, name: singleName() },
-    (deleteFiles) => void deleteMedia(ids, deleteFiles).then((ok) => ok && removeFromSelection(ids)),
+    // Retirés de la sélection avant l'envoi : la réponse du cœur Rust (échec d'un fichier) peut
+    // arriver avant la fin de la demande, ils doivent alors pouvoir y revenir (DEL-08).
+    (deleteFiles) => {
+      removeDeletedFromSelection(ids);
+      void deleteMedia(ids, deleteFiles).then((ok) => ok || settleSelectionDeletion(ids, true));
+    },
     true,
   );
 }

@@ -16,7 +16,7 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 
-use myboard_lib::{db, paths, tags};
+use myboard_lib::{db, paths, tagging, tags};
 use serde_json::Value;
 
 fn lower(path: Option<&Path>) -> String {
@@ -72,6 +72,7 @@ fn main() -> anyhow::Result<()> {
 
     let tx = conn.transaction()?;
     let now = db::now_ms();
+    let tagger = tagging::Tagger::load(&tx)?;
     for entry in walkdir::WalkDir::new(&json_dir).into_iter().filter_map(Result::ok) {
         let path = entry.path();
         if !entry.file_type().is_file() || !path.extension().is_some_and(|e| e.eq_ignore_ascii_case("json")) {
@@ -108,8 +109,9 @@ fn main() -> anyhow::Result<()> {
         matched += 1;
         for (name, key) in tags_of(&json) {
             let category_id = key.and_then(|k| categories.get(&k).copied());
-            if let Some(tag_id) = tags::get_or_create(&tx, &tags::NewTag { name, category_id }, now)? {
-                tags::attach(&tx, media_id, tag_id)?;
+            // Synonymes et parents suivis comme dans l'application (TAGM-15, TAGM-16).
+            if let Some(target) = tagging::resolve_or_create(&tx, &tags::NewTag { name, category_id }, now)? {
+                tagger.attach(&tx, media_id, target)?;
             }
         }
     }

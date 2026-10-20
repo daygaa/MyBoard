@@ -80,6 +80,8 @@ export type TagInfo = {
   hidden: boolean;
   /** Bulle d'aide au survol du tag (TAGM-14). */
   description: string | null;
+  /** Suggestion venue d'un synonyme (TAGM-15) : le nom tapé, affiché « synonyme → nom ». */
+  alias?: string;
 };
 
 /** Tag du gestionnaire (TAGM-04) : avec sa date de création (TAGM-12). */
@@ -93,11 +95,11 @@ export type TagManagerData = {
   ignored: string[];
 };
 
-/** Renommage : fait, nom vide, ou nom déjà porté par un autre tag (fusion proposée, CTX-04). */
-export type Renamed = { kind: "done" } | { kind: "empty" } | { kind: "exists"; id: number; name: string; mediaCount: number };
+/** Renommage : fait, vide, nom pris par un tag ou un synonyme actif (fusion proposée, CTX-04, TAGM-15), ou synonyme du tag lui-même. */
+export type Renamed = { kind: "done" } | { kind: "empty" } | { kind: "exists"; id: number; name: string; mediaCount: number; alias: string | null } | { kind: "ownAlias" };
 
-/** Tag d'une liste partagée (TAGM-10) : catégorie par sa clé (« general »…). */
-export type SharedTag = { name: string; category: string; hidden: boolean };
+/** Tag d'une liste partagée (TAGM-10, TAGM-18) : catégorie par sa clé (« general »…). */
+export type SharedTag = { name: string; category: string; hidden: boolean; description?: string | null };
 
 /** Tag à créer s'il n'existe pas ; la catégorie est ignorée pour un tag existant (IMP-31). */
 export type NewTag = { name: string; categoryId: number | null };
@@ -170,7 +172,7 @@ export type ImportResult = {
 };
 
 /** Fichier qui n'a pas pu être effacé (DEL-04) : son média est revenu dans la bibliothèque. */
-export type FailedFile = { id: number; path: string; code: number | null; message: string };
+export type FailedFile = { id: number; path: string; code: number | null; message: string; readOnly: boolean };
 
 export type ImportPhase = "idle" | "scanning" | "ready" | "importing" | "finished";
 
@@ -221,7 +223,7 @@ export const api = {
   /** Renvoie le nombre de médias réellement ajoutés ou retirés (badge de SEL-08). */
   setFavorite: (ids: number[], on: boolean) => invoke<number>("set_favorite", { ids, on }),
   /** Marque les médias à supprimer (DEL-01) ; `deleteFiles` : effacer aussi leurs fichiers (DEL-04). */
-  deleteMedia: (ids: number[], deleteFiles: boolean) => invoke<void>("delete_media", { ids, deleteFiles }),
+  deleteMedia: (ids: number[], deleteFiles: boolean, force = false) => invoke<void>("delete_media", { ids, deleteFiles, force }),
   restoreMediaData: (restore: number[], discard: number[]) => invoke<void>("restore_media_data", { restore, discard }),
   listFolders: () => invoke<Folder[]>("list_folders"),
   /** Nom refusé : erreur `NameError` (lib/folders.ts). */
@@ -241,13 +243,12 @@ export const api = {
   // Gestionnaire de tags (TAGM-04 et suivants) et menus des tags (CTX-04, CTX-12).
   listManagedTags: () => invoke<TagManagerData>("list_managed_tags"),
   renameTag: (id: number, name: string) => invoke<Renamed>("rename_tag", { id, name }),
-  mergeTags: (sources: number[], target: number) => invoke<void>("merge_tags", { sources, target }),
+  /** `keepAliases` : les noms fusionnés deviennent des synonymes du tag gardé (TAGM-17). */
+  mergeTags: (sources: number[], target: number, keepAliases: boolean) => invoke<void>("merge_tags", { sources, target, keepAliases }),
   setTagsCategory: (ids: number[], categoryId: number) => invoke<number>("set_tags_category", { ids, categoryId }),
   setTagsHidden: (ids: number[], hidden: boolean) => invoke<number>("set_tags_hidden", { ids, hidden }),
   deleteTags: (ids: number[]) => invoke<number>("delete_tags", { ids }),
   setTagDescription: (id: number, text: string) => invoke<void>("set_tag_description", { id, text }),
-  /** Renvoie les identifiants des tags créés (pour annuler l'import). */
-  importTags: (tags: SharedTag[]) => invoke<number[]>("import_tags", { tags }),
   ignoreSimilar: (ids: number[]) => invoke<void>("ignore_similar", { ids }),
 };
 

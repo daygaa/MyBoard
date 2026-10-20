@@ -1,15 +1,18 @@
 //! Gestionnaire de tags (TAGM-04, TAGM-05, TAGM-08, TAGM-10 à TAGM-14) et menus des tags (CTX-04,
 //! CTX-12) : liste de tous les tags, renommer (fusion si le nom existe), fusionner, changer de
-//! catégorie, masquer, supprimer, description, import d'une liste, groupes de tags proches ignorés.
+//! catégorie, masquer, supprimer, description, groupes de tags proches ignorés. Import d'une liste :
+//! `tag_import.rs`.
 //!
 //! Chaque opération multiple est une transaction ; les compteurs (`tags.media_count`,
 //! `media.tag_count`) et l'index de recherche suivent par les déclencheurs de la base (D-005, D-027).
+//! Fusion : `aliases::merge_into` (synonymes, règles de parents, TAGM-15 à TAGM-17).
 
-use rusqlite::{Connection, OptionalExtension, params, params_from_iter};
-use serde::{Deserialize, Serialize};
+use rusqlite::{Connection, OptionalExtension, TransactionBehavior, params, params_from_iter};
+use serde::Serialize;
 use tauri::State;
 
-use crate::tags::{DEFAULT_CATEGORY, normalize};
+use crate::aliases::merge_into;
+use crate::tags::normalize;
 use crate::{AppState, db};
 
 /// Un tag tel que le montre le gestionnaire.
@@ -36,25 +39,17 @@ pub struct TagManagerData {
     pub ignored: Vec<String>,
 }
 
-/// Résultat d'un renommage : fait, ou nom déjà porté par un autre tag (fusion proposée, CTX-04).
+/// Résultat d'un renommage : fait, ou nom déjà porté par un autre tag (fusion proposée, CTX-04) ou
+/// par un synonyme actif (`alias` : fusion proposée avec son tag principal, TAGM-15) ; `OwnAlias` :
+/// le nom est un synonyme de ce tag lui-même.
 #[derive(Debug, Serialize)]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum Renamed {
     Done,
     Empty,
     #[serde(rename_all = "camelCase")]
-    Exists { id: i64, name: String, media_count: i64 },
-}
-
-/// Tag d'une liste importée (TAGM-10) : catégorie par sa clé (« general »…), les identifiants
-/// changeant d'une bibliothèque à l'autre.
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ImportedTag {
-    pub name: String,
-    pub category: String,
-    #[serde(default)]
-    pub hidden: bool,
+    Exists { id: i64, name: String, media_count: i64, alias: Option<String> },
+    OwnAlias,
 }
 
 fn marks(n: usize) -> String {
@@ -88,55 +83,35 @@ fn rename(db: &Connection, id: i64, raw: &str) -> rusqlite::Result<Renamed> {
         .query_row("SELECT id, name, media_count FROM tags WHERE name = ?1 AND id != ?2", params![name, id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))
         .optional()?;
     if let Some((id, name, media_count)) = other {
-        return Ok(Renamed::Exists { id, name, media_count });
+        return Ok(Renamed::Exists { id, name, media_count, alias: None });
+    }
+    let aliased: Option<(i64, String, i64)> = db
+        .query_row(
+            "SELECT t.id, t.name, t.media_count FROM tag_aliases a JOIN tags t ON t.id = a.tag_id WHERE a.alias = ?1 AND a.enabled = 1",
+            [&name],
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+        )
+        .optional()?;
+    match aliased {
+        Some((target, _, _)) if target == id => return Ok(Renamed::OwnAlias),
+        Some((target, target_name, media_count)) => return Ok(Renamed::Exists { id: target, name: target_name, media_count, alias: Some(name) }),
+        None => {}
     }
     db.execute("UPDATE tags SET name = ?1 WHERE id = ?2", params![name, id])?;
     Ok(Renamed::Done)
 }
 
-/// Fusionne `sources` dans `target` : leurs médias passent au tag gardé, puis elles sont supprimées.
-/// Le tag gardé conserve sa catégorie et son état ; sans description, il prend celle d'une source.
-fn merge(conn: &mut Connection, sources: &[i64], target: i64) -> rusqlite::Result<()> {
-    let sources: Vec<i64> = sources.iter().copied().filter(|&id| id != target).collect();
-    if sources.is_empty() {
-        return Ok(());
-    }
-    let tx = conn.transaction()?;
-    let m = marks(sources.len());
-    let mut params: Vec<i64> = vec![target];
-    params.extend(&sources);
-    tx.execute(&format!("INSERT OR IGNORE INTO media_tags (media_id, tag_id) SELECT media_id, ?1 FROM media_tags WHERE tag_id IN ({m})"), params_from_iter(&params))?;
-    tx.execute(
-        &format!("UPDATE tags SET description = (SELECT description FROM tags WHERE id IN ({m}) AND description IS NOT NULL LIMIT 1) WHERE id = ? AND description IS NULL"),
-        params_from_iter(sources.iter().chain([&target])),
-    )?;
-    tx.execute(&format!("DELETE FROM tags WHERE id IN ({m})"), params_from_iter(&sources))?;
-    tx.commit()
-}
-
-/// Crée les tags importés qui n'existent pas encore (sans média) ; renvoie leurs identifiants, pour
-/// pouvoir annuler l'import (TAGM-10).
-fn import(conn: &mut Connection, list: &[ImportedTag]) -> rusqlite::Result<Vec<i64>> {
-    let tx = conn.transaction()?;
-    let default: i64 = tx.query_row("SELECT id FROM tag_categories WHERE key = ?1", [DEFAULT_CATEGORY], |r| r.get(0))?;
+/// Fusionne `sources` dans `target`, en une transaction : leurs médias passent au tag gardé (avec
+/// ses parents), puis elles sont supprimées ; avec `keep`, leurs noms deviennent des synonymes du tag
+/// gardé, ce qui permet de défaire la fusion (TAGM-17, GEN-21).
+fn merge(conn: &mut Connection, sources: &[i64], target: i64, keep: bool) -> anyhow::Result<()> {
+    let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
     let now = db::now_ms();
-    let mut created = Vec::new();
-    for tag in list {
-        let Some(name) = normalize(&tag.name) else { continue };
-        let category: i64 = tx
-            .query_row("SELECT id FROM tag_categories WHERE key = ?1", [&tag.category], |r| r.get(0))
-            .optional()?
-            .unwrap_or(default);
-        let inserted = tx.execute(
-            "INSERT OR IGNORE INTO tags (name, category_id, hidden, created_at) VALUES (?1, ?2, ?3, ?4)",
-            params![name, category, tag.hidden, now],
-        )?;
-        if inserted > 0 {
-            created.push(tx.last_insert_rowid());
-        }
+    for &source in sources {
+        merge_into(&tx, source, target, keep, now)?;
     }
     tx.commit()?;
-    Ok(created)
+    Ok(())
 }
 
 /// Même mise à jour pour plusieurs tags, en une transaction.
@@ -170,8 +145,8 @@ pub async fn rename_tag(state: State<'_, AppState>, id: i64, name: String) -> Re
 }
 
 #[tauri::command]
-pub async fn merge_tags(state: State<'_, AppState>, sources: Vec<i64>, target: i64) -> Result<(), String> {
-    merge(&mut state.db.lock().unwrap(), &sources, target).map_err(err)
+pub async fn merge_tags(state: State<'_, AppState>, sources: Vec<i64>, target: i64, keep_aliases: bool) -> Result<(), String> {
+    merge(&mut state.db.lock().unwrap(), &sources, target, keep_aliases).map_err(|e| format!("{e:#}"))
 }
 
 #[tauri::command]
@@ -206,11 +181,6 @@ pub async fn set_tag_description(state: State<'_, AppState>, id: i64, text: Stri
     let text = text.trim();
     let value = (!text.is_empty()).then_some(text);
     state.db.lock().unwrap().execute("UPDATE tags SET description = ?1 WHERE id = ?2", params![value, id]).map(|_| ()).map_err(err)
-}
-
-#[tauri::command]
-pub async fn import_tags(state: State<'_, AppState>, tags: Vec<ImportedTag>) -> Result<Vec<i64>, String> {
-    import(&mut state.db.lock().unwrap(), &tags).map_err(err)
 }
 
 /// « Ignorer » un groupe de tags proches (TAGM-13) : il n'est plus proposé.

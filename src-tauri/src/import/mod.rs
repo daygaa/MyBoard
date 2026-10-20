@@ -19,7 +19,8 @@ use std::time::{Duration, Instant};
 use tauri::{AppHandle, Emitter, Manager, State};
 
 use crate::reserve;
-use crate::tags::{self, NewTag};
+use crate::tagging::{Tagger, Target, resolve_or_create};
+use crate::tags::NewTag;
 use crate::{AppState, db};
 use index::{Indexer, Outcome};
 pub use scan::ScanSummary;
@@ -191,16 +192,18 @@ fn run_import(app: &AppHandle, files: Vec<ScanFile>, default_tags: Vec<NewTag>) 
 
     let fatal = (|| -> anyhow::Result<()> {
         let mut conn = db::open(&state.paths.db)?;
-        // Tags par défaut : créés une fois au départ (ceux qui existent gardent leur catégorie).
-        let tag_ids: Vec<i64> = {
+        // Tags par défaut : créés une fois au départ (ceux qui existent gardent leur catégorie ; un
+        // synonyme donne son tag principal, TAGM-15). Les parents suivent à chaque média (TAGM-16).
+        let targets: Vec<Target> = {
             let tx = conn.transaction()?;
-            let mut ids = Vec::new();
+            let mut found = Vec::new();
             for tag in &default_tags {
-                ids.extend(tags::get_or_create(&tx, tag, db::now_ms())?);
+                found.extend(resolve_or_create(&tx, tag, db::now_ms())?);
             }
             tx.commit()?;
-            ids
+            found
         };
+        let tagger = Tagger::load(&conn)?;
         let mut indexer = Indexer::new();
         // Médias nouveaux dont les données sont en réserve (DEL-05).
         let mut found = Vec::new();
@@ -219,8 +222,8 @@ fn run_import(app: &AppHandle, files: Vec<ScanFile>, default_tags: Vec<NewTag>) 
             if let Ok(Outcome::Imported(id) | Outcome::Updated(id) | Outcome::AlreadyPresent(id) | Outcome::Duplicate(id)) =
                 &outcome
             {
-                for tag_id in &tag_ids {
-                    tags::attach(&conn, *id, *tag_id)?;
+                for target in &targets {
+                    tagger.attach(&conn, *id, *target)?;
                 }
             }
             if let Ok(Outcome::Imported(id)) = &outcome

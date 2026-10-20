@@ -4,12 +4,13 @@
 //! La sélection peut compter des dizaines de milliers de médias : leurs identifiants sont passés à
 //! SQLite en un seul texte JSON (`json_each`), au lieu d'un paramètre par média (limité à 32 766).
 
-use rusqlite::{Connection, params};
+use rusqlite::{Connection, TransactionBehavior, params};
 use serde::Serialize;
 use tauri::State;
 
 use crate::library::ListQuery;
-use crate::tags::{NewTag, TAG_COLUMNS, TagInfo, get_or_create, tag_from_row};
+use crate::tagging::{Tagger, resolve_or_create};
+use crate::tags::{NewTag, TAG_COLUMNS, TagInfo, tag_from_row};
 use crate::{AppState, db};
 
 /// Médias de la sélection, pour une requête : `media_id IN (SELECTION)` avec `?1` = liste JSON.
@@ -55,15 +56,28 @@ fn tags(db: &Connection, ids: &str) -> rusqlite::Result<Vec<TagInfo>> {
 }
 
 /// Ajoute et retire des tags sur tous les médias de la sélection, en une transaction (D-005) ; un
-/// tag ajouté qui n'existe pas encore est créé. Les compteurs suivent par les déclencheurs.
+/// tag ajouté qui n'existe pas encore est créé, un synonyme donne son tag principal et les parents
+/// suivent (TAGM-15, TAGM-16). Les compteurs suivent par les déclencheurs.
 fn edit_tags(conn: &mut Connection, ids: &str, add: &[NewTag], remove: &[i64]) -> anyhow::Result<()> {
-    let tx = conn.transaction()?;
+    let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
     let now = db::now_ms();
+    // Médias supprimés depuis leur sélection : ignorés.
+    let media = tx
+        .prepare(&format!("SELECT id FROM media WHERE id IN ({SELECTION})"))?
+        .query_map([ids], |r| r.get::<_, i64>(0))?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+    let tagger = Tagger::load(&tx)?;
     for tag in add {
-        let Some(tag_id) = get_or_create(&tx, tag, now)? else { continue };
-        // Médias supprimés depuis leur sélection : ignorés.
-        tx.prepare_cached(&format!("INSERT OR IGNORE INTO media_tags (media_id, tag_id) SELECT id, ?2 FROM media WHERE id IN ({SELECTION})"))?
-            .execute(params![ids, tag_id])?;
+        let Some(target) = resolve_or_create(&tx, tag, now)? else { continue };
+        if target.alias_id.is_none() && !tagger.has_rules(target.tag_id) {
+            // Ni synonyme à noter ni parent à poser : une seule requête, comme avant le lot 5.
+            tx.prepare_cached(&format!("INSERT OR IGNORE INTO media_tags (media_id, tag_id) SELECT id, ?2 FROM media WHERE id IN ({SELECTION})"))?
+                .execute(params![ids, target.tag_id])?;
+            continue;
+        }
+        for &m in &media {
+            tagger.attach(&tx, m, target)?;
+        }
     }
     for tag_id in remove {
         tx.prepare_cached(&format!("DELETE FROM media_tags WHERE tag_id = ?2 AND media_id IN ({SELECTION})"))?

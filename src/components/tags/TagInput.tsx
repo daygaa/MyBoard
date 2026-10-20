@@ -11,6 +11,7 @@
 // le nom complet dans une bulle au survol (SRCH-22).
 // `source` : suggestions prises dans une liste donnée (champ « Retirer des tags » de la sélection :
 // seulement les tags qu'elle porte, SEL-07), dans le même ordre que l'autocomplétion.
+// Synonyme (TAGM-15) : proposé « synonyme → tag » (synonyme en gris) ; le choisir écrit le tag.
 
 import { useLayoutEffect, useRef, useState, type KeyboardEvent, type MouseEvent, type Ref } from "react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
@@ -244,6 +245,7 @@ export function TagInput({
                   style={{ color: color(tag.categoryId) }}
                 >
                   {negated && "−"}
+                  {tag.alias && <span className="text-muted-foreground">{displayTag(tag.alias)} → </span>}
                   {displayTag(tag.name)}
                 </span>
                 <span className="shrink-0 text-xs text-muted-foreground tabular-nums">{formatNumber(tag.mediaCount)}</span>

@@ -4,9 +4,11 @@
 // - tags proches (TAGM-13) : groupes de noms presque identiques ; pour chacun, nom gardé puis
 //   « Fusionner », ou « Ignorer » (plus proposé) ;
 // - fusion de tags cochés (TAGM-11) : choix du nom gardé.
+// Les deux fusions ont la case « Garder les anciens noms comme synonymes » (TAGM-17).
 
 import { useState } from "react";
 
+import { KeepAliasesBox } from "@/components/tags/KeepAliasesBox";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Modal } from "@/components/ui/modal";
@@ -107,7 +109,10 @@ function KeepChoice({ tags, value, onChange }: { tags: ManagedTag[]; value: numb
 /** Le plus utilisé est proposé comme nom gardé. */
 const mostUsed = (tags: ManagedTag[]) => tags.reduce((a, b) => (b.mediaCount > a.mediaCount ? b : a)).id;
 
-function SimilarGroup({ group }: { group: ManagedTag[] }) {
+/** Tag gardé parmi `tags`. */
+const kept = (tags: ManagedTag[], id: number) => tags.find((t) => t.id === id) ?? tags[0];
+
+function SimilarGroup({ group, aliases }: { group: ManagedTag[]; aliases: boolean }) {
   const [keep, setKeep] = useState(() => mostUsed(group));
   return (
     <div data-zone="tags-proches.groupe" className="rounded-lg border border-border p-2">
@@ -122,7 +127,7 @@ function SimilarGroup({ group }: { group: ManagedTag[] }) {
         >
           Ignorer
         </Button>
-        <Button size="sm" onClick={() => void mergeTags(group.map((t) => t.id), keep)} className={GOLD}>
+        <Button size="sm" onClick={() => void mergeTags(group, kept(group, keep), aliases)} className={GOLD}>
           Fusionner
         </Button>
       </div>
@@ -131,6 +136,7 @@ function SimilarGroup({ group }: { group: ManagedTag[] }) {
 }
 
 export function SimilarTagsDialog({ groups, onClose }: { groups: ManagedTag[][]; onClose: () => void }) {
+  const [aliases, setAliases] = useState(true);
   return (
     <Modal
       open
@@ -146,11 +152,16 @@ export function SimilarTagsDialog({ groups, onClose }: { groups: ManagedTag[][];
       }
     >
       {groups.length > 0 && (
-        <div className="max-h-[55vh] space-y-2 overflow-y-auto pr-1">
-          {groups.map((g) => (
-            <SimilarGroup key={groupKey(g)} group={g} />
-          ))}
-        </div>
+        <>
+          <div className="max-h-[55vh] space-y-2 overflow-y-auto pr-1">
+            {groups.map((g) => (
+              <SimilarGroup key={groupKey(g)} group={g} aliases={aliases} />
+            ))}
+          </div>
+          <div className="mt-3">
+            <KeepAliasesBox checked={aliases} onChange={setAliases} />
+          </div>
+        </>
       )}
     </Modal>
   );
@@ -158,6 +169,7 @@ export function SimilarTagsDialog({ groups, onClose }: { groups: ManagedTag[][];
 
 export function MergeTagsDialog({ tags, onClose, onDone }: { tags: ManagedTag[]; onClose: () => void; onDone: () => void }) {
   const [keep, setKeep] = useState(() => mostUsed(tags));
+  const [aliases, setAliases] = useState(true);
   return (
     <Modal
       open
@@ -171,7 +183,7 @@ export function MergeTagsDialog({ tags, onClose, onDone }: { tags: ManagedTag[];
           <Button variant="ghost" onClick={onClose} className={CANCEL}>
             Annuler
           </Button>
-          <Button data-zone="tags-fusionner.oui" onClick={() => void mergeTags(tags.map((t) => t.id), keep).then(onDone)} className={RED}>
+          <Button data-zone="tags-fusionner.oui" onClick={() => void mergeTags(tags, kept(tags, keep), aliases).then(onDone)} className={RED}>
             Fusionner
           </Button>
         </>
@@ -179,6 +191,9 @@ export function MergeTagsDialog({ tags, onClose, onDone }: { tags: ManagedTag[];
     >
       <div className="max-h-64 overflow-y-auto rounded-lg border border-border p-1.5">
         <KeepChoice tags={tags} value={keep} onChange={setKeep} />
+      </div>
+      <div className="mt-4">
+        <KeepAliasesBox checked={aliases} onChange={setAliases} />
       </div>
     </Modal>
   );

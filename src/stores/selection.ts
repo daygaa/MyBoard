@@ -74,6 +74,25 @@ export function addToSelection(items: Selectable[]) {
   changed();
 }
 
+/** Médias retirés de la sélection par leur suppression : ils y reviennent si leur fichier n'a pas pu
+ *  être effacé (DEL-08, Q9-1). */
+const deleting = new Map<number, string | undefined>();
+
+export function removeDeletedFromSelection(list: number[]) {
+  for (const id of list) deleting.set(id, names.get(id));
+  removeFromSelection(list);
+}
+
+/** Suppression réglée : les médias revenus (échec) sont recochés si le mode sélection est actif. */
+export function settleSelectionDeletion(list: number[], failed: boolean) {
+  const back: Selectable[] = [];
+  for (const id of list) {
+    if (failed && deleting.has(id)) back.push({ id, fileName: deleting.get(id) });
+    deleting.delete(id);
+  }
+  if (back.length && useSelection.getState().active) addToSelection(back);
+}
+
 export function removeFromSelection(list: number[]) {
   for (const id of list) {
     ids.delete(id);

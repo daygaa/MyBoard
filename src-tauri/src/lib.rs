@@ -1,6 +1,7 @@
 //! MyBoard — partie Rust : base de données, import, miniatures, tags, recherche, visionneuse.
 //! L'interface (React) appelle les commandes déclarées ici via `invoke`.
 
+pub mod aliases;
 pub mod clipboard_text;
 pub mod db;
 pub mod deletion;
@@ -13,13 +14,17 @@ pub mod fullscreen;
 pub mod import;
 pub mod library;
 pub mod media;
+pub mod parents;
 pub mod paths;
 pub mod reserve;
 pub mod scope;
 pub mod search;
 pub mod selection;
 pub mod system_menu;
+pub mod tag_import;
 pub mod tag_manager;
+pub mod tag_rules;
+pub mod tagging;
 pub mod tags;
 mod test_screen;
 pub mod thumbs;
@@ -140,8 +145,24 @@ pub fn run() {
             tag_manager::set_tags_hidden,
             tag_manager::delete_tags,
             tag_manager::set_tag_description,
-            tag_manager::import_tags,
+            tag_import::preview_tag_import,
+            tag_import::import_tags,
+            tag_import::undo_tag_import,
             tag_manager::ignore_similar,
+            tag_rules::list_tag_rules,
+            tag_rules::alias_check,
+            tag_rules::create_alias,
+            tag_rules::alias_enable_check,
+            tag_rules::set_alias_enabled,
+            tag_rules::delete_alias,
+            tag_rules::parent_check,
+            tag_rules::create_parent,
+            tag_rules::parent_enable_check,
+            tag_rules::set_parent_enabled,
+            tag_rules::set_parent_auto,
+            tag_rules::delete_parent,
+            tag_rules::tag_links,
+            tag_rules::create_tag,
         ])
         .run(tauri::generate_context!())
         .expect("erreur au lancement de MyBoard");

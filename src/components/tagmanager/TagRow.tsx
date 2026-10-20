@@ -1,6 +1,7 @@
 // Ligne du gestionnaire de tags (TAGM-04) : case (actions groupées, TAGM-11) · nom (clic : recherche ;
 // crayon : modifiable dans la ligne, Entrée valide, Échap annule) · catégorie · nombre de médias ·
-// « Créé le » (TAGM-12) · description (TAGM-14) · œil (masquer, TAGM-05) · crayon · corbeille.
+// « Créé le » (TAGM-12) · description (TAGM-14) · synonymes (TAGM-15) · parents (TAGM-16) · œil
+// (masquer, TAGM-05) · crayon · corbeille.
 // Tag masqué : en gris. Clic droit : menu du tag (CTX-04, sans « Retirer de… »).
 
 import { memo, useState } from "react";
@@ -10,13 +11,16 @@ import { CategorySelect } from "@/components/tags/CategorySelect";
 import { Checkbox } from "@/components/ui/checkbox";
 import type { ManagedTag } from "@/lib/api";
 import { formatNumber } from "@/lib/format";
+import type { AliasRow, ParentRow } from "@/lib/rulesApi";
 import { displayTag, withDescription } from "@/lib/tags";
 import { setTagsCategory, setTagsHidden } from "@/lib/tagManager";
 import { cn, titleIfCut } from "@/lib/utils";
+import { ParentsCell, SynonymsCell } from "./RuleCells";
+import type { TagOf } from "./RuleLines";
 import { TagDescriptionButton } from "./TagDescriptionButton";
 
 /** Colonnes, communes à l'en-tête et aux lignes. */
-export const COLUMNS = "grid grid-cols-[28px_minmax(0,1fr)_160px_84px_96px_60px_92px] items-center gap-2";
+export const COLUMNS = "grid grid-cols-[28px_minmax(0,1fr)_150px_72px_88px_68px_68px_68px_92px] items-center gap-2";
 
 const ICON = "grid h-7 w-7 place-items-center rounded-md text-muted-foreground transition hover:bg-secondary hover:text-foreground";
 
@@ -32,6 +36,11 @@ type Props = {
   onSearch: (tag: ManagedTag) => void;
   onDelete: (tag: ManagedTag) => void;
   onMenu: (e: React.MouseEvent, tag: ManagedTag) => void;
+  /** Synonymes du tag, règles dont il est l'enfant, puis le parent (TAGM-15, TAGM-16). */
+  aliases: AliasRow[];
+  parents: ParentRow[];
+  childRules: ParentRow[];
+  tagOf: TagOf;
 };
 
 function NameEditor({ tag, onDone, onRename }: { tag: ManagedTag; onDone: () => void; onRename: Props["onRename"] }) {
@@ -63,7 +72,8 @@ function NameEditor({ tag, onDone, onRename }: { tag: ManagedTag; onDone: () => 
   );
 }
 
-export const TagRow = memo(function TagRow({ tag, color, checked, editing, onCheck, onEdit, onRename, onSearch, onDelete, onMenu }: Props) {
+export const TagRow = memo(function TagRow(props: Props) {
+  const { tag, color, checked, editing, onCheck, onEdit, onRename, onSearch, onDelete, onMenu } = props;
   const label = displayTag(tag.name);
   return (
     <div
@@ -98,6 +108,12 @@ export const TagRow = memo(function TagRow({ tag, color, checked, editing, onChe
       <span className="text-xs text-muted-foreground tabular-nums">{new Date(tag.createdAt).toLocaleDateString("fr-FR")}</span>
       <div className="flex justify-center">
         <TagDescriptionButton tag={tag} />
+      </div>
+      <div className="flex justify-center">
+        <SynonymsCell tag={tag} aliases={props.aliases} tagOf={props.tagOf} />
+      </div>
+      <div className="flex justify-center">
+        <ParentsCell tag={tag} parents={props.parents} childRules={props.childRules} tagOf={props.tagOf} />
       </div>
       <div className="flex justify-end gap-0.5">
         <button

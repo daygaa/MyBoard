@@ -2,16 +2,30 @@
 // autocomplétion + bouton doré ; les termes actifs s'affichent en pastilles dessous, et
 // uniquement là (SRCH-07, SearchTerms). Entrée ou le bouton lancent une nouvelle recherche avec les
 // tags tapés, et eux seuls (SRCH-24) ; les boutons + / − des suggestions ajoutent un tag à la
-// recherche en cours (SRCH-21).
+// recherche en cours (SRCH-21). Un synonyme tapé (TAGM-15) donne la pastille de son tag principal.
 
 import { useState } from "react";
 import { Search } from "lucide-react";
 
 import { SearchTerms } from "@/components/search/SearchTerms";
 import { TagInput } from "@/components/tags/TagInput";
+import { api } from "@/lib/api";
 import { useRoute } from "@/lib/router";
-import { parseTerms } from "@/lib/tags";
+import { parseTerms, splitTerm } from "@/lib/tags";
 import { useSearch } from "@/stores/search";
+
+/** Termes avec le tag principal à la place d'un synonyme : la pastille montre le tag vraiment cherché.
+ *  Un joker (« tag* ») ne porte que sur les vrais noms de tags. */
+function withMainTags(terms: string[]): Promise<string[]> {
+  return Promise.all(
+    terms.map(async (term) => {
+      const { exclude, name, prefix } = splitTerm(term);
+      if (prefix) return term;
+      const found = await api.findTag(name).catch(() => null);
+      return found?.alias ? `${exclude ? "-" : ""}${found.name}` : term;
+    }),
+  );
+}
 
 export function SearchBox() {
   const [text, setText] = useState("");
@@ -23,8 +37,8 @@ export function SearchBox() {
 
   const submit = (raw: string) => {
     const parsed = parseTerms(raw);
-    if (parsed.length > 0) setTerms(parsed);
     setText("");
+    if (parsed.length > 0) void withMainTags(parsed).then(setTerms);
   };
 
   return (

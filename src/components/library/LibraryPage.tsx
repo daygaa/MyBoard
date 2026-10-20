@@ -27,7 +27,8 @@ export function LibraryPage() {
   const { data: stats } = useStats();
   const density = useLibrary((s) => s.density);
   const page = useLibrary((s) => s.page);
-  const filtered = useLibrary((s) => s.kinds.length > 0);
+  const kinds = useLibrary((s) => s.kinds);
+  const filtered = kinds.length > 0;
   const searching = useSearch((s) => s.terms.length > 0);
   const file = useSearch((s) => s.file);
   const route = useRoute();
@@ -51,11 +52,11 @@ export function LibraryPage() {
   if (route === "library" && stats && stats.total === 0) content = <EmptyLibrary />;
   else if (data && data.total === 0) {
     const where = route === "favorites" ? "dans les favoris" : route === "folder" ? "dans ce dossier" : "dans la bibliothèque";
-    if (file) content = <NoFileMatch file={file} where={where} typed={filtered} />;
-    else if (searching || filtered) content = <NoResults />;
+    if (file) content = <NoFileMatch file={file} kinds={kinds} where={where} />;
+    else if (searching || filtered) content = <NoResults kinds={kinds} where={where} />;
     else if (route === "favorites") content = <NoFavorites />;
     else if (route === "folder") content = <EmptyFolder />;
-    else content = <NoResults />;
+    else content = <NoResults kinds={kinds} where={where} />;
   }
   else if (data) {
     content = (

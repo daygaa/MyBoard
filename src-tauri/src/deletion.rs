@@ -7,9 +7,11 @@
 //!
 //! Deux sortes (DEL-04) : 1 = retiré de la bibliothèque, fichier intact, données gardées en réserve
 //! (DEL-05, `reserve.rs`) ; 2 = fichier effacé définitivement (sans la Corbeille) puis données
-//! effacées. Un fichier impossible à effacer (ouvert ailleurs, lecture seule, disque débranché) :
-//! son média revient dans la bibliothèque avec toutes ses données, et l'interface reçoit la liste
-//! des échecs (`deletion-failed`). Vignette et miniatures sont effacées dans les deux cas.
+//! effacées. Un fichier impossible à effacer (ouvert ailleurs, disque débranché) : son média revient
+//! dans la bibliothèque avec toutes ses données, et l'interface reçoit la liste des échecs
+//! (`deletion-failed`). Un fichier en lecture seule est refusé de même (DEL-08) ; « Supprimer quand
+//! même » le marque 3 : la lecture seule est retirée, puis il est effacé. Vignette et miniatures sont
+//! effacées dans tous les cas.
 
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Condvar, Mutex};
@@ -28,6 +30,8 @@ const BATCH: usize = 500;
 /// Sortes de suppression (`media.pending_delete`).
 const LIBRARY_ONLY: i64 = 1;
 const WITH_FILE: i64 = 2;
+/** Fichier aussi, même en lecture seule (« Supprimer quand même », DEL-08). */
+const FORCED: i64 = 3;
 /// Le fil se réveille au moins une fois par heure pour vider la réserve des données trop anciennes.
 const PURGE_EVERY: Duration = Duration::from_secs(3600);
 
@@ -44,6 +48,41 @@ pub struct FailedFile {
     /// Code d'erreur Windows, quand il est connu (VIEW-28).
     pub code: Option<i32>,
     pub message: String,
+    /// Refusé parce qu'en lecture seule (DEL-08) : « Supprimer quand même » est proposé.
+    pub read_only: bool,
+}
+
+/// Efface le fichier ; `force` retire d'abord la lecture seule, et la remet si l'effacement échoue
+/// (fichier ouvert ailleurs…) : un fichier qui reste garde sa protection. Déjà absent : rien à effacer.
+fn remove_file(path: &Path, force: bool) -> Result<(), FailedFile> {
+    let fail = |e: std::io::Error| {
+        let text = e.to_string();
+        let message = text.split(" (os error").next().unwrap_or(&text).trim().to_string();
+        FailedFile { id: 0, path: path.display().to_string(), code: e.raw_os_error(), message, read_only: false }
+    };
+    match std::fs::metadata(path) {
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(()),
+        Err(e) => return Err(fail(e)),
+        Ok(meta) if meta.permissions().readonly() => {
+            if !force {
+                let message = "Fichier en lecture seule".to_string();
+                return Err(FailedFile { id: 0, path: path.display().to_string(), code: None, message, read_only: true });
+            }
+            let mut writable = meta.permissions();
+            #[allow(clippy::permissions_set_readonly_false)] // voulu : « Supprimer quand même »
+            writable.set_readonly(false);
+            std::fs::set_permissions(path, writable).map_err(fail)?;
+            return std::fs::remove_file(path).or_else(|e| {
+                let _ = std::fs::set_permissions(path, meta.permissions());
+                if e.kind() == std::io::ErrorKind::NotFound { Ok(()) } else { Err(fail(e)) }
+            });
+        }
+        Ok(_) => {}
+    }
+    match std::fs::remove_file(path) {
+        Err(e) if e.kind() != std::io::ErrorKind::NotFound => Err(fail(e)),
+        _ => Ok(()),
+    }
 }
 
 struct Inner {
@@ -130,13 +169,10 @@ fn process_batch(inner: &Inner) -> anyhow::Result<bool> {
     let mut failed = Vec::new();
     let mut removed = Vec::new();
     for item in batch {
-        if item.mode == WITH_FILE
-            && let Err(e) = std::fs::remove_file(PathBuf::from(&item.path))
-            && e.kind() != std::io::ErrorKind::NotFound
+        if (item.mode == WITH_FILE || item.mode == FORCED)
+            && let Err(failure) = remove_file(&PathBuf::from(&item.path), item.mode == FORCED)
         {
-            let text = e.to_string();
-            let message = text.split(" (os error").next().unwrap_or(&text).trim().to_string();
-            failed.push(FailedFile { id: item.id, path: item.path.clone(), code: e.raw_os_error(), message });
+            failed.push(FailedFile { id: item.id, ..failure });
             continue;
         }
         removed.push(item);
@@ -198,13 +234,18 @@ fn forget_thumbs(inner: &Inner, removed: &[Pending]) -> anyhow::Result<()> {
 
 // --- Commande appelée par l'interface ---
 
-/// Marque les médias à supprimer (DEL-01) ; `delete_files` : effacer aussi leurs fichiers (DEL-04).
+/// Marque les médias à supprimer (DEL-01) ; `delete_files` : effacer aussi leurs fichiers (DEL-04) ;
+/// `force` : même en lecture seule (« Supprimer quand même », DEL-08).
 #[tauri::command]
-pub async fn delete_media(state: State<'_, AppState>, ids: Vec<i64>, delete_files: bool) -> Result<(), String> {
+pub async fn delete_media(state: State<'_, AppState>, ids: Vec<i64>, delete_files: bool, force: Option<bool>) -> Result<(), String> {
     if ids.is_empty() {
         return Ok(());
     }
-    let mode = if delete_files { WITH_FILE } else { LIBRARY_ONLY };
+    let mode = match (delete_files, force.unwrap_or(false)) {
+        (false, _) => LIBRARY_ONLY,
+        (true, false) => WITH_FILE,
+        (true, true) => FORCED,
+    };
     {
         let mut db = state.db.lock().unwrap();
         (|| -> rusqlite::Result<()> {

@@ -36,7 +36,11 @@ export function FolderNameDialog({ folder, mediaIds = [], onCancel, onDone, onCr
     setBusy(true);
     try {
       if (folder) await api.renameFolder(folder.id, value);
-      else onCreated?.(await api.createFolder(value, mediaIds));
+      else {
+        // Créer d'abord : `onCreated?.(await …)` sautait la création quand onCreated manquait (FOLD-13).
+        const created = await api.createFolder(value, mediaIds);
+        onCreated?.(created);
+      }
       await refreshFolders();
       onDone();
     } catch (e) {

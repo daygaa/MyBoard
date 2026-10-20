@@ -43,6 +43,20 @@ export async function deleteMedia(ids: number[], deleteFiles: boolean): Promise<
   return true;
 }
 
+/** « Supprimer quand même » (DEL-08) : fichiers en lecture seule effacés en retirant la lecture seule. */
+export async function forceDeleteMedia(ids: number[]): Promise<boolean> {
+  setHidden(ids, true);
+  try {
+    await api.deleteMedia(ids, true, true);
+  } catch (error) {
+    setHidden(ids, false);
+    useViewer.getState().setError({ action: "Supprimer quand même", code: null, message: String(error) });
+    return false;
+  }
+  await refreshLibrary();
+  return true;
+}
+
 /** Médias retirés pour de bon, ou revenus après un échec (DEL-04) : la grille est relue, puis leurs
  *  vignettes ne sont plus cachées (un nouveau média peut reprendre leur numéro). */
 export async function settleDeletion(ids: number[]) {

@@ -7,6 +7,8 @@
 // La bibliothèque, les favoris et chaque dossier ont leur propre recherche : entrer dans une autre vue
 // repart d'une recherche vide, revenir en arrière retrouve celle d'avant (FAV-06). Le nom de fichier
 // cherché (SRCH-26) fait partie de la recherche, au même titre que les tags.
+// Un tag renommé ou fusionné (SRCH-27) : la recherche en cours prend son nouveau nom, et celles des
+// étapes de l'historique aussi quand on y revient.
 
 import { create } from "zustand";
 
@@ -63,11 +65,42 @@ export const useSearch = create<SearchState>()((set, get) => ({
   setFile: (file) => set(apply({ terms: get().terms, file: file?.trim() || null })),
 }));
 
+/** Noms de tags renommés ou fusionnés pendant la session (SRCH-27) : ancien → nouveau. Les autres
+ *  étapes de l'historique ne peuvent pas être réécrites : on corrige leur recherche quand on y revient. */
+const renamed = new Map<string, string>();
+
+/** Termes avec les noms à jour ; un joker (« tag* ») reste tel quel. */
+export function currentTerms(terms: string[]): string[] {
+  return merge(
+    [],
+    terms.map((term) => {
+      const exclude = term.startsWith("-");
+      const body = exclude ? term.slice(1) : term;
+      if (body.endsWith("*")) return term;
+      let name = body;
+      for (let i = 0; i < 20 && renamed.has(name); i++) name = renamed.get(name)!;
+      return exclude ? `-${name}` : name;
+    }),
+  );
+}
+
+/** Tag renommé (ou fusionné dans un autre) : la recherche en cours suit, sans nouvelle étape. */
+export function renameSearchTag(from: string, to: string) {
+  if (from === to) return;
+  renamed.delete(to); // ce nom désigne désormais ce tag-ci
+  renamed.set(from, to);
+  const { terms, file } = useSearch.getState();
+  const next = currentTerms(terms);
+  if (same({ terms: next, file }, { terms, file })) return;
+  useSearch.setState({ terms: next });
+  window.history.replaceState({ ...window.history.state, terms: next, file }, "");
+}
+
 /** Recherche enregistrée dans une étape de l'historique ; absente : celle d'avant (étape créée par
  *  un changement de page de l'application). */
 function searchOf(state: unknown): Search | undefined {
   const saved = state as { terms?: string[]; file?: string | null } | null;
-  return saved?.terms ? { terms: saved.terms, file: saved.file ?? null } : undefined;
+  return saved?.terms ? { terms: currentTerms(saved.terms), file: saved.file ?? null } : undefined;
 }
 
 /** Vue qui a sa propre recherche (FAV-06) ; les pages Importer et Gestionnaire de tags n'en ont pas
@@ -119,5 +152,6 @@ window.addEventListener("hashchange", () => {
 window.addEventListener("popstate", (e) => {
   const saved = searchOf(e.state);
   const { terms, file } = useSearch.getState();
+  if (saved) window.history.replaceState({ ...window.history.state, ...saved }, ""); // noms à jour
   if (saved && !same(saved, { terms, file })) useSearch.setState(apply(saved, false));
 });

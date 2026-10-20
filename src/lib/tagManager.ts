@@ -1,14 +1,15 @@
 // Actions sur les tags, communes au gestionnaire (TAGM-04) et aux menus des tags (CTX-04, CTX-12) :
 // appel au cœur Rust, erreur éventuelle dans la pop-in d'erreur, puis relecture de tout ce qui montre
-// des tags (gestionnaire, barre latérale, suggestions, visionneuse, grille). Aussi : tags proches
-// (TAGM-13) et code de partage d'une liste de tags (TAGM-10).
+// des tags (gestionnaire, synonymes et parents, barre latérale, suggestions, visionneuse, grille).
+// Aussi : tags proches (TAGM-13). Code de partage d'une liste de tags : lib/shareCode.ts.
 
+import { currentTerms, renameSearchTag } from "@/stores/search";
 import { useViewer } from "@/stores/viewer";
-import { api, type Category, type ManagedTag, type SharedTag } from "./api";
+import { api, type ManagedTag } from "./api";
 import { queryClient } from "./queryClient";
 
 export function refreshTags(): Promise<unknown> {
-  const keys = [["tag-manager"], ["page-tags"], ["autocomplete"], ["tag"], ["media-detail"], ["media"], ["stats"], ["selection-tags"]];
+  const keys = [["tag-manager"], ["tag-rules"], ["page-tags"], ["autocomplete"], ["tag"], ["media-detail"], ["media"], ["stats"], ["selection-tags"]];
   return Promise.all(keys.map((queryKey) => queryClient.invalidateQueries({ queryKey })));
 }
 
@@ -28,7 +29,23 @@ export const setTagsCategory = (ids: number[], categoryId: number) => runTagActi
 export const setTagsHidden = (ids: number[], hidden: boolean) =>
   runTagAction(hidden ? "Masquer de la recherche" : "Ne plus masquer de la recherche", () => api.setTagsHidden(ids, hidden));
 export const deleteTags = (ids: number[]) => runTagAction("Supprimer le tag", () => api.deleteTags(ids));
-export const mergeTags = (sources: number[], target: number) => runTagAction("Fusionner les tags", () => api.mergeTags(sources, target));
+/** Tag renommé ou fusionné (SRCH-27) : la recherche en cours (et celle de la visionneuse ouverte)
+ *  prend le nouveau nom. */
+export function followRename(from: string, to: string) {
+  renameSearchTag(from, to);
+  const { base } = useViewer.getState();
+  if (base) useViewer.setState({ base: { ...base, terms: currentTerms(base.terms) } });
+}
+
+type Named = { id: number; name: string };
+
+/** Fusionne `sources` dans `target` ; `keep` : leurs noms deviennent des synonymes du tag gardé
+ *  (TAGM-17). */
+export async function mergeTags(sources: Named[], target: Named, keep: boolean) {
+  const done = await runTagAction("Fusionner les tags", () => api.mergeTags(sources.map((s) => s.id), target.id, keep));
+  if (done !== undefined) for (const s of sources) if (s.id !== target.id) followRename(s.name, target.name);
+  return done;
+}
 export const setTagDescription = (id: number, text: string) => runTagAction("Description du tag", () => api.setTagDescription(id, text));
 
 // --- Tags proches (TAGM-13)
@@ -57,32 +74,4 @@ export function similarGroups(tags: ManagedTag[], ignored: string[]): ManagedTag
   const skip = new Set(ignored);
   const total = (g: ManagedTag[]) => g.reduce((n, t) => n + t.mediaCount, 0);
   return [...groups.values()].filter((g) => g.length > 1 && !skip.has(groupKey(g))).sort((a, b) => total(b) - total(a));
-}
-
-// --- Code de partage (TAGM-10) : la liste en JSON compact, en base 64, avec un préfixe reconnaissable.
-
-const PREFIX = "MYBOARD-TAGS-1:";
-
-export function encodeTags(tags: ManagedTag[], categories: Category[]): string {
-  const keyOf = new Map(categories.map((c) => [c.id, c.key]));
-  const rows = tags.map((t) => [t.name, keyOf.get(t.categoryId) ?? "general", t.hidden ? 1 : 0]);
-  let binary = "";
-  for (const byte of new TextEncoder().encode(JSON.stringify(rows))) binary += String.fromCharCode(byte);
-  return PREFIX + btoa(binary);
-}
-
-/** Liste lue dans un code de partage ; `null` si le texte n'en est pas un. */
-export function decodeTags(code: string): SharedTag[] | null {
-  const text = code.replace(/\s+/g, "");
-  if (!text.startsWith(PREFIX)) return null;
-  try {
-    const bytes = Uint8Array.from(atob(text.slice(PREFIX.length)), (c) => c.charCodeAt(0));
-    const rows: unknown = JSON.parse(new TextDecoder().decode(bytes));
-    if (!Array.isArray(rows)) return null;
-    return rows
-      .filter((r): r is [string, string, number] => Array.isArray(r) && typeof r[0] === "string" && typeof r[1] === "string")
-      .map(([name, category, hidden]) => ({ name, category, hidden: hidden === 1 }));
-  } catch {
-    return null;
-  }
 }
