@@ -3,6 +3,28 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Phase 3, correctifs du test, lot 1 : sous-menus « ▸ » (23/10/2026) — Backup v43
+
+SPEC : livrées `[~]` : CTX-20 (CTX-20.1, CTX-20.2 du retour de test), CTX-21.
+
+- **Clic sur une entrée « ▸ »** (par exemple « Ajouter à un dossier ») : son sous-menu reste ouvert quand
+  la souris sort des menus ou passe sur un séparateur, et même quand elle entre dans le sous-menu puis en
+  ressort ; il se ferme 250 ms après le survol d'une autre entrée (comme Windows). Aucune entrée du
+  sous-menu n'est choisie d'avance au clic (au clavier, Entrée choisit toujours la première).
+- **Surbrillance** : une autre entrée quittée ne rend plus la surbrillance à l'entrée « ▸ » dont le
+  sous-menu se ferme ; une entrée grisée survolée n'en a pas. L'entrée « ▸ » garde la sienne tant que son
+  sous-menu est affiché.
+- **Sous-menu ouvert au survol, quitté vers l'extérieur** (CTX-21) : il se ferme 250 ms après (le menu
+  principal reste ouvert), sauf si la souris revient dans le sous-menu ou sur son entrée avant.
+
+Vérifié dans la version compilée, sur une copie de la bibliothèque « booru » (relevés à 60, 200, 400 et
+800 ms) : « ▸ » → « Sélectionner » → séparateur : aucune surbrillance, sous-menu fermé ; survol puis
+grille : fermé après le délai ; clic puis grille, puis séparateur : ouvert ; puis « Ouvrir avec… » :
+fermé après le délai ; sous-menu quitté vers l'extérieur : fermé (ouvert par un clic : reste ouvert) ;
+sortie et retour en moins de 250 ms : ouvert ; diagonale jusqu'à « Créer un dossier… » : ouvert ; un
+dossier du sous-menu ouvert par un clic s'ajoute bien ; clavier inchangé ; menu ⋮ d'un dossier >
+« Couleur ▸ » : pareil.
+
 ## Phase 3, lot 5 : synonymes et tags parents (20/10/2026) — Backup v42
 
 SPEC : livrées `[~]` : TAGM-15, TAGM-16, TAGM-17, TAGM-18, SRCH-27, DEL-08, GRID-12, FOLD-13 ; GEN-21

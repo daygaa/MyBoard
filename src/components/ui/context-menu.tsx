@@ -2,6 +2,8 @@
 // à la fois (lib/contextMenu.ts). Comme le menu de Windows :
 // - ouvert au point du clic, décalé pour rester dans la fenêtre (à gauche / au-dessus du point
 //   s'il n'y a pas la place) ; sous-menus « ▸ » au survol, à droite (à gauche sans la place) ;
+//   ouvert par un clic sur son entrée, un sous-menu reste ouvert quand la souris sort des menus
+//   (CTX-20, CTX-21) : seul le survol d'une autre entrée le ferme ;
 // - fermé par un clic ailleurs (qui ne fait rien d'autre), Échap, le bouton 4 de la souris, la
 //   molette, un changement de page ou le passage à une autre fenêtre ; un clic droit ailleurs
 //   ouvre le menu du nouvel endroit ;
@@ -22,7 +24,8 @@ import { ConfirmDialog } from "./confirm-dialog";
 import { fit, MenuList, nextUsable, usable } from "./menu-list";
 
 /** Délai avant de fermer un sous-menu quand la souris quitte son entrée « ▸ » (pour une autre
- *  entrée, un séparateur ou l'extérieur du menu, CTX-20) : on peut le rejoindre en diagonale. */
+ *  entrée, un séparateur ou l'extérieur du menu, CTX-20) ou le sous-menu lui-même (CTX-21) : on
+ *  peut le rejoindre en diagonale. */
 const SUB_DELAY = 250;
 const ZONE = '[data-zone^="menu-contextuel"]';
 
@@ -64,11 +67,17 @@ function MenuLayer({ menu }: { menu: OpenMenu }) {
   const [rootPos, setRootPos] = useState<CSSProperties>({ left: menu.x, top: menu.y, visibility: "hidden" });
   const [subPos, setSubPos] = useState<CSSProperties>({ visibility: "hidden" });
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  /** Sous-menu ouvert par un clic sur son entrée (ou par Entrée) : la souris peut sortir des menus
+   *  sans le fermer ; seul le survol d'une autre entrée le ferme (CTX-20.1, CTX-21). */
+  const pinned = useRef(false);
   const subEntries = sub === null ? null : ((entries[sub] as MenuItem).submenu ?? null);
 
   const openSub = (index: number | null, keyboard = false) => {
     clearTimeout(timer.current);
-    if (index !== sub) setSubPos({ visibility: "hidden" });
+    if (index !== sub) {
+      setSubPos({ visibility: "hidden" });
+      pinned.current = false;
+    }
     setSub(index);
     const list = index === null ? null : (entries[index] as MenuItem).submenu;
     setSubActive(keyboard && list ? nextUsable(list, null, 1) : null);
@@ -81,9 +90,14 @@ function MenuLayer({ menu }: { menu: OpenMenu }) {
       setActive((a) => (a === index ? null : a));
     }, SUB_DELAY);
   };
-  const pick = (item: MenuItem, index: number) => {
+  const pick = (item: MenuItem, index: number, keyboard = false) => {
     if (!usable(item)) return;
-    if (item.submenu) return openSub(index, true);
+    if (item.submenu) {
+      // Au clavier, la 1re entrée du sous-menu est choisie ; à la souris, aucune (CTX-20.1).
+      openSub(index, keyboard);
+      pinned.current = true;
+      return;
+    }
     if (item.confirm || item.dialog) return setConfirming(item);
     closeContextMenu();
     item.run?.();
@@ -140,7 +154,7 @@ function MenuLayer({ menu }: { menu: OpenMenu }) {
       else if (e.key === "End") move(nextUsable(list, null, -1));
       else if (e.key === "ArrowLeft" && inSub) openSub(null);
       else if (e.key === "ArrowRight" && !inSub && current !== null && (entries[current] as MenuItem).submenu) openSub(current, true);
-      else if ((e.key === "Enter" || e.key === " ") && current !== null) pick(list[current] as MenuItem, current);
+      else if ((e.key === "Enter" || e.key === " ") && current !== null) pick(list[current] as MenuItem, current, true);
     };
     window.addEventListener("keydown", onKey, true);
     return () => window.removeEventListener("keydown", onKey, true);
@@ -159,7 +173,8 @@ function MenuLayer({ menu }: { menu: OpenMenu }) {
         onHover={(i) => {
           const item = entries[i] as MenuItem;
           const enabled = usable(item);
-          if (enabled) setActive(i);
+          // Entrée grisée : plus aucune surbrillance (l'entrée « ▸ » quittée ne la garde pas).
+          setActive(enabled ? i : null);
           if (enabled && item.submenu) {
             // Entrée « ▸ » : son sous-menu tout de suite.
             clearTimeout(timer.current);
@@ -169,9 +184,14 @@ function MenuLayer({ menu }: { menu: OpenMenu }) {
             closeSubLater(sub);
           }
         }}
-        // Entrée « ▸ » quittée : son sous-menu se ferme après le délai, sauf si la souris l'atteint.
-        // Autre entrée : la surbrillance revient à l'entrée dont le sous-menu est encore affiché.
-        onLeave={(i) => (i === sub ? closeSubLater(i) : setActive(sub))}
+        // Entrée « ▸ » quittée : son sous-menu se ferme après le délai, sauf si la souris l'atteint
+        // ou s'il a été ouvert par un clic ; elle garde sa surbrillance tant qu'il est affiché.
+        // Autre entrée quittée : plus de surbrillance ; elle ne revient pas sur l'entrée « ▸ », dont
+        // le sous-menu se ferme déjà (CTX-20.2).
+        onLeave={(i) => {
+          if (i !== sub) setActive(null);
+          else if (!pinned.current) closeSubLater(i);
+        }}
         onPick={(i) => pick(entries[i] as MenuItem, i)}
       />
       {subEntries && (
@@ -182,6 +202,11 @@ function MenuLayer({ menu }: { menu: OpenMenu }) {
           style={subPos}
           zone="menu-contextuel.sous-menu"
           onEnter={() => clearTimeout(timer.current)}
+          // Sous-menu quitté (CTX-21) : fermé après le délai, sauf s'il a été ouvert par un clic ; un
+          // retour sur son entrée « ▸ » ou dans le sous-menu annule la fermeture.
+          onExit={() => {
+            if (sub !== null && !pinned.current) closeSubLater(sub);
+          }}
           onHover={(i) => {
             clearTimeout(timer.current);
             setActive(sub);

@@ -40,9 +40,11 @@ type ListProps = {
   onPick: (index: number) => void;
   /** Souris entrée dans la liste (bords et séparateurs compris). */
   onEnter?: () => void;
+  /** Souris sortie de la liste (vers l'extérieur ou l'autre menu). */
+  onExit?: () => void;
 };
 
-export function MenuList({ entries, active, listRef, style, zone, onHover, onLeave, onPick, onEnter }: ListProps) {
+export function MenuList({ entries, active, listRef, style, zone, onHover, onLeave, onPick, onEnter, onExit }: ListProps) {
   const checks = entries.some((e) => e !== "separator" && e.checked !== undefined);
   return (
     <div
@@ -52,6 +54,7 @@ export function MenuList({ entries, active, listRef, style, zone, onHover, onLea
       className={cn(MENU_SURFACE, "fixed animate-in fade-in-0 zoom-in-95")}
       style={style}
       onPointerEnter={onEnter}
+      onPointerLeave={onExit}
       // Le menu ne prend ni le focus ni la sélection : un champ de saisie garde les siens.
       onMouseDown={(e) => e.preventDefault()}
     >
