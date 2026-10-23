@@ -164,17 +164,20 @@
     width: calc(14px * var(--tile-scale, 1));
     height: calc(14px * var(--tile-scale, 1));
   }
-  /* Case de sélection (SEL-05) : même taille que l'étoile, dans le coin opposé. */
+  /* Case de sélection (SEL-05), dans le coin opposé à l'étoile : réduite avec la vignette, mais
+     plus doucement que l'étoile (retour du 23/10, SEL-01.1) : 24 px jusqu'à une vignette de
+     150 px, ≈ 11 px à 30 colonnes sur l'écran 1080p (7 px avant). */
   .tile-check {
-    top: calc(6px * var(--tile-scale, 1));
-    left: calc(6px * var(--tile-scale, 1));
-    width: calc(24px * var(--tile-scale, 1));
-    height: calc(24px * var(--tile-scale, 1));
-    border-radius: calc(6px * var(--tile-scale, 1));
+    --check-scale: calc(0.25 + 0.75 * var(--tile-scale, 1));
+    top: calc(6px * var(--check-scale));
+    left: calc(6px * var(--check-scale));
+    width: calc(24px * var(--check-scale));
+    height: calc(24px * var(--check-scale));
+    border-radius: calc(6px * var(--check-scale));
   }
   .tile-check svg {
-    width: calc(16px * var(--tile-scale, 1));
-    height: calc(16px * var(--tile-scale, 1));
+    width: calc(16px * var(--check-scale));
+    height: calc(16px * var(--check-scale));
   }
 
   /* Fond en damier de la visionneuse (v8), remplacé par un fond uni (VIEW-44) ; gardé pour le

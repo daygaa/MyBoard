@@ -1,13 +1,18 @@
 // Pop-in maison (GEN-10), apparence des dialogues de la v8. Sans bibliothèque de dialogue :
 // rien ne reste dans la page une fois fermé, donc aucun calque invisible ne peut bloquer
-// l'interface (bogue critique de la v5, VIEW-07). Échap et le bouton 4 de la souris ferment.
+// l'interface (bogue critique de la v5, VIEW-07). Échap et le bouton 4 de la souris ferment. Le
+// clavier y entre et y reste (GEN-20.1) ; une case à cocher se coche avec Espace, Entrée confirme
+// (GEN-20.2).
 
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 
 import { useEscape } from "@/lib/escape";
 import { cn } from "@/lib/utils";
+
+/** Commandes atteignables au clavier dans une pop-in (cases à cocher comprises : ce sont des boutons). */
+const FOCUSABLE = 'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 type Props = {
   open: boolean;
@@ -40,6 +45,47 @@ export function Modal(props: Props) {
   const isTop = useEscape(open, close, { modal: true });
   const dialogRef = useRef<HTMLDivElement>(null);
 
+  // Élément qui avait le focus à l'ouverture, lu pendant l'affichage : un champ de la pop-in
+  // (autoFocus) le prend avant que les effets ne s'exécutent.
+  const opener = useMemo(() => (open ? document.activeElement : null), [open]);
+
+  // Le clavier entre dans la pop-in et y reste (GEN-20.1) : à l'ouverture, elle prend le focus (sauf
+  // si l'un de ses champs l'a déjà) ; à la fermeture, il revient là où il était.
+  useEffect(() => {
+    if (!open) return;
+    const dialog = dialogRef.current;
+    if (dialog && !dialog.contains(document.activeElement)) dialog.focus({ preventScroll: true });
+    return () => {
+      if (opener instanceof HTMLElement && opener !== document.body && document.contains(opener)) opener.focus({ preventScroll: true });
+    };
+  }, [open, opener]);
+
+  // Contenu remplacé (2e pop-in de suppression…) : l'élément qui avait le focus a disparu, il revient
+  // à la pop-in.
+  useEffect(() => {
+    if (open && isTop() && document.activeElement === document.body) dialogRef.current?.focus({ preventScroll: true });
+  });
+
+  // Tab et Maj + Tab tournent entre les commandes de la pop-in, sans passer à la page derrière.
+  useEffect(() => {
+    if (!open) return;
+    const onTab = (e: KeyboardEvent) => {
+      const dialog = dialogRef.current;
+      if (e.key !== "Tab" || !dialog || !isTop()) return;
+      const active = document.activeElement;
+      // Liste ouverte par-dessus la pop-in (choix d'une catégorie…) : elle garde son clavier.
+      if (active && active !== document.body && !dialog.contains(active) && !active.closest("#root")) return;
+      const items = [...dialog.querySelectorAll<HTMLElement>(FOCUSABLE)];
+      if (items.length === 0) return;
+      const i = items.indexOf(active as HTMLElement);
+      const next = e.shiftKey ? (i <= 0 ? items.length - 1 : i - 1) : i === -1 || i === items.length - 1 ? 0 : i + 1;
+      e.preventDefault();
+      items[next].focus();
+    };
+    window.addEventListener("keydown", onTab, true);
+    return () => window.removeEventListener("keydown", onTab, true);
+  }, [open, isTop]);
+
   useEffect(() => {
     if (!open || !onEnter) return;
     const onKey = (e: KeyboardEvent) => {
@@ -64,12 +110,13 @@ export function Modal(props: Props) {
     >
       <div
         ref={dialogRef}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-label={title}
         data-zone={zone}
         className={cn(
-          "relative w-full rounded-xl border bg-card p-6 text-card-foreground shadow-xl",
+          "relative w-full rounded-xl border bg-card p-6 text-card-foreground shadow-xl outline-none",
           wide ? "max-w-2xl" : "max-w-md",
           danger ? "border-destructive" : "border-border",
         )}

@@ -3,6 +3,28 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Phase 3, correctifs du test, lot 2 : clavier des pop-ins, case de sélection (23/10/2026) — Backup v45
+
+SPEC : validées `[x]` par l'utilisateur : CTX-20, CTX-21. Livrées `[~]` : GEN-20 (GEN-20.1, GEN-20.2 du
+retour de test), SEL-05 (SEL-01.1).
+
+- **Clavier dans les pop-ins** (toutes) : à l'ouverture, la pop-in prend le focus (un de ses champs le
+  garde) ; Tab et Maj + Tab tournent entre ses commandes (croix, case, boutons…) et ne passent plus à la
+  page derrière ; à la fermeture, le focus revient là où il était.
+- **Case à cocher d'une pop-in** : Espace la coche ou la décoche, Entrée confirme (comme Windows).
+- **Case de sélection des vignettes** : réduite plus doucement : 24 px jusqu'à 10 colonnes, 11,4 px à 30
+  colonnes sur l'écran 1080p (7 px avant) ; l'étoile garde sa taille.
+
+Vérifié dans la version compilée, sur une copie de la bibliothèque « booru » :
+- pop-in de suppression ouverte depuis le menu d'une vignette : focus dans la pop-in ; Tab : croix → case →
+  Annuler → Oui → croix, Maj + Tab à l'envers ; Espace coche, décoche, recoche ; Entrée sur la case cochée :
+  2e pop-in, focus dedans, Tab y reste ; Échap, Échap : focus rendu à la page, aucun média supprimé ;
+- « Nouveau dossier » : le champ garde le focus, Tab reste dans la pop-in, Échap rend le focus à
+  « + Nouveau » ; confirmation ouverte depuis un menu : Tab y reste, Échap la ferme et laisse le menu
+  ouvert (CTX-02) ; « Créer un nouveau tag » dans la visionneuse : Tab y reste (choix de la catégorie
+  compris), Échap rend le focus au champ du tag ;
+- case de sélection mesurée de 4 à 30 colonnes (étoile inchangée) ; sous-menus du lot 1 revérifiés.
+
 ## Phase 3, correctifs du test, lot 1 (suite) : délai des sous-menus (23/10/2026) — Backup v44
 
 SPEC : CTX-20 reste `[~]` (corrigé après ton test).
