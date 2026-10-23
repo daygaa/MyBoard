@@ -70,10 +70,16 @@ function MenuLayer({ menu }: { menu: OpenMenu }) {
   /** Sous-menu ouvert par un clic sur son entrée (ou par Entrée) : la souris peut sortir des menus
    *  sans le fermer ; seul le survol d'une autre entrée le ferme (CTX-20.1, CTX-21). */
   const pinned = useRef(false);
+  /** Fermeture du sous-menu déjà en route (minuteur lancé). */
+  const closing = useRef(false);
   const subEntries = sub === null ? null : ((entries[sub] as MenuItem).submenu ?? null);
 
-  const openSub = (index: number | null, keyboard = false) => {
+  const cancelClose = () => {
     clearTimeout(timer.current);
+    closing.current = false;
+  };
+  const openSub = (index: number | null, keyboard = false) => {
+    cancelClose();
     if (index !== sub) {
       setSubPos({ visibility: "hidden" });
       pinned.current = false;
@@ -82,9 +88,12 @@ function MenuLayer({ menu }: { menu: OpenMenu }) {
     const list = index === null ? null : (entries[index] as MenuItem).submenu;
     setSubActive(keyboard && list ? nextUsable(list, null, 1) : null);
   };
-  /** Ferme le sous-menu après le délai ; son entrée « ▸ » perd alors sa surbrillance. */
+  /** Ferme le sous-menu après le délai ; son entrée « ▸ » perd alors sa surbrillance. Un délai déjà
+   *  en route n'est pas relancé : passer d'une entrée à l'autre gardait sinon le sous-menu ouvert
+   *  tant que la souris bougeait (retour du 23/10 sur CTX-20). */
   const closeSubLater = (index: number) => {
-    clearTimeout(timer.current);
+    if (closing.current) return;
+    closing.current = true;
     timer.current = setTimeout(() => {
       openSub(null);
       setActive((a) => (a === index ? null : a));
@@ -176,8 +185,7 @@ function MenuLayer({ menu }: { menu: OpenMenu }) {
           // Entrée grisée : plus aucune surbrillance (l'entrée « ▸ » quittée ne la garde pas).
           setActive(enabled ? i : null);
           if (enabled && item.submenu) {
-            // Entrée « ▸ » : son sous-menu tout de suite.
-            clearTimeout(timer.current);
+            // Entrée « ▸ » : son sous-menu tout de suite (une fermeture en route est annulée).
             openSub(i);
           } else if (sub !== null && sub !== i) {
             // Autre entrée (même grisée) : le sous-menu ouvert se ferme après le délai.
@@ -201,14 +209,14 @@ function MenuLayer({ menu }: { menu: OpenMenu }) {
           listRef={subRef}
           style={subPos}
           zone="menu-contextuel.sous-menu"
-          onEnter={() => clearTimeout(timer.current)}
+          onEnter={cancelClose}
           // Sous-menu quitté (CTX-21) : fermé après le délai, sauf s'il a été ouvert par un clic ; un
           // retour sur son entrée « ▸ » ou dans le sous-menu annule la fermeture.
           onExit={() => {
             if (sub !== null && !pinned.current) closeSubLater(sub);
           }}
           onHover={(i) => {
-            clearTimeout(timer.current);
+            cancelClose();
             setActive(sub);
             if (usable(subEntries[i])) setSubActive(i);
           }}

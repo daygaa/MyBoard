@@ -3,6 +3,21 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Phase 3, correctifs du test, lot 1 (suite) : délai des sous-menus (23/10/2026) — Backup v44
+
+SPEC : CTX-20 reste `[~]` (corrigé après ton test).
+
+- **Délai de fermeture d'un sous-menu** : passer d'une entrée à l'autre (ou bouger sur l'une d'elles)
+  relançait les 250 ms, et le sous-menu restait ouvert tant que la souris bougeait. Le délai part
+  maintenant de la sortie de l'entrée « ▸ » (ou du sous-menu) et n'est plus relancé ; un retour sur
+  l'entrée « ▸ » ou dans le sous-menu l'annule toujours.
+
+Vérifié dans la version compilée, sur une copie de la bibliothèque « booru » : allers-retours
+« Sélectionner » ↔ « Ouvrir avec… » pendant 1,8 s : fermé après ≈ 260 ms (ouvert au survol comme par
+un clic) ; souris en mouvement continu sur « Sélectionner » : fermé après ≈ 300 ms ; menu ⋮ d'un
+dossier, allers-retours « Renommer » ↔ « Masquer » : fermé ; tous les essais du lot 1 refaits, mêmes
+résultats.
+
 ## Phase 3, correctifs du test, lot 1 : sous-menus « ▸ » (23/10/2026) — Backup v43
 
 SPEC : livrées `[~]` : CTX-20 (CTX-20.1, CTX-20.2 du retour de test), CTX-21.
