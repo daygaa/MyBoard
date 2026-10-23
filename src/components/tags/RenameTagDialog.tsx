@@ -27,10 +27,12 @@ export function MergeTagDialog({ source, existing, onCancel, onDone }: { source:
   const [keep, setKeep] = useState(true);
   const count = existing.mediaCount;
   const attached = `${formatNumber(count)} ${plural(count, "média")} y ${count > 1 ? "sont attachés" : "est attaché"}`;
+  const merge = () => void mergeTags([source], existing, keep).then(onDone);
   return (
     <Modal
       open
       even
+      onEnter={merge}
       onClose={onCancel}
       zone="tag-fusion"
       title="Nom déjà utilisé"
@@ -44,11 +46,7 @@ export function MergeTagDialog({ source, existing, onCancel, onDone }: { source:
           <Button variant="ghost" onClick={onCancel} className={CANCEL}>
             Non
           </Button>
-          <Button
-            data-zone="tag-fusion.oui"
-            onClick={() => void mergeTags([source], existing, keep).then(onDone)}
-            className="bg-destructive text-white hover:bg-destructive/90"
-          >
+          <Button data-zone="tag-fusion.oui" onClick={merge} className="bg-destructive text-white hover:bg-destructive/90">
             Oui
           </Button>
         </>
@@ -92,6 +90,7 @@ export function RenameTagDialog({ tag, onCancel, onDone }: { tag: TagInfo; onCan
   return (
     <Modal
       open
+      onEnter={() => void submit()}
       onClose={onCancel}
       zone="tag-renommer"
       title="Renommer le tag"

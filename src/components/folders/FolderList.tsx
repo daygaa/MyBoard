@@ -4,7 +4,7 @@
 // En bas, « Dossiers masqués (N) » les montre en gris : ligne provisoire pour les tests de la
 // phase 3, retirée avec le gestionnaire de dossiers (FOLD-05, FOLD-06).
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ChevronRight, MoreVertical, Plus } from "lucide-react";
 
 import { useFolders } from "@/hooks/useFolders";
@@ -19,6 +19,7 @@ function FolderRow({ folder, active, onDone }: { folder: Folder; active: boolean
   return (
     <div
       data-zone="menu.dossier"
+      data-dossier={folder.id}
       onContextMenu={(e) => openContextMenu(e, () => folderMenu(folder))}
       className={cn("flex items-center gap-1.5 rounded-md pr-1 transition hover:bg-secondary", active && "bg-secondary", folder.hidden && "opacity-50")}
     >
@@ -61,6 +62,16 @@ export function FolderList({ onDone }: { onDone: () => void }) {
   const current = useFolderId();
   const [creating, setCreating] = useState(false);
   const [showHidden, setShowHidden] = useState(false);
+  /** Dossier tout juste créé par « + Nouveau » : il reçoit le focus du clavier une fois la pop-in
+   *  fermée (sinon elle le rendrait à « + Nouveau ») et le dossier listé (retour du 24/10). */
+  const [created, setCreated] = useState<number | null>(null);
+  useEffect(() => {
+    if (created === null || creating) return;
+    const row = document.querySelector<HTMLElement>(`[data-dossier="${created}"] button`);
+    if (!row) return;
+    row.focus();
+    setCreated(null);
+  }, [created, creating, folders]);
   const visible = folders.filter((f) => !f.hidden);
   const hidden = folders.filter((f) => f.hidden);
   const row = (f: Folder) => <FolderRow key={f.id} folder={f} active={route === "folder" && current === f.id} onDone={onDone} />;
@@ -95,7 +106,9 @@ export function FolderList({ onDone }: { onDone: () => void }) {
           {showHidden && hidden.map(row)}
         </>
       )}
-      {creating && <FolderNameDialog onCancel={() => setCreating(false)} onDone={() => setCreating(false)} />}
+      {creating && (
+        <FolderNameDialog onCancel={() => setCreating(false)} onDone={() => setCreating(false)} onCreated={(f) => setCreated(f.id)} />
+      )}
     </div>
   );
 }

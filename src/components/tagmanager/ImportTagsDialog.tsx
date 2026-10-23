@@ -53,6 +53,7 @@ export function ImportTagsDialog({ onClose }: { onClose: () => void }) {
         open
         even
         dismissible={false}
+        onEnter={onClose}
         onClose={() => {}}
         zone="import-tags.fait"
         title={`${count(n, "tag importé", "tags importés")}`}
@@ -81,6 +82,7 @@ export function ImportTagsDialog({ onClose }: { onClose: () => void }) {
     <Modal
       open
       wide
+      onEnter={() => creates > 0 && void importNow()}
       onClose={onClose}
       zone="import-tags"
       title="Importer une liste de tags"

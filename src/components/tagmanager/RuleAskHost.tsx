@@ -26,7 +26,7 @@ function Ask({ ask }: { ask: RuleAsk }) {
     >
       {ask.option && (
         <label data-zone="regle-confirmation.option" className="flex cursor-pointer items-center gap-2 text-sm text-foreground">
-          <Checkbox checked={option} onCheckedChange={(c) => setOption(c === true)} />
+          <Checkbox data-principale checked={option} onCheckedChange={(c) => setOption(c === true)} />
           {ask.option}
         </label>
       )}

@@ -65,7 +65,7 @@ export function UnusedTagsDialog({ tags, onClose }: { tags: ManagedTag[]; onClos
       }
     >
       <label data-zone="tags-non-utilises.manuelle" className="flex cursor-pointer items-center gap-2 text-sm text-foreground">
-        <Checkbox checked={manual} onCheckedChange={(c) => setManual(c === true)} />
+        <Checkbox data-principale checked={manual} onCheckedChange={(c) => setManual(c === true)} />
         Sélection manuelle
       </label>
       {manual && (
@@ -170,10 +170,12 @@ export function SimilarTagsDialog({ groups, onClose }: { groups: ManagedTag[][];
 export function MergeTagsDialog({ tags, onClose, onDone }: { tags: ManagedTag[]; onClose: () => void; onDone: () => void }) {
   const [keep, setKeep] = useState(() => mostUsed(tags));
   const [aliases, setAliases] = useState(true);
+  const merge = () => void mergeTags(tags, kept(tags, keep), aliases).then(onDone);
   return (
     <Modal
       open
       even
+      onEnter={merge}
       onClose={onClose}
       zone="tags-fusionner"
       title={`Fusionner ${formatNumber(tags.length)} ${plural(tags.length, "tag")}`}
@@ -183,7 +185,7 @@ export function MergeTagsDialog({ tags, onClose, onDone }: { tags: ManagedTag[];
           <Button variant="ghost" onClick={onClose} className={CANCEL}>
             Annuler
           </Button>
-          <Button data-zone="tags-fusionner.oui" onClick={() => void mergeTags(tags, kept(tags, keep), aliases).then(onDone)} className={RED}>
+          <Button data-zone="tags-fusionner.oui" onClick={merge} className={RED}>
             Fusionner
           </Button>
         </>

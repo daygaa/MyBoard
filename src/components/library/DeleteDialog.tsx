@@ -2,10 +2,10 @@
 // de la bibliothèque (ses données sont gardées 1 mois, DEL-05). La case « Supprimer les fichiers de
 // votre stockage » est décochée à chaque ouverture ; cochée, « Oui » ouvre une 2e confirmation à
 // bordure rouge, dont « Annuler » (ou Échap) revient à la première, au singulier pour un seul média
-// (DEL-07). Partagée par la visionneuse (bouton, touche Suppr, menus du clic droit), le menu d'une
+// (DEL-07). Entrée confirme l'une et l'autre, Espace coche la case (GEN-20). Partagée par la visionneuse (bouton, touche Suppr, menus du clic droit), le menu d'une
 // vignette et la sélection multiple (SEL-03, SEL-08).
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -16,6 +16,9 @@ import { titleIfCut } from "@/lib/utils";
 
 const CANCEL = "text-foreground hover:bg-secondary hover:text-foreground";
 const YES = "bg-destructive text-white hover:bg-destructive/90";
+/** Les fichiers seront effacés pour de bon : Entrée ne confirme la 2e pop-in qu'une demi-seconde
+ *  après son ouverture (choix de l'utilisateur, 24/10). */
+const SURE_DELAY = 500;
 
 /** Médias à supprimer : leur nombre, et le nom du fichier quand il est seul et connu. */
 export type DeleteTarget = { count: number; name?: string };
@@ -29,9 +32,15 @@ type Props = DeleteTarget & {
 export function DeleteDialog({ count, name, onCancel, onConfirm }: Props) {
   const [deleteFiles, setDeleteFiles] = useState(false);
   const [sure, setSure] = useState(false);
+  /** Ouverture de la 2e pop-in : Entrée n'y agit qu'après SURE_DELAY (deux appuis réflexes). */
+  const sureAt = useRef(0);
   const one = count === 1;
   const many = formatNumber(count);
-  const confirm = () => (deleteFiles ? setSure(true) : onConfirm(false));
+  const confirm = () => {
+    if (!deleteFiles) return onConfirm(false);
+    sureAt.current = Date.now();
+    setSure(true);
+  };
 
   if (sure) {
     return (
@@ -39,6 +48,7 @@ export function DeleteDialog({ count, name, onCancel, onConfirm }: Props) {
         open
         danger
         even
+        onEnter={() => Date.now() - sureAt.current >= SURE_DELAY && onConfirm(true)}
         onClose={() => setSure(false)}
         zone="suppression.confirmation-fichiers"
         title={`Êtes-vous sûr de vouloir supprimer ${one ? "le fichier" : "les fichiers"} de votre stockage ?`}
@@ -106,7 +116,7 @@ export function DeleteDialog({ count, name, onCancel, onConfirm }: Props) {
       }
     >
       <label data-zone="suppression.fichiers" className="flex cursor-pointer items-center gap-2 text-sm text-foreground">
-        <Checkbox checked={deleteFiles} onCheckedChange={(c) => setDeleteFiles(c === true)} />
+        <Checkbox data-principale checked={deleteFiles} onCheckedChange={(c) => setDeleteFiles(c === true)} />
         Supprimer les fichiers de votre stockage
       </label>
     </Modal>

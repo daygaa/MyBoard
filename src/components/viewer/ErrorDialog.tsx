@@ -33,6 +33,7 @@ export function ErrorDialog() {
   return (
     <Modal
       open
+      onEnter={() => setError(null)}
       onClose={() => setError(null)}
       zone="erreur"
       title={`${error.action} : échec`}

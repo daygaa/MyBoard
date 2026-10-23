@@ -69,6 +69,7 @@ export function DeleteFailedDialog() {
     <Modal
       open
       wide
+      onEnter={closeFailures}
       onClose={closeFailures}
       zone="suppression-echec"
       title={total === 0 ? "Suppression en cours…" : `${formatNumber(total)} ${plural(total, "fichier non supprimé", "fichiers non supprimés")}`}

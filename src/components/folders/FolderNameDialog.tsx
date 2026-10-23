@@ -53,10 +53,16 @@ export function FolderNameDialog({ folder, mediaIds = [], onCancel, onDone, onCr
   };
 
   if (suggestion !== null) {
+    const accept = () => {
+      setName(suggestion);
+      setSuggestion(null);
+      void submit(suggestion);
+    };
     return (
       <Modal
         open
         even
+        onEnter={accept}
         onClose={() => setSuggestion(null)}
         zone="dossier-nom.deja-pris"
         title="Nom déjà utilisé"
@@ -66,15 +72,7 @@ export function FolderNameDialog({ folder, mediaIds = [], onCancel, onDone, onCr
             <Button variant="ghost" onClick={() => setSuggestion(null)} className={CANCEL}>
               Non
             </Button>
-            <Button
-              data-zone="dossier-nom.deja-pris.oui"
-              onClick={() => {
-                setName(suggestion);
-                setSuggestion(null);
-                void submit(suggestion);
-              }}
-              className={GOLD}
-            >
+            <Button data-zone="dossier-nom.deja-pris.oui" onClick={accept} className={GOLD}>
               Oui
             </Button>
           </>
@@ -86,6 +84,8 @@ export function FolderNameDialog({ folder, mediaIds = [], onCancel, onDone, onCr
   return (
     <Modal
       open
+      // Entrée dans le champ : son propre gestionnaire ; ailleurs dans la pop-in : la même chose.
+      onEnter={() => void submit(name)}
       onClose={onCancel}
       zone="dossier-nom"
       title={folder ? "Renommer le dossier" : "Nouveau dossier"}

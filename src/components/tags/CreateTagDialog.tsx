@@ -34,9 +34,15 @@ export function CreateTagDialog({ name, onCancel, onCreate }: Props) {
     setChosen(null);
     onCancel();
   };
+  const create = () => {
+    if (category === null) return;
+    setChosen(null);
+    onCreate(category);
+  };
   return (
     <Modal
       open={name !== null}
+      onEnter={create}
       onClose={close}
       zone="creation-tag"
       title="Créer un nouveau tag"
@@ -63,11 +69,7 @@ export function CreateTagDialog({ name, onCancel, onCreate }: Props) {
           <Button
             data-zone="creation-tag.creer"
             disabled={category === null}
-            onClick={() => {
-              if (category === null) return;
-              setChosen(null);
-              onCreate(category);
-            }}
+            onClick={create}
             className="bg-[#d9a94e] text-[#1a1408] hover:bg-[#e3b75f] disabled:hover:bg-[#d9a94e]"
           >
             <Plus className="h-4 w-4" />

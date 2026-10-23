@@ -3,6 +3,27 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Phase 3, correctifs du test, lot 2 (suite) : Espace et Entrée dans les pop-ins (24/10/2026) — Backup v46
+
+SPEC : GEN-20 reste `[~]` (corrigé et précisé après ton test) ; TAGM-15.1 fait au passage.
+
+- **Espace** coche ou décoche la case principale d'une pop-in sans qu'elle ait le focus (« Supprimer les
+  fichiers de votre stockage », « Sélection manuelle », « Garder les anciens noms comme synonymes », case
+  d'une règle de parent).
+- **Entrée confirme toutes les pop-ins de confirmation** (le bouton de droite), sans avoir à lui donner le
+  focus : 2e pop-in de suppression (seulement une demi-seconde après son ouverture : deux appuis réflexes
+  n'effacent pas les fichiers), confirmations des menus, suppression d'un dossier ou d'un synonyme,
+  « Nom déjà utilisé », création et renommage d'un tag, fusions, import de tags, pop-ins d'erreur.
+  Pas dans « Tags proches », où chaque groupe a ses propres boutons.
+- **« + Nouveau »** : après la création, le focus va sur le nouveau dossier de la liste.
+
+Vérifié dans la version compilée, sur une copie de la bibliothèque « booru » : Espace sans focus coche,
+décoche, recoche ; Entrée sans focus ouvre la 2e pop-in, un 2e appui immédiat ne fait rien, un appui
+0,5 s plus tard efface le fichier (créé exprès pour l'essai) et retire le média ; confirmation d'un menu
+(suppression d'un dossier) par Entrée ; « + Nouveau », Entrée : dossier créé, focus sur sa ligne ; nom
+pris, Entrée sur « Nom déjà utilisé » : « vacances-3 » créé, focus sur sa ligne ; « Créer un nouveau
+tag » par Entrée : tag créé et posé ; essais du lot 2 refaits, mêmes résultats.
+
 ## Phase 3, correctifs du test, lot 2 : clavier des pop-ins, case de sélection (23/10/2026) — Backup v45
 
 SPEC : validées `[x]` par l'utilisateur : CTX-20, CTX-21. Livrées `[~]` : GEN-20 (GEN-20.1, GEN-20.2 du

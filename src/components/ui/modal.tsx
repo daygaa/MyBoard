@@ -1,8 +1,8 @@
 // Pop-in maison (GEN-10), apparence des dialogues de la v8. Sans bibliothèque de dialogue :
 // rien ne reste dans la page une fois fermé, donc aucun calque invisible ne peut bloquer
 // l'interface (bogue critique de la v5, VIEW-07). Échap et le bouton 4 de la souris ferment. Le
-// clavier y entre et y reste (GEN-20.1) ; une case à cocher se coche avec Espace, Entrée confirme
-// (GEN-20.2).
+// clavier y entre et y reste (GEN-20.1) ; Espace coche la case principale et Entrée confirme, sans
+// avoir à leur donner le focus (GEN-20.2).
 
 import { useEffect, useMemo, useRef, type ReactNode } from "react";
 import { createPortal } from "react-dom";
@@ -13,6 +13,10 @@ import { cn } from "@/lib/utils";
 
 /** Commandes atteignables au clavier dans une pop-in (cases à cocher comprises : ce sont des boutons). */
 const FOCUSABLE = 'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+/** Champs de saisie : Entrée leur appartient (elle valide le champ ou va à la ligne). */
+const FIELD = 'input:not([type="radio"]):not([type="checkbox"]), textarea, select, [contenteditable="true"]';
+/** Commandes qui gardent Espace quand elles ont le focus. */
+const CONTROL = 'button, a[href], input, textarea, select, [contenteditable="true"], [role="checkbox"], [role="radio"]';
 
 type Props = {
   open: boolean;
@@ -34,8 +38,9 @@ type Props = {
   /** Confirmation : le même espace (16 px) entre le titre, le texte, le contenu et les boutons
    *  (DEL-06). Le texte en plusieurs paragraphes les espace de même (`space-y-4`). */
   even?: boolean;
-  /** Entrée = bouton de confirmation (GEN-20), même quand la case à cocher a le focus ; un autre
-   *  bouton de la pop-in qui a le focus (Annuler…) garde son rôle. */
+  /** Entrée = bouton de confirmation, celui de droite (GEN-20), même quand la case à cocher a le
+   *  focus ; un autre bouton de la pop-in qui a le focus (Annuler…) garde son rôle. Espace coche la
+   *  case marquée `data-principale` (ou la seule case de la pop-in). */
   onEnter?: () => void;
 };
 
@@ -66,36 +71,42 @@ export function Modal(props: Props) {
     if (open && isTop() && document.activeElement === document.body) dialogRef.current?.focus({ preventScroll: true });
   });
 
-  // Tab et Maj + Tab tournent entre les commandes de la pop-in, sans passer à la page derrière.
+  // Clavier de la pop-in au premier plan (GEN-20) ; une liste ouverte par-dessus (choix d'une
+  // catégorie…) garde le sien.
   useEffect(() => {
     if (!open) return;
-    const onTab = (e: KeyboardEvent) => {
-      const dialog = dialogRef.current;
-      if (e.key !== "Tab" || !dialog || !isTop()) return;
-      const active = document.activeElement;
-      // Liste ouverte par-dessus la pop-in (choix d'une catégorie…) : elle garde son clavier.
-      if (active && active !== document.body && !dialog.contains(active) && !active.closest("#root")) return;
-      const items = [...dialog.querySelectorAll<HTMLElement>(FOCUSABLE)];
-      if (items.length === 0) return;
-      const i = items.indexOf(active as HTMLElement);
-      const next = e.shiftKey ? (i <= 0 ? items.length - 1 : i - 1) : i === -1 || i === items.length - 1 ? 0 : i + 1;
-      e.preventDefault();
-      items[next].focus();
-    };
-    window.addEventListener("keydown", onTab, true);
-    return () => window.removeEventListener("keydown", onTab, true);
-  }, [open, isTop]);
-
-  useEffect(() => {
-    if (!open || !onEnter) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key !== "Enter" || e.repeat || e.ctrlKey || e.altKey || e.shiftKey || e.metaKey || !isTop()) return;
-      const focused = document.activeElement;
-      if (focused instanceof HTMLButtonElement && focused.role !== "checkbox" && dialogRef.current?.contains(focused)) return;
-      // Ni la case, ni le bouton resté en focus derrière la pop-in ne réagissent en plus.
-      e.preventDefault();
-      e.stopPropagation();
-      onEnter();
+      const dialog = dialogRef.current;
+      if (!dialog || !isTop() || e.ctrlKey || e.altKey || e.metaKey) return;
+      const active = document.activeElement;
+      if (active && active !== document.body && !dialog.contains(active) && !active.closest("#root")) return;
+      // Commande de la pop-in qui a le focus, s'il y en a une.
+      const own = active && dialog.contains(active) && active !== dialog ? active : null;
+      if (e.key === "Tab") {
+        // Tab et Maj + Tab tournent entre les commandes de la pop-in, sans passer à la page derrière.
+        const items = [...dialog.querySelectorAll<HTMLElement>(FOCUSABLE)];
+        if (items.length === 0) return;
+        const i = own ? items.indexOf(own as HTMLElement) : -1;
+        const next = e.shiftKey ? (i <= 0 ? items.length - 1 : i - 1) : i === -1 || i === items.length - 1 ? 0 : i + 1;
+        e.preventDefault();
+        items[next].focus();
+      } else if (e.key === "Enter" && onEnter && !e.repeat && !e.shiftKey) {
+        // Entrée = bouton de confirmation, même sans focus et même sur la case ; un champ (Entrée y
+        // valide ou va à la ligne) et un autre bouton (Annuler…) gardent leur rôle.
+        if (own?.matches(FIELD) || (own instanceof HTMLButtonElement && own.role !== "checkbox")) return;
+        e.preventDefault();
+        e.stopPropagation();
+        onEnter();
+      } else if (e.key === " " && !e.repeat && !e.shiftKey) {
+        // Espace coche ou décoche la case principale (GEN-20.2), même sans focus ; une commande
+        // qui a le focus garde son rôle (bouton, autre case, champ).
+        if (own?.matches(CONTROL)) return;
+        const boxes = dialog.querySelectorAll<HTMLElement>('[role="checkbox"]:not([disabled])');
+        const main = dialog.querySelector<HTMLElement>('[role="checkbox"][data-principale]:not([disabled])') ?? (boxes.length === 1 ? boxes[0] : null);
+        if (!main) return;
+        e.preventDefault();
+        main.click();
+      }
     };
     window.addEventListener("keydown", onKey, true);
     return () => window.removeEventListener("keydown", onKey, true);

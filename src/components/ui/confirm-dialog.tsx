@@ -1,5 +1,6 @@
 // Pop-in de confirmation maison (GEN-10) : « Annuler » et « Oui » (rouge pour une action
-// dangereuse, CTX-01). Échap, le bouton 4 de la souris, la croix ou un clic sur le fond annulent.
+// dangereuse, CTX-01). Entrée confirme (GEN-20) ; Échap, le bouton 4 de la souris, la croix ou un
+// clic sur le fond annulent.
 // Utilisée par les menus du clic droit (CTX-02) et par les boutons qui demandent confirmation
 // (« Effacer la note », VIEW-45). `confirmLabel` remplace « Oui » ; `children` : contenu sous le
 // texte (une case à cocher…).
@@ -25,6 +26,7 @@ export function ConfirmDialog({ title, message, danger = false, zone, onCancel, 
     <Modal
       open
       even
+      onEnter={onConfirm}
       onClose={onCancel}
       zone={zone}
       title={title}

@@ -11,7 +11,8 @@ export function KeepAliasesBox({ checked, onChange }: { checked: boolean; onChan
       title="Taper un ancien nom donnera le tag gardé. Décocher son synonyme (Gestionnaire de tags › Synonymes et parents) défera la fusion."
       className="flex cursor-pointer items-center gap-2 text-sm text-foreground"
     >
-      <Checkbox checked={checked} onCheckedChange={(c) => onChange(c === true)} />
+      {/* Case principale de la pop-in : Espace la coche (GEN-20.2). */}
+      <Checkbox data-principale checked={checked} onCheckedChange={(c) => onChange(c === true)} />
       Garder les anciens noms comme synonymes
     </label>
   );
