@@ -3,7 +3,7 @@
 // contient la sélection (favoris, dossiers) est demandé au cœur Rust à l'ouverture du menu : elle
 // peut compter des médias qui ne sont plus affichés.
 
-import { folderBadge, folderPickManyEntries } from "@/components/folders/folderMenus";
+import { folderBadge, folderListLabelMany, folderPickManyEntries } from "@/components/folders/folderMenus";
 import { api, type ListQuery, type SelectionInfo } from "@/lib/api";
 import type { MenuEntry, MenuItem } from "@/lib/contextMenu";
 import { setFolderMedia } from "@/lib/folders";
@@ -48,7 +48,7 @@ export function favoritesEntry({ ids, info }: SelectionContext): MenuItem {
 }
 
 export function folderEntry({ ids, info }: SelectionContext): MenuItem {
-  return { label: `Ajouter ${n(ids.length)} à un dossier`, disabled: ids.length === 0, submenu: folderPickManyEntries(ids, info.folders) };
+  return { label: folderListLabelMany(ids.length, info.folders), disabled: ids.length === 0, submenu: folderPickManyEntries(ids, info.folders) };
 }
 
 /** Page d'un dossier : « Retirer X de ce dossier » (FOLD-03). */

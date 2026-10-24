@@ -7,7 +7,7 @@
 // Vignette cochée en mode sélection (`selection`, SEL-08) : favoris, dossiers, retrait du dossier et
 // suppression agissent sur toute la sélection, avec le nombre dans le libellé ; « Désélectionner ».
 
-import { folderPickEntries } from "@/components/folders/folderMenus";
+import { folderListLabel, folderPickEntries } from "@/components/folders/folderMenus";
 import { copyFile, copyPath, openFile, revealFile } from "@/components/viewer/mediaActions";
 import type { MediaItem } from "@/lib/api";
 import type { MenuEntry } from "@/lib/contextMenu";
@@ -29,7 +29,7 @@ export function tileMenu(item: MediaItem, index: number, pageSize: number, selec
     { label: "Copier le fichier", run: () => void copyFile(item) },
     "separator",
     selection ? favoritesEntry(selection) : { label: favorite ? "Retirer des favoris" : "Ajouter aux favoris", run: () => void setFavorite([item.id], !favorite) },
-    selection ? folderEntry(selection) : { label: "Ajouter à un dossier", submenu: folderPickEntries(item.id, item.folders) },
+    selection ? folderEntry(selection) : { label: folderListLabel(item.folders), submenu: folderPickEntries(item.id, item.folders) },
     selection
       ? { label: "Désélectionner", run: () => removeFromSelection([item.id]) }
       : { label: "Sélectionner", run: () => (isSelecting() ? addToSelection([item]) : startSelection([item])) },

@@ -5,7 +5,8 @@
 //   ouvert par un clic sur son entrée, un sous-menu reste ouvert quand la souris sort des menus
 //   (CTX-20, CTX-21) : seul le survol d'une autre entrée le ferme ;
 // - fermé par un clic ailleurs (qui ne fait rien d'autre), Échap, le bouton 4 de la souris, la
-//   molette, un changement de page ou le passage à une autre fenêtre ; un clic droit ailleurs
+//   molette, un changement de page ou le passage à une autre fenêtre (sauf sous une pop-in qu'il a
+//   ouverte, GEN-23) ; un clic droit ailleurs
 //   ouvre le menu du nouvel endroit ;
 // - clavier : flèches, Entrée, Échap. Le menu ne prend jamais le focus : un champ de saisie garde
 //   sa sélection (menu d'édition, CTX-03) ;
@@ -53,7 +54,10 @@ window.addEventListener(
   },
   { capture: true, passive: false },
 );
-for (const name of ["blur", "resize", "hashchange"]) window.addEventListener(name, closeContextMenu);
+for (const name of ["resize", "hashchange"]) window.addEventListener(name, closeContextMenu);
+// Passage à une autre fenêtre (ou à l'autre écran) : le menu se ferme, sauf si une pop-in qu'il a
+// ouverte est par-dessus : elle resterait sinon emportée avec lui (GEN-23).
+window.addEventListener("blur", () => menuOnTop() && closeContextMenu());
 
 function MenuLayer({ menu }: { menu: OpenMenu }) {
   const { entries } = menu;

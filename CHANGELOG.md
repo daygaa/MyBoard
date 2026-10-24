@@ -3,6 +3,31 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Phase 3, correctifs du test, lot 4 : dossiers de la sélection, badge, surlignage (24/10/2026) — Backup v48
+
+SPEC : livrées `[~]` : SEL-08 (SEL-08.1, SEL-08.2), FOLD-14, nouvelle GEN-23 ; retouches de SEL-06 (25 %,
+surlignage) ; GRID-13 précisée.
+
+- **Liste des dossiers d'une sélection** (clic droit d'une vignette cochée, menu ⋮) : ✓ et « 20 / 20 »
+  quand un dossier contient toute la sélection, « – » et « 7 / 20 » quand il en contient une partie.
+- **« Ajouter / Retirer d'un dossier »** quand le média est déjà dans un dossier (menu d'une vignette,
+  bouton D de la visionneuse) ; pour une sélection, quand un dossier les contient tous.
+- **Badge des ajouts** (dossiers, favoris, et gestionnaire de tags) : plus grand, bordure dorée, 3 s,
+  centré dans la fenêtre sur la ligne des filtres (en haut de la page si elle a défilé).
+- **Rectangle de sélection** : fond à 25 %. **Texte surligné** : retiré au premier clic ailleurs, qui
+  garde son effet.
+- **Pop-in ouverte depuis un menu** : elle ne se ferme plus quand on clique dans une autre fenêtre ou sur
+  l'autre écran (GEN-23).
+
+Vérifié dans la version compilée, sur une copie de la bibliothèque « booru » : texte « N médias »
+surligné puis clic sur une vignette (visionneuse ouverte, surlignage retiré), dans le vide, sur un
+bouton (liste ouverte, surlignage retiré) ; clic droit : « Copier », surlignage gardé ; menu seul et
+perte du focus : fermé ; pop-in ouverte depuis le menu et perte du focus : pop-in et menu restent, Échap
+ferme la pop-in ; dossiers d'essai (5 médias dans l'un, 2 dans l'autre) : « Ajouter / Retirer 5 d'un
+dossier », « – zz-partiel 2 / 5 », « ✓ zz-tous 5 / 5 », un clic ajoute les 3 autres ; vignette seule
+et bouton D : « Ajouter / Retirer d'un dossier » ; badge : 14 px, bordure dorée, centré sur la ligne
+des filtres, parti après 3 s, en haut de la page après défilement ; rectangle à 25 %.
+
 ## Phase 3, correctifs du test, lot 3 : sélection et surlignage (24/10/2026) — Backup v47
 
 SPEC : livrées `[~]` : SEL-01 (SEL-01.2), SEL-03 (SEL-01.3), SEL-06 (SEL-06.1 à SEL-06.3) ; note dans GEN-17.

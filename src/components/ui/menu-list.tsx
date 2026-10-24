@@ -1,10 +1,11 @@
 // Liste d'entrées d'un menu du clic droit (CTX-01) : menu principal ou sous-menu, et leur placement
 // dans la fenêtre. Apparence du menu de tri (dropdown-menu.tsx), sans icônes ; case cochée et
-// pastille de couleur seulement si l'entrée en a ; « ▸ » pour un sous-menu ; séparateurs comme
+// pastille de couleur seulement si l'entrée en a (coche à moitié « – » pour une partie de la
+// sélection, SEL-08.1) ; « ▸ » pour un sous-menu ; séparateurs comme
 // ceux de Firefox (trait à 16 px du bord intérieur, 3 px vides au-dessus et en dessous).
 
 import type { CSSProperties, RefObject } from "react";
-import { Check, ChevronRight } from "lucide-react";
+import { Check, ChevronRight, Minus } from "lucide-react";
 
 import type { MenuEntry, MenuItem } from "@/lib/contextMenu";
 import { cn } from "@/lib/utils";
@@ -85,10 +86,18 @@ export function MenuList({ entries, active, listRef, style, zone, onHover, onLea
               entry.danger && !on && "text-destructive",
             )}
           >
-            {checks && <span className="grid w-4 shrink-0 place-items-center">{entry.checked && <Check className="h-3.5 w-3.5" />}</span>}
+            {checks && (
+              <span className="grid w-4 shrink-0 place-items-center">
+                {entry.checked === true && <Check className="h-3.5 w-3.5" />}
+                {entry.checked === "partial" && <Minus className="h-3.5 w-3.5" />}
+              </span>
+            )}
             {entry.color && <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: entry.color }} />}
             {/* Libellé très long (nom de dossier…) : coupé par « … ». */}
             <span className="max-w-80 flex-1 truncate whitespace-nowrap">{entry.label}</span>
+            {entry.detail && (
+              <span className={cn("ml-6 text-xs whitespace-nowrap tabular-nums", on ? "opacity-70" : "text-muted-foreground")}>{entry.detail}</span>
+            )}
             {entry.shortcut && (
               <span className={cn("ml-6 text-xs whitespace-nowrap", on ? "opacity-70" : "text-muted-foreground")}>{entry.shortcut}</span>
             )}

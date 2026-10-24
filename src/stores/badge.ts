@@ -1,16 +1,15 @@
-// Badge bref en haut de la grille (SEL-08) : « 3 ajoutés au dossier « Vacances » »… Même aspect et
-// même durée que le badge de la vitesse du lecteur vidéo (VIEW-47). Un nouveau badge remplace l'ancien.
+// Badge bref des ajouts (SEL-08) : « 3 ajoutés au dossier « Vacances » »… Un nouveau badge remplace
+// l'ancien. Affiché 3 s, plus longtemps que les badges du lecteur vidéo (SEL-08.2).
 
 import { create } from "zustand";
 
-import { SPEED_BADGE_MS } from "@/components/viewer/PlayerBadge";
-
 export const useGridBadge = create<{ text: string | null }>(() => ({ text: null }));
 
+const GRID_BADGE_MS = 3000;
 let timer = 0;
 
 export function showGridBadge(text: string) {
   window.clearTimeout(timer);
   useGridBadge.setState({ text });
-  timer = window.setTimeout(() => useGridBadge.setState({ text: null }), SPEED_BADGE_MS);
+  timer = window.setTimeout(() => useGridBadge.setState({ text: null }), GRID_BADGE_MS);
 }

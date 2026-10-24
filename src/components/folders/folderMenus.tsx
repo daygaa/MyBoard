@@ -60,18 +60,39 @@ export function folderBadge(count: number, added: boolean, name: string) {
   showGridBadge(`${formatNumber(count)} ${verb} ${added ? "au" : "du"} dossier « ${name} »`);
 }
 
-/** Liste à cocher d'une sélection (`inFolders` : nombre de ses médias dans chaque dossier). */
+/** Dossiers affichés dans les listes (les masqués n'y sont pas). */
+const shownIds = () => new Set(cachedFolders().filter((f) => !f.hidden).map((f) => f.id));
+
+/** Entrée qui ouvre la liste des dossiers d'un média (FOLD-14) : « Ajouter / Retirer » quand il est
+ *  déjà dans un dossier de la liste. */
+export function folderListLabel(inFolders: number[]): string {
+  const shown = shownIds();
+  return inFolders.some((id) => shown.has(id)) ? "Ajouter / Retirer d'un dossier" : "Ajouter à un dossier";
+}
+
+/** Même entrée pour une sélection : « Retirer » quand un dossier de la liste les contient tous, seul
+ *  cas où un clic les en retire (choix de l'utilisateur, 24/10). */
+export function folderListLabelMany(count: number, inFolders: { id: number; count: number }[]): string {
+  const shown = shownIds();
+  const n = formatNumber(count);
+  return count > 0 && inFolders.some((c) => shown.has(c.id) && c.count === count) ? `Ajouter / Retirer ${n} d'un dossier` : `Ajouter ${n} à un dossier`;
+}
+
+/** Liste à cocher d'une sélection (`inFolders` : nombre de ses médias dans chaque dossier) : ✓ s'ils y
+ *  sont tous, « – » et « 7 / 20 » à droite pour une partie (SEL-08.1). */
 export function folderPickManyEntries(mediaIds: number[], inFolders: { id: number; count: number }[]): MenuEntry[] {
   const folders = cachedFolders().filter((f) => !f.hidden);
   const create = createFolderEntry(mediaIds, (f) => folderBadge(f.mediaCount, true, f.name));
   if (folders.length === 0) return [create];
   return [
     ...folders.map((f): MenuEntry => {
-      const all = mediaIds.length > 0 && inFolders.find((c) => c.id === f.id)?.count === mediaIds.length;
+      const inside = inFolders.find((c) => c.id === f.id)?.count ?? 0;
+      const all = mediaIds.length > 0 && inside === mediaIds.length;
       return {
         label: f.name,
         color: f.color,
-        checked: all,
+        checked: all ? true : inside > 0 ? "partial" : false,
+        detail: inside > 0 ? `${formatNumber(inside)} / ${formatNumber(mediaIds.length)}` : undefined,
         run: () => void setFolderMedia(f.id, mediaIds, !all).then((n) => n !== undefined && folderBadge(n, !all, f.name)),
       };
     }),

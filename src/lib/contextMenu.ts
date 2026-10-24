@@ -26,8 +26,11 @@ export type MenuItem = {
   shortcut?: string;
   /** Action dangereuse : en rouge, en dernier, avec confirmation (CTX-01). */
   danger?: boolean;
-  /** Entrée cochée ou non (ex. lecture en boucle) ; absente : pas de case. */
-  checked?: boolean;
+  /** Entrée cochée ou non (ex. lecture en boucle), « partial » : à moitié (une partie de la sélection,
+   *  SEL-08.1) ; absente : pas de case. */
+  checked?: boolean | "partial";
+  /** Précision en gris à droite, comme un raccourci (« 7 / 20 », SEL-08.1). */
+  detail?: string;
   /** Pastille de couleur avant le libellé (catégories). */
   color?: string;
   confirm?: Confirm;

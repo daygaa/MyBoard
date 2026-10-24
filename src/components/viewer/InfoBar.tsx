@@ -13,7 +13,7 @@ import { useEffect, useState, type ComponentType, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Check, Copy, ExternalLink, FolderOpen, FolderPlus, Printer, Star, Trash2 } from "lucide-react";
 
-import { folderPickEntries } from "@/components/folders/folderMenus";
+import { folderListLabel, folderPickEntries } from "@/components/folders/folderMenus";
 import { DeleteDialog } from "@/components/library/DeleteDialog";
 import { api, type MediaItem } from "@/lib/api";
 import { openContextMenu, openMenuAt } from "@/lib/contextMenu";
@@ -124,8 +124,8 @@ export function InfoBar({ item, children }: { item: MediaItem; children: ReactNo
       action: "folder",
       zone: "visionneuse.dossier",
       icon: FolderPlus,
-      label: "Ajouter à un dossier",
-      title: "Ajouter à un dossier",
+      label: folderListLabel(detail?.folders ?? item.folders),
+      title: folderListLabel(detail?.folders ?? item.folders),
       // Liste ouverte au-dessus du bouton ; la barre du bas reste affichée tant qu'elle est ouverte.
       run: () => {
         const r = document.querySelector('[data-zone="visionneuse.dossier"]')?.getBoundingClientRect();

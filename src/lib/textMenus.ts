@@ -80,3 +80,18 @@ export function textMenuFor(e: MouseEvent): (() => Promise<MenuEntry[]>) | null 
   if (onSelection(e)) return async () => [{ label: "Copier", shortcut: "Ctrl+C", run: () => document.execCommand("copy") }];
   return null;
 }
+
+// Un texte surligné (GEN-17) perd son surlignage au premier clic ailleurs, et ce clic garde son effet
+// (ouvrir la visionneuse…) : la page n'étant pas sélectionnable (SEL-06.3), le clic ne le retirait
+// pas. Le clic droit (menu « Copier », CTX-18), le menu lui-même, un autre texte d'information et
+// les champs de saisie gardent leur fonctionnement habituel.
+window.addEventListener(
+  "pointerdown",
+  (e) => {
+    const selection = window.getSelection();
+    if (e.button !== 0 || !selection || selection.isCollapsed || fieldOf(document.activeElement)) return;
+    if (e.target instanceof Element && e.target.closest('.select-text, input, textarea, [data-zone^="menu-contextuel"]')) return;
+    selection.removeAllRanges();
+  },
+  true,
+);
