@@ -54,10 +54,11 @@ window.addEventListener(
   },
   { capture: true, passive: false },
 );
-for (const name of ["resize", "hashchange"]) window.addEventListener(name, closeContextMenu);
-// Passage à une autre fenêtre (ou à l'autre écran) : le menu se ferme, sauf si une pop-in qu'il a
-// ouverte est par-dessus : elle resterait sinon emportée avec lui (GEN-23).
-window.addEventListener("blur", () => menuOnTop() && closeContextMenu());
+window.addEventListener("hashchange", closeContextMenu);
+// Passage à une autre fenêtre (ou à l'autre écran) et changement de taille de la fenêtre (Agrandir,
+// Réduire, double-clic sur la barre de titre) : le menu se ferme, sauf si une pop-in qu'il a ouverte
+// est par-dessus : elle serait sinon emportée avec lui (GEN-23). Il est alors replacé dans la fenêtre.
+for (const name of ["blur", "resize"]) window.addEventListener(name, () => menuOnTop() && closeContextMenu());
 
 function MenuLayer({ menu }: { menu: OpenMenu }) {
   const { entries } = menu;
@@ -68,6 +69,8 @@ function MenuLayer({ menu }: { menu: OpenMenu }) {
   const [confirming, setConfirming] = useState<MenuItem | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   const subRef = useRef<HTMLDivElement>(null);
+  /** Changements de taille de la fenêtre gardés (pop-in ouverte, GEN-23) : le menu est replacé. */
+  const [resized, setResized] = useState(0);
   const [rootPos, setRootPos] = useState<CSSProperties>({ left: menu.x, top: menu.y, visibility: "hidden" });
   const [subPos, setSubPos] = useState<CSSProperties>({ visibility: "hidden" });
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -127,6 +130,14 @@ function MenuLayer({ menu }: { menu: OpenMenu }) {
   // Minuteur du sous-menu annulé seulement à la fermeture du menu : `isTop` change à chaque
   // affichage, et l'annuler alors perdait la fermeture demandée en survolant une autre entrée.
   useEffect(() => () => clearTimeout(timer.current), []);
+  useEffect(() => {
+    const onResize = () => {
+      setResized((n) => n + 1);
+      setSubPos({ visibility: "hidden" });
+    };
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
 
   // Placement, avant l'affichage : au point du clic, dans la fenêtre.
   useLayoutEffect(() => {
@@ -136,7 +147,7 @@ function MenuLayer({ menu }: { menu: OpenMenu }) {
     const y = menu.above && menu.y - el.offsetHeight >= 0 ? menu.y - el.offsetHeight : menu.y;
     const { left, top } = fit(menu.x, y, el.offsetWidth, el.offsetHeight);
     setRootPos({ left, top, transformOrigin: `${left < menu.x ? "right" : "left"} ${top < menu.y ? "bottom" : "top"}` });
-  }, [menu]);
+  }, [menu, resized]);
   useLayoutEffect(() => {
     const list = subRef.current;
     const parent = rootRef.current;

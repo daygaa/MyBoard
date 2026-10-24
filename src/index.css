@@ -185,6 +185,22 @@
     height: calc(16px * var(--check-scale));
   }
 
+  /* Champ de la barre de la sélection qui reçoit le curseur depuis le menu ⋮ (SEL-03.2) : halo doré
+     qui pulse deux fois. */
+  .champ-signale {
+    border-color: #d9a94e !important;
+    animation: champ-signale 0.7s ease-in-out 2;
+  }
+  @keyframes champ-signale {
+    0%,
+    100% {
+      box-shadow: 0 0 0 0 rgb(217 169 78 / 0);
+    }
+    50% {
+      box-shadow: 0 0 0 4px rgb(217 169 78 / 0.55);
+    }
+  }
+
   /* Fond en damier de la visionneuse (v8), remplacé par un fond uni (VIEW-44) ; gardé pour le
      choix du fond dans les préférences (SET-11). */
   .checker {

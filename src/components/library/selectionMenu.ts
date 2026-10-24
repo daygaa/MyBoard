@@ -14,7 +14,7 @@ import { setFavorite } from "@/stores/favorites";
 import { addToSelection, removeDeletedFromSelection, selectedIds, settleSelectionDeletion, singleName } from "@/stores/selection";
 import { useViewer } from "@/stores/viewer";
 import { deleteEntry } from "./DeleteDialog";
-import { focusTagAdder } from "./SelectionBar";
+import { focusTagAdder, focusTagRemover } from "./SelectionBar";
 
 /** La sélection au moment d'ouvrir le menu. */
 export type SelectionContext = { ids: number[]; info: SelectionInfo };
@@ -92,6 +92,7 @@ export function toolsMenu(selection: SelectionContext, base: Omit<ListQuery, "pa
     favoritesEntry(selection),
     folderEntry(selection),
     { label: "Ajouter des tags à la sélection", disabled: selection.ids.length === 0, run: focusTagAdder },
+    { label: "Retirer des tags de la sélection", disabled: selection.ids.length === 0, run: focusTagRemover },
     "separator",
     deleteSelectionEntry(selection),
   ];

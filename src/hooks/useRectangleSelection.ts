@@ -85,15 +85,17 @@ export function useRectangleSelection(gridRef: RefObject<HTMLDivElement | null>,
       const x = pointer.x - box.left;
       const y = pointer.y - box.top;
       const rect = { left: Math.min(start.x, x), top: Math.min(start.y, y), right: Math.max(start.x, x), bottom: Math.max(start.y, y) };
-      // Dessiné dans les limites de la grille.
-      const left = Math.max(0, rect.left);
-      const top = Math.max(0, rect.top);
+      // Dessiné depuis le point de départ, même hors de la grille (SEL-06.2), dans la zone qui défile
+      // (jamais sur la barre de titre).
+      const area = scroller().getBoundingClientRect();
+      const left = Math.max(area.left, box.left + rect.left);
+      const top = Math.max(area.top, box.top + rect.top);
       Object.assign(overlay.style, {
         display: "block",
         left: `${left}px`,
         top: `${top}px`,
-        width: `${Math.max(0, Math.min(box.width, rect.right) - left)}px`,
-        height: `${Math.max(0, Math.min(box.height, rect.bottom) - top)}px`,
+        width: `${Math.max(0, Math.min(area.right, box.left + rect.right) - left)}px`,
+        height: `${Math.max(0, Math.min(area.bottom, box.top + rect.bottom) - top)}px`,
       });
       const found = hits(rect, geo.current);
       const key = [...found].join(",");

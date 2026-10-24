@@ -3,6 +3,28 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Phase 3, correctifs du test, lot 5 : fenêtre, rectangle, barre de la sélection (24/10/2026) — Backup v49
+
+SPEC : livrées `[~]` : GEN-23 (corrigé), SEL-06 (point SEL-06.2), SEL-03 (points SEL-03.1, SEL-03.2),
+SEL-07 (points SEL-07.2, SEL-07.3).
+
+- **Pop-in ouverte depuis un menu** : « Agrandir », « Réduire » et le double-clic sur la barre de titre
+  ne la ferment plus ; le menu reste dessous et se replace dans la fenêtre.
+- **Rectangle de sélection** : dessiné dès son point de départ, même hors de la grille.
+- **Menu ⋮ de la sélection** : nouvelle entrée « Retirer des tags de la sélection » ; le champ qui reçoit
+  le curseur depuis le menu s'entoure d'un halo doré qui pulse deux fois.
+- **Barre du bas de la sélection** : champ vide, Retour arrière efface la dernière pastille, Ctrl + Z la
+  remet, Ctrl + Y l'efface de nouveau ; Entrée dans un champ vide = « Appliquer ».
+
+Vérifié dans la version compilée, sur une copie de la bibliothèque « booru » : pop-in ouverte depuis le
+menu d'une vignette, puis « Niveau inférieur » (menu replacé dans la fenêtre), double-clic sur la barre
+de titre, « Réduire » puis rétablir : la pop-in reste ; Échap la ferme et laisse le menu ; menu seul :
+fermé au changement de taille ; rectangle depuis la barre des filtres (haut à 125 px, grille à 205 px) et
+depuis la barre latérale (bord gauche au point de départ) ; menu ⋮ : nouvelle entrée, curseur et halo
+(parti après 1,6 s) ; pastilles : Retour arrière ×2, Ctrl + Z ×2 (ordre retrouvé), Ctrl + Y, texte
+« ab » + Retour arrière (seul le texte change) ; Entrée : 2 tags d'essai posés sur les 2 médias puis
+retirés de même ; essais des lots 1 et 3 refaits.
+
 ## Phase 3, correctifs du test, lot 4 : dossiers de la sélection, badge, surlignage (24/10/2026) — Backup v48
 
 SPEC : livrées `[~]` : SEL-08 (SEL-08.1, SEL-08.2), FOLD-14, nouvelle GEN-23 ; retouches de SEL-06 (25 %,

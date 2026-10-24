@@ -126,7 +126,7 @@ export function MediaGrid({ items, density, firstIndex, pageSize }: Props) {
             ))}
           </div>
         ))}
-      <div ref={rectangleRef} data-zone="grille.rectangle" className="pointer-events-none absolute z-20 hidden rounded-sm border border-[#d9a94e] bg-[#d9a94e]/25" />
+      <div ref={rectangleRef} data-zone="grille.rectangle" className="pointer-events-none fixed z-40 hidden rounded-sm border border-[#d9a94e] bg-[#d9a94e]/25" />
     </div>
   );
 }
