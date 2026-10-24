@@ -91,7 +91,7 @@
     scrollbar-color: #343741 transparent;
   }
 
-  /* Curseurs (GEN-13) : flèche par défaut, textes compris (ils restent sélectionnables, GEN-17) ;
+  /* Curseurs (GEN-13) : flèche par défaut, textes compris (ceux d'information restent sélectionnables, GEN-17) ;
      main sur ce qui se clique ; « interdit » sur un bouton grisé (sauf les flèches de la barre de
      titre et de la pagination : flèche) ; barre « I » dans les champs de saisie. */
   button:not(:disabled),
@@ -104,10 +104,15 @@
   input:not([type="range"], [type="checkbox"], [type="radio"]),
   textarea {
     cursor: text;
+    user-select: text;
   }
 
+  /* Comme une application, rien ne se surligne au cliquer-glisser (SEL-06.3) : seuls les textes
+     d'information (GEN-17, classe `select-text` : nom et poids du fichier, compteurs, titres, notes,
+     textes des pop-ins…) et les champs de saisie restent sélectionnables. */
   body {
     @apply bg-background text-foreground;
+    user-select: none;
     cursor: default;
     font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial,
       sans-serif;

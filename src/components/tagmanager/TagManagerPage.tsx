@@ -130,7 +130,7 @@ export function TagManagerPage() {
           <span className="grid h-8 w-8 place-items-center rounded-lg bg-[#d9a94e]/15 text-[#d9a94e]">
             <Tags className="h-4 w-4" />
           </span>
-          <div>
+          <div className="select-text">
             <h1 className="text-base leading-tight font-semibold text-foreground">Gestionnaire de tags</h1>
             <p data-zone="gestionnaire-tags.compteurs" className="text-xs text-muted-foreground">
               {formatNumber(all.length)} {plural(all.length, "tag")} · {formatNumber(data?.taggedMedia ?? 0)} {plural(data?.taggedMedia ?? 0, "média taggé", "médias taggés")}

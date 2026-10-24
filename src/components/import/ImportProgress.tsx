@@ -31,7 +31,7 @@ export function ImportProgress({ progress, result }: { progress: ProgressData; r
   const running = result === null;
 
   return (
-    <div data-zone="import.progression" className="w-full space-y-3 border-t border-border/70 pt-3">
+    <div data-zone="import.progression" className="w-full select-text space-y-3 border-t border-border/70 pt-3">
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs">
         <span className="flex items-center gap-1.5 text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">
           {running ? (

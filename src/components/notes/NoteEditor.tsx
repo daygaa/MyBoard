@@ -134,7 +134,7 @@ export function NotePanel({ editor, texts, zone, className, style }: PanelProps)
   const { editing, setEditing, text, flush, close, erase, setConfirming, confirming, panelRef } = editor;
   return (
     <>
-      <div ref={panelRef} data-zone={`${zone}.zone`} className={cn("w-80 rounded-lg border border-border bg-card p-3 shadow-xl", className)} style={style}>
+      <div ref={panelRef} data-zone={`${zone}.zone`} className={cn("w-80 rounded-lg border border-border bg-card p-3 shadow-xl select-text", className)} style={style}>
         <div className="mb-2 flex items-center justify-between gap-2">
           <p className="text-[11px] text-muted-foreground">{texts.header}</p>
           <button

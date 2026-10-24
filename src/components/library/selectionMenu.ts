@@ -78,11 +78,8 @@ export function deleteSelectionEntry({ ids }: SelectionContext): MenuItem {
 /** Menu ⋮ des outils de la sélection (SEL-03) ; `base` : requête de la grille (vue, recherche,
  *  types) pour « Sélectionner tous les résultats ». */
 export function toolsMenu(selection: SelectionContext, base: Omit<ListQuery, "page">): MenuEntry[] {
+  // « Sélectionner tous les résultats » en premier (retour du 23/10, SEL-01.3).
   return [
-    favoritesEntry(selection),
-    folderEntry(selection),
-    { label: "Ajouter des tags à la sélection", disabled: selection.ids.length === 0, run: focusTagAdder },
-    "separator",
     {
       label: "Sélectionner tous les résultats",
       run: () =>
@@ -91,6 +88,10 @@ export function toolsMenu(selection: SelectionContext, base: Omit<ListQuery, "pa
           .then((ids) => addToSelection(ids.map((id) => ({ id }))))
           .catch((error) => useViewer.getState().setError({ action: "Sélectionner tous les résultats", code: null, message: String(error) })),
     },
+    "separator",
+    favoritesEntry(selection),
+    folderEntry(selection),
+    { label: "Ajouter des tags à la sélection", disabled: selection.ids.length === 0, run: focusTagAdder },
     "separator",
     deleteSelectionEntry(selection),
   ];

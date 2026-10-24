@@ -143,9 +143,9 @@ export function Modal(props: Props) {
             <X className="h-4 w-4" />
           </button>
         )}
-        <h2 className="pr-6 text-lg font-semibold text-foreground">{title}</h2>
-        {description && <div className={cn("text-sm text-muted-foreground", even ? "mt-4" : "mt-1.5")}>{description}</div>}
-        {children && <div className={even ? "mt-4" : "mt-5"}>{children}</div>}
+        <h2 className="pr-6 text-lg font-semibold text-foreground select-text">{title}</h2>
+        {description && <div className={cn("text-sm text-muted-foreground select-text", even ? "mt-4" : "mt-1.5")}>{description}</div>}
+        {children && <div className={cn("select-text", even ? "mt-4" : "mt-5")}>{children}</div>}
         {footer && <div className={cn("flex justify-end gap-2", even ? "mt-4" : "mt-6")}>{footer}</div>}
       </div>
     </div>,

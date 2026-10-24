@@ -1,5 +1,5 @@
 // Rectangle de sélection (SEL-06), comme dans l'Explorateur Windows, en mode sélection seulement :
-// glisser depuis n'importe quel point de la grille (vignettes comprises) trace un rectangle ; les
+// glisser depuis n'importe quel point de la fenêtre (vignettes comprises, SEL-06.2) trace un rectangle ; les
 // vignettes qu'il touche paraissent cochées pendant le geste et sont AJOUTÉES à la sélection au
 // relâchement (Ctrl : elles sont décochées). Près du haut ou du bas de la zone qui défile, la grille
 // défile toute seule. Un simple clic reste un clic (5 px de mouvement avant de tracer).
@@ -7,10 +7,11 @@
 // Performance (D-008) : le rectangle est dessiné directement (style de son élément), sans redessiner
 // la grille ; les vignettes ne changent que quand l'ensemble touché change.
 
-import type { PointerEvent as ReactPointerEvent, RefObject } from "react";
-import { useRef } from "react";
+import type { RefObject } from "react";
+import { useCallback, useRef } from "react";
 
 import type { MediaItem } from "@/lib/api";
+import { hasEscapeLayer } from "@/lib/escape";
 import { GRID_GAP } from "@/lib/grid";
 import { scroller } from "@/lib/scroller";
 import { swallow } from "@/lib/swallowClick";
@@ -23,6 +24,20 @@ const EDGE = 48;
 const MAX_SPEED = 20;
 
 type Geometry = { tile: number; density: number; items: MediaItem[] };
+
+/** Commandes sur lesquelles un appui garde son rôle (pas de rectangle) ; la barre de titre déplace la
+ *  fenêtre. */
+const CONTROLS =
+  'button, a[href], input, textarea, select, label, [role="button"], [role="checkbox"], [role="radio"], [role="slider"], [role="menuitem"], [role="tab"], [role="switch"], [role="dialog"], [data-zone="barre-titre"]';
+
+/** Un rectangle peut-il démarrer à cet appui (SEL-06.2) : n'importe où dans la fenêtre, sauf sur une
+ *  commande, une barre de défilement, ou quand quelque chose est ouvert par-dessus (visionneuse,
+ *  pop-in, menu burger) ? */
+export function canStartRectangle(e: PointerEvent): boolean {
+  if (e.button !== 0 || hasEscapeLayer() || !(e.target instanceof Element) || e.target.closest(CONTROLS)) return false;
+  const area = scroller();
+  return !(e.target === area && e.clientX >= area.getBoundingClientRect().left + area.clientWidth);
+}
 type Box = { left: number; top: number; right: number; bottom: number };
 
 /** Première et dernière colonne (ou rangée) touchées par l'intervalle [from, to] (pixels de la grille). */
@@ -52,10 +67,10 @@ export function useRectangleSelection(gridRef: RefObject<HTMLDivElement | null>,
   const geo = useRef(geometry);
   geo.current = geometry;
 
-  return (e: ReactPointerEvent<HTMLDivElement>) => {
+  return useCallback((e: PointerEvent) => {
     const grid = gridRef.current;
     const overlay = overlayRef.current;
-    if (!grid || !overlay || e.button !== 0 || (e.target instanceof Element && e.target.closest("button"))) return;
+    if (!grid || !overlay) return;
     const origin = { x: e.clientX, y: e.clientY };
     const box0 = grid.getBoundingClientRect();
     const start = { x: e.clientX - box0.left, y: e.clientY - box0.top };
@@ -107,6 +122,8 @@ export function useRectangleSelection(gridRef: RefObject<HTMLDivElement | null>,
       if (!dragging) {
         if (Math.hypot(pointer.x - origin.x, pointer.y - origin.y) < THRESHOLD) return;
         dragging = true;
+        // Un texte d'information sous l'appui a pu commencer à se surligner : le rectangle l'emporte.
+        window.getSelection()?.removeAllRanges();
         document.documentElement.classList.add("rectangle-selection");
         frame = requestAnimationFrame(autoScroll);
       }
@@ -130,5 +147,5 @@ export function useRectangleSelection(gridRef: RefObject<HTMLDivElement | null>,
     window.addEventListener("pointermove", move);
     window.addEventListener("pointerup", end);
     window.addEventListener("pointercancel", end);
-  };
+  }, [gridRef, overlayRef]);
 }

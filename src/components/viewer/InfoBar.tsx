@@ -174,7 +174,7 @@ export function InfoBar({ item, children }: { item: MediaItem; children: ReactNo
   return (
     <div data-zone="visionneuse.barre" className="flex min-h-0 flex-col gap-3 border-t border-border bg-card px-4 py-3">
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-        <div data-zone="visionneuse.infos" className="max-w-[32rem] min-w-0 shrink">
+        <div data-zone="visionneuse.infos" className="max-w-[32rem] select-text min-w-0 shrink">
           <p
             className="truncate text-sm font-medium text-foreground"
             title={detail?.path ?? item.fileName}

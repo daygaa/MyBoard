@@ -27,7 +27,7 @@ function noneOf(kinds: MediaKind[]): string | null {
 /** Où cherche la page : « dans la bibliothèque », « dans les favoris », « dans ce dossier ». */
 type Where = { kinds: MediaKind[]; where: string };
 
-const BOX = "grid place-items-center rounded-2xl border border-dashed border-border py-24 text-center";
+const BOX = "grid select-text place-items-center rounded-2xl border border-dashed border-border py-24 text-center";
 
 export function EmptyLibrary() {
   return (

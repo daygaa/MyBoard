@@ -3,6 +3,29 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Phase 3, correctifs du test, lot 3 : sélection et surlignage (24/10/2026) — Backup v47
+
+SPEC : livrées `[~]` : SEL-01 (SEL-01.2), SEL-03 (SEL-01.3), SEL-06 (SEL-06.1 à SEL-06.3) ; note dans GEN-17.
+
+- **Plus rien ne se surligne au cliquer-glisser**, comme dans une application de bureau : seuls les
+  textes d'information restent sélectionnables et copiables (compteurs, nombre de médias, titres, infos
+  du fichier dans la visionneuse, notes, textes des pop-ins…) et les champs de saisie. Un double-clic
+  sur une vignette ne surligne plus son nom.
+- **Ctrl + A** ne sélectionne plus toute la page (sauf dans un champ) ; en mode sélection, il coche la
+  page affichée, comme « Tout ».
+- **Rectangle de sélection** : il démarre n'importe où dans la fenêtre (barre des filtres, barre
+  latérale, textes…), sauf sur un bouton, un champ, la barre de titre ou une barre de défilement ; son
+  fond est un peu plus opaque (15 %).
+- **Menu ⋮ de la sélection** : « Sélectionner tous les résultats » en premier.
+
+Vérifié dans la version compilée, sur une copie de la bibliothèque « booru » : glisser sur la grille et
+de la barre des filtres à la grille : rien de surligné ; compteurs de l'en-tête, « N médias », infos de
+la visionneuse : surlignés, clic droit « Copier » ; Ctrl + A : rien hors champ, tout le texte dans le
+champ de recherche, la page cochée en mode sélection (50 médias) ; double-clic sur une vignette : rien
+de surligné ; rectangle depuis la barre des filtres, le texte « N médias » et la barre latérale :
+vignettes cochées, rien de surligné ; depuis un bouton ou la barre de titre : pas de rectangle ; fond
+à 15 % ; ordre du menu ⋮ ; essais des lots 1 et 2 refaits.
+
 ## Phase 3, correctifs du test, lot 2 (suite) : Espace et Entrée dans les pop-ins (24/10/2026) — Backup v46
 
 SPEC : GEN-20 reste `[~]` (corrigé et précisé après ton test) ; TAGM-15.1 fait au passage.

@@ -39,7 +39,7 @@ export function PageHead({ data, title }: { data: ListPage | undefined; title: R
   return (
     <div ref={rowRef} data-zone="grille.entete" className="relative mb-4 h-8">
       {title && (
-        <div data-zone="grille.titre" className="absolute inset-y-0 left-0 flex min-w-0 items-center" style={{ maxWidth: room }}>
+        <div data-zone="grille.titre" className="absolute select-text inset-y-0 left-0 flex min-w-0 items-center" style={{ maxWidth: room }}>
           {title}
         </div>
       )}

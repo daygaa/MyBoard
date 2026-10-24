@@ -84,7 +84,7 @@ export function SelectionBar() {
 
   return (
     <div data-zone="selection.barre" className="sticky bottom-4 z-30 mt-4 flex items-center gap-3 rounded-xl border border-border bg-card px-3 py-2 shadow-xl">
-      <span data-zone="selection.barre.compteur" className="shrink-0 text-sm font-semibold text-foreground tabular-nums">
+      <span data-zone="selection.barre.compteur" className="shrink-0 select-text text-sm font-semibold text-foreground tabular-nums">
         {formatNumber(count)} {plural(count, "sélectionné")}
       </span>
       <div data-zone="selection.barre.ajouter" className={FIELD}>

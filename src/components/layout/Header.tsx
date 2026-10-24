@@ -70,7 +70,7 @@ export function Header() {
         </button>
 
         <div className="flex items-center justify-end gap-3 sm:gap-4">
-          <div data-zone="entete.stats" className="hidden items-center gap-3 text-xs text-muted-foreground lg:flex">
+          <div data-zone="entete.stats" className="hidden select-text items-center gap-3 text-xs text-muted-foreground lg:flex">
             <span className="inline-flex items-center gap-1.5" title="Images">
               <ImageIcon className="h-3.5 w-3.5 text-[#d9a94e]/80" />
               <span className="tabular-nums">{formatCount(stats?.images ?? 0)}</span>

@@ -8,7 +8,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 
-import { useRectangleSelection } from "@/hooks/useRectangleSelection";
+import { canStartRectangle, useRectangleSelection } from "@/hooks/useRectangleSelection";
 import { useScreen } from "@/hooks/useScreen";
 import type { MediaItem } from "@/lib/api";
 import { scroller } from "@/lib/scroller";
@@ -64,6 +64,13 @@ export function MediaGrid({ items, density, firstIndex, pageSize }: Props) {
 
   const selecting = useSelection((s) => s.active);
   const startRectangle = useRectangleSelection(ref, rectangleRef, { tile, density, items });
+  // Mode sélection : le rectangle démarre n'importe où dans la fenêtre (SEL-06.2).
+  useEffect(() => {
+    if (!selecting) return;
+    const onDown = (e: PointerEvent) => canStartRectangle(e) && startRectangle(e);
+    window.addEventListener("pointerdown", onDown);
+    return () => window.removeEventListener("pointerdown", onDown);
+  }, [selecting, startRectangle]);
   useEffect(() => {
     setSelectionPage(items, density);
     return () => setSelectionPage([], density);
@@ -86,7 +93,6 @@ export function MediaGrid({ items, density, firstIndex, pageSize }: Props) {
       ref={ref}
       data-zone="grille.vignettes"
       data-nom-seul={nameOnly || undefined}
-      onPointerDown={selecting ? startRectangle : undefined}
       className="relative w-full"
       style={
         {
@@ -120,7 +126,7 @@ export function MediaGrid({ items, density, firstIndex, pageSize }: Props) {
             ))}
           </div>
         ))}
-      <div ref={rectangleRef} data-zone="grille.rectangle" className="pointer-events-none absolute z-20 hidden rounded-sm border border-[#d9a94e] bg-[#d9a94e]/10" />
+      <div ref={rectangleRef} data-zone="grille.rectangle" className="pointer-events-none absolute z-20 hidden rounded-sm border border-[#d9a94e] bg-[#d9a94e]/15" />
     </div>
   );
 }

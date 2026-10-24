@@ -141,7 +141,7 @@ export function FiltersBar({ total }: { total: number }) {
       <SortMenu />
       <LayoutPopover />
       <SelectionControls />
-      <div data-zone="grille.filtres.compteur" className="ml-auto text-xs text-muted-foreground">
+      <div data-zone="grille.filtres.compteur" className="ml-auto select-text text-xs text-muted-foreground">
         <span className="font-semibold text-foreground tabular-nums">{formatNumber(total)}</span> {plural(total, "média")}
       </div>
     </div>

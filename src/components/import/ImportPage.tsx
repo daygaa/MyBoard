@@ -17,7 +17,7 @@ function FfmpegNotice() {
   if (!data) return null;
   if (data.found) {
     return (
-      <p data-zone="import.ffmpeg" className="text-[11px] text-muted-foreground" title={data.path ?? undefined}>
+      <p data-zone="import.ffmpeg" className="text-[11px] select-text text-muted-foreground" title={data.path ?? undefined}>
         ffmpeg {data.version} détecté : les vidéos auront une miniature.
       </p>
     );
@@ -25,7 +25,7 @@ function FfmpegNotice() {
   return (
     <div
       data-zone="import.ffmpeg"
-      className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-2.5 text-sm text-amber-200"
+      className="flex select-text items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-2.5 text-sm text-amber-200"
     >
       <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
       <span>

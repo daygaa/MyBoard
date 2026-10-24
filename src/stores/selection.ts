@@ -150,12 +150,21 @@ export function commitSelectionPreview() {
   changed({ preview: null });
 }
 
+const inField = (target: EventTarget | null) =>
+  target instanceof HTMLElement && (["INPUT", "TEXTAREA"].includes(target.tagName) || target.isContentEditable);
+
 // Échap quitte le mode (SEL-01), en dernier recours : seulement si rien d'autre n'est ouvert par-dessus
 // (visionneuse, menu, pop-in : ils passent avant, escape.ts) et hors d'un champ de saisie (un Échap
 // de trop dans le champ des tags ne doit pas vider la sélection).
 window.addEventListener("keydown", (e) => {
-  if (e.key !== "Escape" || !isSelecting() || hasEscapeLayer()) return;
-  const target = e.target;
-  if (target instanceof HTMLElement && (["INPUT", "TEXTAREA"].includes(target.tagName) || target.isContentEditable)) return;
+  if (e.key !== "Escape" || !isSelecting() || hasEscapeLayer() || inField(e.target)) return;
   stopSelection();
+});
+
+// Ctrl + A (SEL-06.3) : plus de « tout sélectionner » de la page web, sauf dans un champ ; en mode
+// sélection, rien d'ouvert par-dessus, il coche la page affichée, comme « Tout ».
+window.addEventListener("keydown", (e) => {
+  if (!(e.ctrlKey || e.metaKey) || e.altKey || e.shiftKey || e.key.toLowerCase() !== "a" || inField(e.target)) return;
+  e.preventDefault();
+  if (isSelecting() && !hasEscapeLayer()) addToSelection(pageItems());
 });
