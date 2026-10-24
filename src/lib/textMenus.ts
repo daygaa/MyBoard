@@ -1,6 +1,7 @@
 // Menus du clic droit des textes, ouverts sans rien à faire dans les composants (contextMenu.ts) :
 // - champ de saisie (recherche, saisie d'un tag, numéro de page, note en écriture…) : menu
-//   d'édition classique (CTX-03), entrées grisées quand elles sont sans objet ;
+//   d'édition classique (CTX-03), entrées grisées quand elles sont sans objet ; un champ éditable
+//   maison (champ à pastilles, SEL-12) donne ses propres commandes (`registerEditable`) ;
 // - texte sélectionné ailleurs (nom du fichier, compteurs…, GEN-17) : « Copier » (CTX-18).
 // Le champ garde le clavier et sa sélection pendant que le menu est ouvert (le menu ne prend
 // jamais le focus), comme avec le menu de Windows.
@@ -73,10 +74,58 @@ async function editMenu(field: Field): Promise<MenuEntry[]> {
   ];
 }
 
+/** Commandes d'édition d'un champ éditable maison (champ à pastilles) : le navigateur ne sait pas
+ *  défaire ni coller à sa place. `selected` : le texte sélectionné, à copier. */
+export type EditCommands = {
+  canUndo: () => boolean;
+  undo: () => void;
+  selected: () => string;
+  isEmpty: () => boolean;
+  erase: () => void;
+  paste: (text: string) => void;
+  selectAll: () => void;
+};
+
+const editables = new WeakMap<Element, EditCommands>();
+
+/** Inscrit un champ éditable maison ; renvoie de quoi le désinscrire. */
+export function registerEditable(el: HTMLElement, commands: EditCommands): () => void {
+  editables.set(el, commands);
+  return () => editables.delete(el);
+}
+
+async function editableMenu(el: HTMLElement, c: EditCommands): Promise<MenuEntry[]> {
+  const clipboard = await api.readClipboardText().catch(() => null);
+  const selected = c.selected();
+  const inField = (fn: () => void) => () => {
+    el.focus();
+    fn();
+  };
+  return [
+    { label: "Annuler", shortcut: "Ctrl+Z", disabled: !c.canUndo(), run: inField(c.undo) },
+    {
+      label: "Couper",
+      shortcut: "Ctrl+X",
+      disabled: !selected,
+      run: inField(() => {
+        void api.writeClipboardText(selected);
+        c.erase();
+      }),
+    },
+    { label: "Copier", shortcut: "Ctrl+C", disabled: !selected, run: () => void api.writeClipboardText(selected) },
+    { label: "Coller", shortcut: "Ctrl+V", disabled: !clipboard, run: inField(() => clipboard && c.paste(clipboard)) },
+    { label: "Supprimer", shortcut: "Suppr", disabled: !selected, run: inField(c.erase) },
+    { label: "Tout sélectionner", shortcut: "Ctrl+A", disabled: c.isEmpty(), run: inField(c.selectAll) },
+  ];
+}
+
 /** Menu de texte à ouvrir pour ce clic droit (il passe avant celui de l'élément), ou `null`. */
 export function textMenuFor(e: MouseEvent): (() => Promise<MenuEntry[]>) | null {
   const field = fieldOf(e.target);
   if (field) return () => editMenu(field);
+  const editable = e.target instanceof Element ? e.target.closest<HTMLElement>('[contenteditable="true"]') : null;
+  const commands = editable && editables.get(editable);
+  if (editable && commands) return () => editableMenu(editable, commands);
   if (onSelection(e)) return async () => [{ label: "Copier", shortcut: "Ctrl+C", run: () => document.execCommand("copy") }];
   return null;
 }
@@ -89,8 +138,9 @@ window.addEventListener(
   "pointerdown",
   (e) => {
     const selection = window.getSelection();
-    if (e.button !== 0 || !selection || selection.isCollapsed || fieldOf(document.activeElement)) return;
-    if (e.target instanceof Element && e.target.closest('.select-text, input, textarea, [data-zone^="menu-contextuel"]')) return;
+    const editing = fieldOf(document.activeElement) || (document.activeElement as HTMLElement | null)?.isContentEditable;
+    if (e.button !== 0 || !selection || selection.isCollapsed || editing) return;
+    if (e.target instanceof Element && e.target.closest('.select-text, input, textarea, [contenteditable="true"], [data-zone^="menu-contextuel"]')) return;
     selection.removeAllRanges();
   },
   true,

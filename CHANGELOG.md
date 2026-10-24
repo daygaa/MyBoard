@@ -3,6 +3,30 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Phase 3, correctifs du test, lot 6 (suite) : champ à pastilles éditable (25/10/2026) — Backup v51
+
+SPEC : `[x]` (validées par toi) : SEL-03 ; points SEL-03.2, SEL-07.2, AUT.14 validés. Livrées `[~]` : SEL-12
+(points SEL-07.6, SEL-07.7, SEL-07.9, SEL-07.10), SEL-07 (point SEL-07.8). Décision D-043.
+
+- **Champ « Ajouter / Retirer des tags »** : une petite zone éditable. On peut taper à plusieurs endroits
+  (les suggestions suivent le texte où est le curseur) ; un clic entre deux pastilles y place le curseur ; un
+  cliquer-glisser (ou Maj + flèches) sélectionne textes et pastilles, effacés d'un seul Retour arrière ;
+  Ctrl + A : le texte, puis tout ; pastilles sélectionnées dorées comme un texte surligné ; Ctrl + Z défait
+  une frappe entière ; menu d'édition du clic droit ; une pop-in de création annulée laisse le texte.
+- **« Appliquer » grisé par un texte tapé** : bulle « Valide ou efface d'abord le texte tapé ».
+- **Fin du mode sélection** (Échap, « Terminer ») : les deux champs se vident.
+
+Vérifié dans la version compilée, sur une copie de la bibliothèque « booru » : textes tapés à deux endroits
+(liste de suggestions à 86 px puis 259 px, sous chaque texte), Entrée sur un texte, bulle et « Appliquer »
+grisé ; clics au milieu des écarts de 4 px et à 1 px des pastilles : curseur entre les bonnes pastilles ;
+clic dans le vide : à la fin ; glisser depuis le début, depuis la moitié droite puis gauche d'une pastille ;
+Retour arrière sur la sélection puis Ctrl + Z ; double-clic, triple-clic ; Ctrl + A dans un texte, 2e Ctrl + A,
+hors texte ; Maj + ←, Maj + Fin, Maj + Début, Suppr à travers une pastille ; « abc » défait en une fois, effacements aussi ; accent « ê » par composition ;
+Ctrl + C (presse-papiers sauvé puis remis), menu du clic droit (Tout sélectionner, Couper, Annuler) ; tag
+inconnu : pop-in annulée (texte gardé) puis créé ; Entrée : 4 tags d'essai posés sur les 2 médias, 2 retirés
+par « Retirer » ; halo et bordure dorée ; « Terminer » et Échap : champs vidés ; recherche de la barre latérale
+et ajout de tag de la visionneuse (liste partagée) inchangés ; essais des sous-menus refaits.
+
 ## Phase 3, correctifs du test, lot 6 : halo, pastilles, menu qui suit sa vignette (24/10/2026) — Backup v50
 
 SPEC : livrées `[~]` : SEL-03 (retouche du point SEL-03.2), SEL-07 (point SEL-07.2 refait), nouvelle SEL-12

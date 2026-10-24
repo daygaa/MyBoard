@@ -909,3 +909,24 @@ par tag, et pas si le tag est déjà proposé par son nom).
 - Écritures en transaction « immédiate » (l'écriture est réservée dès le début) : plus d'erreur « base
   verrouillée » quand le service des miniatures ou un import écrit en même temps. Sans les conditions
   ajoutées au déclencheur, retirer un tag ordinaire de 50 000 médias prenait 1,8 s : corrigé (643 ms).
+
+## D-043 — Champ à pastilles : une zone éditable tenue par MyBoard (25/10/2026)
+
+**Pourquoi.** Le retour du 25/10 (SEL-12) demande du texte tapé à plusieurs endroits du champ, une sélection à
+la souris qui prend textes et pastilles, et un clic précis entre deux pastilles. Une case de saisie (`<input>`)
+ne contient qu'un texte, sans pastilles : le champ devient une zone éditable (`contenteditable`), où les
+pastilles sont des éléments non éditables posés dans le texte.
+
+**Comment.** Le navigateur n'écrit jamais lui-même dans la zone : frappe, collage, effacement, défaire passent
+par le contenu (`lib/pillText.ts` : textes et pastilles en alternance, toujours un texte, souvent vide, entre
+deux pastilles) et son historique (`hooks/usePills.ts`), puis React redessine et le curseur est replacé
+(`components/tags/pillDom.ts`). Flèches, Début / Fin, Ctrl + A et la souris (clic, glisser, double-clic) sont
+gérés de même : le résultat ne dépend pas des habitudes du navigateur autour des éléments non éditables
+(curseur introuvable entre deux pastilles, sauts imprévus). Seule exception : la composition d'un caractère
+(touche morte), écrite par le navigateur puis relue. Le menu d'édition du clic droit (CTX-03) passe par les
+commandes du champ (`registerEditable`, `lib/textMenus.ts`). Pas de bibliothèque d'éditeur ajoutée (Lexical,
+Slate…) : WebView2 est le seul moteur, et le champ reste simple (une ligne de tags).
+
+**Partagé.** `PillField` (barre de la sélection) reprendra la recherche de la barre latérale (SRCH-28) et les
+champs des règles du gestionnaire (TAGM-15.5). La liste de suggestions est commune avec la case de saisie d'un
+tag (`TagSuggestions.tsx`).

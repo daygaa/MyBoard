@@ -102,7 +102,8 @@
     cursor: not-allowed;
   }
   input:not([type="range"], [type="checkbox"], [type="radio"]),
-  textarea {
+  textarea,
+  [contenteditable="true"] {
     cursor: text;
     user-select: text;
   }
@@ -207,15 +208,15 @@
     }
   }
 
-  /* Curseur dessiné entre deux pastilles d'un champ quand le texte tapé est ailleurs (SEL-12) : il
-     clignote comme le curseur de saisie. */
-  .curseur-pastilles {
-    animation: curseur-pastilles 1.06s step-end infinite;
+  /* Pastille prise dans la sélection d'un champ à pastilles (SEL-12) : même aspect qu'un texte
+     surligné (fond doré, texte sombre, choix du 25/10). */
+  [data-choisie] [data-zone="tag.pastille"] {
+    background-color: var(--accent) !important;
+    border-color: var(--accent) !important;
+    color: var(--accent-foreground) !important;
   }
-  @keyframes curseur-pastilles {
-    50% {
-      opacity: 0;
-    }
+  [data-choisie] [data-zone="tag.pastille"] button {
+    color: var(--accent-foreground) !important;
   }
 
   /* Fond en damier de la visionneuse (v8), remplacé par un fond uni (VIEW-44) ; gardé pour le
