@@ -122,9 +122,10 @@ function SelectionControls() {
         aria-label="Actions de la sélection"
         title="Actions de la sélection"
         onClick={(e) => {
-          const r = e.currentTarget.getBoundingClientRect();
+          const button = e.currentTarget;
+          const r = button.getBoundingClientRect();
           const keyboard = e.detail === 0;
-          void loadSelection().then((selection) => openMenuAt(r.left, r.bottom + 4, toolsMenu(selection, base), keyboard));
+          void loadSelection().then((selection) => openMenuAt(r.left, r.bottom + 4, toolsMenu(selection, base), keyboard, { anchor: button }));
         }}
         className={cn(SEGMENT, SEGMENT_OFF, "px-1.5")}
       >

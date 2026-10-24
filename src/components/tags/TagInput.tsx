@@ -12,6 +12,7 @@
 // `source` : suggestions prises dans une liste donnée (champ « Retirer des tags » de la sélection :
 // seulement les tags qu'elle porte, SEL-07), dans le même ordre que l'autocomplétion.
 // Synonyme (TAGM-15) : proposé « synonyme → tag » (synonyme en gris) ; le choisir écrit le tag.
+// `suggest` faux : pas de liste (champ à pastilles dont le curseur a quitté le texte tapé, SEL-12).
 
 import { useLayoutEffect, useRef, useState, type KeyboardEvent, type MouseEvent, type Ref } from "react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
@@ -44,6 +45,8 @@ type Props = {
   inputRef?: Ref<HTMLInputElement>;
   /** Suggestions prises dans cette liste (déjà triée par usage) plutôt que parmi tous les tags. */
   source?: TagInfo[];
+  /** Liste de suggestions permise (vrai par défaut). */
+  suggest?: boolean;
 };
 
 /** Suggestions au plus, comme l'autocomplétion du cœur Rust (D-016). */
@@ -76,6 +79,7 @@ export function TagInput({
   inputClassName,
   inputRef,
   source,
+  suggest = true,
 }: Props) {
   const { color } = useCategories();
   const [focused, setFocused] = useState(false);
@@ -98,7 +102,7 @@ export function TagInput({
     placeholderData: keepPreviousData,
   });
   const suggestions = source ? suggestionsIn(source, text) : found;
-  const open = focused && text.length > 0 && suggestions.length > 0;
+  const open = suggest && focused && text.length > 0 && suggestions.length > 0;
   // Échap ferme d'abord les suggestions, sans fermer la visionneuse derrière ; les boutons 4 / 5 et
   // les flèches de la barre de titre les ignorent (NAV-07).
   useEscape(open, () => setFocused(false), { escapeOnly: true });

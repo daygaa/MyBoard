@@ -44,6 +44,11 @@ export type MenuItem = {
 /** « separator » : trait entre deux groupes d'entrées (« ‖ » dans la SPEC). */
 export type MenuEntry = MenuItem | "separator";
 
+/** Élément sur lequel le menu a été ouvert, et place du point d'ouverture dans cet élément (en part
+ *  de sa largeur et de sa hauteur) : quand la fenêtre change de taille sous une pop-in, le menu suit
+ *  cet élément (une vignette change de place et de taille, retour du 24/10, point AUT.14). */
+export type MenuAnchor = { el: Element; fx: number; fy: number };
+
 export type OpenMenu = {
   /** Point d'ouverture, en pixels de la fenêtre. */
   x: number;
@@ -57,6 +62,7 @@ export type OpenMenu = {
   above?: boolean;
   /** Qui l'a ouvert, quand ça compte (barre du bas de la visionneuse : elle reste affichée). */
   owner?: string;
+  anchor?: MenuAnchor;
 };
 
 export const useContextMenu = create<{ menu: OpenMenu | null }>(() => ({ menu: null }));
@@ -73,25 +79,51 @@ export function closeContextMenu() {
   if (isContextMenuOpen()) useContextMenu.setState({ menu: null });
 }
 
+function anchorAt(el: Element | null, x: number, y: number): MenuAnchor | undefined {
+  const box = el?.getBoundingClientRect();
+  if (!el || !box?.width || !box.height) return undefined;
+  return { el, fx: (x - box.left) / box.width, fy: (y - box.top) / box.height };
+}
+
+/** Point du menu d'après son élément ; `null` si l'élément n'est plus affiché (vignette sortie de la
+ *  grille…). */
+export function anchorPoint({ el, fx, fy }: MenuAnchor): { x: number; y: number } | null {
+  const box = el.isConnected ? el.getBoundingClientRect() : null;
+  if (!box?.width || !box.height) return null;
+  return { x: box.left + fx * box.width, y: box.top + fy * box.height };
+}
+
+/** Élément qui ouvre le menu : celui qui écoute le clic droit (la vignette), sinon l'élément cliqué. */
+function owner(e: ReactMouseEvent | MouseEvent): Element | null {
+  const el = "nativeEvent" in e ? e.currentTarget : e.target;
+  return el instanceof Element ? el : null;
+}
+
 /** Point d'ouverture : celui du clic. Menu ouvert au clavier (touche Menu, Maj + F10 : ce n'est
  *  pas le bouton droit) : sous le coin haut gauche de l'élément si le point reçu n'est pas dessus. */
-function anchorOf(e: MouseEvent): { x: number; y: number; keyboard: boolean } {
+function anchorOf(e: MouseEvent, el: Element | null): { x: number; y: number; keyboard: boolean; anchor?: MenuAnchor } {
   const keyboard = e.button !== 2;
   const box = e.target instanceof Element ? e.target.getBoundingClientRect() : null;
   const inside = box && e.clientX >= box.left && e.clientX <= box.right && e.clientY >= box.top && e.clientY <= box.bottom;
-  if (keyboard && box && !inside) return { x: box.left, y: box.bottom, keyboard };
-  return { x: e.clientX, y: e.clientY, keyboard };
+  const [x, y] = keyboard && box && !inside ? [box.left, box.bottom] : [e.clientX, e.clientY];
+  return { x, y, keyboard, anchor: anchorAt(el, x, y) };
 }
 
-function show(e: MouseEvent, entries: MenuEntry[]) {
-  useContextMenu.setState({ menu: { ...anchorOf(e), entries, id: nextId++ } });
+function show(e: MouseEvent, entries: MenuEntry[], el: Element | null) {
+  useContextMenu.setState({ menu: { ...anchorOf(e, el), entries, id: nextId++ } });
 }
 
 /** Ouvre un menu à un point de la fenêtre, sans clic droit (Alt + Espace : menu de la fenêtre,
  *  CTX-13 ; menu ⋮ d'un dossier ; bouton Dossier de la visionneuse) ; `keyboard` : la première entrée
- *  est déjà choisie. */
-export function openMenuAt(x: number, y: number, entries: MenuEntry[], keyboard: boolean, options: { above?: boolean; owner?: string } = {}) {
-  useContextMenu.setState({ menu: { x, y, entries, keyboard, id: nextId++, ...options } });
+ *  est déjà choisie ; `anchor` : l'élément qui l'ouvre (le menu le suit, AUT.14). */
+export function openMenuAt(
+  x: number,
+  y: number,
+  entries: MenuEntry[],
+  keyboard: boolean,
+  { anchor, ...options }: { above?: boolean; owner?: string; anchor?: Element } = {},
+) {
+  useContextMenu.setState({ menu: { x, y, entries, keyboard, id: nextId++, anchor: anchorAt(anchor ?? null, x, y), ...options } });
 }
 
 /** Ouvre le menu de l'élément. Sans effet sur un champ de saisie ou un texte sélectionné : leur
@@ -100,7 +132,7 @@ export function openContextMenu(e: ReactMouseEvent | MouseEvent, entries: () => 
   const native = "nativeEvent" in e ? e.nativeEvent : e;
   if (handled === native || textMenuFor(native)) return;
   handled = native;
-  show(native, entries());
+  show(native, entries(), owner(e));
 }
 
 /** Comme `openContextMenu`, pour des entrées qui demandent d'abord une réponse au cœur Rust (menu
@@ -110,7 +142,7 @@ export function openContextMenuAsync(e: ReactMouseEvent | MouseEvent, entries: (
   const native = "nativeEvent" in e ? e.nativeEvent : e;
   if (handled === native || textMenuFor(native)) return;
   handled = native;
-  const anchor = anchorOf(native);
+  const anchor = anchorOf(native, owner(e));
   const before = useContextMenu.getState().menu;
   void entries().then((list) => {
     if (useContextMenu.getState().menu === before) useContextMenu.setState({ menu: { ...anchor, entries: list, id: nextId++ } });
@@ -126,5 +158,5 @@ window.addEventListener("contextmenu", (e) => {
   if (handled === e) return;
   const text = textMenuFor(e);
   if (!text) return closeContextMenu();
-  void text().then((entries) => show(e, entries));
+  void text().then((entries) => show(e, entries, e.target instanceof Element ? e.target : null));
 });

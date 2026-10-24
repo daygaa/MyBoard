@@ -186,7 +186,8 @@
   }
 
   /* Champ de la barre de la sélection qui reçoit le curseur depuis le menu ⋮ (SEL-03.2) : halo doré
-     qui pulse deux fois. */
+     qui pulse deux fois, sur toute la zone de texte (fond et lueur intérieure) et autour du bord
+     (retour du 24/10). Fond de départ et d'arrivée : celui du champ. */
   .champ-signale {
     border-color: #d9a94e !important;
     animation: champ-signale 0.7s ease-in-out 2;
@@ -194,10 +195,26 @@
   @keyframes champ-signale {
     0%,
     100% {
-      box-shadow: 0 0 0 0 rgb(217 169 78 / 0);
+      box-shadow:
+        0 0 0 0 rgb(217 169 78 / 0),
+        inset 0 0 0 0 rgb(217 169 78 / 0);
     }
     50% {
-      box-shadow: 0 0 0 4px rgb(217 169 78 / 0.55);
+      background-color: rgb(217 169 78 / 0.22);
+      box-shadow:
+        0 0 0 4px rgb(217 169 78 / 0.55),
+        inset 0 0 14px 2px rgb(217 169 78 / 0.5);
+    }
+  }
+
+  /* Curseur dessiné entre deux pastilles d'un champ quand le texte tapé est ailleurs (SEL-12) : il
+     clignote comme le curseur de saisie. */
+  .curseur-pastilles {
+    animation: curseur-pastilles 1.06s step-end infinite;
+  }
+  @keyframes curseur-pastilles {
+    50% {
+      opacity: 0;
     }
   }
 

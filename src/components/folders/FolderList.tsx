@@ -46,7 +46,7 @@ function FolderRow({ folder, active, onDone }: { folder: Folder; active: boolean
         title="Options du dossier"
         onClick={(e) => {
           const r = e.currentTarget.getBoundingClientRect();
-          openMenuAt(r.left, r.bottom + 4, folderMenu(folder), e.detail === 0);
+          openMenuAt(r.left, r.bottom + 4, folderMenu(folder), e.detail === 0, { anchor: e.currentTarget });
         }}
         className="grid h-7 w-6 shrink-0 place-items-center rounded-md text-muted-foreground transition hover:bg-background/60 hover:text-foreground"
       >

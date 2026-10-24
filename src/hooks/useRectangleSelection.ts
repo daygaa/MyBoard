@@ -26,9 +26,9 @@ const MAX_SPEED = 20;
 type Geometry = { tile: number; density: number; items: MediaItem[] };
 
 /** Commandes sur lesquelles un appui garde son rôle (pas de rectangle) ; la barre de titre déplace la
- *  fenêtre. */
+ *  fenêtre ; un champ à pastilles place son curseur (SEL-12). */
 const CONTROLS =
-  'button, a[href], input, textarea, select, label, [role="button"], [role="checkbox"], [role="radio"], [role="slider"], [role="menuitem"], [role="tab"], [role="switch"], [role="dialog"], [data-zone="barre-titre"]';
+  'button, a[href], input, textarea, select, label, [role="button"], [role="checkbox"], [role="radio"], [role="slider"], [role="menuitem"], [role="tab"], [role="switch"], [role="dialog"], [data-zone="barre-titre"], [data-champ-pastilles]';
 
 /** Un rectangle peut-il démarrer à cet appui (SEL-06.2) : n'importe où dans la fenêtre, sauf sur une
  *  commande, une barre de défilement, ou quand quelque chose est ouvert par-dessus (visionneuse,

@@ -128,10 +128,11 @@ export function InfoBar({ item, children }: { item: MediaItem; children: ReactNo
       title: folderListLabel(detail?.folders ?? item.folders),
       // Liste ouverte au-dessus du bouton ; la barre du bas reste affichée tant qu'elle est ouverte.
       run: () => {
-        const r = document.querySelector('[data-zone="visionneuse.dossier"]')?.getBoundingClientRect();
-        if (!r) return;
+        const button = document.querySelector('[data-zone="visionneuse.dossier"]');
+        const r = button?.getBoundingClientRect();
+        if (!button || !r) return;
         const entries = folderPickEntries(item.id, detail?.folders ?? item.folders);
-        openMenuAt(r.left, r.top - 4, entries, false, { above: true, owner: "visionneuse.barre" });
+        openMenuAt(r.left, r.top - 4, entries, false, { above: true, owner: "visionneuse.barre", anchor: button });
       },
     },
     {

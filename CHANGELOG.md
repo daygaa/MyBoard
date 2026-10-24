@@ -3,6 +3,36 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Phase 3, correctifs du test, lot 6 : halo, pastilles, menu qui suit sa vignette (24/10/2026) — Backup v50
+
+SPEC : livrées `[~]` : SEL-03 (retouche du point SEL-03.2), SEL-07 (point SEL-07.2 refait), nouvelle SEL-12
+(point SEL-07.4), GEN-23 (point AUT.14).
+
+- **Champ signalé depuis le menu ⋮** : le halo doré remplit tout le champ et l'entoure ; ensuite, la
+  bordure du champ de la barre de la sélection qui a le focus reste dorée (#d9a94e).
+- **Ctrl + Z / Ctrl + Y dans les champs de la barre de la sélection** : comme dans un éditeur de texte,
+  ajouts compris ; une nouvelle action après des Ctrl + Z abandonne la suite (plus de doublons).
+- **Curseur entre les pastilles** : ← / →, Début / Fin, clic sur une pastille ou dans le vide ; Retour
+  arrière et Suppr effacent la pastille avant / après le curseur ; un tag validé s'insère au curseur. Un
+  texte tapé pas encore validé reste en place, le curseur peut le quitter ; « Appliquer » attend qu'il soit
+  validé ou effacé.
+- **Menu ouvert sous une pop-in** : quand la fenêtre change de taille, il suit la vignette (ou le bouton)
+  sur laquelle il a été ouvert, sous-menu compris.
+
+Vérifié dans la version compilée, sur une copie de la bibliothèque « booru » : menu d'une vignette sous la
+pop-in « Supprimer », fenêtre rétrécie de 70 px par la gauche (vignette déplacée de 53 px et réduite de 308 à
+290 px : le menu reste au même endroit de la vignette), remise, agrandie, niveau inférieur : idem ; sous-menu
+ouvert par un clic sous la pop-in « Créer un dossier… » : il reste collé au menu ; menu ⋮ de la sélection :
+reste sous son bouton ; halo : fond doré et lueur intérieure pendant l'effet, bordure #d9a94e après ;
+exemple du retour (4 tags, Ctrl + Z ×4, les 5 tags réécrits) : Ctrl + Z retire « e » puis « d », sans
+doublon ; Ctrl + Y, puis une nouvelle étape : Ctrl + Y et Ctrl + Maj + Z sans effet ; croix puis Ctrl + Z ;
+←, →, Début, Fin, Retour arrière et Suppr au milieu, tag validé inséré au curseur, écarts de 4 px gardés ;
+texte « zz » au milieu : curseur sorti du texte (sans suggestions, curseur du texte caché), lettre ignorée,
+pastille voisine effacée puis remise par Ctrl + Z, retour dans le texte par ses deux bords, Entrée sans effet
+et « Appliquer » grisé tant que le texte est là ; clics sur une pastille et dans le vide ; Entrée : 3 tags
+d'essai posés sur les 2 médias, 2 retirés par le champ « Retirer » ; essais des lots 5 et 1 (sous-menus)
+refaits.
+
 ## Phase 3, correctifs du test, lot 5 : fenêtre, rectangle, barre de la sélection (24/10/2026) — Backup v49
 
 SPEC : livrées `[~]` : GEN-23 (corrigé), SEL-06 (point SEL-06.2), SEL-03 (points SEL-03.1, SEL-03.2),

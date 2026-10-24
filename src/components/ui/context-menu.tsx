@@ -18,7 +18,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 
-import { closeContextMenu, isContextMenuOpen, useContextMenu, type MenuItem, type OpenMenu } from "@/lib/contextMenu";
+import { anchorPoint, closeContextMenu, isContextMenuOpen, useContextMenu, type MenuItem, type OpenMenu } from "@/lib/contextMenu";
 import { useEscape } from "@/lib/escape";
 import { swallow, swallowClick } from "@/lib/swallowClick";
 import { ConfirmDialog } from "./confirm-dialog";
@@ -28,6 +28,9 @@ import { fit, MenuList, nextUsable, usable } from "./menu-list";
  *  entrée, un séparateur ou l'extérieur du menu, CTX-20) ou le sous-menu lui-même (CTX-21) : on
  *  peut le rejoindre en diagonale. */
 const SUB_DELAY = 250;
+/** Après un changement de taille de la fenêtre, la grille se replace en quelques images : le menu suit
+ *  son élément image par image pendant ce temps (AUT.14). */
+const FOLLOW_MS = 400;
 const ZONE = '[data-zone^="menu-contextuel"]';
 
 /** Le menu ouvert est-il au premier plan (pas de pop-in de confirmation par-dessus) ? */
@@ -57,7 +60,8 @@ window.addEventListener(
 window.addEventListener("hashchange", closeContextMenu);
 // Passage à une autre fenêtre (ou à l'autre écran) et changement de taille de la fenêtre (Agrandir,
 // Réduire, double-clic sur la barre de titre) : le menu se ferme, sauf si une pop-in qu'il a ouverte
-// est par-dessus : elle serait sinon emportée avec lui (GEN-23). Il est alors replacé dans la fenêtre.
+// est par-dessus : elle serait sinon emportée avec lui (GEN-23). Il suit alors l'élément sur lequel il
+// a été ouvert (une vignette change de place et de taille, AUT.14), dans la fenêtre.
 for (const name of ["blur", "resize"]) window.addEventListener(name, () => menuOnTop() && closeContextMenu());
 
 function MenuLayer({ menu }: { menu: OpenMenu }) {
@@ -71,8 +75,12 @@ function MenuLayer({ menu }: { menu: OpenMenu }) {
   const subRef = useRef<HTMLDivElement>(null);
   /** Changements de taille de la fenêtre gardés (pop-in ouverte, GEN-23) : le menu est replacé. */
   const [resized, setResized] = useState(0);
+  /** Point du menu : celui du clic, puis celui de son élément (le dernier connu s'il a disparu). */
+  const point = useRef({ x: menu.x, y: menu.y });
   const [rootPos, setRootPos] = useState<CSSProperties>({ left: menu.x, top: menu.y, visibility: "hidden" });
   const [subPos, setSubPos] = useState<CSSProperties>({ visibility: "hidden" });
+  /** Placement du menu pour lequel le sous-menu a été placé : le menu bouge, le sous-menu le suit. */
+  const subFor = useRef<CSSProperties | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   /** Sous-menu ouvert par un clic sur son entrée (ou par Entrée) : la souris peut sortir des menus
    *  sans le fermer ; seul le survol d'une autre entrée le ferme (CTX-20.1, CTX-21). */
@@ -131,28 +139,41 @@ function MenuLayer({ menu }: { menu: OpenMenu }) {
   // affichage, et l'annuler alors perdait la fermeture demandée en survolant une autre entrée.
   useEffect(() => () => clearTimeout(timer.current), []);
   useEffect(() => {
-    const onResize = () => {
+    let frame = 0;
+    let until = 0;
+    const follow = () => {
       setResized((n) => n + 1);
-      setSubPos({ visibility: "hidden" });
+      frame = performance.now() < until ? requestAnimationFrame(follow) : 0;
+    };
+    const onResize = () => {
+      until = performance.now() + FOLLOW_MS;
+      if (!frame) frame = requestAnimationFrame(follow);
     };
     window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
+    return () => {
+      window.removeEventListener("resize", onResize);
+      cancelAnimationFrame(frame);
+    };
   }, []);
 
-  // Placement, avant l'affichage : au point du clic, dans la fenêtre.
+  // Placement, avant l'affichage : au point du clic, dans la fenêtre ; après un changement de taille,
+  // au même endroit de l'élément sur lequel le menu a été ouvert.
   useLayoutEffect(() => {
     const el = rootRef.current;
     if (!el) return;
+    if (resized > 0 && menu.anchor) point.current = anchorPoint(menu.anchor) ?? point.current;
+    const { x, y: at } = point.current;
     // Au-dessus du point si demandé (et s'il y a la place), sinon dessous comme d'habitude.
-    const y = menu.above && menu.y - el.offsetHeight >= 0 ? menu.y - el.offsetHeight : menu.y;
-    const { left, top } = fit(menu.x, y, el.offsetWidth, el.offsetHeight);
-    setRootPos({ left, top, transformOrigin: `${left < menu.x ? "right" : "left"} ${top < menu.y ? "bottom" : "top"}` });
+    const y = menu.above && at - el.offsetHeight >= 0 ? at - el.offsetHeight : at;
+    const { left, top } = fit(x, y, el.offsetWidth, el.offsetHeight);
+    setRootPos({ left, top, transformOrigin: `${left < x ? "right" : "left"} ${top < at ? "bottom" : "top"}` });
   }, [menu, resized]);
   useLayoutEffect(() => {
     const list = subRef.current;
     const parent = rootRef.current;
     const item = sub === null ? null : parent?.querySelector(`[data-index="${sub}"]`);
-    if (!list || !parent || !item || subPos.visibility !== "hidden") return;
+    if (!list || !parent || !item || (subPos.visibility !== "hidden" && subFor.current === rootPos)) return;
+    subFor.current = rootPos;
     const box = parent.getBoundingClientRect();
     const row = item.getBoundingClientRect();
     // Première entrée du sous-menu à la hauteur de l'entrée « ▸ » (bord + marge intérieure : 5 px).
