@@ -3,8 +3,8 @@
 // uniquement là (SRCH-07, SearchTerms). Entrée ou le bouton lancent une nouvelle recherche avec les
 // tags tapés, et eux seuls (SRCH-24) ; les boutons + / − des suggestions ajoutent un tag à la
 // recherche en cours (SRCH-21). Un synonyme tapé (TAGM-15) donne la pastille de son tag principal.
-// Les tags déjà dans la recherche restent proposés, grisés, avec une bulle (SRCH-29) : leurs boutons + / −
-// marchent toujours (un tag inclus peut passer en exclusion).
+// Un tag déjà dans la recherche reste proposé normalement (le choisir prépare une nouvelle recherche,
+// SRCH-24) ; seul son bouton + (déjà inclus) ou − (déjà exclu) est grisé, avec une bulle (SRCH-29).
 
 import { useState } from "react";
 import { Search } from "lucide-react";
@@ -54,9 +54,10 @@ export function SearchBox() {
           onChange={setText}
           onSubmit={submit}
           onAddTerm={(tag, exclude) => addTerms([`${exclude ? "-" : ""}${tag.name}`])}
-          taken={(tag) =>
-            terms.includes(tag.name) ? "Ce tag est déjà inclus dans cette recherche" : terms.includes(`-${tag.name}`) ? "Ce tag est déjà exclu de cette recherche" : null
-          }
+          termTaken={(tag, exclude) => {
+            if (exclude) return terms.includes(`-${tag.name}`) ? "Ce tag est déjà exclu de cette recherche" : null;
+            return terms.includes(tag.name) ? "Ce tag est déjà inclus dans cette recherche" : null;
+          }}
           placeholder="Ajouter un tag à la recherche…"
           className="h-[38px] flex-1"
         />

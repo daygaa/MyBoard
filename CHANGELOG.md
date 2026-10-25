@@ -3,6 +3,27 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Phase 3, correctifs du test, lot 8 : gestionnaire de tags, + / − de la recherche (25/10/2026) — Backup v54
+
+SPEC : livrées `[~]` : TAGM-04 (points TAGM-04.1 à TAGM-04.4, TAGM-15.2), SRCH-29 (retouche). Nouveau point
+AUT.17 noté dans VIEW-27 (lot 9, avec AUT.6).
+
+- **Gestionnaire de tags** : deux vrais onglets « Tags » et « Synonymes et parents » sur toute la largeur,
+  juste sous l'en-tête ; page plus large (72 % de la fenêtre) ; « Créé le » à droite, « Actions » au centre ;
+  toute la colonne de la case est cliquable.
+- **Recherche** : un tag déjà cherché n'est plus grisé (on peut relancer une recherche avec lui seul) ; seul
+  son + ou son − inutile est grisé, avec sa bulle.
+
+Vérifié dans la version compilée, sur une copie de la bibliothèque « booru » : onglets de 0 à 1 910 px (barre de
+défilement à droite), collés sous l'en-tête, 955 + 955 px, l'actif en doré, bascule dans les deux sens ;
+largeur : 1 382 px fenêtre agrandie (tableau 1 104 → 1 334 px), 1 152 px en « Niveau inférieur » (1 600 px de
+large), toute la largeur à 1 100 px ; « Créé le » et son en-tête finis au bord droit de la colonne, groupe des
+actions et son en-tête au centre ; case cochée par un clic à 2 px du bord de la ligne et à 4 px à droite de la
+case, « tout cocher » par un clic à côté ; recherche « long_hair smile blue_eyes » : « long hair » au nom
+normal, + grisé (bulle « déjà inclus »), sans effet au clic, − actif (passe en exclusion), puis − grisé
+(« déjà exclu ») et + actif ; clic sur le nom « blue eyes », Entrée : nouvelle recherche avec lui seul ;
+« smile smi » : « smile » au nom grisé (« champ textuel »).
+
 ## Phase 3, correctifs du test, lot 7 (suite) : retour du champ de recherche, tags déjà là grisés (25/10/2026) — Backup v53
 
 SPEC : `[x]` (validées par toi) : SEL-12 (points SEL-07.7, SEL-07.11, SEL-07.12), point AUT.16 (PAGE-04 reste

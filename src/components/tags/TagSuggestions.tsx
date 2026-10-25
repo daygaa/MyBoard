@@ -7,8 +7,9 @@
 // complet dans une bulle au survol (SRCH-22). Synonyme (TAGM-15) : proposé « synonyme → tag ».
 // Recherche de la barre latérale (`onAddTerm`) : boutons + / − devant chaque tag (SRCH-21).
 // Tag déjà là (`taken`, SRCH-29, choix du 25/10) : il garde sa place, son nom est grisé avec une bulle qui
-// dit pourquoi ; un clic sur son nom ne fait rien et les flèches le sautent ; + et − restent actifs (un tag
-// déjà dans la recherche peut ainsi passer en exclusion).
+// dit pourquoi ; un clic sur son nom ne fait rien et les flèches le sautent. Recherche (`termTaken`) : le
+// bouton + ou − qui ne changerait rien à la recherche en cours est grisé, avec sa bulle ; l'autre reste
+// actif (un tag inclus peut passer en exclusion, et inversement).
 
 import type { CSSProperties, KeyboardEvent, MouseEvent } from "react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
@@ -44,6 +45,8 @@ export function useTagSuggestions(text: string, source?: TagInfo[]): TagInfo[] {
 
 /** Tag déjà là : la raison, dite par la bulle de sa suggestion grisée ; `null` : proposé normalement. */
 export type Taken = (tag: TagInfo) => string | null;
+/** Recherche : bouton + (`exclude` faux) ou − (vrai) sans effet sur la recherche en cours, et pourquoi. */
+export type TermTaken = (tag: TagInfo, exclude: boolean) => string | null;
 
 export type Dropdown = "top" | "bottom";
 
@@ -86,11 +89,34 @@ type Props = {
   negated?: boolean;
   onAddTerm?: (tag: TagInfo, exclude: boolean) => void;
   taken?: Taken;
+  termTaken?: TermTaken;
   className?: string;
   style?: CSSProperties;
 };
 
-export function SuggestionList({ zone, suggestions, highlight, setHighlight, dropdown, onPick, negated, onAddTerm, taken, className, style }: Props) {
+/** Bouton + ou − d'une suggestion de la recherche (SRCH-21) ; `off` : sans effet, grisé avec sa bulle. */
+function TermButton({ tag, exclude, off, onAdd }: { tag: TagInfo; exclude: boolean; off: string | null; onAdd: (tag: TagInfo, exclude: boolean) => void }) {
+  const Icon = exclude ? Minus : Plus;
+  const label = exclude ? `Exclure « ${displayTag(tag.name)} » de la recherche` : `Ajouter « ${displayTag(tag.name)} » à la recherche`;
+  return (
+    <button
+      type="button"
+      onMouseDown={keepFocus}
+      onClick={() => off === null && onAdd(tag, exclude)}
+      aria-label={label}
+      aria-disabled={off !== null || undefined}
+      title={off ?? (exclude ? "Exclure de la recherche" : "Ajouter à la recherche")}
+      className={cn(
+        "grid h-5 w-5 shrink-0 place-items-center rounded transition",
+        off ? "cursor-default text-muted-foreground/25" : cn("text-muted-foreground/70", exclude ? "hover:text-rose-400" : "hover:text-[#d9a94e]"),
+      )}
+    >
+      <Icon className="h-3 w-3" />
+    </button>
+  );
+}
+
+export function SuggestionList({ zone, suggestions, highlight, setHighlight, dropdown, onPick, negated, onAddTerm, taken, termTaken, className, style }: Props) {
   const { color } = useCategories();
   const search = onAddTerm !== undefined;
   return (
@@ -118,26 +144,8 @@ export function SuggestionList({ zone, suggestions, highlight, setHighlight, dro
         >
           {search && (
             <>
-              <button
-                type="button"
-                onMouseDown={keepFocus}
-                onClick={() => onAddTerm(tag, false)}
-                aria-label={`Ajouter « ${displayTag(tag.name)} » à la recherche`}
-                title="Ajouter à la recherche"
-                className="grid h-5 w-5 shrink-0 place-items-center rounded text-muted-foreground/70 transition hover:text-[#d9a94e]"
-              >
-                <Plus className="h-3 w-3" />
-              </button>
-              <button
-                type="button"
-                onMouseDown={keepFocus}
-                onClick={() => onAddTerm(tag, true)}
-                aria-label={`Exclure « ${displayTag(tag.name)} » de la recherche`}
-                title="Exclure de la recherche"
-                className="grid h-5 w-5 shrink-0 place-items-center rounded text-muted-foreground/70 transition hover:text-rose-400"
-              >
-                <Minus className="h-3 w-3" />
-              </button>
+              <TermButton tag={tag} exclude={false} off={termTaken?.(tag, false) ?? null} onAdd={onAddTerm} />
+              <TermButton tag={tag} exclude off={termTaken?.(tag, true) ?? null} onAdd={onAddTerm} />
             </>
           )}
           <button

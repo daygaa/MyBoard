@@ -6,8 +6,9 @@
 // suggestions portent sur le mot en cours (SRCH-20) ; le nom choisi s'écrit dans le champ à la
 // place de ce mot, les boutons + / − l'ajoutent tout de suite à la recherche (SRCH-21).
 // `source` : suggestions prises dans une liste donnée, dans le même ordre que l'autocomplétion.
-// Tags déjà là (SRCH-29) : grisés avec leur bulle (`taken`) ; dans la recherche, les autres mots déjà
-// tapés dans le champ aussi.
+// Tags déjà là (SRCH-29) : grisés avec leur bulle (`taken`) ; dans la recherche, seulement les autres mots
+// déjà tapés dans le champ (choisir un tag de la recherche en cours prépare une nouvelle recherche, SRCH-24),
+// et ses boutons + / − sont grisés quand ils ne changeraient rien (`termTaken`).
 
 import { useLayoutEffect, useRef, useState, type KeyboardEvent } from "react";
 
@@ -15,7 +16,7 @@ import type { TagInfo } from "@/lib/api";
 import { useEscape } from "@/lib/escape";
 import { normalizeTag, parseTerms, splitTerm, wordAt } from "@/lib/tags";
 import { cn } from "@/lib/utils";
-import { moveHighlight, SuggestionList, useTagSuggestions, type Dropdown, type Taken } from "./TagSuggestions";
+import { moveHighlight, SuggestionList, useTagSuggestions, type Dropdown, type Taken, type TermTaken } from "./TagSuggestions";
 
 /** Bulle d'un tag déjà tapé dans le champ (recherche, barre de la sélection). */
 export const IN_FIELD = "Ce tag est déjà inclus dans le champ textuel";
@@ -39,8 +40,10 @@ type Props = {
   inputClassName?: string;
   /** Suggestions prises dans cette liste (déjà triée par usage) plutôt que parmi tous les tags. */
   source?: TagInfo[];
-  /** Tags déjà là (sur le média, dans la recherche…) : grisés, avec la raison en bulle. */
+  /** Tags déjà là (sur le média, dans la liste…) : grisés, avec la raison en bulle. */
   taken?: Taken;
+  /** Recherche : boutons + / − sans effet (tag déjà inclus ou déjà exclu). */
+  termTaken?: TermTaken;
 };
 
 export function TagInput({
@@ -56,6 +59,7 @@ export function TagInput({
   inputClassName,
   source,
   taken,
+  termTaken,
 }: Props) {
   const [focused, setFocused] = useState(false);
   const [highlight, setHighlight] = useState(-1);
@@ -164,6 +168,7 @@ export function TagInput({
           negated={negated}
           onAddTerm={search ? addTerm : undefined}
           taken={takenHere}
+          termTaken={termTaken}
           className="left-0"
         />
       )}

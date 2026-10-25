@@ -14,7 +14,7 @@ import { scroller } from "@/lib/scroller";
 import type { ParentRow } from "@/lib/rulesApi";
 import { cn } from "@/lib/utils";
 import type { TagOf } from "./RuleLines";
-import { COLUMNS, TagRow } from "./TagRow";
+import { CheckCell, COLUMNS, TagRow } from "./TagRow";
 import type { Sort, SortKey } from "./useTagList";
 
 const ROW_HEIGHT = 38;
@@ -75,19 +75,21 @@ export function TagTable({ tags, checked, editing, sort, onSort, onCheckAll, rul
   return (
     <div data-zone="gestionnaire-tags.tableau" className="rounded-xl border border-border bg-card/40">
       <div className={cn(COLUMNS, "h-9 border-b border-border px-2 text-xs font-medium text-muted-foreground")}>
-        <Checkbox
-          checked={all ? true : some ? "indeterminate" : false}
-          onCheckedChange={(c) => onCheckAll(c === true)}
-          aria-label="Cocher tous les tags affichés"
-        />
+        <CheckCell>
+          <Checkbox
+            checked={all ? true : some ? "indeterminate" : false}
+            onCheckedChange={(c) => onCheckAll(c === true)}
+            aria-label="Cocher tous les tags affichés"
+          />
+        </CheckCell>
         <SortHeader label="Nom" sortKey="name" sort={sort} onSort={onSort} />
         <SortHeader label="Catégorie" sortKey="category" sort={sort} onSort={onSort} />
         <SortHeader label="Médias" sortKey="count" sort={sort} onSort={onSort} className="justify-end" />
-        <SortHeader label="Créé le" sortKey="created" sort={sort} onSort={onSort} />
+        <SortHeader label="Créé le" sortKey="created" sort={sort} onSort={onSort} className="justify-end" />
         <span className="text-center">Description</span>
         <span className="text-center">Synonymes</span>
         <span className="text-center">Parents</span>
-        <span className="text-right">Actions</span>
+        <span className="text-center">Actions</span>
       </div>
       <div ref={bodyRef} className="relative" style={{ height: virtualizer.getTotalSize() }}>
         {virtualizer.getVirtualItems().map((item) => {
