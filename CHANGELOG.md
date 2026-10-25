@@ -3,6 +3,35 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Phase 3, correctifs du test, lot 11 : création d'un tag, confirmation, Échap (25/10/2026) — Backup v57
+
+SPEC : `[x]` (validé par toi) : point TAGM-04.6. Livrées `[~]` : TAGM-04 (retouches des points TAGM-04.5 et
+TAGM-04.7, points TAGM-04.8 et TAGM-04.9), TAGM-11 (point TAGM-11.1).
+
+- **« Afficher 100 de plus »** : en languette accrochée au bas du tableau, centrée ; « N / X tags affichés »
+  dessous, centré.
+- **Tris** : colonnes Description, Synonymes et Parents élargies (84 px) : la flèche du tri a sa place.
+- **Créer un tag** : bouton doré « + Créer un tag » en tête de la page ; pop-in avec le nom et la catégorie ;
+  nom déjà pris refusé ; le filtre montre ensuite le nouveau tag.
+- **Catégorie de plusieurs tags** : confirmation « Changer la catégorie de N tags ? » dès 2 tags cochés.
+- **Échap** décoche tous les tags (hors d'un champ, rien d'ouvert par-dessus).
+
+Vérifié dans la version compilée, sur une copie de la bibliothèque « booru » (fenêtre 1920 × 1040) : colonnes
+nom 570 px (618 avant), Description / Synonymes / Parents 84 px ; flèche du tri de 12 px entière, à 22 px de
+« Synonymes » (tri Description), 33 px de « Parents », 48 px de « Actions » ; languette collée au bord du bas du
+tableau (sans bord du haut, coins du bas arrondis), centrée au pixel, « 100 / 13 106 tags affichés » 8 px
+dessous, centré ; clic : 200 ; filtre « zz5 » : « 10 / 10 tags affichés » sans languette ; « Créer un tag »
+doré, 1er de l'en-tête ; pop-in : focus dans le nom, « Général » par défaut ; vide : « Créer » grisé ;
+« zz5 long hair » : « Ce tag existe déjà » ; « zz5m cats » : « C'est déjà un synonyme de « zz5m cat » » ;
+« zz5i minou » (synonyme décoché) : « Créer » actif ; Entrée sur « zz l11 essai » : créé en « Général », sans
+média, pop-in fermée, filtre « zz l11 essai » (une ligne), message « Tag « zz l11 essai » créé » ; « zz l11
+deux » en « Artiste » par le bouton « Créer » ; Échap dans la pop-in : rien de créé ; clic droit dans le nom :
+menu des champs ; 2 tags cochés, « Méta » : « Changer la catégorie de 2 tags ? », « Les 2 tags cochés
+passeront dans la catégorie « Méta ». », « Changer » ; Annuler : rien ne change, toujours cochés ; Entrée : les
+2 en « Méta » ; Échap dans la confirmation : rien ne change, toujours cochés ; 1 tag coché, « Général » :
+changé sans pop-in ; Échap dans le filtre : toujours cochés ; Échap hors d'un champ : tout décoché ;
+renommage puis Échap : le champ se ferme, la case reste cochée, un 2e Échap décoche. Tags d'essai supprimés.
+
 ## Phase 3, correctifs du test, lot 10 : gestionnaire de tags, 100 par 100, renommage, tris (25/10/2026) — Backup v56
 
 SPEC : `[x]` (validées par toi) : VIEW-27, VIEW-30 ; points TAGM-04.3, TAGM-04.10, AUT.6, AUT.17 validés.

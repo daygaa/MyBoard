@@ -150,7 +150,8 @@ export function commitSelectionPreview() {
   changed({ preview: null });
 }
 
-const inField = (target: EventTarget | null) =>
+/** Cible dans un champ de saisie : Échap et Ctrl + A lui appartiennent (aussi : gestionnaire de tags). */
+export const inField = (target: EventTarget | null) =>
   target instanceof HTMLElement && (["INPUT", "TEXTAREA"].includes(target.tagName) || target.isContentEditable);
 
 // Échap quitte le mode (SEL-01), en dernier recours : seulement si rien d'autre n'est ouvert par-dessus

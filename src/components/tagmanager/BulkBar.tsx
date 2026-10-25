@@ -1,12 +1,16 @@
 // Actions groupées du gestionnaire de tags (TAGM-11), comme la barre du bas de la sélection des
 // médias (SEL-07) : « K cochés · Sélectionner les N tags (ceux du filtre, TAGM-04.5) · Modifier la
 // catégorie · Masquer · Ne plus masquer · Fusionner… · Supprimer… · Décocher », collée en bas de l'écran
-// pendant le défilement.
+// pendant le défilement. Changer la catégorie de 2 tags ou plus demande confirmation (retour T3, point
+// TAGM-04.9, GEN-21) ; d'un seul, non (comme la liste de sa ligne).
 
+import { useState } from "react";
 import { X } from "lucide-react";
 
 import { CategorySelect } from "@/components/tags/CategorySelect";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { useCategories } from "@/hooks/useCategories";
 import type { ManagedTag } from "@/lib/api";
 import { formatNumber, plural } from "@/lib/format";
 import { setTagsCategory, setTagsHidden } from "@/lib/tagManager";
@@ -26,6 +30,9 @@ type Props = {
 
 export function BulkBar({ tags, matching, onSelectAll, allSelected, onMerge, onDelete, onClear }: Props) {
   const ids = tags.map((t) => t.id);
+  const { byId } = useCategories();
+  // Catégorie choisie, en attente de la confirmation.
+  const [pending, setPending] = useState<number | null>(null);
   return (
     <div data-zone="gestionnaire-tags.groupe" className="sticky bottom-4 z-30 mt-4 flex flex-wrap items-center gap-2 rounded-xl border border-border bg-card px-3 py-2 shadow-xl">
       <span className="mr-1 text-sm font-semibold text-foreground tabular-nums">
@@ -44,7 +51,11 @@ export function BulkBar({ tags, matching, onSelectAll, allSelected, onMerge, onD
       <CategorySelect
         zone="gestionnaire-tags.groupe.categorie"
         value={null}
-        onChange={(id) => id !== null && void setTagsCategory(ids, id)}
+        onChange={(id) => {
+          if (id === null) return;
+          if (ids.length > 1) setPending(id);
+          else void setTagsCategory(ids, id);
+        }}
         placeholder="Modifier la catégorie"
         className="h-8 w-48 text-xs"
       />
@@ -69,6 +80,19 @@ export function BulkBar({ tags, matching, onSelectAll, allSelected, onMerge, onD
       >
         <X className="h-4 w-4" />
       </button>
+      {pending !== null && (
+        <ConfirmDialog
+          zone="gestionnaire-tags.groupe.confirmation"
+          title={`Changer la catégorie de ${formatNumber(ids.length)} tags ?`}
+          message={`Les ${formatNumber(ids.length)} tags cochés passeront dans la catégorie « ${byId.get(pending)?.name ?? ""} ».`}
+          confirmLabel="Changer"
+          onCancel={() => setPending(null)}
+          onConfirm={() => {
+            setPending(null);
+            void setTagsCategory(ids, pending);
+          }}
+        />
+      )}
     </div>
   );
 }

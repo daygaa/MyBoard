@@ -20,8 +20,9 @@ import { ParentsCell, SynonymsCell } from "./RuleCells";
 import type { TagOf } from "./RuleLines";
 import { TagDescriptionButton } from "./TagDescriptionButton";
 
-/** Colonnes, communes à l'en-tête et aux lignes. */
-export const COLUMNS = "grid grid-cols-[28px_minmax(0,1fr)_150px_72px_88px_68px_68px_68px_92px] items-center gap-2";
+/** Colonnes, communes à l'en-tête et aux lignes. Description, Synonymes, Parents : 84 px, la place de leur
+ *  titre et de la flèche du tri (78 px pour « Description », retour T3, point TAGM-04.7), pris sur le nom. */
+export const COLUMNS = "grid grid-cols-[28px_minmax(0,1fr)_150px_72px_88px_84px_84px_84px_92px] items-center gap-2";
 
 const ICON = "grid h-7 w-7 place-items-center rounded-md text-muted-foreground transition hover:bg-secondary hover:text-foreground";
 

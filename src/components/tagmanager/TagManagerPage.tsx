@@ -2,10 +2,11 @@
 // « Synonymes et parents » sur toute la largeur de la fenêtre, juste sous l'en-tête (TAGM-04.1, TAGM-15.2) ;
 // en-tête de la page (retour à la bibliothèque, titre, « N tags · M médias taggés »). Largeur : 72 % de la
 // fenêtre (TAGM-04.2 : +10 % de chaque côté sur l'écran 1080p), toute la fenêtre si elle est étroite.
-// Onglet « Tags » : boutons Tags proches (TAGM-13) · Exporter ▾ · Importer (TAGM-10) · Supprimer les tags
-// non utilisés (TAGM-08) ; filtres (nom, catégorie, Masqués, Rares) ; tableau trié et virtualisé, 100 tags
-// affichés puis « Afficher 100 de plus » (TAGM-04.5 ; un nouveau filtre ou tri repart des 100 premiers) ;
-// barre des actions groupées quand des tags sont cochés (TAGM-11). Onglet « Synonymes et parents » : RulesTab.
+// Onglet « Tags » : boutons Créer un tag (TAGM-04.8) · Tags proches (TAGM-13) · Exporter ▾ · Importer
+// (TAGM-10) · Supprimer les tags non utilisés (TAGM-08) ; filtres (nom, catégorie, Masqués, Rares) ; tableau
+// trié et virtualisé, 100 tags affichés puis « Afficher 100 de plus » (TAGM-04.5 ; un nouveau filtre ou tri
+// repart des 100 premiers) ; barre des actions groupées quand des tags sont cochés (TAGM-11 ; Échap décoche
+// tout, TAGM-11.1). Onglet « Synonymes et parents » : RulesTab.
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ArrowLeft, ChevronDown, Search, Tags } from "lucide-react";
@@ -24,13 +25,16 @@ import { formatNumber, plural } from "@/lib/format";
 import { navigate, useTagTab } from "@/lib/router";
 import { encodeTags } from "@/lib/shareCode";
 import { displayTag } from "@/lib/tags";
+import { hasEscapeLayer } from "@/lib/escape";
 import { deleteTags, similarGroups } from "@/lib/tagManager";
 import { cn } from "@/lib/utils";
 import { showGridBadge } from "@/stores/badge";
 import { searchInLibrary } from "@/stores/search";
+import { inField } from "@/stores/selection";
 import { BulkBar } from "./BulkBar";
 import { MergeTagsDialog, SimilarTagsDialog, UnusedTagsDialog } from "./CleanupDialogs";
 import { ImportTagsDialog } from "./ImportTagsDialog";
+import { NewTagButton } from "./NewTagButton";
 import { RuleAskHost } from "./RuleAskHost";
 import { RulesTab } from "./RulesTab";
 import { Tabs } from "./TagManagerTabs";
@@ -64,6 +68,18 @@ export function TagManagerPage() {
   const unused = useMemo(() => all.filter((t) => t.mediaCount === 0), [all]);
   // Tags cochés encore présents (un tag supprimé ou fusionné quitte la liste).
   const checkedTags = useMemo(() => all.filter((t) => checked.has(t.id)), [all, checked]);
+
+  // Échap décoche tous les tags (retour T3, point TAGM-11.1), comme la croix de la barre du bas ; comme
+  // Échap en mode sélection (SEL-01) : rien d'ouvert par-dessus, hors d'un champ de saisie.
+  const anyChecked = tab === "tags" && checked.size > 0;
+  useEffect(() => {
+    if (!anyChecked) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !hasEscapeLayer() && !inField(e.target)) setChecked(new Set());
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [anyChecked]);
 
   const onCheck = useCallback((id: number, on: boolean) => {
     setChecked((s) => {
@@ -128,6 +144,16 @@ export function TagManagerPage() {
             </div>
           </div>
           <div className={cn("ml-auto flex flex-wrap items-center gap-2", tab !== "tags" && "hidden")}>
+            <NewTagButton
+              tags={all}
+              rules={rules}
+              tagOf={tagOf}
+              onCreated={(name) => {
+                // Le filtre montre le nouveau tag (choix de l'utilisateur), sinon il pourrait tomber après les 100 premiers.
+                setFilters({ text: displayTag(name), category: null, hidden: false, rare: false });
+                showGridBadge(`Tag « ${displayTag(name)} » créé`);
+              }}
+            />
             <Button data-zone="gestionnaire-tags.proches" variant="outline" size="sm" onClick={() => setDialog("similar")} className={TOOL}>
               Tags proches ({formatNumber(groups.length)})
             </Button>
@@ -215,18 +241,10 @@ export function TagManagerPage() {
               onMenu={onMenu}
               rules={rules}
               tagOf={tagOf}
+              total={visible.length}
+              more={Math.min(STEP, visible.length - shown.length)}
+              onMore={() => setLimit((n) => n + STEP)}
             />
-
-            <div data-zone="gestionnaire-tags.plus" className="mt-3 flex items-center justify-center gap-3 text-xs text-muted-foreground">
-              <span className="select-text tabular-nums">
-                {formatNumber(shown.length)} / {formatNumber(visible.length)} {plural(visible.length, "tag affiché", "tags affichés")}
-              </span>
-              {shown.length < visible.length && (
-                <Button variant="outline" size="sm" onClick={() => setLimit((n) => n + STEP)} className={TOOL}>
-                  Afficher {formatNumber(Math.min(STEP, visible.length - shown.length))} de plus
-                </Button>
-              )}
-            </div>
 
             {checkedTags.length > 0 && (
               <BulkBar
