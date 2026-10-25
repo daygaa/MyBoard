@@ -6,7 +6,7 @@
 // Tag masqué : en gris. Clic droit : menu du tag (CTX-04, sans « Retirer de… »).
 
 import { memo, useState } from "react";
-import { Eye, EyeOff, Pencil, Trash2 } from "lucide-react";
+import { CornerDownLeft, Eye, EyeOff, Pencil, Trash2 } from "lucide-react";
 
 import { CategorySelect } from "@/components/tags/CategorySelect";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -57,26 +57,41 @@ function NameEditor({ tag, onDone, onRename }: { tag: ManagedTag; onDone: () => 
     if (!value.trim()) return;
     if (await onRename(tag, value)) onDone();
   };
+  // Bouton au bout du champ (TAGM-04.6) : valide comme Entrée ; il ne prend pas le focus (le champ, en
+  // le perdant, annulerait le renommage).
   return (
-    <input
-      data-zone="gestionnaire-tags.renommer"
-      autoFocus
-      value={value}
-      onChange={(e) => setValue(e.target.value)}
-      onFocus={(e) => e.currentTarget.select()}
-      onKeyDown={(e) => {
-        if (e.key === "Enter") {
-          e.preventDefault();
-          void submit();
-        } else if (e.key === "Escape") {
-          e.preventDefault();
-          e.stopPropagation();
-          onDone();
-        }
-      }}
-      onBlur={onDone}
-      className="h-7 w-full rounded-md border border-[#d9a94e]/60 bg-background px-2 font-mono text-sm text-foreground outline-none"
-    />
+    <div className="relative">
+      <input
+        data-zone="gestionnaire-tags.renommer"
+        autoFocus
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        onFocus={(e) => e.currentTarget.select()}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            void submit();
+          } else if (e.key === "Escape") {
+            e.preventDefault();
+            e.stopPropagation();
+            onDone();
+          }
+        }}
+        onBlur={onDone}
+        className="h-7 w-full rounded-md border border-[#d9a94e]/60 bg-background pr-8 pl-2 font-mono text-sm text-foreground outline-none"
+      />
+      <button
+        type="button"
+        data-zone="gestionnaire-tags.renommer.valider"
+        onMouseDown={(e) => e.preventDefault()}
+        onClick={() => void submit()}
+        aria-label="Renommer (Entrée)"
+        title="Renommer (Entrée)"
+        className="absolute top-1/2 right-1 grid h-5 w-6 -translate-y-1/2 place-items-center rounded text-[#d9a94e] transition hover:bg-secondary"
+      >
+        <CornerDownLeft className="h-3.5 w-3.5" />
+      </button>
+    </div>
   );
 }
 

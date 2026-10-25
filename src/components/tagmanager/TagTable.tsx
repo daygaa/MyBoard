@@ -89,9 +89,9 @@ export function TagTable({ tags, checked, editing, sort, onSort, onCheckAll, rul
         <SortHeader label="Catégorie" sortKey="category" sort={sort} onSort={onSort} />
         <SortHeader label="Médias" sortKey="count" sort={sort} onSort={onSort} className="justify-end" />
         <SortHeader label="Créé le" sortKey="created" sort={sort} onSort={onSort} className="justify-center" />
-        <span className="text-center">Description</span>
-        <span className="text-center">Synonymes</span>
-        <span className="text-center">Parents</span>
+        <SortHeader label="Description" sortKey="description" sort={sort} onSort={onSort} className="justify-center" />
+        <SortHeader label="Synonymes" sortKey="aliases" sort={sort} onSort={onSort} className="justify-center" />
+        <SortHeader label="Parents" sortKey="parents" sort={sort} onSort={onSort} className="justify-center" />
         <span className="text-center">Actions</span>
       </div>
       <div ref={bodyRef} className="relative" style={{ height: virtualizer.getTotalSize() }}>

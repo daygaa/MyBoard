@@ -3,6 +3,26 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Phase 3, correctifs du test, lot 10 : gestionnaire de tags, 100 par 100, renommage, tris (25/10/2026) — Backup v56
+
+SPEC : `[x]` (validées par toi) : VIEW-27, VIEW-30 ; points TAGM-04.3, TAGM-04.10, AUT.6, AUT.17 validés.
+Livrées `[~]` : TAGM-04 (points TAGM-04.5, TAGM-04.6, TAGM-04.7).
+
+- **100 tags à la fois** : « Afficher 100 de plus » sous le tableau, avec le nombre affiché ; la case de
+  l'en-tête coche les tags affichés ; « Sélectionner les N tags » (barre des actions groupées) coche tous les
+  tags du filtre ; « Catégorie » devient « Modifier la catégorie ».
+- **Renommage** : bouton ↵ au bout du champ, qui valide comme Entrée.
+- **Tris** : Description, Synonymes et Parents, par un clic sur le titre de la colonne (un 2e clic inverse).
+
+Vérifié dans la version compilée, sur une copie de la bibliothèque « booru » : « 100 / 13 106 tags affichés »,
+« Afficher 100 de plus » : 200 puis 300 (tableau de 200 lignes de 39 px), nouveau tri : 100 ; filtres
+« long » (38 / 38) et « zz5 » (10 / 10) ; case de l'en-tête : « 100 cochés », « Sélectionner les 13 106
+tags » : « 13 106 cochés », bouton grisé ; filtre « long », une case : « Sélectionner les 38 tags » : « 38
+cochés » ; « Modifier la catégorie » ; tag d'essai renommé par le bouton ↵ (« zz_l10_essai_bis » en base,
+champ fermé) puis supprimé ; tris : Description (« zz5 long hair », « zz5 longhair », « zz5i felin » puis
+les autres de A à Z), Synonymes (« zz5i felin », « zz5m cat », « zz5m d »), Parents (« zz5p animal » avec 2
+parents, puis « zz5i felin », « zz5p chat ») ; 2e clic : ceux qui n'en ont pas d'abord, de A à Z.
+
 ## Phase 3, correctifs du test, lot 9 : historique de la visionneuse, retouches du gestionnaire (25/10/2026) — Backup v55
 
 SPEC : livrées `[~]` : VIEW-27 (points AUT.6, AUT.17), VIEW-30 (changé, à revalider), TAGM-04 (points

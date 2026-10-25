@@ -16,6 +16,8 @@ type Props = {
   className?: string;
   /** Filtre du gestionnaire de tags : entrée « toutes les catégories » (`null`) en premier. */
   allLabel?: string;
+  /** Texte sans catégorie choisie (« Modifier la catégorie » des actions groupées, TAGM-04.5). */
+  placeholder?: string;
 };
 
 /** Catégorie proposée par défaut : « Général » (comme la v8). */
@@ -24,7 +26,7 @@ export function useDefaultCategory(): number | null {
   return list.find((c) => c.key === "general")?.id ?? list[0]?.id ?? null;
 }
 
-export function CategorySelect({ value, onChange, zone, className, allLabel }: Props) {
+export function CategorySelect({ value, onChange, zone, className, allLabel, placeholder = "Catégorie" }: Props) {
   const { list, byId } = useCategories();
   const [open, setOpen] = useState(false);
   // Échap ferme le menu seul, pas la pop-in qui le contient.
@@ -43,7 +45,7 @@ export function CategorySelect({ value, onChange, zone, className, allLabel }: P
         >
           <span className="flex items-center gap-2 truncate">
             {current && <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: current.color }} />}
-            {current?.name ?? allLabel ?? "Catégorie"}
+            {current?.name ?? allLabel ?? placeholder}
           </span>
           <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
         </button>

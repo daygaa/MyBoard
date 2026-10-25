@@ -3,10 +3,11 @@
 // en-tête de la page (retour à la bibliothèque, titre, « N tags · M médias taggés »). Largeur : 72 % de la
 // fenêtre (TAGM-04.2 : +10 % de chaque côté sur l'écran 1080p), toute la fenêtre si elle est étroite.
 // Onglet « Tags » : boutons Tags proches (TAGM-13) · Exporter ▾ · Importer (TAGM-10) · Supprimer les tags
-// non utilisés (TAGM-08) ; filtres (nom, catégorie, Masqués, Rares) ; tableau trié et virtualisé ; barre
-// des actions groupées quand des tags sont cochés (TAGM-11). Onglet « Synonymes et parents » : RulesTab.
+// non utilisés (TAGM-08) ; filtres (nom, catégorie, Masqués, Rares) ; tableau trié et virtualisé, 100 tags
+// affichés puis « Afficher 100 de plus » (TAGM-04.5 ; un nouveau filtre ou tri repart des 100 premiers) ;
+// barre des actions groupées quand des tags sont cochés (TAGM-11). Onglet « Synonymes et parents » : RulesTab.
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { ArrowLeft, ChevronDown, Search, Tags } from "lucide-react";
 
 import { GridBadge } from "@/components/library/GridBadge";
@@ -20,7 +21,7 @@ import { useTagRules } from "@/hooks/useTagRules";
 import { api, type ManagedTag, type Renamed } from "@/lib/api";
 import { openContextMenu, openMenuAt } from "@/lib/contextMenu";
 import { formatNumber, plural } from "@/lib/format";
-import { navigate, openTagTab, useTagTab } from "@/lib/router";
+import { navigate, useTagTab } from "@/lib/router";
 import { encodeTags } from "@/lib/shareCode";
 import { displayTag } from "@/lib/tags";
 import { deleteTags, similarGroups } from "@/lib/tagManager";
@@ -32,51 +33,26 @@ import { MergeTagsDialog, SimilarTagsDialog, UnusedTagsDialog } from "./CleanupD
 import { ImportTagsDialog } from "./ImportTagsDialog";
 import { RuleAskHost } from "./RuleAskHost";
 import { RulesTab } from "./RulesTab";
+import { Tabs } from "./TagManagerTabs";
 import { TagTable } from "./TagTable";
 import { useTagList } from "./useTagList";
 
 const TOOL = "h-8 gap-1.5 border-border bg-card/60 text-xs hover:bg-secondary hover:text-foreground";
+/** Tags affichés à la fois, puis en plus à chaque « Afficher 100 de plus » (TAGM-04.5). */
+const STEP = 100;
 const SEGMENT = "rounded-md px-2.5 py-1 text-xs font-medium transition";
 
 type Dialog = "similar" | "import" | "unused" | "merge" | null;
 
-/** Onglets du gestionnaire (« Synonymes et parents » : TAGM-15, TAGM-16) : chacun la même part de la
- *  largeur (moitié, puis tiers avec un 3e onglet), comme ceux d'un moteur de recherche. */
-const TABS = [
-  { key: "tags", label: "Tags", zone: "tags" },
-  { key: "rules", label: "Synonymes et parents", zone: "regles" },
-] as const;
-
-function Tabs() {
-  const tab = useTagTab();
-  return (
-    <div data-zone="gestionnaire-tags.onglets" role="tablist" className="flex border-b border-border bg-card/40">
-      {TABS.map(({ key, label, zone }) => (
-        <button
-          key={key}
-          type="button"
-          role="tab"
-          data-zone={`gestionnaire-tags.onglet-${zone}`}
-          aria-selected={tab === key}
-          onClick={() => openTagTab(key)}
-          className={cn(
-            "-mb-px h-10 flex-1 border-b-2 text-sm font-medium transition",
-            tab === key ? "border-[#d9a94e] text-[#d9a94e]" : "border-transparent text-muted-foreground hover:bg-secondary/40 hover:text-foreground",
-          )}
-        >
-          {label}
-        </button>
-      ))}
-    </div>
-  );
-}
-
 export function TagManagerPage() {
   const { list: categories } = useCategories();
-  const { data, visible, filtered, filters, setFilters, sort, sortBy } = useTagList();
+  const rules = useTagRules();
+  const { data, visible, filtered, filters, setFilters, sort, sortBy } = useTagList(rules);
   const all = useMemo(() => data?.tags ?? [], [data]);
   const tab = useTagTab();
-  const rules = useTagRules();
+  const [limit, setLimit] = useState(STEP);
+  useEffect(() => setLimit(STEP), [filters, sort]);
+  const shown = useMemo(() => visible.slice(0, limit), [visible, limit]);
   const byId = useMemo(() => new Map(all.map((t) => [t.id, t])), [all]);
   const tagOf = useCallback((id: number) => byId.get(id), [byId]);
   const [checked, setChecked] = useState<Set<number>>(new Set());
@@ -219,16 +195,16 @@ export function TagManagerPage() {
             </div>
 
             <TagTable
-              tags={visible}
+              tags={shown}
               checked={checked}
               editing={editing}
               sort={sort}
               onSort={sortBy}
               onCheckAll={(on) => {
-                const shown = visible.map((t) => t.id);
+                // La case de l'en-tête : les tags affichés seulement (TAGM-04.5).
                 const next = new Set(checked);
-                for (const id of shown) if (on) next.add(id);
-                else next.delete(id);
+                for (const t of shown) if (on) next.add(t.id);
+                else next.delete(t.id);
                 setChecked(next);
               }}
               onCheck={onCheck}
@@ -241,8 +217,27 @@ export function TagManagerPage() {
               tagOf={tagOf}
             />
 
+            <div data-zone="gestionnaire-tags.plus" className="mt-3 flex items-center justify-center gap-3 text-xs text-muted-foreground">
+              <span className="select-text tabular-nums">
+                {formatNumber(shown.length)} / {formatNumber(visible.length)} {plural(visible.length, "tag affiché", "tags affichés")}
+              </span>
+              {shown.length < visible.length && (
+                <Button variant="outline" size="sm" onClick={() => setLimit((n) => n + STEP)} className={TOOL}>
+                  Afficher {formatNumber(Math.min(STEP, visible.length - shown.length))} de plus
+                </Button>
+              )}
+            </div>
+
             {checkedTags.length > 0 && (
-              <BulkBar tags={checkedTags} onMerge={() => setDialog("merge")} onDelete={() => setDeleting(checkedTags)} onClear={() => setChecked(new Set())} />
+              <BulkBar
+                tags={checkedTags}
+                matching={visible.length}
+                onSelectAll={() => setChecked(new Set([...checked, ...visible.map((t) => t.id)]))}
+                allSelected={visible.every((t) => checked.has(t.id))}
+                onMerge={() => setDialog("merge")}
+                onDelete={() => setDeleting(checkedTags)}
+                onClear={() => setChecked(new Set())}
+              />
             )}
           </>
         )}
