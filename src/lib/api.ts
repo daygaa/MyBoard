@@ -199,7 +199,8 @@ export const api = {
   startImport: (defaultTags: NewTag[]) => invoke<void>("start_import", { defaultTags }),
   cancelImport: () => invoke<void>("cancel_import"),
   tagCategories: () => invoke<Category[]>("tag_categories"),
-  autocompleteTags: (text: string) => invoke<TagInfo[]>("autocomplete_tags", { text }),
+  /** `exclude` : noms de tags à ne pas proposer (déjà écrits ou déjà là, SRCH-29). */
+  autocompleteTags: (text: string, exclude: string[] = []) => invoke<TagInfo[]>("autocomplete_tags", { text, exclude }),
   findTag: (name: string) => invoke<TagInfo | null>("find_tag", { name }),
   pageTags: (ids: number[]) => invoke<TagInfo[]>("page_tags", { ids }),
   addMediaTag: (mediaId: number, tag: NewTag) => invoke<void>("add_media_tag", { mediaId, tag }),
@@ -239,6 +240,7 @@ export const api = {
   selectionInfo: (ids: number[]) => invoke<SelectionInfo>("selection_info", { ids }),
   /** Tags présents sur la sélection (champ « Retirer des tags », SEL-07). */
   selectionTags: (ids: number[]) => invoke<TagInfo[]>("selection_tags", { ids }),
+  selectionCommonTags: (ids: number[]) => invoke<string[]>("selection_common_tags", { ids }),
   editSelectionTags: (ids: number[], add: NewTag[], remove: number[]) => invoke<void>("edit_selection_tags", { ids, add, remove }),
   // Gestionnaire de tags (TAGM-04 et suivants) et menus des tags (CTX-04, CTX-12).
   listManagedTags: () => invoke<TagManagerData>("list_managed_tags"),

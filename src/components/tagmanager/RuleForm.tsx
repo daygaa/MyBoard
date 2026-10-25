@@ -73,10 +73,12 @@ export function RuleForm({ zone, placeholders, onAdd, className }: Props) {
       setRight("");
     }
   };
-  const field = (value: string, set: (v: string) => void, placeholder: string, part: string) => (
+  // Chaque champ ne propose pas le tag déjà tapé dans l'autre (SRCH-29).
+  const field = (value: string, set: (v: string) => void, placeholder: string, part: string, other: string) => (
     <TagInput
       zone={`${zone}.${part}`}
       value={value}
+      hidden={normalizeTag(other) ? [normalizeTag(other)] : undefined}
       onChange={(v) => {
         set(v);
         setError(null);
@@ -91,9 +93,9 @@ export function RuleForm({ zone, placeholders, onAdd, className }: Props) {
   return (
     <div data-zone={zone} className={className}>
       <div className="flex items-center gap-1.5">
-        {field(left, setLeft, placeholders[0], "gauche")}
+        {field(left, setLeft, placeholders[0], "gauche", right)}
         <ArrowRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-        {field(right, setRight, placeholders[1], "droite")}
+        {field(right, setRight, placeholders[1], "droite", left)}
         <Button
           data-zone={`${zone}.ajouter`}
           size="sm"

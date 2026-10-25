@@ -20,13 +20,17 @@ const MIN_HALF_WIDTH = 380;
 
 /** Marges qui placent le centre de l'élément au centre de la fenêtre. La grille est à droite
  *  de la barre latérale : sans cela, la barre est centrée sur la grille, pas sur la fenêtre.
- *  Fenêtre trop étroite : marges nulles (centrage sur la grille, sans passer sous la barre latérale). */
-function useWindowCentering(ref: RefObject<HTMLElement | null>) {
+ *  Fenêtre trop étroite : marges nulles (centrage sur la grille, sans passer sous la barre latérale).
+ *  `shown` : la pagination du haut disparaît quand tout tient sur une page ; à son retour, elle est
+ *  mesurée de nouveau, et l'élément disparu n'est jamais mesuré (il donnait des marges nulles : la
+ *  pagination revenait centrée sur la grille, retour du 25/10). */
+function useWindowCentering(ref: RefObject<HTMLElement | null>, shown: boolean) {
   const [pad, setPad] = useState({ left: 0, right: 0 });
   useLayoutEffect(() => {
     const el = ref.current;
     if (!el) return;
     const measure = () => {
+      if (!el.isConnected) return;
       const box = el.getBoundingClientRect(); // bords extérieurs : ne dépendent pas des marges
       const centre = window.innerWidth / 2;
       const half = Math.min(centre - box.left, box.right - centre);
@@ -44,7 +48,7 @@ function useWindowCentering(ref: RefObject<HTMLElement | null>) {
       observer.disconnect();
       window.removeEventListener("resize", measure);
     };
-  }, [ref]);
+  }, [ref, shown]);
   return { paddingLeft: pad.left, paddingRight: pad.right };
 }
 
@@ -115,7 +119,7 @@ type Props = {
 
 export function Pagination({ page, pageCount, total, zone, showSummary = false }: Props) {
   const ref = useRef<HTMLElement>(null);
-  const centering = useWindowCentering(ref);
+  const centering = useWindowCentering(ref, pageCount > 1 || showSummary);
   const setPage = useLibrary((s) => s.setPage);
   const summary = `Page ${page} / ${pageCount} · ${formatNumber(total)} ${plural(total, "média")}`;
 

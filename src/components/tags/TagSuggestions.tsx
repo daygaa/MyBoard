@@ -28,15 +28,16 @@ function suggestionsIn(source: TagInfo[], text: string): TagInfo[] {
 }
 
 /** Suggestions pour `text` (déjà normalisé) : parmi tous les tags, ou dans `source` (champ « Retirer
- *  des tags » de la sélection : seulement les tags qu'elle porte, SEL-07). */
-export function useTagSuggestions(text: string, source?: TagInfo[]): TagInfo[] {
+ *  des tags » de la sélection : seulement les tags qu'elle porte, SEL-07). `hidden` : noms des tags
+ *  déjà écrits ou déjà là, jamais proposés (SRCH-29). */
+export function useTagSuggestions(text: string, source?: TagInfo[], hidden: string[] = []): TagInfo[] {
   const { data: found = [] } = useQuery({
-    queryKey: ["autocomplete", text],
-    queryFn: () => api.autocompleteTags(text),
+    queryKey: ["autocomplete", text, hidden],
+    queryFn: () => api.autocompleteTags(text, hidden),
     enabled: text.length > 0 && !source,
     placeholderData: keepPreviousData,
   });
-  return source ? suggestionsIn(source, text) : found;
+  return source ? suggestionsIn(source.filter((t) => !hidden.includes(t.name)), text) : found;
 }
 
 export type Dropdown = "top" | "bottom";

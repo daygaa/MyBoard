@@ -75,44 +75,40 @@ async function editMenu(field: Field): Promise<MenuEntry[]> {
 }
 
 /** Commandes d'édition d'un champ éditable maison (champ à pastilles) : le navigateur ne sait pas
- *  défaire ni coller à sa place. `selected` : le texte sélectionné, à copier. */
+ *  défaire ni coller à sa place ; copier et couper passent par le champ (pastilles copiées comme
+ *  pastilles), coller reçoit le texte lu par le cœur Rust. */
 export type EditCommands = {
   canUndo: () => boolean;
   undo: () => void;
-  selected: () => string;
+  hasSelection: () => boolean;
   isEmpty: () => boolean;
-  erase: () => void;
+  copy: () => void;
+  cut: () => void;
   paste: (text: string) => void;
+  erase: () => void;
   selectAll: () => void;
 };
 
-const editables = new WeakMap<Element, EditCommands>();
+/** Champs inscrits, avec de quoi lire leurs dernières commandes. */
+const editables = new WeakMap<Element, () => EditCommands>();
 
 /** Inscrit un champ éditable maison ; renvoie de quoi le désinscrire. */
-export function registerEditable(el: HTMLElement, commands: EditCommands): () => void {
+export function registerEditable(el: HTMLElement, commands: () => EditCommands): () => void {
   editables.set(el, commands);
   return () => editables.delete(el);
 }
 
 async function editableMenu(el: HTMLElement, c: EditCommands): Promise<MenuEntry[]> {
   const clipboard = await api.readClipboardText().catch(() => null);
-  const selected = c.selected();
+  const selected = c.hasSelection();
   const inField = (fn: () => void) => () => {
     el.focus();
     fn();
   };
   return [
     { label: "Annuler", shortcut: "Ctrl+Z", disabled: !c.canUndo(), run: inField(c.undo) },
-    {
-      label: "Couper",
-      shortcut: "Ctrl+X",
-      disabled: !selected,
-      run: inField(() => {
-        void api.writeClipboardText(selected);
-        c.erase();
-      }),
-    },
-    { label: "Copier", shortcut: "Ctrl+C", disabled: !selected, run: () => void api.writeClipboardText(selected) },
+    { label: "Couper", shortcut: "Ctrl+X", disabled: !selected, run: inField(c.cut) },
+    { label: "Copier", shortcut: "Ctrl+C", disabled: !selected, run: inField(c.copy) },
     { label: "Coller", shortcut: "Ctrl+V", disabled: !clipboard, run: inField(() => clipboard && c.paste(clipboard)) },
     { label: "Supprimer", shortcut: "Suppr", disabled: !selected, run: inField(c.erase) },
     { label: "Tout sélectionner", shortcut: "Ctrl+A", disabled: c.isEmpty(), run: inField(c.selectAll) },
@@ -125,7 +121,7 @@ export function textMenuFor(e: MouseEvent): (() => Promise<MenuEntry[]>) | null 
   if (field) return () => editMenu(field);
   const editable = e.target instanceof Element ? e.target.closest<HTMLElement>('[contenteditable="true"]') : null;
   const commands = editable && editables.get(editable);
-  if (editable && commands) return () => editableMenu(editable, commands);
+  if (editable && commands) return () => editableMenu(editable, commands());
   if (onSelection(e)) return async () => [{ label: "Copier", shortcut: "Ctrl+C", run: () => document.execCommand("copy") }];
   return null;
 }

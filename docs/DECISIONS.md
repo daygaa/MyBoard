@@ -930,3 +930,10 @@ Slate…) : WebView2 est le seul moteur, et le champ reste simple (une ligne de 
 **Partagé.** `PillField` (barre de la sélection) reprendra la recherche de la barre latérale (SRCH-28) et les
 champs des règles du gestionnaire (TAGM-15.5). La liste de suggestions est commune avec la case de saisie d'un
 tag (`TagSuggestions.tsx`).
+
+**Lot 7 (25/10).** La recherche de la barre latérale l'utilise aussi (SRCH-28, `words` : un mot = un terme).
+Copier-coller : le morceau copié (textes et pastilles) va dans le presse-papiers sous le type réservé
+`application/x-myboard-pastilles`, avec son texte brut (`components/tags/pillClipboard.ts`) ; le menu du
+clic droit, qui lit le presse-papiers par le cœur Rust (texte seul), retrouve le dernier morceau copié par
+son texte. Suggestions (SRCH-29) : les tags à écarter sont passés à l'autocomplétion du cœur Rust, qui les
+retire avant de garder les 10 premières (sinon la liste perdait des places).

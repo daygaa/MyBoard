@@ -4,6 +4,7 @@
 // Tag masqué (TAGM-05) : gris clair et en dernier ; description en bulle d'aide (TAGM-14).
 
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
 
 import { CreateTagDialog } from "@/components/tags/CreateTagDialog";
@@ -21,6 +22,8 @@ export function TagAdder({ mediaId }: { mediaId: number }) {
   const [text, setText] = useState("");
   const [toCreate, setToCreate] = useState<string | null>(null);
   const { add } = useTagChanges();
+  // Tags déjà sur le média : jamais proposés (SRCH-29).
+  const { data: detail } = useQuery({ queryKey: ["media-detail", mediaId], queryFn: () => api.mediaDetail(mediaId) });
 
   const submit = async (raw: string) => {
     const name = normalizeTag(raw);
@@ -42,6 +45,7 @@ export function TagAdder({ mediaId }: { mediaId: number }) {
           void add(mediaId, { name: tag.name, categoryId: null });
         }}
         dropdown="top"
+        hidden={detail?.tags.map((t) => t.name)}
         placeholder="Ajouter un tag…"
         className="h-8 w-56"
         inputClassName="rounded-md bg-secondary px-2 text-xs"

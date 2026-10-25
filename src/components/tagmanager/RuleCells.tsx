@@ -39,8 +39,9 @@ function CellButton({ zone, icon: Icon, count, title, popover }: { zone: string;
   );
 }
 
-/** Champ d'ajout de la petite liste : Entrée ajoute ; le refus s'affiche dessous. */
-function AddField({ zone, placeholder, onAdd }: { zone: string; placeholder: string; onAdd: (text: string) => Promise<string | null> }) {
+/** Champ d'ajout de la petite liste : Entrée ajoute ; le refus s'affiche dessous. `hidden` : le tag
+ *  lui-même et ce que la liste contient déjà, jamais proposés (SRCH-29). */
+function AddField({ zone, placeholder, hidden, onAdd }: { zone: string; placeholder: string; hidden: string[]; onAdd: (text: string) => Promise<string | null> }) {
   const [text, setText] = useState("");
   const [error, setError] = useState<string | null>(null);
   const submit = async (value: string) => {
@@ -61,6 +62,7 @@ function AddField({ zone, placeholder, onAdd }: { zone: string; placeholder: str
         onSubmit={(v) => void submit(v)}
         onPick={(tag) => void submit(tag.name)}
         placeholder={placeholder}
+        hidden={hidden}
         className="h-8"
         inputClassName="font-mono text-xs"
       />
@@ -90,7 +92,12 @@ export function SynonymsCell({ tag, aliases, tagOf }: { tag: ManagedTag; aliases
       {popover.open && (
         <Panel popover={popover} zone="gestionnaire-tags.synonymes.liste" title={`Taper l'un de ces noms donne « ${label} » :`}>
           {aliases.length ? aliases.map((row) => <AliasLine key={row.id} row={row} tagOf={tagOf} showTarget={false} />) : <Empty text="Aucun synonyme." />}
-          <AddField zone="gestionnaire-tags.synonymes.ajout" placeholder="Ajouter un synonyme…" onAdd={(text) => addAlias(text, tag)} />
+          <AddField
+            zone="gestionnaire-tags.synonymes.ajout"
+            placeholder="Ajouter un synonyme…"
+            hidden={[tag.name, ...aliases.map((row) => row.alias)]}
+            onAdd={(text) => addAlias(text, tag)}
+          />
         </Panel>
       )}
     </>
@@ -112,6 +119,7 @@ export function ParentsCell({ tag, parents, childRules, tagOf }: { tag: ManagedT
           <AddField
             zone="gestionnaire-tags.parents.ajout"
             placeholder="Ajouter un parent…"
+            hidden={[tag.name, ...parents.map((row) => tagOf(row.parentId)?.name ?? "")]}
             onAdd={async (text) => {
               const parent = await resolve(text);
               return parent ? addParent(tag, parent) : null;

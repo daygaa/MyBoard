@@ -137,6 +137,7 @@ pub fn run() {
             selection::result_ids,
             selection::selection_info,
             selection::selection_tags,
+            selection::selection_common_tags,
             selection::edit_selection_tags,
             tag_manager::list_managed_tags,
             tag_manager::rename_tag,

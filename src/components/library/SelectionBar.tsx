@@ -46,7 +46,8 @@ function focusAndSignal(input: HTMLElement | null) {
 export const focusTagAdder = () => focusAndSignal(adderInput);
 export const focusTagRemover = () => focusAndSignal(removerInput);
 
-type Chip = { name: string; categoryId: number };
+/** Tag à ajouter ; catégorie inconnue (`null`) pour un tag collé depuis la recherche : il garde la sienne. */
+type Chip = { name: string; categoryId: number | null };
 
 const FIELD = "flex min-h-9 min-w-0 flex-1 items-center rounded-lg border border-border bg-background px-1.5 py-1 focus-within:border-[#d9a94e]";
 
@@ -60,6 +61,7 @@ export function SelectionBar() {
   const [toCreate, setToCreate] = useState<string | null>(null);
   /** Réponse attendue de la pop-in de création (la pastille, ou rien si elle est annulée). */
   const created = useRef<(chip: Chip | null) => void>(() => {});
+  const [adding, setAdding] = useState(false);
   const [removing, setRemoving] = useState(false);
   const [busy, setBusy] = useState(false);
   // Tags de la sélection, lus quand on se sert du champ « Retirer ».
@@ -67,6 +69,12 @@ export function SelectionBar() {
     queryKey: ["selection-tags", version],
     queryFn: () => api.selectionTags(selectedIds()),
     enabled: active && removing && count > 0,
+  });
+  // Tags déjà sur tous les médias cochés : « Ajouter » ne les propose pas (SRCH-29, choix du 25/10).
+  const { data: common = [] } = useQuery({
+    queryKey: ["selection-common-tags", version],
+    queryFn: () => api.selectionCommonTags(selectedIds()),
+    enabled: active && adding && count > 0,
   });
   // Fin du mode sélection : pastilles et textes tapés s'en vont (retour du 25/10).
   const { clear: clearAdder } = adder;
@@ -124,16 +132,21 @@ export function SelectionBar() {
         className={FIELD}
         pills={adder}
         pillKey={(chip) => chip.name}
-        pillName={(chip) => chip.name}
         resolve={resolveAdd}
         toItem={(tag) => ({ name: tag.name, categoryId: tag.categoryId })}
+        toClip={(chip) => chip}
+        // Une exclusion ou un joker de la recherche n'est pas un tag à poser.
+        fromClip={(c) => (c.exclude || c.prefix ? null : { name: c.name, categoryId: c.categoryId })}
+        hidden={common}
         placeholder="Ajouter des tags…"
-        onEnterEmpty={applyIfReady}
+        onSubmit={applyIfReady}
+        onFocus={() => setAdding(true)}
+        onBlur={() => setAdding(false)}
         editorRef={(el) => {
           adderInput = el;
         }}
         renderPill={(chip, remove) => (
-          <TagPill color={color(chip.categoryId)} onRemove={remove} removeLabel={`Ne pas ajouter « ${displayTag(chip.name)} »`}>
+          <TagPill color={color(chip.categoryId ?? -1)} onRemove={remove} removeLabel={`Ne pas ajouter « ${displayTag(chip.name)} »`}>
             {displayTag(chip.name)}
           </TagPill>
         )}
@@ -143,12 +156,14 @@ export function SelectionBar() {
         className={FIELD}
         pills={remover}
         pillKey={(tag) => tag.id}
-        pillName={(tag) => tag.name}
         resolve={(raw) => present.find((t) => t.name === normalizeTag(raw)) ?? null}
         toItem={(tag) => tag}
+        toClip={(tag) => ({ name: tag.name, categoryId: tag.categoryId })}
+        // Seuls les tags portés par la sélection peuvent être retirés.
+        fromClip={(c) => (c.exclude || c.prefix ? null : (present.find((t) => t.name === c.name) ?? null))}
         source={present}
         placeholder="Retirer des tags…"
-        onEnterEmpty={applyIfReady}
+        onSubmit={applyIfReady}
         onFocus={() => setRemoving(true)}
         onBlur={() => setRemoving(false)}
         editorRef={(el) => {

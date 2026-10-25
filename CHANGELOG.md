@@ -3,6 +3,33 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Phase 3, correctifs du test, lot 7 : recherche à pastilles, suggestions, copier-coller (25/10/2026) — Backup v52
+
+SPEC : `[x]` (validée par toi) : SEL-07 ; points SEL-07.4, SEL-07.6, SEL-07.8, SEL-07.9, SEL-07.10 validés.
+Livrées `[~]` : SRCH-28, SRCH-29, SEL-12 (points SEL-07.11, SEL-07.12) ; PAGE-04 corrigé (point AUT.16).
+
+- **Recherche de la barre latérale** : un champ à pastilles. Un mot devient une pastille à l'espace ou au
+  choix d'une suggestion ; Entrée ou le bouton lancent la recherche avec tout ce qui est écrit, et le champ
+  se vide ; les termes de la recherche restent dans la ligne du dessous ; + / − ajoutent directement.
+- **Suggestions sans les tags déjà là** (recherche, visionneuse, barre de la sélection, tags par défaut de
+  l'import, règles) ; « Ajouter » de la sélection écarte aussi les tags déjà sur tous les médias cochés. La
+  liste garde ses 10 suggestions.
+- **Pastilles** : double-clic = la pastille ; copiées, elles se collent comme pastilles dans les champs à
+  pastilles de MyBoard, et comme texte ailleurs.
+- **Pagination du haut** : elle revient bien centrée sur la fenêtre après une recherche d'une seule page.
+
+Vérifié dans la version compilée, sur une copie de la bibliothèque « booru » : recherche « incredibly
+absurdres » (1 média), retour : page active du haut à 960 px (1 099 px avec la version d'avant, défaut
+reproduit) ; champ de recherche : « long_hair » + espace, « -smile » + espace (pastille rayée), Entrée (3
+termes lancés, champ vidé), « long_h » sans « long hair », « smi » sans « smile », + d'une suggestion
+(ajouté directement), suggestion choisie (pastille, rien de lancé), bouton (nouvelle recherche) ;
+visionneuse : le tag du média n'est pas proposé ; sélection : tag commun aux 2 médias écarté (commande du
+cœur Rust : 1 tag commun, 1 d'après la base), pastilles écrites écartées ; tags par défaut de l'import et
+formulaire de règle : « long_hair » écarté ; double-clic sur une pastille ; Ctrl + C (texte copié
+« zz_l7_a zz_l7_b », presse-papiers sauvé puis remis), Ctrl + V (doublons écartés), Ctrl + X puis Ctrl + V,
+collage dans la recherche, collage dans « Retirer » (le tag absent de la sélection écarté), Copier / Coller
+du menu du clic droit ; essais du lot 6 (champ à pastilles) et de la visionneuse refaits.
+
 ## Phase 3, correctifs du test, lot 6 (suite) : champ à pastilles éditable (25/10/2026) — Backup v51
 
 SPEC : `[x]` (validées par toi) : SEL-03 ; points SEL-03.2, SEL-07.2, AUT.14 validés. Livrées `[~]` : SEL-12

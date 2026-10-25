@@ -38,22 +38,72 @@ export function covers(s: Sel, k: number): boolean {
   return from.t <= k && k < to.t;
 }
 
-/** Remplace la plage [from, to] (textes et pastilles) par `text`, suivi de `pill` s'il est donné. */
-export function replace<T>(doc: PillDoc<T>, from: Pos, to: Pos, text = "", pill?: T): { doc: PillDoc<T>; caret: Pos } {
-  const head = doc.texts[from.t].slice(0, from.o) + text;
+/** Remplace la plage [from, to] (textes et pastilles) par un morceau de contenu (collage, ou un
+ *  texte suivi d'une pastille) ; le curseur se place après. */
+export function insert<T>(doc: PillDoc<T>, from: Pos, to: Pos, part: PillDoc<T>): { doc: PillDoc<T>; caret: Pos } {
+  const head = doc.texts[from.t].slice(0, from.o);
   const tail = doc.texts[to.t].slice(to.o);
-  const texts = doc.texts.slice(0, from.t);
-  const pills = doc.pills.slice(0, from.t);
-  let caret: Pos;
-  if (pill === undefined) {
-    texts.push(head + tail);
-    caret = { t: from.t, o: head.length };
-  } else {
-    texts.push(head, tail);
-    pills.push(pill);
-    caret = { t: from.t + 1, o: 0 };
+  const n = part.pills.length;
+  const middle = n === 0 ? [head + part.texts[0] + tail] : [head + part.texts[0], ...part.texts.slice(1, n), part.texts[n] + tail];
+  const caret = n === 0 ? { t: from.t, o: head.length + part.texts[0].length } : { t: from.t + n, o: part.texts[n].length };
+  return {
+    doc: { texts: [...doc.texts.slice(0, from.t), ...middle, ...doc.texts.slice(to.t + 1)], pills: [...doc.pills.slice(0, from.t), ...part.pills, ...doc.pills.slice(to.t)] },
+    caret,
+  };
+}
+
+/** Remplace la plage [from, to] par `text`, suivi de `pill` s'il est donné. */
+export function replace<T>(doc: PillDoc<T>, from: Pos, to: Pos, text = "", pill?: T): { doc: PillDoc<T>; caret: Pos } {
+  return insert(doc, from, to, pill === undefined ? { texts: [text], pills: [] } : { texts: [text, ""], pills: [pill] });
+}
+
+/** Morceau du contenu compris dans la sélection (copier). */
+export function pieceOf<T>(doc: PillDoc<T>, s: Sel): PillDoc<T> {
+  const [from, to] = bounds(s);
+  if (from.t === to.t) return { texts: [doc.texts[from.t].slice(from.o, to.o)], pills: [] };
+  return {
+    texts: [doc.texts[from.t].slice(from.o), ...doc.texts.slice(from.t + 1, to.t), doc.texts[to.t].slice(0, to.o)],
+    pills: doc.pills.slice(from.t, to.t),
+  };
+}
+
+/** Change le type des pastilles d'un morceau ; celles qui donnent `null` disparaissent (les textes
+ *  autour se rejoignent). */
+export function mapPills<A, B>(part: PillDoc<A>, fn: (item: A) => B | null): PillDoc<B> {
+  const texts = [part.texts[0]];
+  const pills: B[] = [];
+  part.pills.forEach((item, k) => {
+    const next = fn(item);
+    if (next === null) texts[texts.length - 1] += part.texts[k + 1];
+    else {
+      pills.push(next);
+      texts.push(part.texts[k + 1]);
+    }
+  });
+  return { texts, pills };
+}
+
+/** Pastilles d'une suite de mots tapés (recherche : chaque mot est un terme) ; `word` : la pastille d'un
+ *  mot (`null` : ignoré). Sans doublon, ni avec `taken`. */
+export function wordsToPills<T>(text: string, word: (w: string) => T | null, same: (a: T, b: T) => boolean, taken: T[] = []): T[] {
+  const out: T[] = [];
+  for (const w of text.split(/\s+/)) {
+    const item = w ? word(w) : null;
+    if (item !== null && ![...taken, ...out].some((o) => same(o, item))) out.push(item);
   }
-  return { doc: { texts: [...texts, ...doc.texts.slice(to.t + 1)], pills: [...pills, ...doc.pills.slice(to.t)] }, caret };
+  return out;
+}
+
+/** Tout le champ en pastilles, dans l'ordre : les pastilles et les mots des textes tapés (recherche :
+ *  Entrée lance tout ce qui est écrit). */
+export function collect<T>(doc: PillDoc<T>, word: (w: string) => T | null, same: (a: T, b: T) => boolean): T[] {
+  const out: T[] = [];
+  doc.texts.forEach((text, t) => {
+    out.push(...wordsToPills(text, word, same, out));
+    const pill = doc.pills[t];
+    if (pill !== undefined && !out.some((o) => same(o, pill))) out.push(pill);
+  });
+  return out;
 }
 
 /** Efface la pastille n° k (sa croix) ; le curseur ne bouge pas, il suit seulement le texte. */

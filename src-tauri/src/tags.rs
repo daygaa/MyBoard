@@ -89,11 +89,15 @@ pub fn categories(db: &Connection) -> rusqlite::Result<Vec<Category>> {
 /// Autocomplétion (SRCH-06, D-016) : d'abord les tags qui COMMENCENT par le texte, puis ceux
 /// qui le CONTIENNENT ; les plus utilisés en premier. Les tags masqués ne sont pas proposés (TAGM-05).
 /// Les synonymes actifs (TAGM-15) sont proposés « synonyme → tag », sauf si le tag l'est déjà.
-pub fn autocomplete(db: &Connection, text: &str) -> rusqlite::Result<Vec<TagInfo>> {
+/// `exclude` : tags déjà écrits ou déjà là (SRCH-29), écartés avant de garder les 10 premiers ; les
+/// synonymes d'un tag écarté le sont aussi.
+pub fn autocomplete(db: &Connection, text: &str, exclude: &[String]) -> rusqlite::Result<Vec<TagInfo>> {
     let Some(prefix) = normalize(text) else { return Ok(Vec::new()) };
     // Bornes [prefix, prefix + U+10FFFF) : la recherche utilise l'index unique sur `name`.
     let upper = format!("{prefix}\u{10FFFF}");
-    let limit = SUGGESTIONS as i64;
+    // Assez de lignes pour en garder 10 une fois les tags écartés retirés.
+    let limit = SUGGESTIONS as i64 + exclude.len() as i64;
+    let kept = |list: Vec<TagInfo>| list.into_iter().filter(|t| !exclude.contains(&t.name)).collect::<Vec<_>>();
     let tags = db
         .prepare_cached(&format!("SELECT {TAG_COLUMNS} FROM tags WHERE name >= ?1 AND name < ?2 AND hidden = 0 ORDER BY media_count DESC, name LIMIT ?3"))?
         .query_map(params![prefix, upper, limit], tag_from_row)?
@@ -105,7 +109,7 @@ pub fn autocomplete(db: &Connection, text: &str) -> rusqlite::Result<Vec<TagInfo
         ))?
         .query_map(params![prefix, upper, limit], alias_from_row)?
         .collect::<rusqlite::Result<Vec<_>>>()?;
-    let mut found = merged(tags, aliases);
+    let mut found = merged(kept(tags), kept(aliases));
     if found.len() < SUGGESTIONS as usize {
         let tags = db
             .prepare_cached(&format!("SELECT {TAG_COLUMNS} FROM tags WHERE instr(name, ?1) > 1 AND hidden = 0 ORDER BY media_count DESC, name LIMIT ?2"))?
@@ -118,7 +122,7 @@ pub fn autocomplete(db: &Connection, text: &str) -> rusqlite::Result<Vec<TagInfo
             ))?
             .query_map(params![prefix, limit], alias_from_row)?
             .collect::<rusqlite::Result<Vec<_>>>()?;
-        found.extend(merged(tags, aliases));
+        found.extend(merged(kept(tags), kept(aliases)));
     }
     // Un tag proposé par son nom ne l'est pas aussi par un synonyme ; un seul synonyme par tag.
     let named: HashSet<i64> = found.iter().filter(|t| t.alias.is_none()).map(|t| t.id).collect();
@@ -175,8 +179,8 @@ pub async fn tag_categories(state: State<'_, AppState>) -> Result<Vec<Category>,
 }
 
 #[tauri::command]
-pub async fn autocomplete_tags(state: State<'_, AppState>, text: String) -> Result<Vec<TagInfo>, String> {
-    autocomplete(&state.db.lock().unwrap(), &text).map_err(|e| e.to_string())
+pub async fn autocomplete_tags(state: State<'_, AppState>, text: String, exclude: Vec<String>) -> Result<Vec<TagInfo>, String> {
+    autocomplete(&state.db.lock().unwrap(), &text, &exclude).map_err(|e| e.to_string())
 }
 
 #[tauri::command]

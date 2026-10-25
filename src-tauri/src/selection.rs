@@ -106,6 +106,24 @@ pub async fn selection_tags(state: State<'_, AppState>, ids: Vec<i64>) -> Result
     tags(&state.db.lock().unwrap(), &json(&ids)).map_err(|e| e.to_string())
 }
 
+/// Tags posés sur TOUS les médias de la sélection : le champ « Ajouter des tags » ne les propose pas,
+/// les ajouter ne changerait rien (SRCH-29).
+#[tauri::command]
+pub async fn selection_common_tags(state: State<'_, AppState>, ids: Vec<i64>) -> Result<Vec<String>, String> {
+    common_tags(&state.db.lock().unwrap(), &json(&ids)).map_err(|e| e.to_string())
+}
+
+fn common_tags(db: &Connection, ids: &str) -> rusqlite::Result<Vec<String>> {
+    let mut stmt = db.prepare(&format!(
+        "SELECT t.name FROM tags t JOIN (
+           SELECT tag_id FROM media_tags WHERE media_id IN ({SELECTION}) GROUP BY tag_id
+           HAVING COUNT(*) = (SELECT COUNT(*) FROM media WHERE id IN ({SELECTION}))
+         ) c ON c.tag_id = t.id"
+    ))?;
+    let rows = stmt.query_map([ids], |r| r.get(0))?;
+    rows.collect()
+}
+
 /// Barre du bas de la sélection (SEL-07) : « Appliquer ».
 #[tauri::command]
 pub async fn edit_selection_tags(state: State<'_, AppState>, ids: Vec<i64>, add: Vec<NewTag>, remove: Vec<i64>) -> Result<(), String> {
