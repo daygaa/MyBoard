@@ -3,6 +3,29 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Phase 3, correctifs du test, lot 9 : historique de la visionneuse, retouches du gestionnaire (25/10/2026) — Backup v55
+
+SPEC : livrées `[~]` : VIEW-27 (points AUT.6, AUT.17), VIEW-30 (changé, à revalider), TAGM-04 (points
+TAGM-04.3, TAGM-04.10). Décision D-044.
+
+- **Retour arrière / avant** : ouvrir un média est une vraie étape. Grille → média → clic sur un tag → retour
+  = le média (avec la recherche d'avant) → retour = la grille ; l'avance refait le chemin. Une seule étape par
+  visionneuse, qui garde la dernière image vue. Bouton 4 dans la visionneuse : vrai retour ; croix, Échap ou
+  clic sur le fond : fermeture avec une nouvelle étape (le bouton 4 rouvre alors l'image).
+- **Gestionnaire de tags** : « Créé le » au centre ; case centrée au pixel près dans sa zone (lignes de 39 px).
+
+Vérifié dans la version compilée, sur une copie de la bibliothèque « booru » : 1re vignette, clic sur son tag
+« zz test suppression », ← : la visionneuse revient sur « ro-2.jpg » sans la recherche, ← : la grille, → : le
+média, → : la recherche du tag ; 2e vignette puis → ×5 (« test-4.jpg »), ← : la grille, → : la même image,
+→ sans effet (flèche grisée) ; croix puis ← : l'image rouvre, ← : la grille ; Échap puis ← : l'image rouvre ;
+bouton 4 de la souris dans la visionneuse : la grille ; Alt + → / Alt + ← ; flèches de la barre de titre
+grisées ou non comme il faut à chaque étape ; gestionnaire : zone de la case 44 × 38 px, 14 / 14 / 11 / 11 px
+autour de la case, en-tête 14 / 14 / 10 / 10, ligne de 39 px, nom 9 / 9, catégorie et œil 5 / 5, date et son
+en-tête centrés ; clic au dernier pixel droit de la zone : case cochée, 1 px plus loin : recherche du tag
+(le nom) ; image d'essai « ro-2.jpg » ouverte, fermée, retirée de la bibliothèque (fichier gardé), puis
+rechargement et ← sur son étape : la visionneuse montre « lock-1.jpg », qui a pris sa place ; « ro-2.jpg »
+réimporté ensuite.
+
 ## Phase 3, correctifs du test, lot 8 : gestionnaire de tags, + / − de la recherche (25/10/2026) — Backup v54
 
 SPEC : livrées `[~]` : TAGM-04 (points TAGM-04.1 à TAGM-04.4, TAGM-15.2), SRCH-29 (retouche). Nouveau point

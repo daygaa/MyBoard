@@ -1,6 +1,6 @@
 // État des flèches de la barre de titre (NAV-04) : le bouton 4 / 5 de la souris ferait-il quelque
 // chose maintenant ? Recalculé quand ce qui en décide change : élément ouvert ou fermé (pile
-// d'Échap), visionneuse et son chemin (VIEW-27, VIEW-30), page, filtres, recherche, historique.
+// d'Échap), visionneuse, page, filtres, recherche, historique.
 
 import { useSyncExternalStore } from "react";
 

@@ -12,6 +12,7 @@
 
 import { create } from "zustand";
 
+import { stepState } from "@/lib/historySteps";
 import { navigate } from "@/lib/router";
 import { useLibrary } from "./library";
 
@@ -51,7 +52,8 @@ const same = (a: Search, b: Search) => a.file === b.file && a.terms.length === b
 function apply(next: Search, remember = true): Search {
   useLibrary.getState().setPage(1);
   const { terms, file } = useSearch.getState();
-  if (remember && !same(next, { terms, file })) window.history.pushState({ ...window.history.state, terms: next.terms, file: next.file }, "");
+  // Nouvelle étape : sans la visionneuse de l'étape d'avant (retour T3, point AUT.17).
+  if (remember && !same(next, { terms, file })) window.history.pushState({ ...stepState(), terms: next.terms, file: next.file }, "");
   return next;
 }
 

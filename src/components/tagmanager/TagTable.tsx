@@ -17,7 +17,9 @@ import type { TagOf } from "./RuleLines";
 import { CheckCell, COLUMNS, TagRow } from "./TagRow";
 import type { Sort, SortKey } from "./useTagList";
 
-const ROW_HEIGHT = 38;
+/** Hauteur d'une ligne, bordure du bas comprise : 38 px utiles, un nombre pair, pour que la case, le nom,
+ *  la catégorie et les boutons tombent pile au milieu (TAGM-04.10 ; à 37 px, tout était à un demi-pixel). */
+const ROW_HEIGHT = 39;
 /** Liste vide partagée : la ligne mémorisée ne se redessine pas pour rien. */
 const NONE: never[] = [];
 
@@ -74,7 +76,8 @@ export function TagTable({ tags, checked, editing, sort, onSort, onCheckAll, rul
 
   return (
     <div data-zone="gestionnaire-tags.tableau" className="rounded-xl border border-border bg-card/40">
-      <div className={cn(COLUMNS, "h-9 border-b border-border px-2 text-xs font-medium text-muted-foreground")}>
+      {/* 36 px utiles sous la bordure : case « tout cocher » centrée (TAGM-04.10). */}
+      <div className={cn(COLUMNS, "h-[37px] border-b border-border px-2 text-xs font-medium text-muted-foreground")}>
         <CheckCell>
           <Checkbox
             checked={all ? true : some ? "indeterminate" : false}
@@ -85,7 +88,7 @@ export function TagTable({ tags, checked, editing, sort, onSort, onCheckAll, rul
         <SortHeader label="Nom" sortKey="name" sort={sort} onSort={onSort} />
         <SortHeader label="Catégorie" sortKey="category" sort={sort} onSort={onSort} />
         <SortHeader label="Médias" sortKey="count" sort={sort} onSort={onSort} className="justify-end" />
-        <SortHeader label="Créé le" sortKey="created" sort={sort} onSort={onSort} className="justify-end" />
+        <SortHeader label="Créé le" sortKey="created" sort={sort} onSort={onSort} className="justify-center" />
         <span className="text-center">Description</span>
         <span className="text-center">Synonymes</span>
         <span className="text-center">Parents</span>

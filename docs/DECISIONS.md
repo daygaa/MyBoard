@@ -937,3 +937,18 @@ et pastilles) va dans le presse-papiers sous le type réservé `application/x-my
 brut (`components/tags/pillClipboard.ts`) ; le menu du clic droit, qui lit le presse-papiers par le cœur Rust
 (texte seul), retrouve le dernier morceau copié par son texte. Suggestions (SRCH-29) : les tags déjà là restent
 dans la liste, grisés avec une bulle (`taken`, `TagSuggestions.tsx`), plutôt qu'écartés.
+
+## D-044 — La visionneuse est une étape de l'historique (25/10/2026)
+
+**Pourquoi.** Les boutons 4 / 5 rouvraient la visionneuse par un mécanisme à part (VIEW-27, VIEW-30 : un
+« chemin » de quatre étapes, valable seulement si rien n'avait changé depuis la fermeture). Il ne suivait pas
+les recherches : après un clic sur un tag dans la visionneuse, le retour ramenait à la grille d'avant au lieu du
+média (retour T3, point AUT.17), et le bouton 5 s'arrêtait après un double retour (point AUT.6).
+
+**Comment.** Ouvrir un média ajoute une étape à l'historique de la fenêtre (`history.pushState`), qui garde le
+média, sa position et sa requête (`viewer`, `lib/historySteps.ts`) ; passer à l'image suivante met cette étape à
+jour (une seule étape par visionneuse). Revenir ou avancer sur une étape la rouvre ou la ferme (`popstate`,
+`stores/viewer.ts`), après la recherche de l'étape (`stores/search.ts`). Dans la visionneuse, le bouton 4 fait un
+vrai retour (`onBack` de la pile d'Échap, `lib/escape.ts`) ; la croix, Échap ou un clic sur le fond la ferment en
+ajoutant une étape « grille » (choix de l'utilisateur). Une nouvelle étape ne reprend jamais la visionneuse de
+l'étape d'avant. Au démarrage, une étape en cours qui gardait une visionneuse est remise à « fermée ».

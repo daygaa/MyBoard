@@ -22,7 +22,7 @@ import { ChevronLeft, ChevronRight, X } from "lucide-react";
 
 import type { MediaItem } from "@/lib/api";
 import { closeContextMenu, useContextMenu } from "@/lib/contextMenu";
-import { hasModalLayer, useEscape } from "@/lib/escape";
+import { hasModalLayer, historyHasForward, useEscape } from "@/lib/escape";
 import { scroller } from "@/lib/scroller";
 import { cn } from "@/lib/utils";
 import { useSearch } from "@/stores/search";
@@ -62,7 +62,7 @@ function ViewerOverlay({ base }: { base: ListBase }) {
   const screenGap = useViewer((s) => s.screenGap);
   const hasError = useViewer((s) => s.error !== null);
   const copied = useViewer((s) => s.copied !== null);
-  const { show, close, forward, canForward, setFullscreen, closeForSearch } = useViewer.getState();
+  const { show, close, setFullscreen, closeForSearch } = useViewer.getState();
   const pageAt = usePageAt();
   const preload = usePreload();
   const rootRef = useRef<HTMLDivElement>(null);
@@ -110,7 +110,9 @@ function ViewerOverlay({ base }: { base: ListBase }) {
   // Dernière position demandée : un appui rapide sur → enchaîne sans attendre l'affichage.
   const target = useRef(index);
 
-  useEscape(true, close, { onForward: forward, canForward });
+  // Échap, croix : fermeture (nouvelle étape « grille ») ; bouton 4 et flèche « précédent » : vrai retour
+  // arrière ; bouton 5 et flèche « suivant » : l'étape d'après, s'il y en a une (AUT.6, AUT.17).
+  useEscape(true, () => close(), { onBack: () => window.history.back(), onForward: () => window.history.forward(), canForward: historyHasForward });
   // Les commandes se cachent (souris immobile, VIEW-33) : la liste ouverte depuis la barre se ferme
   // avec elles, comme le menu des vitesses (VIEW-49).
   useEffect(() => {
@@ -136,6 +138,11 @@ function ViewerOverlay({ base }: { base: ListBase }) {
     let cancelled = false;
     void pageAt(base, index).then(async (page) => {
       if (cancelled) return;
+      // Média revenu par l'historique, puis supprimé ou déplacé entre-temps : ce qui est à sa place, ou
+      // fermeture s'il ne reste rien.
+      if (page.total === 0) return close({ replace: true });
+      const here = itemAt(page, index);
+      if (here && here.id !== useViewer.getState().item?.id) show(index, here, page.total);
       if (page.total !== useViewer.getState().total) useViewer.setState({ total: page.total });
       const neighbors = await Promise.all(
         [index - 1, index + 1]
@@ -204,7 +211,7 @@ function ViewerOverlay({ base }: { base: ListBase }) {
               se voit plus derrière). Ce cadre n'est pas recréé d'un média à l'autre : l'effet ne
               joue qu'à l'ouverture. */}
           <div className="mb-zoom-in absolute inset-0">
-            <MediaStage key={item.id} item={item} onClose={close} />
+            <MediaStage key={item.id} item={item} onClose={() => close()} />
           </div>
           <NotesButton key={`note-${item.id}`} mediaId={item.id} />
         </ViewerChrome.Provider>
@@ -220,7 +227,7 @@ function ViewerOverlay({ base }: { base: ListBase }) {
         <button
           type="button"
           data-zone="visionneuse.fermer"
-          onClick={close}
+          onClick={() => close()}
           aria-label={fullscreen ? "Quitter le plein écran et la visionneuse" : "Fermer (Échap)"}
           title={fullscreen ? "Quitter le plein écran et la visionneuse" : "Fermer (Échap)"}
           className={cn(ROUND_BUTTON, "top-4 right-4", idleClass(idle))}

@@ -1,8 +1,8 @@
 // Ligne du gestionnaire de tags (TAGM-04) : case (actions groupées, TAGM-11 ; toute la colonne est
 // cliquable, TAGM-04.4) · nom (clic : recherche ;
 // crayon : modifiable dans la ligne, Entrée valide, Échap annule) · catégorie · nombre de médias ·
-// « Créé le » (TAGM-12, à droite) · description (TAGM-14) · synonymes (TAGM-15) · parents (TAGM-16) · œil
-// (masquer, TAGM-05) · crayon · corbeille (au centre de leur colonne, TAGM-04.3).
+// « Créé le » (TAGM-12) · description (TAGM-14) · synonymes (TAGM-15) · parents (TAGM-16) · œil (masquer,
+// TAGM-05) · crayon · corbeille ; date et actions au centre de leur colonne (TAGM-04.3).
 // Tag masqué : en gris. Clic droit : menu du tag (CTX-04, sans « Retirer de… »).
 
 import { memo, useState } from "react";
@@ -25,10 +25,11 @@ export const COLUMNS = "grid grid-cols-[28px_minmax(0,1fr)_150px_72px_88px_68px_
 
 const ICON = "grid h-7 w-7 place-items-center rounded-md text-muted-foreground transition hover:bg-secondary hover:text-foreground";
 
-/** Case de la 1re colonne : un clic n'importe où dans la colonne (marge de la ligne et moitié de l'écart
- *  compris) la coche ou la décoche (TAGM-04.4). */
+/** Case de la 1re colonne : un clic n'importe où dans la colonne (marge de la ligne et écart avec le nom
+ *  compris) la coche ou la décoche (TAGM-04.4). Zone de 44 px, autant de chaque côté de la case (16 px) :
+ *  14 px à gauche et à droite (TAGM-04.10). */
 export function CheckCell({ children }: { children: React.ReactNode }) {
-  return <label className="-mr-1 -ml-2 flex cursor-pointer items-center justify-center self-stretch pr-1 pl-2">{children}</label>;
+  return <label className="-mx-2 flex cursor-pointer items-center justify-center self-stretch px-2">{children}</label>;
 }
 
 type Props = {
@@ -114,7 +115,7 @@ export const TagRow = memo(function TagRow(props: Props) {
         className="h-7 rounded-md px-2 text-xs"
       />
       <span className="text-right text-xs text-muted-foreground tabular-nums">{formatNumber(tag.mediaCount)}</span>
-      <span className="text-right text-xs text-muted-foreground tabular-nums">{new Date(tag.createdAt).toLocaleDateString("fr-FR")}</span>
+      <span className="text-center text-xs text-muted-foreground tabular-nums">{new Date(tag.createdAt).toLocaleDateString("fr-FR")}</span>
       <div className="flex justify-center">
         <TagDescriptionButton tag={tag} />
       </div>

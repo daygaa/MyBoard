@@ -66,7 +66,7 @@ export async function deleteShown(item: MediaItem, deleteFiles: boolean) {
     return queryClient.fetchQuery({ queryKey: ["media", query], queryFn: () => api.listMedia(query) });
   };
   let page = await pageOf(index);
-  if (page.total === 0) return useViewer.getState().close();
+  if (page.total === 0) return useViewer.getState().close({ replace: true });
   const next = Math.min(index, page.total - 1);
   if (next !== index) page = await pageOf(next);
   const found = itemAt(page, next);
