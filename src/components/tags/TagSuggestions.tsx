@@ -6,6 +6,9 @@
 // Noms longs : la liste s'élargit jusqu'au double, puis le nom passe sur 2 lignes, puis « … » avec le nom
 // complet dans une bulle au survol (SRCH-22). Synonyme (TAGM-15) : proposé « synonyme → tag ».
 // Recherche de la barre latérale (`onAddTerm`) : boutons + / − devant chaque tag (SRCH-21).
+// Tag déjà là (`taken`, SRCH-29, choix du 25/10) : il garde sa place, son nom est grisé avec une bulle qui
+// dit pourquoi ; un clic sur son nom ne fait rien et les flèches le sautent ; + et − restent actifs (un tag
+// déjà dans la recherche peut ainsi passer en exclusion).
 
 import type { CSSProperties, KeyboardEvent, MouseEvent } from "react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
@@ -28,28 +31,40 @@ function suggestionsIn(source: TagInfo[], text: string): TagInfo[] {
 }
 
 /** Suggestions pour `text` (déjà normalisé) : parmi tous les tags, ou dans `source` (champ « Retirer
- *  des tags » de la sélection : seulement les tags qu'elle porte, SEL-07). `hidden` : noms des tags
- *  déjà écrits ou déjà là, jamais proposés (SRCH-29). */
-export function useTagSuggestions(text: string, source?: TagInfo[], hidden: string[] = []): TagInfo[] {
+ *  des tags » de la sélection : seulement les tags qu'elle porte, SEL-07). */
+export function useTagSuggestions(text: string, source?: TagInfo[]): TagInfo[] {
   const { data: found = [] } = useQuery({
-    queryKey: ["autocomplete", text, hidden],
-    queryFn: () => api.autocompleteTags(text, hidden),
+    queryKey: ["autocomplete", text],
+    queryFn: () => api.autocompleteTags(text),
     enabled: text.length > 0 && !source,
     placeholderData: keepPreviousData,
   });
-  return source ? suggestionsIn(source.filter((t) => !hidden.includes(t.name)), text) : found;
+  return source ? suggestionsIn(source, text) : found;
 }
+
+/** Tag déjà là : la raison, dite par la bulle de sa suggestion grisée ; `null` : proposé normalement. */
+export type Taken = (tag: TagInfo) => string | null;
 
 export type Dropdown = "top" | "bottom";
 
-/** ↑ / ↓ (ou Tab, Maj + Tab) dans une liste ouverte de `count` suggestions ; vrai si la touche a servi. */
-export function moveHighlight(e: KeyboardEvent, count: number, dropdown: Dropdown, setHighlight: (fn: (h: number) => number) => void): boolean {
+/** ↑ / ↓ (ou Tab, Maj + Tab) dans une liste ouverte ; les tags déjà là sont sautés. Vrai si la touche a
+ *  servi. */
+export function moveHighlight(e: KeyboardEvent, suggestions: TagInfo[], dropdown: Dropdown, setHighlight: (fn: (h: number) => number) => void, taken?: Taken): boolean {
   const reversed = dropdown === "top";
   const next = e.key === (reversed ? "ArrowUp" : "ArrowDown") || (e.key === "Tab" && !e.shiftKey);
   const previous = e.key === (reversed ? "ArrowDown" : "ArrowUp") || (e.key === "Tab" && e.shiftKey);
   if (!next && !previous) return false;
   e.preventDefault();
-  setHighlight((h) => (next ? (h + 1) % count : h <= 0 ? count - 1 : h - 1));
+  const count = suggestions.length;
+  const step = (i: number) => (next ? (i + 1) % count : i <= 0 ? count - 1 : i - 1);
+  setHighlight((h) => {
+    let i = h;
+    for (let k = 0; k < count; k++) {
+      i = step(i);
+      if (!taken?.(suggestions[i])) return i;
+    }
+    return -1;
+  });
   return true;
 }
 
@@ -70,11 +85,12 @@ type Props = {
   /** Recherche : « -tag » tapé, la suggestion est affichée « −tag ». */
   negated?: boolean;
   onAddTerm?: (tag: TagInfo, exclude: boolean) => void;
+  taken?: Taken;
   className?: string;
   style?: CSSProperties;
 };
 
-export function SuggestionList({ zone, suggestions, highlight, setHighlight, dropdown, onPick, negated, onAddTerm, className, style }: Props) {
+export function SuggestionList({ zone, suggestions, highlight, setHighlight, dropdown, onPick, negated, onAddTerm, taken, className, style }: Props) {
   const { color } = useCategories();
   const search = onAddTerm !== undefined;
   return (
@@ -91,8 +107,15 @@ export function SuggestionList({ zone, suggestions, highlight, setHighlight, dro
         className,
       )}
     >
-      {suggestions.map((tag, i) => (
-        <li key={tag.id} onMouseEnter={() => setHighlight(i)} className={cn("flex items-center rounded-md", search && "pl-1", i === highlight && ACTIVE)}>
+      {suggestions.map((tag, i) => {
+        const reason = taken?.(tag) ?? null;
+        return (
+        <li
+          key={tag.id}
+          data-deja-la={reason ? "" : undefined}
+          onMouseEnter={() => setHighlight(reason ? -1 : i)}
+          className={cn("flex items-center rounded-md", search && "pl-1", i === highlight && ACTIVE, reason && "hover:bg-[#2a2c33]")}
+        >
           {search && (
             <>
               <button
@@ -120,22 +143,25 @@ export function SuggestionList({ zone, suggestions, highlight, setHighlight, dro
           <button
             type="button"
             onMouseDown={keepFocus}
-            onClick={() => onPick(tag)}
-            className={cn("flex min-w-0 flex-1 items-center gap-2 py-1 pr-2 text-left text-sm", search ? "pl-1" : "pl-2")}
+            onClick={() => reason === null && onPick(tag)}
+            title={reason ?? undefined}
+            aria-disabled={reason !== null || undefined}
+            className={cn("flex min-w-0 flex-1 items-center gap-2 py-1 pr-2 text-left text-sm", search ? "pl-1" : "pl-2", reason && "cursor-default")}
           >
             <span
-              onMouseEnter={(e) => titleIfCut(e.currentTarget)}
-              className="line-clamp-2 min-w-0 flex-1 [overflow-wrap:anywhere]"
-              style={{ color: color(tag.categoryId) }}
+              onMouseEnter={(e) => !reason && titleIfCut(e.currentTarget)}
+              className={cn("line-clamp-2 min-w-0 flex-1 [overflow-wrap:anywhere]", reason && "text-muted-foreground/60")}
+              style={reason ? undefined : { color: color(tag.categoryId) }}
             >
               {negated && "−"}
               {tag.alias && <span className="text-muted-foreground">{displayTag(tag.alias)} → </span>}
               {displayTag(tag.name)}
             </span>
-            <span className="shrink-0 text-xs text-muted-foreground tabular-nums">{formatNumber(tag.mediaCount)}</span>
+            <span className={cn("shrink-0 text-xs tabular-nums", reason ? "text-muted-foreground/60" : "text-muted-foreground")}>{formatNumber(tag.mediaCount)}</span>
           </button>
         </li>
-      ))}
+        );
+      })}
     </ul>
   );
 }

@@ -39,9 +39,9 @@ function CellButton({ zone, icon: Icon, count, title, popover }: { zone: string;
   );
 }
 
-/** Champ d'ajout de la petite liste : Entrée ajoute ; le refus s'affiche dessous. `hidden` : le tag
- *  lui-même et ce que la liste contient déjà, jamais proposés (SRCH-29). */
-function AddField({ zone, placeholder, hidden, onAdd }: { zone: string; placeholder: string; hidden: string[]; onAdd: (text: string) => Promise<string | null> }) {
+/** Champ d'ajout de la petite liste : Entrée ajoute ; le refus s'affiche dessous. Le tag lui-même et ce
+ *  que la liste contient déjà sont grisés dans les suggestions (SRCH-29). */
+function AddField({ zone, placeholder, self, listed, onAdd }: { zone: string; placeholder: string; self: string; listed: string[]; onAdd: (text: string) => Promise<string | null> }) {
   const [text, setText] = useState("");
   const [error, setError] = useState<string | null>(null);
   const submit = async (value: string) => {
@@ -62,7 +62,7 @@ function AddField({ zone, placeholder, hidden, onAdd }: { zone: string; placehol
         onSubmit={(v) => void submit(v)}
         onPick={(tag) => void submit(tag.name)}
         placeholder={placeholder}
-        hidden={hidden}
+        taken={(tag) => (tag.name === self ? "C'est le tag lui-même" : listed.includes(tag.name) ? "Ce tag est déjà dans cette liste" : null)}
         className="h-8"
         inputClassName="font-mono text-xs"
       />
@@ -95,7 +95,8 @@ export function SynonymsCell({ tag, aliases, tagOf }: { tag: ManagedTag; aliases
           <AddField
             zone="gestionnaire-tags.synonymes.ajout"
             placeholder="Ajouter un synonyme…"
-            hidden={[tag.name, ...aliases.map((row) => row.alias)]}
+            self={tag.name}
+            listed={aliases.map((row) => row.alias)}
             onAdd={(text) => addAlias(text, tag)}
           />
         </Panel>
@@ -119,7 +120,8 @@ export function ParentsCell({ tag, parents, childRules, tagOf }: { tag: ManagedT
           <AddField
             zone="gestionnaire-tags.parents.ajout"
             placeholder="Ajouter un parent…"
-            hidden={[tag.name, ...parents.map((row) => tagOf(row.parentId)?.name ?? "")]}
+            self={tag.name}
+            listed={parents.map((row) => tagOf(row.parentId)?.name ?? "")}
             onAdd={async (text) => {
               const parent = await resolve(text);
               return parent ? addParent(tag, parent) : null;

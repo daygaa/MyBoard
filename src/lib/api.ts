@@ -199,8 +199,7 @@ export const api = {
   startImport: (defaultTags: NewTag[]) => invoke<void>("start_import", { defaultTags }),
   cancelImport: () => invoke<void>("cancel_import"),
   tagCategories: () => invoke<Category[]>("tag_categories"),
-  /** `exclude` : noms de tags à ne pas proposer (déjà écrits ou déjà là, SRCH-29). */
-  autocompleteTags: (text: string, exclude: string[] = []) => invoke<TagInfo[]>("autocomplete_tags", { text, exclude }),
+  autocompleteTags: (text: string) => invoke<TagInfo[]>("autocomplete_tags", { text }),
   findTag: (name: string) => invoke<TagInfo | null>("find_tag", { name }),
   pageTags: (ids: number[]) => invoke<TagInfo[]>("page_tags", { ids }),
   addMediaTag: (mediaId: number, tag: NewTag) => invoke<void>("add_media_tag", { mediaId, tag }),

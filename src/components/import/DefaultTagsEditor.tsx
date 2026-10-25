@@ -51,7 +51,7 @@ export function DefaultTagsEditor() {
             setText("");
             addDefaultTag({ name: tag.name, categoryId: tag.categoryId });
           }}
-          hidden={tags.map((t) => t.name)}
+          taken={(tag) => (tags.some((t) => t.name === tag.name) ? "Ce tag est déjà dans les tags par défaut" : null)}
           placeholder="ex. red_hair, vacances, demo…"
           className="h-[38px] min-w-60 flex-1"
         />

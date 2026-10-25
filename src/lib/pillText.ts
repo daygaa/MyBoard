@@ -83,29 +83,6 @@ export function mapPills<A, B>(part: PillDoc<A>, fn: (item: A) => B | null): Pil
   return { texts, pills };
 }
 
-/** Pastilles d'une suite de mots tapés (recherche : chaque mot est un terme) ; `word` : la pastille d'un
- *  mot (`null` : ignoré). Sans doublon, ni avec `taken`. */
-export function wordsToPills<T>(text: string, word: (w: string) => T | null, same: (a: T, b: T) => boolean, taken: T[] = []): T[] {
-  const out: T[] = [];
-  for (const w of text.split(/\s+/)) {
-    const item = w ? word(w) : null;
-    if (item !== null && ![...taken, ...out].some((o) => same(o, item))) out.push(item);
-  }
-  return out;
-}
-
-/** Tout le champ en pastilles, dans l'ordre : les pastilles et les mots des textes tapés (recherche :
- *  Entrée lance tout ce qui est écrit). */
-export function collect<T>(doc: PillDoc<T>, word: (w: string) => T | null, same: (a: T, b: T) => boolean): T[] {
-  const out: T[] = [];
-  doc.texts.forEach((text, t) => {
-    out.push(...wordsToPills(text, word, same, out));
-    const pill = doc.pills[t];
-    if (pill !== undefined && !out.some((o) => same(o, pill))) out.push(pill);
-  });
-  return out;
-}
-
 /** Efface la pastille n° k (sa croix) ; le curseur ne bouge pas, il suit seulement le texte. */
 export function removePill<T>(doc: PillDoc<T>, s: Sel, k: number): { doc: PillDoc<T>; sel: Sel } {
   const joined = doc.texts[k].length;

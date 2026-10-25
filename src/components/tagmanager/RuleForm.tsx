@@ -73,12 +73,12 @@ export function RuleForm({ zone, placeholders, onAdd, className }: Props) {
       setRight("");
     }
   };
-  // Chaque champ ne propose pas le tag déjà tapé dans l'autre (SRCH-29).
+  // Chaque champ grise le tag déjà tapé dans l'autre (SRCH-29).
   const field = (value: string, set: (v: string) => void, placeholder: string, part: string, other: string) => (
     <TagInput
       zone={`${zone}.${part}`}
       value={value}
-      hidden={normalizeTag(other) ? [normalizeTag(other)] : undefined}
+      taken={(tag) => (tag.name === normalizeTag(other) ? "Ce tag est déjà dans l'autre champ" : null)}
       onChange={(v) => {
         set(v);
         setError(null);

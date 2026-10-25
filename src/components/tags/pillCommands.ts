@@ -5,7 +5,6 @@ import type { Pills } from "@/hooks/usePills";
 import {
   bounds,
   caretAt,
-  collect,
   endOf,
   insert,
   isCollapsed,
@@ -16,7 +15,6 @@ import {
   samePos,
   START,
   step,
-  wordsToPills,
   type PillDoc,
   type Pos,
 } from "@/lib/pillText";
@@ -26,7 +24,7 @@ import type { ClipPill } from "./pillClipboard";
 const at = <T>({ doc, caret }: { doc: PillDoc<T>; caret: Pos }) => ({ doc, sel: caretAt(caret) });
 
 type Options<T> = {
-  /** La pastille d'un texte validé par Entrée, ou `null` (le texte reste) ; recherche : d'un mot. */
+  /** La pastille d'un texte validé par Entrée, ou `null` (le texte reste). */
   resolve: (text: string) => T | null | Promise<T | null>;
   /** Pastille collée (`null` : elle n'a pas de sens dans ce champ, elle n'est pas collée). */
   fromClip: (c: ClipPill) => T | null;
@@ -34,11 +32,6 @@ type Options<T> = {
 
 export function pillCommands<T>(pills: Pills<T>, { resolve, fromClip }: Options<T>) {
   const { doc, sel } = pills;
-  /** Recherche : la pastille d'un mot (toujours connue tout de suite). */
-  const word = (w: string) => {
-    const item = resolve(w);
-    return item instanceof Promise ? null : item;
-  };
   const eraseSelection = () =>
     pills.edit((d, s) => {
       if (isCollapsed(s)) return null;
@@ -49,8 +42,6 @@ export function pillCommands<T>(pills: Pills<T>, { resolve, fromClip }: Options<
   return {
     eraseSelection,
     selectAll,
-    /** Recherche : tout le champ en pastilles (les mots tapés compris), pour la lancer. */
-    all: () => collect(doc, word, pills.same),
     /** Frappe (ou collage de texte, `group` nul : une étape à lui seul) à la place de la sélection. */
     typeText: (text: string, group: string | null = "taper") =>
       pills.edit((d, s) => {
@@ -71,20 +62,6 @@ export function pillCommands<T>(pills: Pills<T>, { resolve, fromClip }: Options<
         });
         return at(insert(base.doc, base.caret, base.caret, part));
       }),
-    /** Recherche, espace tapé : les mots avant le curseur deviennent des pastilles (rien avant :
-     *  l'espace est ignoré). */
-    splitWords: () =>
-      pills.edit((d, s) => {
-        const [from, to] = bounds(s);
-        const base = isCollapsed(s) ? { doc: d, caret: s.focus } : replace(d, from, to);
-        const { t, o } = base.caret;
-        const before = base.doc.texts[t].slice(0, o);
-        if (!isRaw(before)) return isCollapsed(s) ? null : at(base);
-        const items = wordsToPills(before, word, pills.same, base.doc.pills);
-        return at(insert(base.doc, { t, o: 0 }, { t, o }, { texts: Array(items.length + 1).fill(""), pills: items }));
-      }),
-    /** Efface le texte n° t (recherche : le mot ajouté par les boutons + / −). */
-    clearText: (t: number) => pills.edit((d) => (d.texts[t] ? at(replace(d, { t, o: 0 }, { t, o: d.texts[t].length })) : null)),
     /** Retour arrière (-1) ou Suppr (1) : la sélection, sinon le caractère (le mot avec Ctrl) ou la
      *  pastille voisine ; les lettres effacées à la suite forment une seule étape. */
     erase: (dir: -1 | 1, ctrl: boolean) => {

@@ -186,7 +186,7 @@ export function InfoBar({ item, children }: { item: MediaItem; children: ReactNo
           <p className="truncate text-xs text-muted-foreground">{meta.join(" · ")}</p>
         </div>
 
-        <TagAdder mediaId={item.id} />
+        <TagAdder mediaId={item.id} kind={item.kind} />
 
         <div data-zone="visionneuse.actions" className="ml-auto flex items-center gap-1">
           {actions.map((a) => (

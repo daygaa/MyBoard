@@ -1,19 +1,17 @@
-// Champ à pastilles (SEL-07, SEL-12, SRCH-28) : une petite zone éditable où les tags validés sont des
-// pastilles posées dans le texte, comme une image dans un traitement de texte. Le navigateur ne fait que
-// l'afficher : chaque frappe, effacement ou déplacement passe par le contenu (lib/pillText.ts) et son
-// historique (usePills), puis le champ est redessiné et le curseur replacé (pillDom.ts, D-043). Un seul
-// composant pour la barre de la sélection, la recherche de la barre latérale, puis les règles (TAGM-15.5).
+// Champ à pastilles (SEL-07, SEL-12) : une petite zone éditable où les tags validés sont des pastilles
+// posées dans le texte, comme une image dans un traitement de texte. Le navigateur ne fait que l'afficher :
+// chaque frappe, effacement ou déplacement passe par le contenu (lib/pillText.ts) et son historique
+// (usePills), puis le champ est redessiné et le curseur replacé (pillDom.ts, D-043). Un seul composant pour
+// la barre de la sélection, puis les champs des règles du gestionnaire (TAGM-15.5).
 // Clavier, comme pour du texte (choix des 24 et 25/10) :
 // - on tape n'importe où, entre deux pastilles comprises ; Entrée change le texte où est le curseur en
-//   pastille (`resolve`) ; la liste de suggestions suit ce texte et ne propose pas les tags déjà là
-//   (`hidden` et les pastilles du champ, SRCH-29) ;
+//   pastille (`resolve`) ; la liste de suggestions suit ce texte ; les tags déjà là y sont grisés, avec
+//   leur bulle (`taken` et les pastilles du champ, SRCH-29) ;
 // - ← / → (Ctrl : mot par mot), Début / Fin, Maj pour sélectionner ; une pastille compte comme un
 //   caractère ; Retour arrière / Suppr effacent la sélection, sinon le caractère ou la pastille voisine ;
 // - Ctrl + A : le texte où est le curseur, puis tout le champ (tout de suite hors d'un texte) ;
 // - Ctrl + Z / Ctrl + Y : historique ; Ctrl + C / X / V : les pastilles restent des pastilles
 //   (pillClipboard.ts) ; Entrée sans aucun texte tapé : `onSubmit`.
-// Recherche (`words`) : l'espace change le mot tapé en pastille (SRCH-20) ; Entrée lance tout ce qui est
-// écrit (`onSubmit`) ; les boutons + / − des suggestions ajoutent tout de suite à la recherche.
 // Souris : pillMouse.ts. Pastilles sélectionnées : même aspect qu'un texte surligné (`data-choisie`).
 
 import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
@@ -29,29 +27,25 @@ import { pillCommands } from "./pillCommands";
 import { applySelection, EMPTY_TEXT, readSelection } from "./pillDom";
 import { usePillListeners, type PillHandlers } from "./pillListeners";
 import { pillMouseDown } from "./pillMouse";
-import { moveHighlight, SuggestionList, useTagSuggestions, type Dropdown } from "./TagSuggestions";
+import { IN_FIELD } from "./TagInput";
+import { moveHighlight, SuggestionList, useTagSuggestions, type Dropdown, type Taken } from "./TagSuggestions";
 
 type Props<T> = {
   zone: string;
-  /** Zone de la saisie elle-même (par défaut « <zone>.champ »). */
-  editorZone?: string;
   pills: Pills<T>;
   pillKey: (item: T) => string | number;
   /** Pastille ; `remove` l'efface (croix). */
   renderPill: (item: T, remove: () => void) => ReactNode;
-  /** Texte validé par Entrée (recherche : un mot) : sa pastille, ou `null` (le texte reste). */
+  /** Texte validé par Entrée : sa pastille, ou `null` (le texte reste). */
   resolve: (text: string) => T | null | Promise<T | null>;
-  /** Suggestion choisie → pastille (`negated` : « -tag » tapé dans la recherche). */
-  toItem: (tag: TagInfo, negated: boolean) => T;
+  /** Suggestion choisie → pastille. */
+  toItem: (tag: TagInfo) => T;
   /** Pastille copiée / collée (pillClipboard.ts) ; `null` : elle n'a pas de sens ici. */
   toClip: (item: T) => ClipPill;
   fromClip: (c: ClipPill) => T | null;
   source?: TagInfo[];
-  /** Tags déjà là (pas proposés) en plus des pastilles du champ. */
-  hidden?: string[];
-  /** Recherche : un mot = un terme (SRCH-28). */
-  words?: boolean;
-  onAddTerm?: (tag: TagInfo, exclude: boolean) => void;
+  /** Tags déjà là (grisés, avec leur bulle) en plus des pastilles du champ. */
+  taken?: Taken;
   onSubmit?: (items: T[]) => void;
   placeholder: string;
   dropdown?: Dropdown;
@@ -65,8 +59,7 @@ type Props<T> = {
 const oneLine = (text: string) => text.replace(/\s*\r?\n\s*/g, " ");
 
 export function PillField<T>(props: Props<T>) {
-  const { zone, pills, pillKey, renderPill, toItem, toClip, source, words, placeholder, dropdown = "top", className } = props;
-  const editorZone = props.editorZone ?? `${zone}.champ`;
+  const { zone, pills, pillKey, renderPill, toItem, toClip, source, placeholder, dropdown = "top", className } = props;
   const { doc, sel } = pills;
   const box = useRef<HTMLDivElement>(null);
   const editor = useRef<HTMLDivElement | null>(null);
@@ -82,13 +75,12 @@ export function PillField<T>(props: Props<T>) {
   const latest = useRef(pills);
   const cmd = pillCommands(pills, props);
 
-  // Texte où se trouve le curseur, et ses suggestions (sans les tags déjà là, SRCH-29).
+  // Texte où se trouve le curseur, et ses suggestions (tags déjà là grisés, SRCH-29).
   const current = textAt(sel);
-  const raw = current === null ? "" : doc.texts[current];
-  const typed = normalizeTag(raw);
-  const negated = !!words && raw.trimStart().startsWith("-");
-  const hidden = [...(props.hidden ?? []), ...doc.pills.map((item) => toClip(item).name)];
-  const suggestions = useTagSuggestions(typed, source, hidden);
+  const typed = current === null ? "" : normalizeTag(doc.texts[current]);
+  const written = doc.pills.map((item) => toClip(item).name);
+  const taken: Taken = (tag) => (written.includes(tag.name) ? IN_FIELD : (props.taken?.(tag) ?? null));
+  const suggestions = useTagSuggestions(typed, source);
   const open = focused && !dismissed && typed !== "" && suggestions.length > 0;
   useEscape(open, () => setDismissed(true), { escapeOnly: true });
   useEffect(() => {
@@ -106,10 +98,10 @@ export function PillField<T>(props: Props<T>) {
     if (open && span && box.current) setListLeft(span.getBoundingClientRect().left - box.current.getBoundingClientRect().left);
   }, [open, current, doc]);
 
-  const pick = (tag: TagInfo) => current !== null && cmd.validate(current, toItem(tag, negated));
+  const pick = (tag: TagInfo) => current !== null && cmd.validate(current, toItem(tag));
   const onKeyDown = (e: KeyboardEvent) => {
     if (e.nativeEvent.isComposing || e.altKey) return;
-    if (open && moveHighlight(e, suggestions.length, dropdown, setHighlight)) return;
+    if (open && moveHighlight(e, suggestions, dropdown, setHighlight, taken)) return;
     const ctrl = e.ctrlKey || e.metaKey;
     const key = e.key.toLowerCase();
     const take = (fn: () => void) => {
@@ -119,7 +111,6 @@ export function PillField<T>(props: Props<T>) {
     if (e.key === "Enter") {
       return take(() => {
         if (open && highlight >= 0) pick(suggestions[highlight]);
-        else if (words) props.onSubmit?.(cmd.all());
         else if (current !== null && isRaw(doc.texts[current])) cmd.validate(current);
         else if (!pills.hasText) props.onSubmit?.(pills.list);
       });
@@ -174,8 +165,7 @@ export function PillField<T>(props: Props<T>) {
       }
       e.preventDefault();
       const data = e.data ?? e.dataTransfer?.getData("text/plain") ?? "";
-      if (e.inputType === "insertText" && words && data.trim() === "") cmd.splitWords();
-      else if (e.inputType === "insertText" || e.inputType === "insertReplacementText") cmd.typeText(data);
+      if (e.inputType === "insertText" || e.inputType === "insertReplacementText") cmd.typeText(data);
       else if (e.inputType === "insertFromPaste") paste(data, e.dataTransfer);
       else if (e.inputType === "historyUndo") pills.undo();
       else if (e.inputType === "historyRedo") pills.redo();
@@ -215,7 +205,7 @@ export function PillField<T>(props: Props<T>) {
           editor.current = el;
           props.editorRef?.(el);
         }}
-        data-zone={editorZone}
+        data-zone={`${zone}.champ`}
         contentEditable
         suppressContentEditableWarning
         role="textbox"
@@ -273,20 +263,13 @@ export function PillField<T>(props: Props<T>) {
       </div>
       {open && current !== null && (
         <SuggestionList
-          zone={editorZone}
+          zone={`${zone}.champ`}
           suggestions={suggestions}
           highlight={highlight}
           setHighlight={setHighlight}
           dropdown={dropdown}
           onPick={pick}
-          negated={negated}
-          onAddTerm={
-            props.onAddTerm &&
-            ((tag, exclude) => {
-              cmd.clearText(current);
-              props.onAddTerm?.(tag, exclude);
-            })
-          }
+          taken={taken}
           className="max-w-[28rem] min-w-56"
           style={{ left: listLeft }}
         />

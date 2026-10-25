@@ -26,9 +26,8 @@ import { useSearch } from "@/stores/search";
  *  trouve « Tout effacer », qui ne doit rien déplier (16/10). Elle ne bloque aucun clic. */
 const BUFFER = 16;
 
-/** Pastille d'un terme : couleur de la catégorie du tag s'il existe. Aussi dans le champ de recherche
- *  (SRCH-28), où sa croix l'efface du champ (`onRemove`). */
-export function TermPill({ term, className, onRemove }: { term: string; className?: string; onRemove?: () => void }) {
+/** Pastille d'un terme actif : couleur de la catégorie du tag s'il existe. */
+function TermPill({ term, className }: { term: string; className?: string }) {
   const removeTerm = useSearch((s) => s.removeTerm);
   const { color, list } = useCategories();
   const { exclude, name, prefix } = splitTerm(term);
@@ -37,8 +36,8 @@ export function TermPill({ term, className, onRemove }: { term: string; classNam
   return (
     <TagPill
       color={tag ? color(tag.categoryId) : prefix ? "#d9a94e" : FALLBACK_COLOR}
-      onRemove={onRemove ?? (() => removeTerm(term))}
-      removeLabel={onRemove ? `Ne pas chercher « ${label} »` : `Retirer « ${label} » de la recherche`}
+      onRemove={() => removeTerm(term)}
+      removeLabel={`Retirer « ${label} » de la recherche`}
       title={withDescription(exclude ? `Exclut ${displayTag(name)}` : undefined, tag?.description)}
       struck={exclude}
       onContextMenu={(e) => openContextMenu(e, () => termMenu(term, tag, list))}

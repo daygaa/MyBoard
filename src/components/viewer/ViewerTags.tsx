@@ -9,7 +9,7 @@ import { Plus } from "lucide-react";
 
 import { CreateTagDialog } from "@/components/tags/CreateTagDialog";
 import { TagInput } from "@/components/tags/TagInput";
-import { tagMenu } from "@/components/tags/tagMenu";
+import { tagMenu, THIS_MEDIA } from "@/components/tags/tagMenu";
 import { TagPill } from "@/components/tags/TagPill";
 import { useCategories } from "@/hooks/useCategories";
 import { useTagChanges } from "@/hooks/useTagChanges";
@@ -18,11 +18,11 @@ import { openContextMenu } from "@/lib/contextMenu";
 import { displayTag, normalizeTag, withDescription } from "@/lib/tags";
 
 /** Champ d'ajout de tag (VIEW-20 : placé juste à droite des infos du fichier). */
-export function TagAdder({ mediaId }: { mediaId: number }) {
+export function TagAdder({ mediaId, kind }: { mediaId: number; kind: MediaKind }) {
   const [text, setText] = useState("");
   const [toCreate, setToCreate] = useState<string | null>(null);
   const { add } = useTagChanges();
-  // Tags déjà sur le média : jamais proposés (SRCH-29).
+  // Tags déjà sur le média : grisés dans les suggestions, avec une bulle (SRCH-29).
   const { data: detail } = useQuery({ queryKey: ["media-detail", mediaId], queryFn: () => api.mediaDetail(mediaId) });
 
   const submit = async (raw: string) => {
@@ -45,7 +45,7 @@ export function TagAdder({ mediaId }: { mediaId: number }) {
           void add(mediaId, { name: tag.name, categoryId: null });
         }}
         dropdown="top"
-        hidden={detail?.tags.map((t) => t.name)}
+        taken={(tag) => (detail?.tags.some((t) => t.name === tag.name) ? `Ce tag appartient déjà à ${THIS_MEDIA[kind]}` : null)}
         placeholder="Ajouter un tag…"
         className="h-8 w-56"
         inputClassName="rounded-md bg-secondary px-2 text-xs"

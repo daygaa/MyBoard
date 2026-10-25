@@ -20,12 +20,13 @@ import { deleteTags, setTagsCategory, setTagsHidden } from "@/lib/tagManager";
 import { useSearch } from "@/stores/search";
 import { RenameTagDialog } from "./RenameTagDialog";
 
-/** « Retirer de cette image / vidéo / ce document / ce fichier audio » (un GIF est une image). */
-const REMOVE_FROM: Record<MediaKind, string> = {
-  image: "Retirer de cette image",
-  video: "Retirer de cette vidéo",
-  document: "Retirer de ce document",
-  audio: "Retirer de ce fichier audio",
+/** « cette image / cette vidéo / ce document / ce fichier audio » (un GIF est une image) : menu des tags
+ *  (« Retirer de… »), bulle d'un tag déjà sur le média (SRCH-29). */
+export const THIS_MEDIA: Record<MediaKind, string> = {
+  image: "cette image",
+  video: "cette vidéo",
+  document: "ce document",
+  audio: "ce fichier audio",
 };
 
 const copyTag = (name: string): MenuEntry => ({ label: "Copier le tag", run: () => void api.writeClipboardText(name) });
@@ -102,7 +103,7 @@ export function tagMenu(tag: TagInfo, categories: Category[], { removeFrom, rena
     copyTag(tag.name),
     renameEntry(tag, renameInline),
     categoryEntry(tag, categories),
-    ...(removeFrom ? [{ label: REMOVE_FROM[removeFrom.kind], run: removeFrom.run }] : []),
+    ...(removeFrom ? [{ label: `Retirer de ${THIS_MEDIA[removeFrom.kind]}`, run: removeFrom.run }] : []),
     "separator",
     hideEntry(tag),
     "separator",

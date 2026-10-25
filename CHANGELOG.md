@@ -3,6 +3,26 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Phase 3, correctifs du test, lot 7 (suite) : retour du champ de recherche, tags déjà là grisés (25/10/2026) — Backup v53
+
+SPEC : `[x]` (validées par toi) : SEL-12 (points SEL-07.7, SEL-07.11, SEL-07.12), point AUT.16 (PAGE-04 reste
+`[x]`). `[-]` : SRCH-28, abandonné (ton choix). `[~]` : SRCH-29, revu.
+
+- **Recherche de la barre latérale** : de nouveau le champ texte d'avant le lot 7 (plusieurs mots, + / −).
+- **Tags déjà là** : ils restent à leur place dans les suggestions, grisés, avec une bulle qui dit pourquoi
+  (déjà sur l'image, déjà dans la recherche, déjà exclu, déjà tapé, déjà sur tous les médias cochés…). Les
+  flèches les sautent, un clic sur leur nom ne fait rien ; dans la recherche, + / − restent actifs : on peut
+  de nouveau exclure un tag déjà cherché.
+
+Vérifié dans la version compilée, sur une copie de la bibliothèque « booru » : champ de recherche (case de
+saisie) ; recherche « long_hair smile », puis « long_h » : « long hair » grisé en tête (bulle « déjà inclus
+dans cette recherche »), ↓ le saute, clic sur son nom sans effet, son « − » le passe en exclusion
+(« −long hair »), puis bulle « déjà exclu » ; « blue_eyes smile blue_e » : « blue eyes » grisé (« champ
+textuel ») ; visionneuse : tag du média grisé (« cette image ») ; sélection : tag commun aux 2 médias grisé
+(« tous les médias sélectionnés »), pastille écrite grisée, ↑ la saute ; import et formulaire de règle :
+grisés avec leur bulle ; liste des synonymes de « highres » : « highres » grisé (« C'est le tag lui-même ») ; pagination du haut après une recherche d'un média ; essais du champ à pastilles
+(lot 6) refaits.
+
 ## Phase 3, correctifs du test, lot 7 : recherche à pastilles, suggestions, copier-coller (25/10/2026) — Backup v52
 
 SPEC : `[x]` (validée par toi) : SEL-07 ; points SEL-07.4, SEL-07.6, SEL-07.8, SEL-07.9, SEL-07.10 validés.

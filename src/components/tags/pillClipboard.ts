@@ -6,22 +6,18 @@
 
 import { endOf, mapPills, pieceOf, START, textOf, type PillDoc, type Sel } from "@/lib/pillText";
 
-/** Pastille copiée : de quoi la refaire dans n'importe quel champ (catégorie connue ou non ; exclusion
- *  et joker dans la recherche). */
-export type ClipPill = { name: string; categoryId: number | null; exclude?: boolean; prefix?: boolean };
+/** Pastille copiée : de quoi la refaire dans n'importe quel champ à pastilles. */
+export type ClipPill = { name: string; categoryId: number };
 
 /** Type réservé du presse-papiers (WebView2 le garde avec le texte). */
 const TYPE = "application/x-myboard-pastilles";
 
 let last: { text: string; piece: PillDoc<ClipPill> } | null = null;
 
-/** Nom collé en texte brut : celui de la recherche (« -tag », « tag* »). */
-const clipText = (c: ClipPill) => `${c.exclude ? "-" : ""}${c.name}${c.prefix ? "*" : ""}`;
-
 /** Copie la sélection dans le presse-papiers (Ctrl + C, Ctrl + X, menu du clic droit). */
 export function copyPiece<T>(data: DataTransfer, doc: PillDoc<T>, sel: Sel, toClip: (item: T) => ClipPill) {
   const piece = mapPills(pieceOf(doc, sel), toClip);
-  const text = textOf(piece, { anchor: START, focus: endOf(piece) }, clipText);
+  const text = textOf(piece, { anchor: START, focus: endOf(piece) }, (c) => c.name);
   data.setData("text/plain", text);
   data.setData(TYPE, JSON.stringify(piece));
   last = { text, piece };

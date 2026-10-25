@@ -46,8 +46,7 @@ function focusAndSignal(input: HTMLElement | null) {
 export const focusTagAdder = () => focusAndSignal(adderInput);
 export const focusTagRemover = () => focusAndSignal(removerInput);
 
-/** Tag à ajouter ; catégorie inconnue (`null`) pour un tag collé depuis la recherche : il garde la sienne. */
-type Chip = { name: string; categoryId: number | null };
+type Chip = { name: string; categoryId: number };
 
 const FIELD = "flex min-h-9 min-w-0 flex-1 items-center rounded-lg border border-border bg-background px-1.5 py-1 focus-within:border-[#d9a94e]";
 
@@ -70,7 +69,8 @@ export function SelectionBar() {
     queryFn: () => api.selectionTags(selectedIds()),
     enabled: active && removing && count > 0,
   });
-  // Tags déjà sur tous les médias cochés : « Ajouter » ne les propose pas (SRCH-29, choix du 25/10).
+  // Tags déjà sur tous les médias cochés : grisés dans les suggestions d'« Ajouter » (SRCH-29, choix du
+  // 25/10).
   const { data: common = [] } = useQuery({
     queryKey: ["selection-common-tags", version],
     queryFn: () => api.selectionCommonTags(selectedIds()),
@@ -135,9 +135,8 @@ export function SelectionBar() {
         resolve={resolveAdd}
         toItem={(tag) => ({ name: tag.name, categoryId: tag.categoryId })}
         toClip={(chip) => chip}
-        // Une exclusion ou un joker de la recherche n'est pas un tag à poser.
-        fromClip={(c) => (c.exclude || c.prefix ? null : { name: c.name, categoryId: c.categoryId })}
-        hidden={common}
+        fromClip={(c) => c}
+        taken={(tag) => (common.includes(tag.name) ? "Ce tag appartient déjà à tous les médias sélectionnés" : null)}
         placeholder="Ajouter des tags…"
         onSubmit={applyIfReady}
         onFocus={() => setAdding(true)}
@@ -146,7 +145,7 @@ export function SelectionBar() {
           adderInput = el;
         }}
         renderPill={(chip, remove) => (
-          <TagPill color={color(chip.categoryId ?? -1)} onRemove={remove} removeLabel={`Ne pas ajouter « ${displayTag(chip.name)} »`}>
+          <TagPill color={color(chip.categoryId)} onRemove={remove} removeLabel={`Ne pas ajouter « ${displayTag(chip.name)} »`}>
             {displayTag(chip.name)}
           </TagPill>
         )}
@@ -160,7 +159,7 @@ export function SelectionBar() {
         toItem={(tag) => tag}
         toClip={(tag) => ({ name: tag.name, categoryId: tag.categoryId })}
         // Seuls les tags portés par la sélection peuvent être retirés.
-        fromClip={(c) => (c.exclude || c.prefix ? null : (present.find((t) => t.name === c.name) ?? null))}
+        fromClip={(c) => present.find((t) => t.name === c.name) ?? null}
         source={present}
         placeholder="Retirer des tags…"
         onSubmit={applyIfReady}
