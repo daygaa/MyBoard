@@ -18,12 +18,17 @@ import { ContextMenuHost } from "@/components/ui/context-menu";
 import { ErrorDialog } from "@/components/viewer/ErrorDialog";
 import { Viewer } from "@/components/viewer/Viewer";
 import { useBackendEvents } from "@/hooks/useBackendEvents";
-import { useRoute } from "@/lib/router";
+import { useRoute, useTagTab } from "@/lib/router";
 import { SCROLLER_ID } from "@/lib/scroller";
+import { cn } from "@/lib/utils";
 
 export function App() {
   useBackendEvents();
   const route = useRoute();
+  // Onglet « Synonymes et parents » : la page tient dans la fenêtre, chaque tableau a sa barre de défilement
+  // (demande du 26/10) ; ailleurs, la page défile.
+  const tagTab = useTagTab();
+  const fitted = route === "tags" && tagTab === "rules";
   const scrollArea = useRef<HTMLDivElement>(null);
   // Défilement au clavier (Espace, Page suivante…) dès l'ouverture : la zone prend le focus.
   useEffect(() => scrollArea.current?.focus({ preventScroll: true }), []);
@@ -38,9 +43,9 @@ export function App() {
         tabIndex={-1}
         className="app-scroll min-h-0 flex-1 overflow-y-auto outline-none"
       >
-        <div className="flex min-h-full flex-col">
+        <div className={cn("flex flex-col", fitted ? "h-full" : "min-h-full")}>
           <Header />
-          <div className="flex flex-1 flex-col">{route === "import" ? <ImportPage /> : route === "tags" ? <TagManagerPage /> : <LibraryPage />}</div>
+          <div className={cn("flex flex-1 flex-col", fitted && "min-h-0")}>{route === "import" ? <ImportPage /> : route === "tags" ? <TagManagerPage /> : <LibraryPage />}</div>
           <Footer />
         </div>
       </div>

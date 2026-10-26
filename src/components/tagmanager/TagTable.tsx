@@ -2,7 +2,9 @@
 // case « tout cocher » (les tags affichés), puis les lignes, virtualisées comme la grille (D-008) :
 // fluide même avec des milliers de tags. Colonnes « Synonymes » et « Parents » : TAGM-15, TAGM-16.
 // Sous le cadre, centrés (retour T3, point TAGM-04.5) : « Afficher 100 de plus », en languette accrochée à
-// son bord du bas, puis « N / X tags affichés ».
+// son bord du bas, puis « N / X tags affichés ». La ligne des titres reste sous le haut fixe de la page
+// pendant le défilement (retour T3, point TAGM-15.3 ; `--haut-fixe` : hauteur de ce haut, TagManagerPage),
+// sur un fond opaque de la couleur du cadre.
 
 import { useLayoutEffect, useRef, useState } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
@@ -86,7 +88,13 @@ export function TagTable({ tags, checked, editing, sort, onSort, onCheckAll, rul
     <div>
       <div data-zone="gestionnaire-tags.tableau" className="rounded-xl border border-border bg-card/40">
         {/* 36 px utiles sous la bordure : case « tout cocher » centrée (TAGM-04.10). */}
-        <div className={cn(COLUMNS, "h-[37px] border-b border-border px-2 text-xs font-medium text-muted-foreground")}>
+        <div
+          className={cn(
+            COLUMNS,
+            "sticky z-20 h-[37px] rounded-t-xl border-b border-border bg-[color-mix(in_srgb,var(--card)_40%,var(--background))] px-2 text-xs font-medium text-muted-foreground",
+          )}
+          style={{ top: "calc(57px + var(--haut-fixe, 0px))" }}
+        >
           <CheckCell>
             <Checkbox
               checked={all ? true : some ? "indeterminate" : false}

@@ -967,3 +967,19 @@ et la molette continue dès qu'il y a de nouveau de quoi défiler. Sans autre ef
 toute façon pas, et les listes des pop-ins et des menus sont hors de cette zone. La pop-in « Tags proches »
 quittée par une loupe est notée dans l'étape du gestionnaire (`tagsProches`, `lib/historySteps.ts`), sur le
 modèle de la visionneuse (D-044).
+
+## D-046 — Haut de page fixe et onglet des règles à la hauteur de la fenêtre (26/10/2026)
+
+**Pourquoi.** Retour T3, points TAGM-15.3 et AUT.5 : le haut du gestionnaire de tags (jusqu'aux titres des
+colonnes) et celui de la bibliothèque (filtres, ligne du titre et de la pagination) restent en place pendant le
+défilement ; point TAGM-15.14 : l'onglet « Synonymes et parents » ne fait plus défiler la page, chaque tableau
+défile seul.
+
+**Comment.** Les hauts sont en `position: sticky`, collés à 57 px (hauteur de l'en-tête de MyBoard, bordure
+comprise : à 56 px, comme la barre latérale, ils sautaient d'1 px au premier défilement), avec un fond opaque.
+Dans le gestionnaire, le haut (onglets, en-tête de la page, filtres) est un bloc à part de `main` ; sa hauteur,
+suivie par `useElementHeight`, passe dans `--haut-fixe`, et la ligne des titres du tableau se colle à
+`57px + --haut-fixe`. Rien ne change pour la grille virtualisée (D-008) : un élément collant garde sa place dans
+la page. Onglet « Synonymes et parents » : la colonne de `App.tsx` prend la hauteur exacte de la zone qui défile
+(`h-full` au lieu de `min-h-full`) ; les deux tableaux, en grille, se partagent la place restante et leurs
+listes défilent (`overflow-y-auto`, `overscroll-behavior: contain`, GEN-24).

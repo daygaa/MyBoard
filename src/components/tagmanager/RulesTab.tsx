@@ -1,7 +1,8 @@
 // Onglet « Synonymes et parents » du gestionnaire de tags (TAGM-15, TAGM-16) : toutes les règles en un
 // seul endroit, en deux colonnes côte à côte. Chacune : un champ pour ajouter une règle, un filtre par
 // nom, puis la liste (case pour désactiver / réactiver, corbeille ; pour les parents, interrupteur
-// « Auto »).
+// « Auto »). La page ne défile pas : les tableaux s'arrêtent au bas de la fenêtre et chaque liste a sa
+// barre de défilement (demande du 26/10), qui garde la molette (GEN-24).
 
 import { useMemo, useState, type ReactNode } from "react";
 import { Search } from "lucide-react";
@@ -26,7 +27,7 @@ function Panel({ zone, title, count, help, form, filter, onFilter, children, emp
   empty: string;
 }) {
   return (
-    <section data-zone={zone} className="min-w-0 rounded-xl border border-border bg-card/40 p-3">
+    <section data-zone={zone} className="flex min-h-0 min-w-0 flex-col rounded-xl border border-border bg-card/40 p-3">
       <div className="mb-1 flex items-baseline gap-2">
         <h2 className="text-sm font-semibold text-foreground">{title}</h2>
         <span className="text-xs text-muted-foreground tabular-nums">{formatNumber(count)}</span>
@@ -44,7 +45,7 @@ function Panel({ zone, title, count, help, form, filter, onFilter, children, emp
           className="h-8 w-full rounded-lg border border-border bg-card/60 pr-3 pl-8 text-sm text-foreground outline-none placeholder:text-muted-foreground/60 focus:border-[#d9a94e]/60"
         />
       </div>
-      <div data-zone={`${zone}.liste`} className="space-y-0.5">
+      <div data-zone={`${zone}.liste`} className="min-h-24 flex-1 space-y-0.5 overflow-y-auto overscroll-contain">
         {children.length ? children : <p className="px-1.5 py-2 text-xs text-muted-foreground">{empty}</p>}
       </div>
     </section>
@@ -83,7 +84,7 @@ export function RulesTab({ tags, rules }: { tags: ManagedTag[]; rules: RulesInde
   };
 
   return (
-    <div data-zone="regles" className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+    <div data-zone="regles" className="grid min-h-0 flex-1 grid-cols-1 grid-rows-2 gap-4 lg:grid-cols-2 lg:grid-rows-1">
       <Panel
         zone="regles.synonymes"
         title="Synonymes"

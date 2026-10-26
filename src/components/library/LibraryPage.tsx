@@ -1,6 +1,8 @@
 // Page d'accueil : barre latérale + filtres + pagination (haut et bas) + grille. Même page pour la
 // vue Favoris (FAV-02) et la page d'un dossier (FOLD-04), avec leur ligne de titre (FAV-04) dans la
-// ligne de la pagination du haut, toujours réservée (PAGE-05).
+// ligne de la pagination du haut, toujours réservée (PAGE-05). Les filtres et cette ligne restent en haut
+// pendant le défilement (retour T3, point AUT.5, GRID-14, essai), sans trait dessous (choix de
+// l'utilisateur).
 
 import { useEffect } from "react";
 import { Folder as FolderIcon, Star } from "lucide-react";
@@ -29,7 +31,10 @@ export function LibraryPage() {
   const page = useLibrary((s) => s.page);
   const kinds = useLibrary((s) => s.kinds);
   const filtered = kinds.length > 0;
-  const searching = useSearch((s) => s.terms.length > 0);
+  const sort = useLibrary((s) => s.sort);
+  const seed = useLibrary((s) => s.seed);
+  const terms = useSearch((s) => s.terms);
+  const searching = terms.length > 0;
   const file = useSearch((s) => s.file);
   const route = useRoute();
   const folderId = useFolderId();
@@ -43,10 +48,11 @@ export function LibraryPage() {
   // Autre page, filtre, tri ou recherche qui tarde : curseur d'attente passé 0,3 s (GEN-13).
   useBusy(isPlaceholderData, 300);
 
-  // Nouvelle page : retour en haut de la grille.
+  // Nouvelle page, ou autre filtre, tri ou recherche : retour en haut de la grille (demande du 26/10). La
+  // disposition (Ctrl + molette, en plein défilement) ne remonte pas.
   useEffect(() => {
     scrollToTop();
-  }, [page]);
+  }, [page, kinds, sort, seed, terms, file]);
 
   let content = null;
   if (route === "library" && stats && stats.total === 0) content = <EmptyLibrary />;
@@ -67,18 +73,22 @@ export function LibraryPage() {
   return (
     <div className="flex flex-1">
       <Sidebar items={data?.items ?? []} />
-      <main data-zone="grille" className="min-w-0 flex-1 px-4 py-5 lg:px-6">
-        <FiltersBar total={data?.total ?? 0} />
-        <PageHead
-          data={data}
-          title={
-            route === "favorites" ? (
-              <ViewTitle icon={<Star className="h-4 w-4 fill-current" />} name="Favoris" count={stats?.favorites} />
-            ) : folder ? (
-              <ViewTitle icon={<FolderIcon className="h-4 w-4" />} name={folder.name} count={folder.mediaCount} />
-            ) : null
-          }
-        />
+      <main data-zone="grille" className="min-w-0 flex-1 px-4 pb-5 lg:px-6">
+        {/* Fond sur toute la largeur de la colonne : la grille passe dessous. Collé sous l'en-tête de 57 px
+            (bordure comprise) : à sa place de départ, sans saut d'1 px au premier défilement. */}
+        <div data-zone="grille.haut" className="sticky top-[57px] z-30 -mx-4 bg-background px-4 pt-5 lg:-mx-6 lg:px-6">
+          <FiltersBar total={data?.total ?? 0} />
+          <PageHead
+            data={data}
+            title={
+              route === "favorites" ? (
+                <ViewTitle icon={<Star className="h-4 w-4 fill-current" />} name="Favoris" count={stats?.favorites} />
+              ) : folder ? (
+                <ViewTitle icon={<FolderIcon className="h-4 w-4" />} name={folder.name} count={folder.mediaCount} />
+              ) : null
+            }
+          />
+        </div>
         {content}
         {data && data.total > 0 && (
           <div className="mt-6">

@@ -3,6 +3,30 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Phase 3, correctifs du test, lot 16 : haut de page fixe, onglet des règles, retour en haut (26/10/2026) — Backup v62
+
+SPEC : `[x]` (validés par toi) : SRCH-26 ; points TAGM-13.5, TAGM-13.6, SRCH-26.1 à SRCH-26.3. Livrés `[~]` :
+TAGM-04 (points TAGM-15.3 et TAGM-04.13), GRID-14 (points AUT.5 et AUT.19), TAGM-15 (point TAGM-15.14).
+Décision D-046.
+
+- **Gestionnaire de tags** : les onglets, l'en-tête de la page, les filtres et les titres des colonnes restent en
+  haut pendant le défilement ; un nouveau filtre ou tri ramène en haut.
+- **Bibliothèque** (essai) : les filtres et la ligne du titre et de la pagination restent en haut ; une autre
+  page, un autre filtre, tri ou recherche ramène en haut.
+- **Synonymes et parents** : la page ne défile plus ; chaque tableau a sa barre de défilement et s'arrête au bas
+  de la fenêtre.
+
+Vérifié dans la version compilée, sur des copies de la bibliothèque « booru » (fenêtre de 1 040 px) :
+bibliothèque défilée de 1 500 px : haut fixe de 89 à 189 px, exactement à sa place de départ, les vignettes
+passent dessous ; tri « Anciens », type de média, recherche « 1girl », nom de fichier « png » : retour en haut ;
+Ctrl + molette : la page reste à 800 px ; gestionnaire défilé de 3 000 px : haut fixe de 89 à 245 px (comme au
+départ), titres des colonnes collés dessous (245 à 282), fond opaque, les lignes passent dessous ; filtre
+« hair », tri par nom, « Rares » : retour en haut ; « Afficher 100 de plus » : la page reste à 2 000 px ;
+« Synonymes et parents » avec 80 synonymes d'essai (copie jetable, supprimés ensuite) : page de 1 008 px pour
+1 008 visibles (aucun défilement), liste des synonymes de 599 px visibles pour 2 820, molette dans la liste :
+elle défile, jusqu'au bout, sans faire bouger la page ; fenêtre de 720 px (simulée) : listes de 279 px, pied de
+page en bas ; l'onglet « Tags » défile toujours (4 270 px pour 1 008).
+
 ## Phase 3, correctifs du test, lot 15 : recherche par nom de fichier, pluriels français (26/10/2026) — Backup v61
 
 SPEC : livrés `[~]` : SRCH-26 (points SRCH-26.1, SRCH-26.2, SRCH-26.3), TAGM-13 (point TAGM-13.6). Notés le

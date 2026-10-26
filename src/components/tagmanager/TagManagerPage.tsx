@@ -7,9 +7,11 @@
 // trié et virtualisé, 100 tags affichés puis « Afficher 100 de plus » (TAGM-04.5 ; un nouveau filtre ou tri
 // repart des 100 premiers) ; barre des actions groupées quand des tags sont cochés (TAGM-11 ; Échap décoche
 // tout, TAGM-11.1). Onglet « Synonymes et parents » : RulesTab, avec « Tags proches » seul au bout à droite de
-// l'en-tête (TAGM-13.4).
+// l'en-tête (TAGM-13.4). Les onglets, l'en-tête de la page et les filtres restent en haut pendant le
+// défilement, les titres des colonnes du tableau dessous (retour T3, point TAGM-15.3) ; un nouveau filtre ou
+// tri ramène en haut de la page (demande du 26/10).
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, ChevronDown, Tags } from "lucide-react";
 
 import { GridBadge } from "@/components/library/GridBadge";
@@ -18,12 +20,13 @@ import { TagDeleteMessage, tagMenu } from "@/components/tags/tagMenu";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useCategories } from "@/hooks/useCategories";
+import { useElementHeight } from "@/hooks/useElementHeight";
 import { useTagRules } from "@/hooks/useTagRules";
-import { api, type ManagedTag, type Renamed } from "@/lib/api";
-import { openContextMenu, openMenuAt } from "@/lib/contextMenu";
+import type { ManagedTag, Renamed } from "@/lib/api";
+import { openContextMenu } from "@/lib/contextMenu";
 import { formatNumber, plural } from "@/lib/format";
 import { navigate, useTagTab } from "@/lib/router";
-import { encodeTags } from "@/lib/shareCode";
+import { scrollToTop } from "@/lib/scroller";
 import { displayTag } from "@/lib/tags";
 import { hasEscapeLayer } from "@/lib/escape";
 import { SIMILAR } from "@/lib/historySteps";
@@ -36,6 +39,7 @@ import { useUI } from "@/stores/ui";
 import { BulkBar } from "./BulkBar";
 import { MergeTagsDialog, UnusedTagsDialog } from "./CleanupDialogs";
 import { SimilarTagsDialog, type SimilarSnapshot } from "./SimilarTagsDialog";
+import { openExportMenu } from "./exportMenu";
 import { ImportTagsDialog } from "./ImportTagsDialog";
 import { NewTagButton } from "./NewTagButton";
 import { RuleAskHost } from "./RuleAskHost";
@@ -48,6 +52,8 @@ import { useTagList } from "./useTagList";
 const TOOL = "h-8 gap-1.5 border-border bg-card/60 text-xs hover:bg-secondary hover:text-foreground";
 /** Tags affichés à la fois, puis en plus à chaque « Afficher 100 de plus » (TAGM-04.5). */
 const STEP = 100;
+/** Largeur de la page : 72 % de la fenêtre (TAGM-04.2), toute la fenêtre si elle est étroite. */
+const PAGE = "mx-auto w-full max-w-[max(72rem,72vw)] px-4 lg:px-6";
 
 type Dialog = "similar" | "import" | "unused" | "merge" | null;
 
@@ -58,7 +64,12 @@ export function TagManagerPage() {
   const all = useMemo(() => data?.tags ?? [], [data]);
   const tab = useTagTab();
   const [limit, setLimit] = useState(STEP);
-  useEffect(() => setLimit(STEP), [filters, sort]);
+  useEffect(() => {
+    setLimit(STEP);
+    scrollToTop();
+  }, [filters, sort]);
+  const topRef = useRef<HTMLDivElement>(null);
+  const topHeight = useElementHeight(topRef);
   const shown = useMemo(() => visible.slice(0, limit), [visible, limit]);
   const byId = useMemo(() => new Map(all.map((t) => [t.id, t])), [all]);
   const tagOf = useCallback((id: number) => byId.get(id), [byId]);
@@ -108,26 +119,6 @@ export function TagManagerPage() {
     [categories],
   );
 
-  const exportList = (tags: ManagedTag[]) => {
-    const { code, aliases, parents } = encodeTags(tags, categories, rules);
-    const extra = [aliases && `${formatNumber(aliases)} ${plural(aliases, "synonyme")}`, parents && `${formatNumber(parents)} ${plural(parents, "règle")}`].filter(Boolean);
-    const copied = `${formatNumber(tags.length)} ${plural(tags.length, "tag copié", "tags copiés")}${extra.length ? ` (avec ${extra.join(" et ")})` : ""}`;
-    void api.writeClipboardText(code).then(() => showGridBadge(copied));
-  };
-  const openExport = (e: React.MouseEvent<HTMLButtonElement>) => {
-    const r = e.currentTarget.getBoundingClientRect();
-    openMenuAt(
-      r.left,
-      r.bottom + 4,
-      [
-        { label: `Tags affichés (${formatNumber(visible.length)})`, disabled: !filtered, run: () => exportList(visible) },
-        { label: `Tous les tags (${formatNumber(all.length)})`, run: () => exportList(all) },
-        ...(checkedTags.length ? [{ label: `Tags cochés (${formatNumber(checkedTags.length)})`, run: () => exportList(checkedTags) }] : []),
-      ],
-      e.detail === 0,
-    );
-  };
-
   const similarButton = (
     <Button data-zone="gestionnaire-tags.proches" variant="outline" size="sm" onClick={() => setDialog("similar")} className={TOOL}>
       Tags proches ({formatNumber(groups.length)})
@@ -136,66 +127,74 @@ export function TagManagerPage() {
 
   return (
     <>
-      <Tabs />
-      <main data-zone="gestionnaire-tags" className="mx-auto w-full max-w-[max(72rem,72vw)] px-4 py-5 lg:px-6">
-        <div className="mb-4 flex flex-wrap items-center gap-3">
-          <Button data-zone="gestionnaire-tags.retour" variant="outline" size="sm" onClick={() => navigate("library")} className={TOOL}>
-            <ArrowLeft className="h-3.5 w-3.5" />
-            Bibliothèque
-          </Button>
-          <div className="flex items-center gap-2.5">
-            <span className="grid h-8 w-8 place-items-center rounded-lg bg-[#d9a94e]/15 text-[#d9a94e]">
-              <Tags className="h-4 w-4" />
-            </span>
-            <div className="select-text">
-              <h1 className="text-base leading-tight font-semibold text-foreground">Gestionnaire de tags</h1>
-              <p data-zone="gestionnaire-tags.compteurs" className="text-xs text-muted-foreground">
-                {formatNumber(all.length)} {plural(all.length, "tag")} · {formatNumber(data?.taggedMedia ?? 0)} {plural(data?.taggedMedia ?? 0, "média taggé", "médias taggés")}
-              </p>
+      {/* Haut fixe, sans trait dessous (choix de l'utilisateur), collé sous l'en-tête de 57 px (bordure
+          comprise) : à sa place de départ, sans saut d'1 px au premier défilement. */}
+      <div ref={topRef} data-zone="gestionnaire-tags.haut" className="sticky top-[57px] z-30 bg-background">
+        <Tabs />
+        <div className={cn(PAGE, "pt-5")}>
+          <div className="mb-4 flex flex-wrap items-center gap-3">
+            <Button data-zone="gestionnaire-tags.retour" variant="outline" size="sm" onClick={() => navigate("library")} className={TOOL}>
+              <ArrowLeft className="h-3.5 w-3.5" />
+              Bibliothèque
+            </Button>
+            <div className="flex items-center gap-2.5">
+              <span className="grid h-8 w-8 place-items-center rounded-lg bg-[#d9a94e]/15 text-[#d9a94e]">
+                <Tags className="h-4 w-4" />
+              </span>
+              <div className="select-text">
+                <h1 className="text-base leading-tight font-semibold text-foreground">Gestionnaire de tags</h1>
+                <p data-zone="gestionnaire-tags.compteurs" className="text-xs text-muted-foreground">
+                  {formatNumber(all.length)} {plural(all.length, "tag")} · {formatNumber(data?.taggedMedia ?? 0)} {plural(data?.taggedMedia ?? 0, "média taggé", "médias taggés")}
+                </p>
+              </div>
             </div>
-          </div>
-          <div className={cn("ml-auto flex flex-wrap items-center gap-2", tab !== "tags" && "hidden")}>
-            <NewTagButton
-              tags={all}
-              rules={rules}
-              tagOf={tagOf}
-              onCreated={(name) => {
-                // Le filtre montre le nouveau tag (choix de l'utilisateur), sinon il pourrait tomber après les 100 premiers.
-                setFilters({ text: displayTag(name), category: null, hidden: false, rare: false });
-                showGridBadge(`Tag « ${displayTag(name)} » créé`);
-              }}
-            />
-            {tab === "tags" && similarButton}
-            <Button data-zone="gestionnaire-tags.exporter" variant="outline" size="sm" onClick={openExport} className={TOOL}>
-              Exporter
-              <ChevronDown className="h-3.5 w-3.5" />
-            </Button>
-            <Button data-zone="gestionnaire-tags.importer" variant="outline" size="sm" onClick={() => setDialog("import")} className={TOOL}>
-              Importer
-            </Button>
-            {/* Grisé, la bulle passe par l'enveloppe (TAGM-08.1). */}
-            <span title={unused.length === 0 ? "Aucun tag non utilisé" : undefined} className="inline-flex">
-              <Button
-                data-zone="gestionnaire-tags.non-utilises"
-                variant="outline"
-                size="sm"
-                disabled={unused.length === 0}
-                onClick={() => setDialog("unused")}
-                className={cn(TOOL, "text-rose-300 hover:text-rose-200")}
-              >
-                Supprimer les tags non utilisés
+            <div className={cn("ml-auto flex flex-wrap items-center gap-2", tab !== "tags" && "hidden")}>
+              <NewTagButton
+                tags={all}
+                rules={rules}
+                tagOf={tagOf}
+                onCreated={(name) => {
+                  // Le filtre montre le nouveau tag (choix de l'utilisateur), sinon il pourrait tomber après les 100 premiers.
+                  setFilters({ text: displayTag(name), category: null, hidden: false, rare: false });
+                  showGridBadge(`Tag « ${displayTag(name)} » créé`);
+                }}
+              />
+              {tab === "tags" && similarButton}
+              <Button data-zone="gestionnaire-tags.exporter" variant="outline" size="sm" onClick={(e) => openExportMenu(e, { visible, filtered, all, checked: checkedTags }, categories, rules)} className={TOOL}>
+                Exporter
+                <ChevronDown className="h-3.5 w-3.5" />
               </Button>
-            </span>
+              <Button data-zone="gestionnaire-tags.importer" variant="outline" size="sm" onClick={() => setDialog("import")} className={TOOL}>
+                Importer
+              </Button>
+              {/* Grisé, la bulle passe par l'enveloppe (TAGM-08.1). */}
+              <span title={unused.length === 0 ? "Aucun tag non utilisé" : undefined} className="inline-flex">
+                <Button
+                  data-zone="gestionnaire-tags.non-utilises"
+                  variant="outline"
+                  size="sm"
+                  disabled={unused.length === 0}
+                  onClick={() => setDialog("unused")}
+                  className={cn(TOOL, "text-rose-300 hover:text-rose-200")}
+                >
+                  Supprimer les tags non utilisés
+                </Button>
+              </span>
+            </div>
+            {tab === "rules" && <div className="ml-auto">{similarButton}</div>}
           </div>
-          {tab === "rules" && <div className="ml-auto">{similarButton}</div>}
+          {tab === "tags" && <TagFilters filters={filters} setFilters={setFilters} shown={visible.length} total={all.length} />}
         </div>
-
+      </div>
+      <main
+        data-zone="gestionnaire-tags"
+        style={{ "--haut-fixe": `${topHeight}px` } as React.CSSProperties}
+        className={cn(PAGE, "pb-5", tab === "rules" && "flex min-h-0 flex-1 flex-col")}
+      >
         {tab === "rules" ? (
           <RulesTab tags={all} rules={rules} />
         ) : (
           <>
-            <TagFilters filters={filters} setFilters={setFilters} shown={visible.length} total={all.length} />
-
             <TagTable
               tags={shown}
               checked={checked}
