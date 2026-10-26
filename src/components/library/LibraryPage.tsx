@@ -13,7 +13,7 @@ import { useGridShortcuts } from "@/hooks/useGridShortcuts";
 import { useMediaPage, useStats } from "@/hooks/useLibraryData";
 import { useBusy } from "@/lib/busy";
 import { navigate, useFolderId, useRoute } from "@/lib/router";
-import { scrollToTop } from "@/lib/scroller";
+import { glideToTop } from "@/lib/scroller";
 import { useLibrary } from "@/stores/library";
 import { useSearch } from "@/stores/search";
 import { EmptyFolder, EmptyLibrary, NoFavorites, NoFileMatch, NoResults } from "./EmptyState";
@@ -48,10 +48,10 @@ export function LibraryPage() {
   // Autre page, filtre, tri ou recherche qui tarde : curseur d'attente passé 0,3 s (GEN-13).
   useBusy(isPlaceholderData, 300);
 
-  // Nouvelle page, ou autre filtre, tri ou recherche : retour en haut de la grille (demande du 26/10). La
-  // disposition (Ctrl + molette, en plein défilement) ne remonte pas.
+  // Nouvelle page, ou autre filtre, tri ou recherche : retour en haut de la grille, fluide (retour T3, point
+  // AUT.19). La disposition (Ctrl + molette, en plein défilement) ne remonte pas.
   useEffect(() => {
-    scrollToTop();
+    glideToTop();
   }, [page, kinds, sort, seed, terms, file]);
 
   let content = null;
@@ -75,8 +75,9 @@ export function LibraryPage() {
       <Sidebar items={data?.items ?? []} />
       <main data-zone="grille" className="min-w-0 flex-1 px-4 pb-5 lg:px-6">
         {/* Fond sur toute la largeur de la colonne : la grille passe dessous. Collé sous l'en-tête de 57 px
-            (bordure comprise) : à sa place de départ, sans saut d'1 px au premier défilement. */}
-        <div data-zone="grille.haut" className="sticky top-[57px] z-30 -mx-4 bg-background px-4 pt-5 lg:-mx-6 lg:px-6">
+            (bordure comprise) : à sa place de départ, sans saut d'1 px au premier défilement. « flow-root » :
+            l'espace sous la ligne du titre (marge de PageHead) reste dans le haut fixe (retour T3, point AUT.5). */}
+        <div data-zone="grille.haut" className="sticky top-[57px] z-30 -mx-4 flow-root bg-background px-4 pt-5 lg:-mx-6 lg:px-6">
           <FiltersBar total={data?.total ?? 0} />
           <PageHead
             data={data}

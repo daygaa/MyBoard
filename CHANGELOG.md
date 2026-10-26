@@ -3,6 +3,28 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Phase 3, correctifs du test, retouches du lot 16 : titres collés, espace fixe, retour en haut fluide (26/10/2026) — Backup v63
+
+SPEC : `[x]` (validé par toi) : point TAGM-15.14. Livrés `[~]` : TAGM-04 (retouches des points TAGM-15.3 et
+TAGM-04.13), GRID-14 (retouches des points AUT.5 et AUT.19, nouveau point AUT.20). Complément de D-046.
+
+- **Gestionnaire** : la ligne des titres des colonnes garde sa bordure du haut et ses coins arrondis une fois
+  collée, sans bouger d'un pixel.
+- **Bibliothèque** : l'espace entre la pagination du haut et les vignettes reste fixe lui aussi.
+- **Retour en haut** (filtre, tri, recherche) : il glisse, vite puis de plus en plus lentement.
+- **Barre latérale** : plus de saut d'1 px au premier défilement.
+
+Vérifié dans la version compilée, sur une copie de la bibliothèque « booru » (fenêtre de 1 040 px) :
+bibliothèque : haut fixe de 89 à 205 px au repos comme défilé (espace de 16 px compris), juste dessous : les
+vignettes ; barre latérale de 89 à 1 040 px au repos comme défilée (avant : 88 une fois défilée, et 1 041 en bas) ;
+gestionnaire : titres des colonnes de 245 à 283 px au repos comme collés, bordure de 1 px sur les quatre côtés,
+coins arrondis, case « tout cocher » à 10 / 10 px entre les bordures ; retour en haut relevé image par image :
+bibliothèque (type de média) de 3 000 px à 0 en 0,3 s, toujours en descendant ; gestionnaire (tris Nom, Médias,
+Catégorie, « Rares », filtre « a ») : toujours en descendant, fin en 0,35 s environ. Deux défauts trouvés et
+corrigés avant la livraison : la 1re image de l'animation, datée un peu avant son lancement, envoyait la page en
+bas (3 000 → 3 262 px) avant de remonter ; et une image lente (tri de 13 106 tags) la faisait sauter de 3 000 à
+648 px.
+
 ## Phase 3, correctifs du test, lot 16 : haut de page fixe, onglet des règles, retour en haut (26/10/2026) — Backup v62
 
 SPEC : `[x]` (validés par toi) : SRCH-26 ; points TAGM-13.5, TAGM-13.6, SRCH-26.1 à SRCH-26.3. Livrés `[~]` :

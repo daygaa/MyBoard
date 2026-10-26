@@ -87,29 +87,33 @@ export function TagTable({ tags, checked, editing, sort, onSort, onCheckAll, rul
   return (
     <div>
       <div data-zone="gestionnaire-tags.tableau" className="rounded-xl border border-border bg-card/40">
-        {/* 36 px utiles sous la bordure : case « tout cocher » centrée (TAGM-04.10). */}
-        <div
-          className={cn(
-            COLUMNS,
-            "sticky z-20 h-[37px] rounded-t-xl border-b border-border bg-[color-mix(in_srgb,var(--card)_40%,var(--background))] px-2 text-xs font-medium text-muted-foreground",
-          )}
-          style={{ top: "calc(57px + var(--haut-fixe, 0px))" }}
-        >
-          <CheckCell>
-            <Checkbox
-              checked={all ? true : some ? "indeterminate" : false}
-              onCheckedChange={(c) => onCheckAll(c === true)}
-              aria-label="Cocher tous les tags affichés"
-            />
-          </CheckCell>
-          <SortHeader label="Nom" sortKey="name" sort={sort} onSort={onSort} />
-          <SortHeader label="Catégorie" sortKey="category" sort={sort} onSort={onSort} />
-          <SortHeader label="Médias" sortKey="count" sort={sort} onSort={onSort} className="justify-end" />
-          <SortHeader label="Créé le" sortKey="created" sort={sort} onSort={onSort} className="justify-center" />
-          <SortHeader label="Description" sortKey="description" sort={sort} onSort={onSort} className="justify-center" />
-          <SortHeader label="Synonymes" sortKey="aliases" sort={sort} onSort={onSort} className="justify-center" />
-          <SortHeader label="Parents" sortKey="parents" sort={sort} onSort={onSort} className="justify-center" />
-          <span className="text-center">Actions</span>
+        {/* Collée sous le haut fixe avec sa propre bordure (haut, côtés, coins arrondis), posée exactement sur
+            celle du cadre (-1 px) : elle la garde une fois collée et ne bouge pas d'un pixel (retour T3, point
+            TAGM-15.3) ; autour des coins, le fond de la page. 36 px utiles entre ses bordures : case « tout
+            cocher » centrée (TAGM-04.10). */}
+        <div className="sticky z-20 -mx-px -mt-px bg-background" style={{ top: "calc(57px + var(--haut-fixe, 0px))" }}>
+          <div
+            className={cn(
+              COLUMNS,
+              "h-[38px] rounded-t-xl border border-border bg-[color-mix(in_srgb,var(--card)_40%,var(--background))] px-2 text-xs font-medium text-muted-foreground",
+            )}
+          >
+            <CheckCell>
+              <Checkbox
+                checked={all ? true : some ? "indeterminate" : false}
+                onCheckedChange={(c) => onCheckAll(c === true)}
+                aria-label="Cocher tous les tags affichés"
+              />
+            </CheckCell>
+            <SortHeader label="Nom" sortKey="name" sort={sort} onSort={onSort} />
+            <SortHeader label="Catégorie" sortKey="category" sort={sort} onSort={onSort} />
+            <SortHeader label="Médias" sortKey="count" sort={sort} onSort={onSort} className="justify-end" />
+            <SortHeader label="Créé le" sortKey="created" sort={sort} onSort={onSort} className="justify-center" />
+            <SortHeader label="Description" sortKey="description" sort={sort} onSort={onSort} className="justify-center" />
+            <SortHeader label="Synonymes" sortKey="aliases" sort={sort} onSort={onSort} className="justify-center" />
+            <SortHeader label="Parents" sortKey="parents" sort={sort} onSort={onSort} className="justify-center" />
+            <span className="text-center">Actions</span>
+          </div>
         </div>
         <div ref={bodyRef} className="relative" style={{ height: virtualizer.getTotalSize() }}>
           {virtualizer.getVirtualItems().map((item) => {

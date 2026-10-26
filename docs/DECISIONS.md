@@ -983,3 +983,11 @@ suivie par `useElementHeight`, passe dans `--haut-fixe`, et la ligne des titres 
 la page. Onglet « Synonymes et parents » : la colonne de `App.tsx` prend la hauteur exacte de la zone qui défile
 (`h-full` au lieu de `min-h-full`) ; les deux tableaux, en grille, se partagent la place restante et leurs
 listes défilent (`overflow-y-auto`, `overscroll-behavior: contain`, GEN-24).
+
+**Complément du 26/10 (retouches).** La ligne des titres du tableau est enveloppée dans un bloc collant posé à
+-1 px sur la bordure du cadre (fond de la page autour des coins) et porte sa propre bordure complète. Le haut fixe
+de la bibliothèque est en `flow-root`, pour que la marge de son dernier élément reste dedans. La barre latérale est
+collée à 57 px elle aussi. Retour en haut : `glideToTop` (`lib/scroller.ts`), animation à chaque image
+(`requestAnimationFrame`), courbe « ease-out » sur 250 ms, horloge propre qui part de la 1re image et n'avance pas
+de plus de 34 ms par image (une image lente ne fait pas sauter la glissade) ; la molette ne l'interrompt pas
+(GEN-24). `scrollToTop` (changement de page de l'application) reste immédiat.

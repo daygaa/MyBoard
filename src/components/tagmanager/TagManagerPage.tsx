@@ -9,7 +9,7 @@
 // tout, TAGM-11.1). Onglet « Synonymes et parents » : RulesTab, avec « Tags proches » seul au bout à droite de
 // l'en-tête (TAGM-13.4). Les onglets, l'en-tête de la page et les filtres restent en haut pendant le
 // défilement, les titres des colonnes du tableau dessous (retour T3, point TAGM-15.3) ; un nouveau filtre ou
-// tri ramène en haut de la page (demande du 26/10).
+// tri ramène en haut de la page, en glissant (retour T3, point TAGM-04.13).
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, ChevronDown, Tags } from "lucide-react";
@@ -26,7 +26,7 @@ import type { ManagedTag, Renamed } from "@/lib/api";
 import { openContextMenu } from "@/lib/contextMenu";
 import { formatNumber, plural } from "@/lib/format";
 import { navigate, useTagTab } from "@/lib/router";
-import { scrollToTop } from "@/lib/scroller";
+import { glideToTop } from "@/lib/scroller";
 import { displayTag } from "@/lib/tags";
 import { hasEscapeLayer } from "@/lib/escape";
 import { SIMILAR } from "@/lib/historySteps";
@@ -66,7 +66,7 @@ export function TagManagerPage() {
   const [limit, setLimit] = useState(STEP);
   useEffect(() => {
     setLimit(STEP);
-    scrollToTop();
+    glideToTop();
   }, [filters, sort]);
   const topRef = useRef<HTMLDivElement>(null);
   const topHeight = useElementHeight(topRef);
