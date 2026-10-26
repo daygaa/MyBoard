@@ -4,7 +4,8 @@
 // - tags proches (TAGM-13) : groupes de noms presque identiques ; pour chacun, nom gardé puis
 //   « Fusionner », ou « Ignorer » (plus proposé) ; une loupe au bout de chaque tag lance sa recherche
 //   (retour T3, point TAGM-13.1) : la pop-in est notée dans l'étape (position dans la liste, noms gardés,
-//   case), le retour arrière la rouvre telle quelle ;
+//   case), le retour arrière la rouvre telle quelle ; « Tout fusionner », à droite de « Fermer », fusionne
+//   tous les groupes après une confirmation simple (retour T3, point TAGM-13.3) ;
 // - fusion de tags cochés (TAGM-11) : choix du nom gardé.
 // Les deux fusions ont la case « Garder les anciens noms comme synonymes » (TAGM-17).
 
@@ -14,12 +15,13 @@ import { Search } from "lucide-react";
 import { KeepAliasesBox } from "@/components/tags/KeepAliasesBox";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Modal } from "@/components/ui/modal";
 import { useCategories } from "@/hooks/useCategories";
 import { api, type ManagedTag } from "@/lib/api";
 import { formatNumber, plural } from "@/lib/format";
 import { displayTag } from "@/lib/tags";
-import { deleteTags, groupKey, mergeTags, refreshTags } from "@/lib/tagManager";
+import { deleteTags, groupKey, mergeGroups, mergeTags, refreshTags } from "@/lib/tagManager";
 import { cn } from "@/lib/utils";
 
 const CANCEL = "text-foreground hover:bg-secondary hover:text-foreground";
@@ -179,43 +181,72 @@ export function SimilarTagsDialog({ groups, initial, onSearch, onClose }: Simila
     listRef.current.scrollTop = initial.scroll;
   }, [initial, groups.length]);
   const search = (tag: ManagedTag) => onSearch(tag, { scroll: listRef.current?.scrollTop ?? 0, keep, aliases });
+  const [confirming, setConfirming] = useState(false);
+  const mergeAll = () => {
+    setConfirming(false);
+    void mergeGroups(
+      groups.map((g) => ({ sources: g, target: kept(g, keep[groupKey(g)] ?? mostUsed(g)) })),
+      aliases,
+    );
+  };
   return (
-    <Modal
-      open
-      wide
-      onClose={onClose}
-      zone="tags-proches"
-      title="Tags proches"
-      description={groups.length ? "Noms presque identiques : choisis le nom gardé, ses médias reçoivent ceux des autres." : "Aucun tag proche à fusionner."}
-      footer={
-        <Button variant="ghost" onClick={onClose} className={CANCEL}>
-          Fermer
-        </Button>
-      }
-    >
-      {groups.length > 0 && (
-        <>
-          <div ref={listRef} className="max-h-[55vh] space-y-2 overflow-y-auto pr-1">
-            {groups.map((g) => {
-              const key = groupKey(g);
-              return (
-                <SimilarGroup
-                  key={key}
-                  group={g}
-                  aliases={aliases}
-                  keep={keep[key] ?? mostUsed(g)}
-                  onKeep={(id) => setKeep((k) => ({ ...k, [key]: id }))}
-                  onSearch={search}
-                />
-              );
-            })}
-          </div>
-          <div className="mt-3">
-            <KeepAliasesBox checked={aliases} onChange={setAliases} />
-          </div>
-        </>
+    <>
+      <Modal
+        open
+        wide
+        onClose={onClose}
+        zone="tags-proches"
+        title="Tags proches"
+        description={groups.length ? "Noms presque identiques : choisis le nom gardé, ses médias reçoivent ceux des autres." : "Aucun tag proche à fusionner."}
+        footer={
+          <>
+            <Button variant="ghost" onClick={onClose} className={CANCEL}>
+              Fermer
+            </Button>
+            {groups.length > 0 && (
+              <Button data-zone="tags-proches.tout" onClick={() => setConfirming(true)} className={GOLD}>
+                Tout fusionner
+              </Button>
+            )}
+          </>
+        }
+      >
+        {groups.length > 0 && (
+          <>
+            <div ref={listRef} className="max-h-[55vh] space-y-2 overflow-y-auto pr-1">
+              {groups.map((g) => {
+                const key = groupKey(g);
+                return (
+                  <SimilarGroup
+                    key={key}
+                    group={g}
+                    aliases={aliases}
+                    keep={keep[key] ?? mostUsed(g)}
+                    onKeep={(id) => setKeep((k) => ({ ...k, [key]: id }))}
+                    onSearch={search}
+                  />
+                );
+              })}
+            </div>
+            <div className="mt-3">
+              <KeepAliasesBox checked={aliases} onChange={setAliases} />
+            </div>
+          </>
+        )}
+      </Modal>
+      {/* Même texte quelle que soit la case « Garder les anciens noms » : elle sera revue avec la refonte des
+          synonymes (TAGM-15.12, TAGM-15.13, choix de l'utilisateur). */}
+      {confirming && (
+        <ConfirmDialog
+          zone="tags-proches.confirmation"
+          title={groups.length === 1 ? "Fusionner le groupe ?" : `Fusionner les ${formatNumber(groups.length)} groupes ?`}
+          message="Dans chaque groupe, le nom gardé reçoit les médias des autres tags."
+          confirmLabel="Tout fusionner"
+          onCancel={() => setConfirming(false)}
+          onConfirm={mergeAll}
+        />
       )}
-    </Modal>
+    </>
   );
 }
 

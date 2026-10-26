@@ -6,7 +6,8 @@
 // (TAGM-10) · Supprimer les tags non utilisés (TAGM-08) ; filtres (TagFilters : nom, catégorie, Masqués, Rares) ; tableau
 // trié et virtualisé, 100 tags affichés puis « Afficher 100 de plus » (TAGM-04.5 ; un nouveau filtre ou tri
 // repart des 100 premiers) ; barre des actions groupées quand des tags sont cochés (TAGM-11 ; Échap décoche
-// tout, TAGM-11.1). Onglet « Synonymes et parents » : RulesTab.
+// tout, TAGM-11.1). Onglet « Synonymes et parents » : RulesTab, avec « Tags proches » seul au bout à droite de
+// l'en-tête (TAGM-13.4).
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ArrowLeft, ChevronDown, Tags } from "lucide-react";
@@ -124,6 +125,12 @@ export function TagManagerPage() {
     );
   };
 
+  const similarButton = (
+    <Button data-zone="gestionnaire-tags.proches" variant="outline" size="sm" onClick={() => setDialog("similar")} className={TOOL}>
+      Tags proches ({formatNumber(groups.length)})
+    </Button>
+  );
+
   return (
     <>
       <Tabs />
@@ -155,9 +162,7 @@ export function TagManagerPage() {
                 showGridBadge(`Tag « ${displayTag(name)} » créé`);
               }}
             />
-            <Button data-zone="gestionnaire-tags.proches" variant="outline" size="sm" onClick={() => setDialog("similar")} className={TOOL}>
-              Tags proches ({formatNumber(groups.length)})
-            </Button>
+            {tab === "tags" && similarButton}
             <Button data-zone="gestionnaire-tags.exporter" variant="outline" size="sm" onClick={openExport} className={TOOL}>
               Exporter
               <ChevronDown className="h-3.5 w-3.5" />
@@ -165,17 +170,21 @@ export function TagManagerPage() {
             <Button data-zone="gestionnaire-tags.importer" variant="outline" size="sm" onClick={() => setDialog("import")} className={TOOL}>
               Importer
             </Button>
-            <Button
-              data-zone="gestionnaire-tags.non-utilises"
-              variant="outline"
-              size="sm"
-              disabled={unused.length === 0}
-              onClick={() => setDialog("unused")}
-              className={cn(TOOL, "text-rose-300 hover:text-rose-200")}
-            >
-              Supprimer les tags non utilisés
-            </Button>
+            {/* Grisé, la bulle passe par l'enveloppe (TAGM-08.1). */}
+            <span title={unused.length === 0 ? "Aucun tag non utilisé" : undefined} className="inline-flex">
+              <Button
+                data-zone="gestionnaire-tags.non-utilises"
+                variant="outline"
+                size="sm"
+                disabled={unused.length === 0}
+                onClick={() => setDialog("unused")}
+                className={cn(TOOL, "text-rose-300 hover:text-rose-200")}
+              >
+                Supprimer les tags non utilisés
+              </Button>
+            </span>
           </div>
+          {tab === "rules" && <div className="ml-auto">{similarButton}</div>}
         </div>
 
         {tab === "rules" ? (

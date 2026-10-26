@@ -46,6 +46,13 @@ export async function mergeTags(sources: Named[], target: Named, keep: boolean) 
   if (done !== undefined) for (const s of sources) if (s.id !== target.id) followRename(s.name, target.name);
   return done;
 }
+/** « Tout fusionner » des tags proches (TAGM-13.3) : chaque groupe dans son tag gardé, en une fois. */
+export async function mergeGroups(groups: { sources: Named[]; target: Named }[], keep: boolean) {
+  const ids = groups.map((g) => ({ sources: g.sources.map((s) => s.id), target: g.target.id }));
+  const done = await runTagAction("Fusionner les tags", () => api.mergeTagGroups(ids, keep));
+  if (done !== undefined) for (const g of groups) for (const s of g.sources) if (s.id !== g.target.id) followRename(s.name, g.target.name);
+  return done;
+}
 export const setTagDescription = (id: number, text: string) => runTagAction("Description du tag", () => api.setTagDescription(id, text));
 
 // --- Tags proches (TAGM-13)

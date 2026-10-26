@@ -246,6 +246,8 @@ export const api = {
   renameTag: (id: number, name: string) => invoke<Renamed>("rename_tag", { id, name }),
   /** `keepAliases` : les noms fusionnés deviennent des synonymes du tag gardé (TAGM-17). */
   mergeTags: (sources: number[], target: number, keepAliases: boolean) => invoke<void>("merge_tags", { sources, target, keepAliases }),
+  /** « Tout fusionner » des tags proches (TAGM-13.3) : chaque groupe dans son tag gardé, en une fois. */
+  mergeTagGroups: (groups: { sources: number[]; target: number }[], keepAliases: boolean) => invoke<void>("merge_tag_groups", { groups, keepAliases }),
   setTagsCategory: (ids: number[], categoryId: number) => invoke<number>("set_tags_category", { ids, categoryId }),
   setTagsHidden: (ids: number[], hidden: boolean) => invoke<number>("set_tags_hidden", { ids, hidden }),
   deleteTags: (ids: number[]) => invoke<number>("delete_tags", { ids }),

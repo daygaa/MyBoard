@@ -1,6 +1,8 @@
 // Filtres du gestionnaire de tags (TAGM-04) : nom, catégorie, « Masqués », « Rares » (TAGM-11), puis
 // « x / N tags ». Au bout du champ du nom, une croix efface le texte tapé (retour T3, point TAGM-04.11) ;
-// elle n'apparaît que s'il y a du texte, et le curseur reste dans le champ.
+// toujours affichée, grisée (sans bulle) quand le champ est vide ; le curseur reste dans le champ. Le
+// compteur garde la largeur du total : il ne rétrécit pas quand x baisse, et les filtres ne bougent pas
+// (retour T3, point TAGM-04.12).
 
 import { useRef } from "react";
 import { Search, X } from "lucide-react";
@@ -36,23 +38,22 @@ export function TagFilters({ filters, setFilters, shown, total }: Props) {
           spellCheck={false}
           className="h-8 w-full rounded-lg border border-border bg-card/60 pr-8 pl-8 text-sm text-foreground outline-none placeholder:text-muted-foreground/60 focus:border-[#d9a94e]/60"
         />
-        {filters.text !== "" && (
-          <button
-            type="button"
-            data-zone="gestionnaire-tags.filtre-nom.effacer"
-            // Le champ garde le focus pendant le clic.
-            onMouseDown={(e) => e.preventDefault()}
-            onClick={() => {
-              setFilters((f) => ({ ...f, text: "" }));
-              inputRef.current?.focus();
-            }}
-            aria-label="Effacer"
-            title="Effacer"
-            className="absolute top-1/2 right-1.5 grid h-5 w-5 -translate-y-1/2 place-items-center rounded text-muted-foreground transition hover:bg-secondary hover:text-foreground"
-          >
-            <X className="h-3.5 w-3.5" />
-          </button>
-        )}
+        <button
+          type="button"
+          data-zone="gestionnaire-tags.filtre-nom.effacer"
+          disabled={filters.text === ""}
+          // Le champ garde le focus pendant le clic.
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => {
+            setFilters((f) => ({ ...f, text: "" }));
+            inputRef.current?.focus();
+          }}
+          aria-label="Effacer"
+          title={filters.text === "" ? undefined : "Effacer"}
+          className="absolute top-1/2 right-1.5 grid h-5 w-5 -translate-y-1/2 place-items-center rounded text-muted-foreground transition enabled:hover:bg-secondary enabled:hover:text-foreground disabled:text-muted-foreground/35"
+        >
+          <X className="h-3.5 w-3.5" />
+        </button>
       </div>
       <CategorySelect
         zone="gestionnaire-tags.filtre-categorie"
@@ -76,8 +77,15 @@ export function TagFilters({ filters, setFilters, shown, total }: Props) {
           </button>
         ))}
       </div>
-      <span className="ml-auto text-xs text-muted-foreground tabular-nums">
-        {formatNumber(shown)} / {formatNumber(total)} {plural(total, "tag")}
+      <span data-zone="gestionnaire-tags.filtres.compteur" className="ml-auto text-xs text-muted-foreground tabular-nums">
+        {/* Même case que le total, invisible : la place du plus grand nombre possible reste prise. */}
+        <span className="inline-grid justify-items-end">
+          <span aria-hidden className="invisible col-start-1 row-start-1">
+            {formatNumber(total)}
+          </span>
+          <span className="col-start-1 row-start-1">{formatNumber(shown)}</span>
+        </span>{" "}
+        / {formatNumber(total)} {plural(total, "tag")}
       </span>
     </div>
   );

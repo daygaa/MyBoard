@@ -142,6 +142,7 @@ pub fn run() {
             tag_manager::list_managed_tags,
             tag_manager::rename_tag,
             tag_manager::merge_tags,
+            tag_manager::merge_tag_groups,
             tag_manager::set_tags_category,
             tag_manager::set_tags_hidden,
             tag_manager::delete_tags,

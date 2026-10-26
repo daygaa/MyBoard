@@ -8,7 +8,7 @@
 //! Fusion : `aliases::merge_into` (synonymes, règles de parents, TAGM-15 à TAGM-17).
 
 use rusqlite::{Connection, OptionalExtension, TransactionBehavior, params, params_from_iter};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use tauri::State;
 
 use crate::aliases::merge_into;
@@ -101,14 +101,23 @@ fn rename(db: &Connection, id: i64, raw: &str) -> rusqlite::Result<Renamed> {
     Ok(Renamed::Done)
 }
 
-/// Fusionne `sources` dans `target`, en une transaction : leurs médias passent au tag gardé (avec
-/// ses parents), puis elles sont supprimées ; avec `keep`, leurs noms deviennent des synonymes du tag
-/// gardé, ce qui permet de défaire la fusion (TAGM-17, GEN-21).
-fn merge(conn: &mut Connection, sources: &[i64], target: i64, keep: bool) -> anyhow::Result<()> {
+/// Un groupe à fusionner : ses tags, et celui qui est gardé.
+#[derive(Debug, Deserialize)]
+pub struct MergeGroup {
+    pub sources: Vec<i64>,
+    pub target: i64,
+}
+
+/// Fusionne chaque groupe dans son tag gardé, tous en une transaction : leurs médias passent au tag
+/// gardé (avec ses parents), puis ils sont supprimés ; avec `keep`, leurs noms deviennent des synonymes
+/// du tag gardé, ce qui permet de défaire la fusion (TAGM-17, GEN-21).
+fn merge(conn: &mut Connection, groups: &[MergeGroup], keep: bool) -> anyhow::Result<()> {
     let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
     let now = db::now_ms();
-    for &source in sources {
-        merge_into(&tx, source, target, keep, now)?;
+    for group in groups {
+        for &source in &group.sources {
+            merge_into(&tx, source, group.target, keep, now)?;
+        }
     }
     tx.commit()?;
     Ok(())
@@ -146,7 +155,13 @@ pub async fn rename_tag(state: State<'_, AppState>, id: i64, name: String) -> Re
 
 #[tauri::command]
 pub async fn merge_tags(state: State<'_, AppState>, sources: Vec<i64>, target: i64, keep_aliases: bool) -> Result<(), String> {
-    merge(&mut state.db.lock().unwrap(), &sources, target, keep_aliases).map_err(|e| format!("{e:#}"))
+    merge(&mut state.db.lock().unwrap(), &[MergeGroup { sources, target }], keep_aliases).map_err(|e| format!("{e:#}"))
+}
+
+/// « Tout fusionner » des tags proches (retour T3, point TAGM-13.3) : tous les groupes d'un coup.
+#[tauri::command]
+pub async fn merge_tag_groups(state: State<'_, AppState>, groups: Vec<MergeGroup>, keep_aliases: bool) -> Result<(), String> {
+    merge(&mut state.db.lock().unwrap(), &groups, keep_aliases).map_err(|e| format!("{e:#}"))
 }
 
 #[tauri::command]

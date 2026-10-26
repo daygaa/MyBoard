@@ -3,6 +3,28 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Phase 3, correctifs du test, lot 13 : filtres, « Tout fusionner », « Tags proches » partout (26/10/2026) — Backup v59
+
+SPEC : `[x]` (validés par toi) : points TAGM-11.3, TAGM-13.1, TAGM-13.2, AUT.18 (GEN-24 gardé `[~]` comme
+principe). Livrées `[~]` : TAGM-04 (points TAGM-04.11, retouche, et TAGM-04.12), TAGM-13 (points TAGM-13.3,
+TAGM-13.4), TAGM-08 (point TAGM-08.1).
+
+- **Filtres du gestionnaire** : la croix du champ reste affichée, grisée quand il est vide ; le compteur « N / X
+  tags » ne rétrécit plus, rien ne bouge quand N change.
+- **Tags proches** : « Tout fusionner », avec confirmation, fusionne tous les groupes d'un coup ; le bouton
+  « Tags proches » est aussi dans l'onglet « Synonymes et parents ».
+- **Supprimer les tags non utilisés** : grisé, il dit pourquoi (« Aucun tag non utilisé »).
+
+Vérifié dans la version compilée, sur des copies de la bibliothèque « booru » : croix grisée, sans bulle,
+curseur « interdit » champ vide, active avec « long », clic : champ vidé, curseur dans le champ ; compteur de
+« 13 106 / 13 106 » à « 0 / 13 106 » (filtres « hair », « long », « zz5m », « zzzzzz ») : même place au
+dixième de pixel près (104,9 px), champ et filtres immobiles ; onglet « Synonymes et parents » : « Tags proches
+(20) » seul, collé au bord droit de l'en-tête, pop-in, loupe et retour arrière qui la rouvre dans cet onglet ;
+sur une copie faite pour l'essai : « Tout fusionner » (doré, à droite de « Fermer »), « Fusionner les 20
+groupes ? », Annuler : rien ne change, Entrée : 13 106 → 13 086 tags, 20 synonymes créés, le nom gardé choisi
+à la main (« fangs ») a reçu les médias de « fang », pop-in « Aucun tag proche à fusionner. » sans le
+bouton ; après suppression du seul tag non utilisé, bouton grisé avec la bulle « Aucun tag non utilisé ».
+
 ## Phase 3, correctifs du test, lot 12 : molette, croix du filtre, loupe des tags proches (26/10/2026) — Backup v58
 
 SPEC : `[x]` (validées par toi) : TAGM-11 ; points TAGM-04.5, TAGM-04.7, TAGM-04.8, TAGM-04.9, TAGM-11.1.
