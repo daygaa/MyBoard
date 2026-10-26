@@ -2,11 +2,14 @@
 // - « Supprimer les N tags non utilisés ? » (TAGM-08) : case « Sélection manuelle » qui déplie la liste
 //   des tags concernés, tous cochés ; décocher un tag le garde (N baisse de 1) ;
 // - tags proches (TAGM-13) : groupes de noms presque identiques ; pour chacun, nom gardé puis
-//   « Fusionner », ou « Ignorer » (plus proposé) ;
+//   « Fusionner », ou « Ignorer » (plus proposé) ; une loupe au bout de chaque tag lance sa recherche
+//   (retour T3, point TAGM-13.1) : la pop-in est notée dans l'étape (position dans la liste, noms gardés,
+//   case), le retour arrière la rouvre telle quelle ;
 // - fusion de tags cochés (TAGM-11) : choix du nom gardé.
 // Les deux fusions ont la case « Garder les anciens noms comme synonymes » (TAGM-17).
 
-import { useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
+import { Search } from "lucide-react";
 
 import { KeepAliasesBox } from "@/components/tags/KeepAliasesBox";
 import { Button } from "@/components/ui/button";
@@ -92,14 +95,30 @@ export function UnusedTagsDialog({ tags, onClose }: { tags: ManagedTag[]; onClos
   );
 }
 
-/** Liste de noms à choisir (radio) : le nom gardé d'une fusion. */
-function KeepChoice({ tags, value, onChange }: { tags: ManagedTag[]; value: number; onChange: (id: number) => void }) {
+/** Liste de noms à choisir (radio) : le nom gardé d'une fusion. Avec `onSearch`, une loupe au bout de
+ *  chaque ligne lance la recherche du tag (la ligne, elle, choisit toujours le nom gardé). */
+function KeepChoice({ tags, value, onChange, onSearch }: { tags: ManagedTag[]; value: number; onChange: (id: number) => void; onSearch?: (tag: ManagedTag) => void }) {
   return (
     <div className="space-y-0.5">
       {tags.map((t) => (
         <label key={t.id} className={cn("flex cursor-pointer items-center gap-2 rounded px-1.5 py-1 text-sm hover:bg-secondary/50", value === t.id && "bg-secondary/60")}>
           <input type="radio" checked={value === t.id} onChange={() => onChange(t.id)} className="accent-[#d9a94e]" />
           <TagName tag={t} />
+          {onSearch && (
+            <button
+              type="button"
+              data-zone="tags-proches.rechercher"
+              onClick={(e) => {
+                e.preventDefault(); // pas de choix du nom gardé
+                onSearch(t);
+              }}
+              aria-label={`Rechercher « ${displayTag(t.name)} »`}
+              title={`Rechercher « ${displayTag(t.name)} »`}
+              className="ml-auto grid h-6 w-6 shrink-0 place-items-center rounded text-muted-foreground transition hover:bg-secondary hover:text-foreground"
+            >
+              <Search className="h-3.5 w-3.5" />
+            </button>
+          )}
         </label>
       ))}
     </div>
@@ -112,11 +131,12 @@ const mostUsed = (tags: ManagedTag[]) => tags.reduce((a, b) => (b.mediaCount > a
 /** Tag gardé parmi `tags`. */
 const kept = (tags: ManagedTag[], id: number) => tags.find((t) => t.id === id) ?? tags[0];
 
-function SimilarGroup({ group, aliases }: { group: ManagedTag[]; aliases: boolean }) {
-  const [keep, setKeep] = useState(() => mostUsed(group));
+type GroupProps = { group: ManagedTag[]; aliases: boolean; keep: number; onKeep: (id: number) => void; onSearch: (tag: ManagedTag) => void };
+
+function SimilarGroup({ group, aliases, keep, onKeep, onSearch }: GroupProps) {
   return (
     <div data-zone="tags-proches.groupe" className="rounded-lg border border-border p-2">
-      <KeepChoice tags={group} value={keep} onChange={setKeep} />
+      <KeepChoice tags={group} value={keep} onChange={onKeep} onSearch={onSearch} />
       <div className="mt-2 flex justify-end gap-2">
         <Button
           variant="ghost"
@@ -135,8 +155,30 @@ function SimilarGroup({ group, aliases }: { group: ManagedTag[]; aliases: boolea
   );
 }
 
-export function SimilarTagsDialog({ groups, onClose }: { groups: ManagedTag[][]; onClose: () => void }) {
-  const [aliases, setAliases] = useState(true);
+/** Pop-in « Tags proches » telle qu'on l'a quittée par une loupe (retour T3, point TAGM-13.1). */
+export type SimilarSnapshot = { scroll: number; keep: Record<string, number>; aliases: boolean };
+
+type SimilarProps = {
+  groups: ManagedTag[][];
+  /** Pop-in rouverte par le retour arrière : position dans la liste, noms gardés, case. */
+  initial?: SimilarSnapshot;
+  onSearch: (tag: ManagedTag, snapshot: SimilarSnapshot) => void;
+  onClose: () => void;
+};
+
+export function SimilarTagsDialog({ groups, initial, onSearch, onClose }: SimilarProps) {
+  const [aliases, setAliases] = useState(initial?.aliases ?? true);
+  // Nom gardé de chaque groupe choisi à la main (sinon : le plus utilisé).
+  const [keep, setKeep] = useState<Record<string, number>>(initial?.keep ?? {});
+  const listRef = useRef<HTMLDivElement>(null);
+  const restored = useRef(false);
+  // Retour arrière : la liste revient à sa position, une fois ses groupes affichés.
+  useLayoutEffect(() => {
+    if (restored.current || !initial || !listRef.current || groups.length === 0) return;
+    restored.current = true;
+    listRef.current.scrollTop = initial.scroll;
+  }, [initial, groups.length]);
+  const search = (tag: ManagedTag) => onSearch(tag, { scroll: listRef.current?.scrollTop ?? 0, keep, aliases });
   return (
     <Modal
       open
@@ -153,10 +195,20 @@ export function SimilarTagsDialog({ groups, onClose }: { groups: ManagedTag[][];
     >
       {groups.length > 0 && (
         <>
-          <div className="max-h-[55vh] space-y-2 overflow-y-auto pr-1">
-            {groups.map((g) => (
-              <SimilarGroup key={groupKey(g)} group={g} aliases={aliases} />
-            ))}
+          <div ref={listRef} className="max-h-[55vh] space-y-2 overflow-y-auto pr-1">
+            {groups.map((g) => {
+              const key = groupKey(g);
+              return (
+                <SimilarGroup
+                  key={key}
+                  group={g}
+                  aliases={aliases}
+                  keep={keep[key] ?? mostUsed(g)}
+                  onKeep={(id) => setKeep((k) => ({ ...k, [key]: id }))}
+                  onSearch={search}
+                />
+              );
+            })}
           </div>
           <div className="mt-3">
             <KeepAliasesBox checked={aliases} onChange={setAliases} />

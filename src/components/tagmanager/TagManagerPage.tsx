@@ -3,18 +3,17 @@
 // en-tête de la page (retour à la bibliothèque, titre, « N tags · M médias taggés »). Largeur : 72 % de la
 // fenêtre (TAGM-04.2 : +10 % de chaque côté sur l'écran 1080p), toute la fenêtre si elle est étroite.
 // Onglet « Tags » : boutons Créer un tag (TAGM-04.8) · Tags proches (TAGM-13) · Exporter ▾ · Importer
-// (TAGM-10) · Supprimer les tags non utilisés (TAGM-08) ; filtres (nom, catégorie, Masqués, Rares) ; tableau
+// (TAGM-10) · Supprimer les tags non utilisés (TAGM-08) ; filtres (TagFilters : nom, catégorie, Masqués, Rares) ; tableau
 // trié et virtualisé, 100 tags affichés puis « Afficher 100 de plus » (TAGM-04.5 ; un nouveau filtre ou tri
 // repart des 100 premiers) ; barre des actions groupées quand des tags sont cochés (TAGM-11 ; Échap décoche
 // tout, TAGM-11.1). Onglet « Synonymes et parents » : RulesTab.
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ArrowLeft, ChevronDown, Search, Tags } from "lucide-react";
+import { ArrowLeft, ChevronDown, Tags } from "lucide-react";
 
 import { GridBadge } from "@/components/library/GridBadge";
 import { MergeTagDialog, renameTag } from "@/components/tags/RenameTagDialog";
 import { TagDeleteMessage, tagMenu } from "@/components/tags/tagMenu";
-import { CategorySelect } from "@/components/tags/CategorySelect";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useCategories } from "@/hooks/useCategories";
@@ -26,17 +25,19 @@ import { navigate, useTagTab } from "@/lib/router";
 import { encodeTags } from "@/lib/shareCode";
 import { displayTag } from "@/lib/tags";
 import { hasEscapeLayer } from "@/lib/escape";
+import { SIMILAR } from "@/lib/historySteps";
 import { deleteTags, similarGroups } from "@/lib/tagManager";
 import { cn } from "@/lib/utils";
 import { showGridBadge } from "@/stores/badge";
 import { searchInLibrary } from "@/stores/search";
 import { inField } from "@/stores/selection";
 import { BulkBar } from "./BulkBar";
-import { MergeTagsDialog, SimilarTagsDialog, UnusedTagsDialog } from "./CleanupDialogs";
+import { MergeTagsDialog, SimilarTagsDialog, type SimilarSnapshot, UnusedTagsDialog } from "./CleanupDialogs";
 import { ImportTagsDialog } from "./ImportTagsDialog";
 import { NewTagButton } from "./NewTagButton";
 import { RuleAskHost } from "./RuleAskHost";
 import { RulesTab } from "./RulesTab";
+import { TagFilters } from "./TagFilters";
 import { Tabs } from "./TagManagerTabs";
 import { TagTable } from "./TagTable";
 import { useTagList } from "./useTagList";
@@ -44,7 +45,6 @@ import { useTagList } from "./useTagList";
 const TOOL = "h-8 gap-1.5 border-border bg-card/60 text-xs hover:bg-secondary hover:text-foreground";
 /** Tags affichés à la fois, puis en plus à chaque « Afficher 100 de plus » (TAGM-04.5). */
 const STEP = 100;
-const SEGMENT = "rounded-md px-2.5 py-1 text-xs font-medium transition";
 
 type Dialog = "similar" | "import" | "unused" | "merge" | null;
 
@@ -63,7 +63,9 @@ export function TagManagerPage() {
   const [editing, setEditing] = useState<number | null>(null);
   const [merging, setMerging] = useState<{ source: ManagedTag; existing: Extract<Renamed, { kind: "exists" }> } | null>(null);
   const [deleting, setDeleting] = useState<ManagedTag[] | null>(null);
-  const [dialog, setDialog] = useState<Dialog>(null);
+  // Retour arrière sur l'étape d'une pop-in « Tags proches » quittée par une loupe : elle se rouvre (TAGM-13.1).
+  const [similar, setSimilar] = useState(() => (window.history.state?.[SIMILAR] as SimilarSnapshot | undefined) ?? undefined);
+  const [dialog, setDialog] = useState<Dialog>(similar ? "similar" : null);
   const groups = useMemo(() => similarGroups(all, data?.ignored ?? []), [all, data]);
   const unused = useMemo(() => all.filter((t) => t.mediaCount === 0), [all]);
   // Tags cochés encore présents (un tag supprimé ou fusionné quitte la liste).
@@ -121,7 +123,6 @@ export function TagManagerPage() {
       e.detail === 0,
     );
   };
-  const toggle = (key: "hidden" | "rare") => setFilters((f) => ({ ...f, [key]: !f[key] }));
 
   return (
     <>
@@ -181,44 +182,7 @@ export function TagManagerPage() {
           <RulesTab tags={all} rules={rules} />
         ) : (
           <>
-            <div data-zone="gestionnaire-tags.filtres" className="mb-3 flex flex-wrap items-center gap-2">
-              <div className="relative min-w-60 flex-1">
-                <Search className="pointer-events-none absolute top-1/2 left-2.5 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-                <input
-                  data-zone="gestionnaire-tags.filtre-nom"
-                  value={filters.text}
-                  onChange={(e) => setFilters((f) => ({ ...f, text: e.target.value }))}
-                  placeholder="Filtrer par nom…"
-                  spellCheck={false}
-                  className="h-8 w-full rounded-lg border border-border bg-card/60 pr-3 pl-8 text-sm text-foreground outline-none placeholder:text-muted-foreground/60 focus:border-[#d9a94e]/60"
-                />
-              </div>
-              <CategorySelect
-                zone="gestionnaire-tags.filtre-categorie"
-                value={filters.category}
-                onChange={(category) => setFilters((f) => ({ ...f, category }))}
-                allLabel="Toutes les catégories"
-                className="h-8 w-48 text-xs"
-              />
-              <div className="flex items-center gap-0.5 rounded-lg border border-border bg-card/60 p-0.5">
-                {(["hidden", "rare"] as const).map((key) => (
-                  <button
-                    key={key}
-                    type="button"
-                    data-zone={`gestionnaire-tags.filtre-${key === "hidden" ? "masques" : "rares"}`}
-                    aria-pressed={filters[key]}
-                    onClick={() => toggle(key)}
-                    title={key === "hidden" ? "Seulement les tags masqués de la recherche" : "Seulement les tags portés par un seul média"}
-                    className={cn(SEGMENT, filters[key] ? "bg-[#d9a94e]/15 text-[#d9a94e]" : "text-muted-foreground hover:text-foreground")}
-                  >
-                    {key === "hidden" ? "Masqués" : "Rares"}
-                  </button>
-                ))}
-              </div>
-              <span className="ml-auto text-xs text-muted-foreground tabular-nums">
-                {formatNumber(visible.length)} / {formatNumber(all.length)} {plural(all.length, "tag")}
-              </span>
-            </div>
+            <TagFilters filters={filters} setFilters={setFilters} shown={visible.length} total={all.length} />
 
             <TagTable
               tags={shown}
@@ -285,7 +249,23 @@ export function TagManagerPage() {
             }}
           />
         )}
-        {dialog === "similar" && <SimilarTagsDialog groups={groups} onClose={() => setDialog(null)} />}
+        {dialog === "similar" && (
+          <SimilarTagsDialog
+            groups={groups}
+            initial={similar}
+            onSearch={(tag, snapshot) => {
+              window.history.replaceState({ ...window.history.state, [SIMILAR]: snapshot }, "");
+              searchInLibrary([tag.name]);
+            }}
+            onClose={() => {
+              // Fermée : l'étape ne la rouvrira plus.
+              const { [SIMILAR]: _closed, ...state } = window.history.state ?? {};
+              window.history.replaceState(state, "");
+              setSimilar(undefined);
+              setDialog(null);
+            }}
+          />
+        )}
         {dialog === "import" && <ImportTagsDialog onClose={() => setDialog(null)} />}
         {dialog === "unused" && <UnusedTagsDialog tags={unused} onClose={() => setDialog(null)} />}
         {dialog === "merge" && <MergeTagsDialog tags={checkedTags} onClose={() => setDialog(null)} onDone={() => setDialog(null)} />}

@@ -3,6 +3,31 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Phase 3, correctifs du test, lot 12 : molette, croix du filtre, loupe des tags proches (26/10/2026) — Backup v58
+
+SPEC : `[x]` (validées par toi) : TAGM-11 ; points TAGM-04.5, TAGM-04.7, TAGM-04.8, TAGM-04.9, TAGM-11.1.
+Livrées `[~]` : GEN-24 (nouvel ID, point AUT.18), TAGM-04 (point TAGM-04.11), TAGM-13 (points TAGM-13.1,
+TAGM-13.2). Nouveau point TAGM-13.5 (sensibilité, lot à part) ; TAGM-11.2 reporté à la refonte TAGM-15.13.
+Décision D-045.
+
+- **Molette en roue libre** : après « Afficher 100 de plus » ou « Page suivante », le défilement continue sans
+  bouger la souris.
+- **Gestionnaire de tags** : une croix au bout du champ « Filtrer par nom… » efface le texte.
+- **Tags proches** : une loupe au bout de chaque tag lance sa recherche ; le retour arrière rouvre la pop-in
+  telle qu'on l'a quittée.
+
+Vérifié dans la version compilée, sur une copie de la bibliothèque « booru » : molette avec de vraies entrées
+Windows (200 crans par seconde, puis 500 demi-crans par seconde avec le curseur posé en cours de route), clic
+sur la languette arrivée sous le curseur : le défilement continue (3 905 et 3 909 px, sans bouger ; avant la
+correction : 7 à 9 px malgré plus de 400 crans reçus, puis reprise après 15 px de déplacement) ; « Page
+suivante » de la bibliothèque arrivé sous le curseur : page 2, retour en haut, puis descente jusqu'en bas
+(4 441 px) sans bouger ; croix : absente champ vide, présente avec « long » (38 / 38), clic : champ vidé,
+curseur dans le champ, croix partie, « 100 / 13 106 » ; « Tags proches » : 40 loupes, bulle « Rechercher
+« fang » » ; 2e nom gardé, case décochée, liste défilée de 300 px, loupe d'un tag : la bibliothèque cherche ce
+tag, le nom gardé de son groupe n'a pas changé ; bouton 4 de la souris : la pop-in revient à 300 px avec les
+mêmes choix ; Échap : fermée ; avance puis retour : elle ne revient plus ; rouverte par le bouton : choix par
+défaut.
+
 ## Phase 3, correctifs du test, lot 11 : création d'un tag, confirmation, Échap (25/10/2026) — Backup v57
 
 SPEC : `[x]` (validé par toi) : point TAGM-04.6. Livrées `[~]` : TAGM-04 (retouches des points TAGM-04.5 et

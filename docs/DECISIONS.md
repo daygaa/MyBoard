@@ -952,3 +952,18 @@ jour (une seule étape par visionneuse). Revenir ou avancer sur une étape la ro
 vrai retour (`onBack` de la pile d'Échap, `lib/escape.ts`) ; la croix, Échap ou un clic sur le fond la ferment en
 ajoutant une étape « grille » (choix de l'utilisateur). Une nouvelle étape ne reprend jamais la visionneuse de
 l'étape d'avant. Au démarrage, une étape en cours qui gardait une visionneuse est remise à « fermée ».
+
+## D-045 — La zone qui défile ne passe pas la main à la fenêtre (26/10/2026)
+
+**Pourquoi.** Avec une molette en roue libre, un clic sur « Afficher 100 de plus » (gestionnaire de tags) ou sur
+« Page suivante » (bibliothèque) arrêtait le défilement jusqu'à ce que la souris bouge de 10 px (GEN-24, retour
+T3, point AUT.18). Mesuré avec de vraies entrées Windows : arrivé en bas de la zone qui défile (`#defilement`,
+NAV-04), le moteur de WebView2 « passe la main » à la fenêtre, qui ne défile pas (NAV-04 : `html` et `body` en
+`overflow: hidden`), et reste accroché à elle pour toute la séquence de molette (elle ne finit qu'après 500 ms
+sans cran ou 10 px de déplacement, ce qu'une roue libre ne fait jamais).
+
+**Comment.** `.app-scroll` (`index.css`) a `overscroll-behavior: contain` : la zone garde la main même en bas,
+et la molette continue dès qu'il y a de nouveau de quoi défiler. Sans autre effet : la fenêtre ne défile de
+toute façon pas, et les listes des pop-ins et des menus sont hors de cette zone. La pop-in « Tags proches »
+quittée par une loupe est notée dans l'étape du gestionnaire (`tagsProches`, `lib/historySteps.ts`), sur le
+modèle de la visionneuse (D-044).

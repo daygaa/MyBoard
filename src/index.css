@@ -83,6 +83,10 @@
      et la grille se recalcule sans fin (bogue mesuré le 11/10/2026). */
   .app-scroll {
     scrollbar-gutter: stable;
+    /* GEN-24 : arrivé en bas, le moteur ne « passe pas la main » à la fenêtre (qui ne défile pas) ;
+       sinon, une molette en roue libre resterait accrochée à elle après « Afficher 100 de plus » ou
+       un changement de page, jusqu'à ce que la souris bouge de 10 px (mesuré le 26/10/2026). */
+    overscroll-behavior: contain;
   }
 
   * {
