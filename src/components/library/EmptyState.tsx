@@ -4,6 +4,7 @@
 import type { MediaKind } from "@/lib/api";
 import { KIND_FILTERS } from "@/lib/grid";
 import { navigate } from "@/lib/router";
+import { splitFile } from "@/lib/tags";
 import { useSearch } from "@/stores/search";
 
 /** Nom de chaque type, et s'il est féminin (« Aucune image », « Aucun document »). */
@@ -101,11 +102,12 @@ export function NoResults({ kinds, where }: Where) {
 export function NoFileMatch({ file, kinds, where }: Where & { file: string }) {
   const withTags = useSearch((s) => s.terms.length > 0);
   const setFile = useSearch((s) => s.setFile);
+  const { exclude, text } = splitFile(file);
   return (
     <div data-zone="grille.vide" className={BOX}>
       <p className="text-lg font-medium text-foreground">Aucun fichier trouvé</p>
       <p className="mt-1 text-sm text-muted-foreground">
-        {noneOf(kinds) ?? "Aucun fichier"} dont le nom contient « {file} » {where}
+        {noneOf(kinds) ?? "Aucun fichier"} dont le nom {exclude ? "ne contient pas" : "contient"} « {text} » {where}
         {withTags ? ", avec ces tags" : ""}.
       </p>
       <button
@@ -113,7 +115,7 @@ export function NoFileMatch({ file, kinds, where }: Where & { file: string }) {
         onClick={() => setFile(null)}
         className="mt-5 rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground transition hover:bg-secondary"
       >
-        Retirer le nom de fichier
+        Effacer la recherche par nom
       </button>
     </div>
   );

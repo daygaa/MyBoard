@@ -5,8 +5,10 @@
 // souris qui s'approche de la ligne déplie les autres par-dessus la liste des tags, elles se
 // replient quand elle s'éloigne (même principe que la barre du bas en plein écran, VIEW-18).
 // Clic droit : menu du terme (CTX-12). Nom coupé par « … » : bulle avec le nom complet.
-// Nom de fichier cherché (SRCH-26) : pastille blanche, la première, retirée par sa croix ; menu
-// proposé : Copier le texte · Retirer de la recherche ‖ Tout effacer.
+// Nom de fichier cherché (SRCH-26) : pastille blanche, la première, retirée par sa croix ; sa loupe est
+// centrée comme la croix et son texte placé comme celui d'un tag (retour T3, point SRCH-26.1) ; exclu
+// (« -abc », SRCH-26.2) : « −abc » rayé. Menu : Copier le texte · Exclure / Inclure ce nom · Retirer de
+// la recherche ‖ Tout effacer.
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -17,7 +19,7 @@ import { TagPill } from "@/components/tags/TagPill";
 import { FALLBACK_COLOR, useCategories } from "@/hooks/useCategories";
 import { api } from "@/lib/api";
 import { openContextMenu } from "@/lib/contextMenu";
-import { displayTag, splitTerm, withDescription } from "@/lib/tags";
+import { displayTag, splitFile, splitTerm, withDescription } from "@/lib/tags";
 import { cn } from "@/lib/utils";
 import { useSearch } from "@/stores/search";
 
@@ -56,15 +58,19 @@ const FILE_COLOR = "#ececef";
 function FilePill({ file, className }: { file: string; className?: string }) {
   const setFile = useSearch((s) => s.setFile);
   const setTerms = useSearch((s) => s.setTerms);
+  const { exclude, text } = splitFile(file);
   return (
     <TagPill
       color={FILE_COLOR}
+      icon={<FileSearch className="h-3 w-3 shrink-0" />}
       onRemove={() => setFile(null)}
       removeLabel="Retirer le nom de fichier de la recherche"
-      title={`Nom de fichier contenant « ${file} »`}
+      title={exclude ? `Nom de fichier ne contenant pas « ${text} »` : `Nom de fichier contenant « ${text} »`}
+      struck={exclude}
       onContextMenu={(e) =>
         openContextMenu(e, () => [
-          { label: "Copier le texte", run: () => void api.writeClipboardText(file) },
+          { label: "Copier le texte", run: () => void api.writeClipboardText(text) },
+          exclude ? { label: "Inclure ce nom", run: () => setFile(text) } : { label: "Exclure ce nom", run: () => setFile(`-${text}`) },
           { label: "Retirer de la recherche", run: () => setFile(null) },
           "separator",
           { label: "Tout effacer", run: () => setTerms([]) },
@@ -73,10 +79,7 @@ function FilePill({ file, className }: { file: string; className?: string }) {
       fullTitleIfCut
       className={className}
     >
-      <span data-zone="barre-laterale.recherche.fichier" className="inline-flex min-w-0 items-center gap-1">
-        <FileSearch className="h-3 w-3 shrink-0" />
-        <span className="truncate">{file}</span>
-      </span>
+      <span data-zone="barre-laterale.recherche.fichier">{exclude ? `−${text}` : text}</span>
     </TagPill>
   );
 }

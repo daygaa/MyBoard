@@ -3,6 +3,29 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Phase 3, correctifs du test, lot 15 : recherche par nom de fichier, pluriels français (26/10/2026) — Backup v61
+
+SPEC : livrés `[~]` : SRCH-26 (points SRCH-26.1, SRCH-26.2, SRCH-26.3), TAGM-13 (point TAGM-13.6). Notés le
+26/10 : FUT-11 (détection des tags proches par le sens, IA locale), FUT-08 et FUT-09 complétés.
+
+- **Pastille du nom de fichier** : loupe et texte à la même hauteur que la croix et que le texte des tags.
+- **Exclure un nom de fichier** : bouton « Contient / Exclut » dans « Rechercher un fichier », ou « -abc » tapé ;
+  pastille « −abc » rayée ; « Exclure ce nom » / « Inclure ce nom » dans le menu de la pastille.
+- **Page sans résultat** : bouton « Effacer la recherche par nom ».
+- **Tags proches, Large** : pluriels français (« oiseaux » ~ « oiseau », « chevaux » ~ « cheval »).
+
+Vérifié dans la version compilée, sur une copie de la bibliothèque « booru » : bouton « Contient » (doré) calé
+sur la loupe du champ (bords droits à 275 px), ligne du titre toujours de 28 px, clic : « Exclut » (rouge), 2e
+clic : « Contient » ; « png » : 579 médias, Exclut + « png » : 2 729 (579 + 2 729 = 3 308, toute la
+bibliothèque), « -png » tapé : 2 729 ; après la recherche, le bouton revient à « Contient » ; pastille « −png »
+rayée, bulles justes ; menu : « Inclure ce nom » (579) puis « Exclure ce nom » (2 729) ; avec le tag « 1girl » :
+423 avec « png », 1 856 sans (423 + 1 856 = 2 279, tous les « 1girl ») ; pastilles « png » et « 1girl » : 22 px
+de haut, texte à 1 / 5 px, croix et loupe à 5 / 5 px ; exclut « . » : « Aucun fichier dont le nom ne contient
+pas « . » dans la bibliothèque. », bouton « Effacer la recherche par nom » : 3 308 médias ; tags d'essai sur une
+copie jetable : en Large, « zz cheval ~ zz chevaux », « zz jeu ~ zz jeux », « zz oiseau ~ zz oiseaux », « zz bijou
+~ zz bijoux », « zz journal ~ zz journaux » (la 1re version groupait mal « oiseaux » : ordre des règles corrigé
+avant la livraison) ; en Strict, aucun ; tags d'essai supprimés.
+
 ## Phase 3, correctifs du test, lot 14 : détection Strict / Large des tags proches (26/10/2026) — Backup v60
 
 SPEC : `[x]` (validés par toi) : TAGM-08 ; points TAGM-04.11, TAGM-04.12, TAGM-13.4, TAGM-08.1 (TAGM-13.3

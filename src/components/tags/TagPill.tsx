@@ -23,6 +23,8 @@ type Props = {
   struck?: boolean;
   /** Nom coupé par « … » : bulle avec le nom complet au survol (pastilles de la recherche, SRCH-18). */
   fullTitleIfCut?: boolean;
+  /** Icône entre la croix et le texte (loupe du nom de fichier, SRCH-26), centrée comme la croix. */
+  icon?: ReactNode;
 };
 
 export function TagPill({
@@ -36,6 +38,7 @@ export function TagPill({
   onContextMenu,
   struck,
   fullTitleIfCut,
+  icon,
 }: Props) {
   const onTextEnter = fullTitleIfCut ? (e: MouseEvent<HTMLElement>) => titleIfCut(e.currentTarget) : undefined;
   return (
@@ -57,6 +60,7 @@ export function TagPill({
           <X className="h-3 w-3" />
         </button>
       )}
+      {icon}
       {/* Texte remonté de 2 px : sinon il paraît plus bas que la croix, qui est bien centrée
           (mesuré au pixel le 13/10, GEN-09 puis GEN-14 : lettres sans jambage à 1 px du haut et
           du bas de la croix). */}

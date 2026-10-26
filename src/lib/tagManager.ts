@@ -70,18 +70,22 @@ export const groupKey = (group: { id: number }[]) =>
     .sort((a, b) => a - b)
     .join(",");
 
-/** Mots d'un nom, sans accents ni séparateurs, chacun sans son « s » final (plus de 3 lettres). */
+/** Mots d'un nom, sans accents ni séparateurs, chacun au singulier : sans son « s » final (plus de 3
+ *  lettres) ; pluriels français « -aux » → « -al », « -eaux / -eux / -oux » sans « x » (retour T3, point
+ *  TAGM-13.6 : « chevaux » ~ « cheval », « jeux » ~ « jeu »). */
 const singularWords = (name: string) =>
   name
     .normalize("NFD")
     .replace(/[̀-ͯ]/g, "")
     .split(/[_\-\s.]+/)
     .filter(Boolean)
+    // « -eaux » d'abord : sinon « oiseaux » finirait par « -aux » et deviendrait « oiseal ».
+    .map((w) => w.replace(/(eau|eu|ou)x$/, "$1").replace(/aux$/, "al"))
     .map((w) => (w.length > 3 && w.endsWith("s") ? w.slice(0, -1) : w));
 
 /** Détection des tags proches (retour T3, point TAGM-13.5) : « strict » = la clé ci-dessus ; « large » = en
- *  plus, le « s » de chaque mot (« hand on own hip » ~ « hands on own hips ») et les mots dans un autre ordre
- *  (« unicorn gundam » ~ « gundam unicorn »). */
+ *  plus, le singulier de chaque mot (« hand on own hip » ~ « hands on own hips », « chevaux » ~ « cheval »)
+ *  et les mots dans un autre ordre (« unicorn gundam » ~ « gundam unicorn »). */
 export type SimilarLevel = "strict" | "large";
 const LEVEL_KEYS: Record<SimilarLevel, ((name: string) => string)[]> = {
   strict: [similarityKey],

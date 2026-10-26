@@ -181,7 +181,8 @@ fn file_set(db: &Connection, sets: &mut HashMap<String, Arc<RoaringBitmap>>, tex
 }
 
 /// Médias de la vue qui portent tous les termes demandés, aucun des termes exclus, d'un des types
-/// cochés et dont le nom contient le texte cherché ; jamais ceux en cours de suppression.
+/// cochés et dont le nom contient le texte cherché (ou ne le contient pas : « -abc ») ; jamais ceux en
+/// cours de suppression.
 fn matching(
     db: &Connection,
     sets: &mut HashMap<String, Arc<RoaringBitmap>>,
@@ -219,8 +220,16 @@ fn matching(
     if let Some((key, sql)) = scope.set_query() {
         result &= set(db, sets, key, &sql, &[])?.as_ref();
     }
-    if let Some(text) = file {
-        result &= file_set(db, sets, text)?.as_ref();
+    // « -abc » : les fichiers dont le nom ne contient PAS « abc » (retour T3, point SRCH-26.2).
+    if let Some(file) = file {
+        let (exclude, text) = match file.strip_prefix('-') {
+            Some(rest) => (true, rest.trim()),
+            None => (false, file),
+        };
+        if !text.is_empty() {
+            let set = file_set(db, sets, text)?;
+            if exclude { result -= set.as_ref() } else { result &= set.as_ref() }
+        }
     }
     result -= set(db, sets, "suppression".into(), "SELECT id FROM media WHERE pending_delete != 0 ORDER BY id", &[])?.as_ref();
     Ok(result)

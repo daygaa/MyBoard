@@ -41,6 +41,12 @@ export function splitTerm(term: string): { exclude: boolean; name: string; prefi
   return { exclude, prefix, name: term.slice(exclude ? 1 : 0, prefix ? -1 : undefined) };
 }
 
+/** Nom de fichier cherché (SRCH-26) : « -abc » exclut les fichiers dont le nom contient « abc »
+ *  (retour T3, point SRCH-26.2), comme « -tag » pour les tags. */
+export function splitFile(file: string): { exclude: boolean; text: string } {
+  return file.startsWith("-") ? { exclude: true, text: file.slice(1).trim() } : { exclude: false, text: file };
+}
+
 /** Bulle d'aide d'un tag : sa description (TAGM-14) au-dessus de la bulle habituelle (« Rechercher… »). */
 export function withDescription(title: string | undefined, description: string | null | undefined): string | undefined {
   if (!description) return title;
