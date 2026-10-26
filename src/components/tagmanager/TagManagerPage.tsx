@@ -32,8 +32,10 @@ import { cn } from "@/lib/utils";
 import { showGridBadge } from "@/stores/badge";
 import { searchInLibrary } from "@/stores/search";
 import { inField } from "@/stores/selection";
+import { useUI } from "@/stores/ui";
 import { BulkBar } from "./BulkBar";
-import { MergeTagsDialog, SimilarTagsDialog, type SimilarSnapshot, UnusedTagsDialog } from "./CleanupDialogs";
+import { MergeTagsDialog, UnusedTagsDialog } from "./CleanupDialogs";
+import { SimilarTagsDialog, type SimilarSnapshot } from "./SimilarTagsDialog";
 import { ImportTagsDialog } from "./ImportTagsDialog";
 import { NewTagButton } from "./NewTagButton";
 import { RuleAskHost } from "./RuleAskHost";
@@ -67,7 +69,8 @@ export function TagManagerPage() {
   // Retour arrière sur l'étape d'une pop-in « Tags proches » quittée par une loupe : elle se rouvre (TAGM-13.1).
   const [similar, setSimilar] = useState(() => (window.history.state?.[SIMILAR] as SimilarSnapshot | undefined) ?? undefined);
   const [dialog, setDialog] = useState<Dialog>(similar ? "similar" : null);
-  const groups = useMemo(() => similarGroups(all, data?.ignored ?? []), [all, data]);
+  const similarLevel = useUI((s) => s.similarLevel);
+  const groups = useMemo(() => similarGroups(all, data?.ignored ?? [], similarLevel), [all, data, similarLevel]);
   const unused = useMemo(() => all.filter((t) => t.mediaCount === 0), [all]);
   // Tags cochés encore présents (un tag supprimé ou fusionné quitte la liste).
   const checkedTags = useMemo(() => all.filter((t) => checked.has(t.id)), [all, checked]);

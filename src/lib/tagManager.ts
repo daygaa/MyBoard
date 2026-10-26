@@ -70,14 +70,49 @@ export const groupKey = (group: { id: number }[]) =>
     .sort((a, b) => a - b)
     .join(",");
 
+/** Mots d'un nom, sans accents ni séparateurs, chacun sans son « s » final (plus de 3 lettres). */
+const singularWords = (name: string) =>
+  name
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .split(/[_\-\s.]+/)
+    .filter(Boolean)
+    .map((w) => (w.length > 3 && w.endsWith("s") ? w.slice(0, -1) : w));
+
+/** Détection des tags proches (retour T3, point TAGM-13.5) : « strict » = la clé ci-dessus ; « large » = en
+ *  plus, le « s » de chaque mot (« hand on own hip » ~ « hands on own hips ») et les mots dans un autre ordre
+ *  (« unicorn gundam » ~ « gundam unicorn »). */
+export type SimilarLevel = "strict" | "large";
+const LEVEL_KEYS: Record<SimilarLevel, ((name: string) => string)[]> = {
+  strict: [similarityKey],
+  large: [similarityKey, (name) => singularWords(name).join(""), (name) => singularWords(name).sort().join(" ")],
+};
+
 /** Groupes de noms presque identiques (« long_hair », « longhair », « long_hairs »), les plus
- *  utilisés d'abord ; les groupes ignorés n'y sont pas. */
-export function similarGroups(tags: ManagedTag[], ignored: string[]): ManagedTag[][] {
-  const groups = new Map<string, ManagedTag[]>();
-  for (const tag of tags) {
-    const key = similarityKey(tag.name);
-    groups.set(key, [...(groups.get(key) ?? []), tag]);
+ *  utilisés d'abord ; les groupes ignorés n'y sont pas. Deux tags qui partagent une clé du niveau sont
+ *  dans le même groupe (et, de proche en proche, ceux qui partagent une clé avec l'un d'eux). */
+export function similarGroups(tags: ManagedTag[], ignored: string[], level: SimilarLevel = "strict"): ManagedTag[][] {
+  const parent = tags.map((_, i) => i);
+  const root = (i: number) => {
+    while (parent[i] !== i) i = parent[i] = parent[parent[i]];
+    return i;
+  };
+  for (const keyOf of LEVEL_KEYS[level]) {
+    const first = new Map<string, number>();
+    tags.forEach((tag, i) => {
+      const key = keyOf(tag.name);
+      const j = first.get(key);
+      if (j === undefined) first.set(key, i);
+      else parent[root(i)] = root(j);
+    });
   }
+  const groups = new Map<number, ManagedTag[]>();
+  tags.forEach((tag, i) => {
+    const r = root(i);
+    const group = groups.get(r);
+    if (group) group.push(tag);
+    else groups.set(r, [tag]);
+  });
   const skip = new Set(ignored);
   const total = (g: ManagedTag[]) => g.reduce((n, t) => n + t.mediaCount, 0);
   return [...groups.values()].filter((g) => g.length > 1 && !skip.has(groupKey(g))).sort((a, b) => total(b) - total(a));

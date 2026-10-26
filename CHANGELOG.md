@@ -3,6 +3,23 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Phase 3, correctifs du test, lot 14 : détection Strict / Large des tags proches (26/10/2026) — Backup v60
+
+SPEC : `[x]` (validés par toi) : TAGM-08 ; points TAGM-04.11, TAGM-04.12, TAGM-13.4, TAGM-08.1 (TAGM-13.3
+gardé `[~]` jusqu'à la refonte TAGM-15 / 16). Livré `[~]` : TAGM-13 (point TAGM-13.5).
+
+- **Tags proches** : « Détection : Strict | Large » en haut de la pop-in. Large trouve aussi les noms qui ne
+  diffèrent que par le « s » d'un mot (« hand on own hip » ~ « hands on own hips ») ou par l'ordre des mots
+  (« unicorn gundam » ~ « gundam unicorn »). Le choix est retenu, et le compteur du bouton le suit.
+
+Vérifié dans la version compilée, sur une copie de la bibliothèque « booru » faite pour l'essai : Strict :
+« Tags proches (20) », 20 groupes, 1er « fang ~ fangs » (comme avant) ; Large : 47 groupes, bouton « Tags
+proches (47) », liste remise en haut, tous les groupes de Strict y sont, « hand on own hip ~ hands on own
+hips », « hand on own knee ~ hands on own knees ~ hands on own knee », « unicorn gundam ~ gundam unicorn » ;
+« Tout fusionner » : « Fusionner les 47 groupes ? » (Annuler) ; Ignorer le groupe « hand on own knee » en
+Large : 46 groupes, et en Strict « hands on own knees ~ hands on own knee » reste proposé ; Large retenu après
+fermeture de la pop-in, rechargement et redémarrage de l'application (46 groupes), puis remis en Strict.
+
 ## Phase 3, correctifs du test, lot 13 : filtres, « Tout fusionner », « Tags proches » partout (26/10/2026) — Backup v59
 
 SPEC : `[x]` (validés par toi) : points TAGM-11.3, TAGM-13.1, TAGM-13.2, AUT.18 (GEN-24 gardé `[~]` comme

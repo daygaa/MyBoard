@@ -12,7 +12,9 @@ import { formatNumber, plural } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { Filters } from "./useTagList";
 
-const SEGMENT = "rounded-md px-2.5 py-1 text-xs font-medium transition";
+/** Bouton d'un choix à segments (« Masqués | Rares », « Strict | Large » des tags proches). */
+export const segment = (on: boolean) =>
+  cn("rounded-md px-2.5 py-1 text-xs font-medium transition", on ? "bg-[#d9a94e]/15 text-[#d9a94e]" : "text-muted-foreground hover:text-foreground");
 
 type Props = {
   filters: Filters;
@@ -71,7 +73,7 @@ export function TagFilters({ filters, setFilters, shown, total }: Props) {
             aria-pressed={filters[key]}
             onClick={() => toggle(key)}
             title={key === "hidden" ? "Seulement les tags masqués de la recherche" : "Seulement les tags portés par un seul média"}
-            className={cn(SEGMENT, filters[key] ? "bg-[#d9a94e]/15 text-[#d9a94e]" : "text-muted-foreground hover:text-foreground")}
+            className={segment(filters[key])}
           >
             {key === "hidden" ? "Masqués" : "Rares"}
           </button>
