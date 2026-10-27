@@ -6,7 +6,7 @@ use serde::Serialize;
 use tauri::State;
 
 use crate::aliases::{self, AliasCheck};
-use crate::parents::{self, EnableCheck, RuleCheck};
+use crate::parents::{self, DeleteCheck, RuleCheck};
 use crate::tagging::resolve_or_create;
 use crate::tags::NewTag;
 use crate::{AppState, db};
@@ -29,8 +29,8 @@ pub struct ParentRow {
     pub id: i64,
     pub child_id: i64,
     pub parent_id: i64,
+    /// Interrupteur de la règle (D-047).
     pub enabled: bool,
-    pub auto: bool,
     /// Médias qui ont reçu le parent par cette règle.
     pub media: i64,
     pub created_at: i64,
@@ -51,13 +51,13 @@ fn list(db: &Connection) -> rusqlite::Result<TagRules> {
         .query_map([], |r| Ok(AliasRow { id: r.get(0)?, alias: r.get(1)?, tag_id: r.get(2)?, enabled: r.get(3)?, media: r.get(4)?, created_at: r.get(5)? }))?
         .collect::<rusqlite::Result<_>>()?;
     let mut stmt = db.prepare(
-        "SELECT p.id, p.child_id, p.parent_id, p.enabled, p.auto,
+        "SELECT p.id, p.child_id, p.parent_id, p.enabled,
                 (SELECT COUNT(*) FROM tag_parent_media m WHERE m.rule_id = p.id AND m.tag_id = p.parent_id), p.created_at
          FROM tag_parents p",
     )?;
     let parents = stmt
         .query_map([], |r| {
-            Ok(ParentRow { id: r.get(0)?, child_id: r.get(1)?, parent_id: r.get(2)?, enabled: r.get(3)?, auto: r.get(4)?, media: r.get(5)?, created_at: r.get(6)? })
+            Ok(ParentRow { id: r.get(0)?, child_id: r.get(1)?, parent_id: r.get(2)?, enabled: r.get(3)?, media: r.get(4)?, created_at: r.get(5)? })
         })?
         .collect::<rusqlite::Result<_>>()?;
     Ok(TagRules { aliases, parents })
@@ -116,30 +116,28 @@ pub async fn parent_check(state: State<'_, AppState>, child: i64, parent: i64) -
     read(&state, |db| parents::check(db, child, parent))
 }
 
-/// Renvoie le nombre de médias qui ont reçu le parent.
+/// `apply` : la case « Ajouter aussi aux médias qui ont déjà l'enfant ». Renvoie le nombre de médias qui ont
+/// reçu le parent.
 #[tauri::command]
-pub async fn create_parent(state: State<'_, AppState>, child: i64, parent: i64) -> Result<usize, String> {
-    write(&state, |db, now| parents::create(db, child, parent, now))
+pub async fn create_parent(state: State<'_, AppState>, child: i64, parent: i64, apply: bool) -> Result<usize, String> {
+    write(&state, |db, now| parents::create(db, child, parent, apply, now))
 }
 
 #[tauri::command]
-pub async fn parent_enable_check(state: State<'_, AppState>, id: i64) -> Result<EnableCheck, String> {
-    read(&state, |db| parents::enable_check(db, id))
+pub async fn set_parent_enabled(state: State<'_, AppState>, id: i64, enabled: bool) -> Result<(), String> {
+    write(&state, |db, _| Ok(parents::set_enabled(db, id, enabled)?))
 }
 
+/// Confirmation de suppression : médias où le parent a été posé, tags venus en chaîne, chaînes.
 #[tauri::command]
-pub async fn set_parent_enabled(state: State<'_, AppState>, id: i64, enabled: bool, add_skipped: bool) -> Result<(), String> {
-    write(&state, |db, _| parents::set_enabled(db, id, enabled, add_skipped))
+pub async fn parent_delete_check(state: State<'_, AppState>, id: i64) -> Result<DeleteCheck, String> {
+    read(&state, |db| parents::delete_check(db, id))
 }
 
+/// `remove` : la case « Retirer le parent aux médias portant l'enfant ».
 #[tauri::command]
-pub async fn set_parent_auto(state: State<'_, AppState>, id: i64, auto: bool, add_skipped: bool) -> Result<(), String> {
-    write(&state, |db, _| parents::set_auto(db, id, auto, add_skipped))
-}
-
-#[tauri::command]
-pub async fn delete_parent(state: State<'_, AppState>, id: i64) -> Result<(), String> {
-    write(&state, |db, _| parents::delete(db, id))
+pub async fn delete_parent(state: State<'_, AppState>, id: i64, remove: bool) -> Result<(), String> {
+    write(&state, |db, _| parents::delete(db, id, remove))
 }
 
 /// Tag tapé dans le champ d'une règle qui n'existe pas encore : créé (sans média) avec la catégorie

@@ -1,6 +1,6 @@
 // Code de partage d'une liste de tags (TAGM-10, TAGM-18) : « MYBOARD-TAGS-1: » suivi de la liste en
 // JSON compact, en base 64 : tags [nom, clé de catégorie, masqué, description], synonymes [synonyme,
-// tag principal, actif] et règles de parents [enfant, parent, cochée, auto]. Seuls les synonymes des
+// tag principal, actif] et règles de parents [enfant, parent, allumée]. Seuls les synonymes des
 // tags exportés, et les règles entre deux tags exportés, partent avec eux.
 
 import type { Category, ManagedTag } from "./api";
@@ -17,7 +17,7 @@ export function encodeTags(tags: ManagedTag[], categories: Category[], rules: Ta
   const a = rules.aliases.filter((x) => nameOf.has(x.tagId)).map((x) => [x.alias, nameOf.get(x.tagId), flag(x.enabled)]);
   const p = rules.parents
     .filter((r) => nameOf.has(r.childId) && nameOf.has(r.parentId))
-    .map((r) => [nameOf.get(r.childId), nameOf.get(r.parentId), flag(r.enabled), flag(r.auto)]);
+    .map((r) => [nameOf.get(r.childId), nameOf.get(r.parentId), flag(r.enabled)]);
   let binary = "";
   for (const byte of new TextEncoder().encode(JSON.stringify({ t, a, p }))) binary += String.fromCharCode(byte);
   return { code: PREFIX + btoa(binary), aliases: a.length, parents: p.length };
@@ -44,7 +44,8 @@ export function decodeTags(code: string): SharedList | null {
         description: typeof description === "string" ? description : null,
       })),
       aliases: rows(a, 2).map(([alias, tag, enabled]) => ({ alias: String(alias), tag: String(tag), enabled: enabled !== 0 })),
-      parents: rows(p, 2).map(([child, parent, enabled, auto]) => ({ child: String(child), parent: String(parent), enabled: enabled !== 0, auto: auto !== 0 })),
+      // Ancien 4e élément (« Auto », avant la refonte) : une règle n'est allumée que s'il était allumé aussi.
+      parents: rows(p, 2).map(([child, parent, enabled, auto]) => ({ child: String(child), parent: String(parent), enabled: enabled !== 0 && auto !== 0 })),
     };
   } catch {
     return null;

@@ -51,8 +51,9 @@ const INPUT = "font-mono text-xs";
 type Props = {
   zone: string;
   placeholders: [string, string];
-  /** Les deux textes tapés ; renvoie le refus à afficher, ou `null` (champs vidés). */
-  onAdd: (left: string, right: string) => Promise<string | null>;
+  /** Les deux textes tapés ; renvoie le refus à afficher, `null` (champs vidés) ou `false` (annulé : les
+   *  champs gardent leur texte, retour T3, point TAGM-16.2). */
+  onAdd: (left: string, right: string) => Promise<string | null | false>;
   className?: string;
 };
 
@@ -67,7 +68,7 @@ export function RuleForm({ zone, placeholders, onAdd, className }: Props) {
     if (!ready || busy) return;
     setBusy(true);
     const refused = await onAdd(left, right).finally(() => setBusy(false));
-    setError(refused);
+    setError(refused || null);
     if (refused === null) {
       setLeft("");
       setRight("");

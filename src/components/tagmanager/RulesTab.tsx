@@ -1,7 +1,7 @@
 // Onglet « Synonymes et parents » du gestionnaire de tags (TAGM-15, TAGM-16) : toutes les règles en un
 // seul endroit, en deux colonnes côte à côte. Chacune : un champ pour ajouter une règle, un filtre par
-// nom, puis la liste (case pour désactiver / réactiver, corbeille ; pour les parents, interrupteur
-// « Auto »). La page ne défile pas : les tableaux s'arrêtent au bas de la fenêtre et chaque liste a sa
+// nom, puis la liste (synonymes : case pour désactiver / réactiver ; parents : interrupteur, refonte D10 ;
+// corbeille). La page ne défile pas : les tableaux s'arrêtent au bas de la fenêtre et chaque liste a sa
 // barre de défilement (demande du 26/10), qui garde la molette (GEN-24).
 
 import { useMemo, useState, type ReactNode } from "react";
@@ -76,11 +76,12 @@ export function RulesTab({ tags, rules }: { tags: ManagedTag[]; rules: RulesInde
     const tag = await resolve(target);
     return tag ? addAlias(alias, tag) : null;
   };
+  // Pop-in « Créer un nouveau tag » ou confirmation annulée : les champs gardent leur texte (TAGM-16.2).
   const createParent = async (child: string, parent: string) => {
     const from = await resolve(child);
-    if (!from) return null;
+    if (!from) return false;
     const to = await resolve(parent);
-    return to ? addParent(from, to) : null;
+    return to ? addParent(from, to) : false;
   };
 
   return (
@@ -103,7 +104,7 @@ export function RulesTab({ tags, rules }: { tags: ManagedTag[]; rules: RulesInde
         zone="regles.parents"
         title="Tags parents"
         count={rules.parents.length}
-        help="Poser l'enfant pose aussi le parent, en chaîne (chat → animal → être vivant), y compris sur les médias qui l'ont déjà. Décocher retire le parent des médias qui l'ont reçu par la règle."
+        help="Poser l'enfant pose aussi le parent, en chaîne (chat → animal → être vivant). Éteindre une règle ne retire rien : les nouveaux ajouts ne posent simplement plus le parent."
         form={<RuleForm zone="regles.parents.ajout" placeholders={["Enfant…", "Parent…"]} onAdd={createParent} />}
         filter={parentFilter}
         onFilter={setParentFilter}

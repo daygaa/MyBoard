@@ -1,19 +1,23 @@
 // Lignes des synonymes (TAGM-15) et des règles de parents (TAGM-16), communes à la page « Synonymes
-// et parents » et aux petites listes du tableau du gestionnaire : case (cochée = active ; décochée =
-// désactivée, en gris, gardée dans la liste), « synonyme → tag » ou « enfant → parent », nombre de
-// médias notés, interrupteur « Auto » des règles, corbeille. Clic droit (CTX-16) : les mêmes actions.
+// et parents » et aux petites listes du tableau du gestionnaire : synonyme : case (cochée = actif ;
+// décochée = désactivé, en gris, gardé dans la liste) ; règle : interrupteur (éteinte = en gris, refonte D10) ;
+// « synonyme → tag » ou « enfant → parent », nombre de médias notés, corbeille. Clic droit (CTX-16) : les
+// mêmes actions.
 
+import { useState } from "react";
 import { ArrowRight, Trash2 } from "lucide-react";
 
 import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
 import { useCategories } from "@/hooks/useCategories";
 import type { ManagedTag } from "@/lib/api";
 import { openContextMenu, type MenuItem } from "@/lib/contextMenu";
 import { formatNumber, plural } from "@/lib/format";
 import type { AliasRow, ParentRow } from "@/lib/rulesApi";
-import { aliasDeletion, deleteAlias, deleteParent, parentDeletion, toggleAlias, toggleAuto, toggleParent } from "@/lib/tagRules";
+import { aliasDeletion, deleteAlias, toggleAlias, toggleParent } from "@/lib/tagRules";
 import { displayTag } from "@/lib/tags";
 import { cn, titleIfCut } from "@/lib/utils";
+import { ParentDeleteDialog } from "./ParentDeleteDialog";
 
 export type TagOf = (id: number) => ManagedTag | undefined;
 
@@ -97,48 +101,28 @@ export function AliasLine({ row, tagOf, showTarget = true }: { row: AliasRow; ta
   );
 }
 
-function AutoSwitch({ row, names }: { row: ParentRow; names: (id: number) => string }) {
-  const on = row.auto;
-  return (
-    <button
-      type="button"
-      role="switch"
-      data-zone="regles.auto"
-      aria-checked={on}
-      disabled={!row.enabled}
-      onClick={() => void toggleAuto(row, names)}
-      title={`Ajout automatique : ${on ? "allumé" : "éteint"}. Allumé, chaque nouvel ajout de « ${displayTag(names(row.childId))} » pose « ${displayTag(names(row.parentId))} ».`}
-      className="flex shrink-0 items-center gap-1.5 rounded px-1 text-[11px] text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50"
-    >
-      Auto
-      <span className={cn("relative h-4 w-7 rounded-full border transition", on ? "border-[#d9a94e] bg-[#d9a94e]/30" : "border-[#70737d] bg-transparent")}>
-        <span className={cn("absolute top-0.5 h-2.5 w-2.5 rounded-full transition-all", on ? "left-3.5 bg-[#d9a94e]" : "left-0.5 bg-[#70737d]")} />
-      </span>
-    </button>
-  );
-}
-
 export function ParentLine({ row, tagOf, showChild = true }: { row: ParentRow; tagOf: TagOf; showChild?: boolean }) {
   const names = nameOf(tagOf);
-  const parent = displayTag(names(row.parentId));
+  const [deleting, setDeleting] = useState(false);
+  const [child, parent] = [displayTag(names(row.childId)), displayTag(names(row.parentId))];
   return (
     <div
       data-zone="regles.parent"
       onContextMenu={(e) =>
         openContextMenu(e, () => [
-          { label: row.enabled ? "Désactiver la règle" : "Réactiver la règle", run: () => void toggleParent(row, names) },
-          { label: row.auto ? "Couper l'ajout automatique" : "Rallumer l'ajout automatique", disabled: !row.enabled, run: () => void toggleAuto(row, names) },
+          { label: row.enabled ? "Éteindre la règle" : "Allumer la règle", run: () => void toggleParent(row, names) },
           "separator",
-          menuDeletion("Supprimer la règle…", parentDeletion(row, names)),
+          { label: "Supprimer la règle…", danger: true, dialog: ({ onCancel, onDone }) => <ParentDeleteDialog row={row} nameOf={names} onCancel={onCancel} onDone={onDone} /> },
         ])
       }
       className={cn(LINE, !row.enabled && "opacity-55")}
     >
-      <Checkbox
-        checked={row.enabled}
-        onCheckedChange={() => void toggleParent(row, names)}
-        aria-label={`Règle vers « ${parent} » active`}
-        title={row.enabled ? `Active. Décocher retire « ${parent} » des médias qui l'ont reçu par elle.` : `Désactivée. Cocher remet « ${parent} » sur ces médias.`}
+      <Switch
+        on={row.enabled}
+        onToggle={() => void toggleParent(row, names)}
+        zone="regles.interrupteur"
+        label={`Règle « ${child} » → « ${parent} »`}
+        title={row.enabled ? `Allumée : chaque nouvel ajout de « ${child} » pose « ${parent} ».` : `Éteinte : les nouveaux ajouts de « ${child} » ne posent plus « ${parent} » ; rien n'est retiré.`}
       />
       {showChild && (
         <>
@@ -148,8 +132,8 @@ export function ParentLine({ row, tagOf, showChild = true }: { row: ParentRow; t
       )}
       <TagName tag={tagOf(row.parentId)} />
       <Count n={row.media} title={`« ${parent} » posé sur ${formatNumber(row.media)} ${plural(row.media, "média")} par cette règle`} />
-      <AutoSwitch row={row} names={names} />
-      <Trash label="Supprimer la règle" onClick={() => deleteParent(row, names)} />
+      <Trash label="Supprimer la règle" onClick={() => setDeleting(true)} />
+      {deleting && <ParentDeleteDialog row={row} nameOf={names} onCancel={() => setDeleting(false)} onDone={() => setDeleting(false)} />}
     </div>
   );
 }

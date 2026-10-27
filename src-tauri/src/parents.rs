@@ -1,8 +1,9 @@
-//! Règles de parents (TAGM-16) : « enfant → parent », poser l'enfant pose le parent. Rétroactives :
-//! une règle créée (ou recochée) s'applique aux médias qui ont déjà l'enfant. Chaque règle note les
-//! médias qui ont reçu le parent par elle (GEN-21) : la décocher le leur retire, la recocher le leur
-//! remet, la corbeille le retire puis oublie la règle. Les opérations se font dans la transaction de
-//! l'appelant ; les compteurs suivent par les déclencheurs (D-005).
+//! Règles de parents (TAGM-16, refonte TAGM-20, D-047) : « enfant → parent », poser l'enfant pose le parent.
+//! Un seul interrupteur : allumée, chaque nouvel ajout de l'enfant pose le parent ; éteinte, elle ne pose plus
+//! rien et ne retire rien. À la création, une case pose le parent sur les médias qui ont déjà l'enfant. Chaque
+//! règle note les médias qui ont reçu le parent par elle (GEN-21) : à sa suppression, une case le leur retire
+//! (avec ce qu'il avait apporté en chaîne), jamais à un média qui l'avait avant. Les opérations se font dans la
+//! transaction de l'appelant ; les compteurs suivent par les déclencheurs (D-005).
 
 use std::collections::HashSet;
 
@@ -11,8 +12,8 @@ use serde::Serialize;
 
 use crate::tagging::{Tagger, remove_cascade, restore_justified};
 
-/// Vérification avant de créer une règle : refus expliqué, ou nombre de médias qui recevront le
-/// parent (confirmation, Q5-A).
+/// Vérification avant de créer une règle : refus expliqué, ou nombre de médias qui ont déjà l'enfant sans le
+/// parent (case de la confirmation, refonte D10.1).
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RuleCheck {
@@ -20,21 +21,27 @@ pub struct RuleCheck {
     pub media: i64,
 }
 
-/// Ce que ferait la réactivation d'une règle : médias où le parent sera remis, et médias qui ont
-/// reçu l'enfant pendant qu'elle ne s'appliquait pas (ajout proposé).
+/// Ce que montre la confirmation de suppression (refonte D10.3, D10.4).
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct EnableCheck {
-    pub restore: i64,
-    pub skipped: i64,
+pub struct DeleteCheck {
+    /// Médias où la règle a posé le parent (case de retrait).
+    pub media: i64,
+    /// Autres tags posés par elle en chaîne : ils partent avec le parent.
+    pub chained: Vec<String>,
+    /// Chaînes qui passent par la règle, du plus bas au plus haut (noms) ; vide pour une règle seule.
+    pub chains: Vec<Vec<String>>,
 }
+
+/// Chaînes montrées au plus (une règle peut avoir plusieurs parents ou enfants).
+const MAX_CHAINS: usize = 3;
 
 fn name(db: &Connection, id: i64) -> rusqlite::Result<String> {
     db.query_row("SELECT name FROM tags WHERE id = ?1", [id], |r| r.get(0)).map(|n: String| n.replace('_', " "))
 }
 
-/// Vrai si `to` est un parent de `from`, directement ou en chaîne (règles cochées ou non : une règle
-/// décochée peut être recochée).
+/// Vrai si `to` est un parent de `from`, directement ou en chaîne (règles allumées ou non : une règle
+/// éteinte peut être rallumée).
 pub fn reaches(db: &Connection, from: i64, to: i64) -> rusqlite::Result<bool> {
     let mut seen = HashSet::from([from]);
     let mut todo = vec![from];
@@ -81,114 +88,92 @@ pub fn check(db: &Connection, child: i64, parent: i64) -> rusqlite::Result<RuleC
     Ok(RuleCheck { error, media })
 }
 
-/// Crée la règle et l'applique aux médias qui ont déjà l'enfant ; renvoie le nombre de médias qui ont
-/// reçu le parent.
-pub fn create(db: &Connection, child: i64, parent: i64, now: i64) -> anyhow::Result<usize> {
+/// Crée la règle, allumée ; avec `apply`, la pose aussi sur les médias qui ont déjà l'enfant. Renvoie le
+/// nombre de médias qui ont reçu le parent.
+pub fn create(db: &Connection, child: i64, parent: i64, apply: bool, now: i64) -> anyhow::Result<usize> {
     if let Some(error) = check(db, child, parent)?.error {
         anyhow::bail!(error);
     }
     db.execute("INSERT INTO tag_parents (child_id, parent_id, created_at) VALUES (?1, ?2, ?3)", params![child, parent, now])?;
     let rule = db.last_insert_rowid();
-    apply_to(db, rule, parent, &missing_parent(db, child, parent)?)
-}
-
-fn apply_to(db: &Connection, rule: i64, parent: i64, media: &[i64]) -> anyhow::Result<usize> {
+    if !apply {
+        return Ok(0);
+    }
     let tagger = Tagger::load(db)?;
     let mut added = 0;
-    for &m in media {
+    for m in missing_parent(db, child, parent)? {
         added += tagger.apply_rule(db, rule, parent, m)? as usize;
     }
     Ok(added)
 }
 
-fn rule_of(db: &Connection, id: i64) -> rusqlite::Result<Option<(i64, i64, bool)>> {
-    db.query_row("SELECT child_id, parent_id, enabled FROM tag_parents WHERE id = ?1", [id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))
-        .optional()
+/// Interrupteur de la règle : rien n'est retiré ni rattrapé (refonte D10, D10.2).
+pub fn set_enabled(db: &Connection, id: i64, enabled: bool) -> rusqlite::Result<()> {
+    db.execute("UPDATE tag_parents SET enabled = ?1 WHERE id = ?2", params![enabled, id]).map(|_| ())
 }
 
-/// Médias de la liste de la règle qui portent toujours l'enfant et plus le parent : il leur sera remis.
-fn to_restore(db: &Connection, id: i64, child: i64, parent: i64) -> rusqlite::Result<Vec<i64>> {
-    let mut stmt = db.prepare_cached(
-        "SELECT DISTINCT l.media_id FROM tag_parent_media l
-         WHERE l.rule_id = ?1 AND l.tag_id = ?3
-           AND EXISTS (SELECT 1 FROM media_tags c WHERE c.media_id = l.media_id AND c.tag_id = ?2)
-           AND NOT EXISTS (SELECT 1 FROM media_tags p WHERE p.media_id = l.media_id AND p.tag_id = ?3)",
+fn rule_of(db: &Connection, id: i64) -> rusqlite::Result<Option<(i64, i64)>> {
+    db.query_row("SELECT child_id, parent_id FROM tag_parents WHERE id = ?1", [id], |r| Ok((r.get(0)?, r.get(1)?))).optional()
+}
+
+/// Chemins qui partent de `start` vers ses parents (`up`) ou ses enfants, en chaîne, chacun commençant par
+/// `start` ; au plus `MAX_CHAINS`. Les boucles sont refusées à la création des règles.
+fn paths(db: &Connection, start: i64, up: bool) -> rusqlite::Result<Vec<Vec<i64>>> {
+    let sql = if up { "SELECT parent_id FROM tag_parents WHERE child_id = ?1 ORDER BY parent_id" } else { "SELECT child_id FROM tag_parents WHERE parent_id = ?1 ORDER BY child_id" };
+    let next = db.prepare_cached(sql)?.query_map([start], |r| r.get::<_, i64>(0))?.collect::<rusqlite::Result<Vec<_>>>()?;
+    if next.is_empty() {
+        return Ok(vec![vec![start]]);
+    }
+    let mut out = Vec::new();
+    for n in next {
+        for path in paths(db, n, up)? {
+            out.push([vec![start], path].concat());
+            if out.len() >= MAX_CHAINS {
+                return Ok(out);
+            }
+        }
+    }
+    Ok(out)
+}
+
+pub fn delete_check(db: &Connection, id: i64) -> rusqlite::Result<DeleteCheck> {
+    let Some((child, parent)) = rule_of(db, id)? else { return Ok(DeleteCheck { media: 0, chained: Vec::new(), chains: Vec::new() }) };
+    let media = db.query_row(
+        "SELECT COUNT(DISTINCT media_id) FROM tag_parent_media WHERE rule_id = ?1 AND tag_id = ?2",
+        params![id, parent],
+        |r| r.get(0),
     )?;
-    let rows = stmt.query_map(params![id, child, parent], |r| r.get(0))?;
-    rows.collect()
+    let chained = db
+        .prepare("SELECT DISTINCT t.name FROM tag_parent_media l JOIN tags t ON t.id = l.tag_id WHERE l.rule_id = ?1 AND l.tag_id != ?2 ORDER BY t.name")?
+        .query_map(params![id, parent], |r| r.get(0))?
+        .collect::<rusqlite::Result<Vec<String>>>()?;
+    let mut chains = Vec::new();
+    'all: for mut below in paths(db, child, false)? {
+        below.reverse();
+        for above in paths(db, parent, true)? {
+            let ids = [below.clone(), above].concat();
+            if ids.len() > 2 {
+                chains.push(ids.iter().map(|&t| db.query_row("SELECT name FROM tags WHERE id = ?1", [t], |r| r.get(0))).collect::<rusqlite::Result<Vec<String>>>()?);
+            }
+            if chains.len() >= MAX_CHAINS {
+                break 'all;
+            }
+        }
+    }
+    Ok(DeleteCheck { media, chained, chains })
 }
 
-/// Médias qui ont reçu l'enfant pendant que la règle ne s'appliquait pas, toujours sans le parent.
-fn skipped(db: &Connection, id: i64, child: i64, parent: i64) -> rusqlite::Result<Vec<i64>> {
-    let mut stmt = db.prepare_cached(
-        "SELECT s.media_id FROM tag_parent_skipped s
-         WHERE s.rule_id = ?1
-           AND EXISTS (SELECT 1 FROM media_tags c WHERE c.media_id = s.media_id AND c.tag_id = ?2)
-           AND NOT EXISTS (SELECT 1 FROM media_tags p WHERE p.media_id = s.media_id AND p.tag_id = ?3)
-           AND NOT EXISTS (SELECT 1 FROM tag_parent_media l WHERE l.rule_id = ?1 AND l.media_id = s.media_id AND l.tag_id = ?3)",
-    )?;
-    let rows = stmt.query_map(params![id, child, parent], |r| r.get(0))?;
-    rows.collect()
-}
-
-pub fn enable_check(db: &Connection, id: i64) -> rusqlite::Result<EnableCheck> {
-    let Some((child, parent, enabled)) = rule_of(db, id)? else { return Ok(EnableCheck { restore: 0, skipped: 0 }) };
-    let restore = if enabled { 0 } else { to_restore(db, id, child, parent)?.len() as i64 };
-    Ok(EnableCheck { restore, skipped: skipped(db, id, child, parent)?.len() as i64 })
-}
-
-/// Case de la règle. Décochée : les tags qu'elle a posés sont retirés (sa liste est gardée).
-/// Recochée : ils sont remis ; `add_skipped` ajoute aussi le parent aux médias qui ont reçu l'enfant
-/// entre-temps (proposé à l'utilisateur).
-pub fn set_enabled(db: &Connection, id: i64, enabled: bool, add_skipped: bool) -> anyhow::Result<()> {
-    let Some((child, parent, was)) = rule_of(db, id)? else { return Ok(()) };
-    if enabled == was {
-        return Ok(());
-    }
-    db.execute("UPDATE tag_parents SET enabled = ?1 WHERE id = ?2", params![enabled, id])?;
-    if !enabled {
-        return remove_listed(db, id);
-    }
-    let mut media = to_restore(db, id, child, parent)?;
-    if add_skipped {
-        media.extend(skipped(db, id, child, parent)?);
-    }
-    // La liste est refaite par la réapplication : seuls les tags réellement remis y reviennent.
-    db.execute("DELETE FROM tag_parent_media WHERE rule_id = ?1", [id])?;
-    db.execute("DELETE FROM tag_parent_skipped WHERE rule_id = ?1", [id])?;
-    apply_to(db, id, parent, &media)?;
-    Ok(())
-}
-
-/// Interrupteur « Auto ». Rallumé, `add_skipped` ajoute le parent aux médias qui ont reçu l'enfant
-/// pendant qu'il était éteint.
-pub fn set_auto(db: &Connection, id: i64, auto: bool, add_skipped: bool) -> anyhow::Result<()> {
-    let Some((child, parent, _)) = rule_of(db, id)? else { return Ok(()) };
-    db.execute("UPDATE tag_parents SET auto = ?1 WHERE id = ?2", params![auto, id])?;
-    if auto {
-        let media = if add_skipped { skipped(db, id, child, parent)? } else { Vec::new() };
-        db.execute("DELETE FROM tag_parent_skipped WHERE rule_id = ?1", [id])?;
-        apply_to(db, id, parent, &media)?;
-    }
-    Ok(())
-}
-
-/// Corbeille : retire les tags posés par la règle (si elle est cochée), puis l'oublie.
-pub fn delete(db: &Connection, id: i64) -> anyhow::Result<()> {
-    if let Some((_, _, true)) = rule_of(db, id)? {
-        db.execute("UPDATE tag_parents SET enabled = 0 WHERE id = ?1", [id])?;
-        remove_listed(db, id)?;
-    }
+/// Corbeille : la règle est oubliée ; avec `remove`, les tags qu'elle a posés sont retirés de ces médias, avec
+/// ce qu'ils avaient apporté en chaîne, puis ceux qu'une autre règle allumée justifie encore sont remis.
+pub fn delete(db: &Connection, id: i64, remove: bool) -> anyhow::Result<()> {
+    let pairs = if remove {
+        db.prepare_cached("SELECT media_id, tag_id FROM tag_parent_media WHERE rule_id = ?1")?
+            .query_map([id], |r| Ok((r.get(0)?, r.get(1)?)))?
+            .collect::<rusqlite::Result<Vec<(i64, i64)>>>()?
+    } else {
+        Vec::new()
+    };
     db.execute("DELETE FROM tag_parents WHERE id = ?1", [id])?;
-    Ok(())
-}
-
-/// Retire des médias les tags notés sous cette règle (déjà décochée : le déclencheur garde sa liste),
-/// avec les parents qu'ils avaient apportés en chaîne, puis remet ceux qu'une autre règle cochée
-/// justifie encore.
-fn remove_listed(db: &Connection, id: i64) -> anyhow::Result<()> {
-    let mut stmt = db.prepare_cached("SELECT media_id, tag_id FROM tag_parent_media WHERE rule_id = ?1")?;
-    let pairs = stmt.query_map([id], |r| Ok((r.get(0)?, r.get(1)?)))?.collect::<rusqlite::Result<Vec<(i64, i64)>>>()?;
     let mut removed = pairs.clone();
     for &(media, tag) in &pairs {
         removed.extend(remove_cascade(db, media, tag)?);

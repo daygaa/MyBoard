@@ -1032,3 +1032,14 @@ coder (document `txt post-test\Refonte synonymes et parents - décisions.md`, d�
   complet de tous les cas limites après le lot R8.
 
 Le détail des tables (schéma v8 et suivants) sera ajouté ici avec les lots R2 (parents) et R3 (groupes).
+
+**Complément du 28/10 (lot R2, schéma 8).** `tag_parents.auto` et la table `tag_parent_skipped` sont supprimées ;
+conversion : `enabled = 0` là où `auto = 0` ; les listes `tag_parent_media` ne gardent que les tags encore présents
+(une règle décochée avant la version 8 avait retiré ses tags en gardant sa liste) ; le déclencheur
+`parent_lists_tag_removed` vaut maintenant pour toutes les règles, allumées ou non. Commandes : `create_parent`
+(`apply` : la case de la création), `set_parent_enabled`, `parent_delete_check` (médias où le parent a été posé, tags
+venus en chaîne, chaînes : au plus 3, chemins lus en remontant les parents et en descendant les enfants),
+`delete_parent` (`remove` : liste lue, règle supprimée, `remove_cascade` puis `restore_justified`). Interface :
+`ui/switch.tsx` (repris pour les synonymes au lot R3) ; `ParentDeleteDialog` ; la pop-in de confirmation des règles
+rend la réponse de l'utilisateur (promesse), pour qu'un formulaire ne se vide qu'à la confirmation ; un tag cité
+dans ces pop-ins a des espaces et des traits d'union insécables (`q`), rendus ordinaires à la copie (`copyPlain`).

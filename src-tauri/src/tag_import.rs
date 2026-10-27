@@ -30,12 +30,19 @@ pub struct ImportedAlias {
     pub enabled: bool,
 }
 
+/// Règle d'une liste importée. `auto` : ancien interrupteur « Auto », lu jusqu'au nouveau code de partage
+/// (lot R8) : allumée seulement si cochée et « Auto » allumé (même conversion que le schéma v8).
 #[derive(Debug, Deserialize)]
 pub struct ImportedRule {
     pub child: String,
     pub parent: String,
     pub enabled: bool,
+    #[serde(default = "yes")]
     pub auto: bool,
+}
+
+fn yes() -> bool {
+    true
 }
 
 #[derive(Debug, Deserialize)]
@@ -108,19 +115,14 @@ fn run(db: &Connection, list: &SharedList, now: i64) -> anyhow::Result<ImportRep
             report.skipped_parents += 1;
             continue;
         }
-        if rule.enabled {
-            report.tagged += parents::create(db, child.tag_id, parent.tag_id, now)?;
-            report.parents.push(db.query_row("SELECT id FROM tag_parents WHERE child_id = ?1 AND parent_id = ?2", params![child.tag_id, parent.tag_id], |r| r.get(0))?);
-            if !rule.auto {
-                db.execute("UPDATE tag_parents SET auto = 0 WHERE id = ?1", [report.parents.last()])?;
-            }
-        } else {
-            db.execute(
-                "INSERT INTO tag_parents (child_id, parent_id, enabled, auto, created_at) VALUES (?1, ?2, 0, ?3, ?4)",
-                params![child.tag_id, parent.tag_id, rule.auto, now],
-            )?;
-            report.parents.push(db.last_insert_rowid());
+        // Allumée : posée aussi sur les médias qui ont déjà l'enfant (comme avant) ; éteinte : rien n'est posé.
+        let on = rule.enabled && rule.auto;
+        report.tagged += parents::create(db, child.tag_id, parent.tag_id, on, now)?;
+        let id = db.query_row("SELECT id FROM tag_parents WHERE child_id = ?1 AND parent_id = ?2", params![child.tag_id, parent.tag_id], |r| r.get(0))?;
+        if !on {
+            parents::set_enabled(db, id, false)?;
         }
+        report.parents.push(id);
     }
     Ok(report)
 }
@@ -149,13 +151,13 @@ pub async fn import_tags(state: State<'_, AppState>, list: SharedList) -> Result
     with_tx(&state, true, |db, now| run(db, &list, now))
 }
 
-/// « Annuler » après l'import : les règles créées sont supprimées (les parents posés sont retirés),
+/// « Annuler » après l'import : les règles créées sont supprimées (les parents qu'elles ont posés sont retirés),
 /// puis les synonymes et les tags créés.
 #[tauri::command]
 pub async fn undo_tag_import(state: State<'_, AppState>, tags: Vec<i64>, aliases: Vec<i64>, parents: Vec<i64>) -> Result<(), String> {
     with_tx(&state, true, |db, _| {
         for id in parents {
-            parents::delete(db, id)?;
+            parents::delete(db, id, true)?;
         }
         for id in aliases {
             aliases::delete(db, id)?;

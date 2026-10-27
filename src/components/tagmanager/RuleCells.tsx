@@ -41,13 +41,14 @@ function CellButton({ zone, icon: Icon, count, title, popover }: { zone: string;
 
 /** Champ d'ajout de la petite liste : Entrée ajoute ; le refus s'affiche dessous. Le tag lui-même et ce
  *  que la liste contient déjà sont grisés dans les suggestions (SRCH-29). */
-function AddField({ zone, placeholder, self, listed, onAdd }: { zone: string; placeholder: string; self: string; listed: string[]; onAdd: (text: string) => Promise<string | null> }) {
+function AddField({ zone, placeholder, self, listed, onAdd }: { zone: string; placeholder: string; self: string; listed: string[]; onAdd: (text: string) => Promise<string | null | false> }) {
   const [text, setText] = useState("");
   const [error, setError] = useState<string | null>(null);
   const submit = async (value: string) => {
     if (!normalizeTag(value)) return;
+    // `false` : pop-in annulée, le champ garde son texte (retour T3, point TAGM-16.2).
     const refused = await onAdd(value);
-    setError(refused);
+    setError(refused || null);
     if (refused === null) setText("");
   };
   return (
@@ -124,7 +125,7 @@ export function ParentsCell({ tag, parents, childRules, tagOf }: { tag: ManagedT
             listed={parents.map((row) => tagOf(row.parentId)?.name ?? "")}
             onAdd={async (text) => {
               const parent = await resolve(text);
-              return parent ? addParent(tag, parent) : null;
+              return parent ? addParent(tag, parent) : false;
             }}
           />
           {childNames.length > 0 && (
@@ -132,7 +133,7 @@ export function ParentsCell({ tag, parents, childRules, tagOf }: { tag: ManagedT
               <p className="mb-1 px-1.5 text-[11px] text-muted-foreground">Enfants (ils posent « {label} »)</p>
               <p className="px-1.5 font-mono text-xs leading-relaxed text-foreground [overflow-wrap:anywhere]">
                 {childNames.map((c, i) => (
-                  <span key={c.id} className={cn(!c.enabled && "text-muted-foreground")} title={c.enabled ? undefined : "Règle désactivée"}>
+                  <span key={c.id} className={cn(!c.enabled && "text-muted-foreground")} title={c.enabled ? undefined : "Règle éteinte"}>
                     {displayTag(c.name)}
                     {i < childNames.length - 1 && ", "}
                   </span>

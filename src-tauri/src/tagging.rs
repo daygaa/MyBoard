@@ -3,7 +3,8 @@
 //! sélection, tags par défaut de l'import, import JSON (DEV-01), fusion, restauration (DEL-05).
 //!
 //! Un tag posé par une règle est noté sous chaque règle du chemin (chat → animal → être vivant :
-//! « être vivant » est noté sous les deux règles) : décocher l'une le retire (GEN-21). Un tag déjà
+//! « être vivant » est noté sous les deux règles) : supprimer l'une avec sa case de retrait le retire
+//! (GEN-21). Un tag déjà
 //! présent n'est jamais noté : il a été posé à la main ou par une autre règle.
 
 use std::collections::{HashMap, HashSet};
@@ -47,7 +48,7 @@ pub fn resolve_or_create(db: &Connection, tag: &NewTag, now: i64) -> anyhow::Res
     Ok(Some(Target { tag_id: db.last_insert_rowid(), alias_id: None }))
 }
 
-/// Une règle « enfant → parent ». `active` : case cochée et « Auto » allumé.
+/// Une règle « enfant → parent ». `active` : allumée (D-047).
 #[derive(Clone, Copy)]
 struct Rule {
     id: i64,
@@ -63,7 +64,7 @@ pub struct Tagger {
 impl Tagger {
     pub fn load(db: &Connection) -> rusqlite::Result<Self> {
         let mut by_child: HashMap<i64, Vec<Rule>> = HashMap::new();
-        let mut stmt = db.prepare("SELECT id, child_id, parent_id, enabled = 1 AND auto = 1 FROM tag_parents")?;
+        let mut stmt = db.prepare("SELECT id, child_id, parent_id, enabled = 1 FROM tag_parents")?;
         let rows = stmt.query_map([], |r| Ok((r.get::<_, i64>(1)?, Rule { id: r.get(0)?, parent: r.get(2)?, active: r.get(3)? })))?;
         for row in rows {
             let (child, rule) = row?;
@@ -72,7 +73,7 @@ impl Tagger {
         Ok(Self { by_child })
     }
 
-    /// Le tag a-t-il des règles de parents (cochées ou non) ? Sans règle ni synonyme, un ajout groupé
+    /// Le tag a-t-il des règles de parents (allumées ou non) ? Sans règle ni synonyme, un ajout groupé
     /// peut se faire en une seule requête.
     pub fn has_rules(&self, tag: i64) -> bool {
         self.by_child.contains_key(&tag)
@@ -89,7 +90,8 @@ impl Tagger {
         Ok(added)
     }
 
-    /// Applique une règle à un média qui porte son enfant (création, recochage, ajouts proposés).
+    /// Applique une règle à un média qui porte son enfant (création avec sa case, parent remis par
+    /// `restore_justified`).
     pub fn apply_rule(&self, db: &Connection, rule: i64, parent: i64, media: i64) -> rusqlite::Result<bool> {
         self.put(db, media, parent, &mut vec![rule])
     }
@@ -112,13 +114,11 @@ impl Tagger {
             if via.contains(&rule.id) {
                 continue;
             }
+            // Règle éteinte : rien n'est posé, et rien ne sera rattrapé en la rallumant (D-047).
             if rule.active {
                 via.push(rule.id);
                 self.put(db, media, rule.parent, via)?;
                 via.pop();
-            } else {
-                // Règle décochée ou « Auto » éteint : proposé à sa réactivation (TAGM-16).
-                db.prepare_cached("INSERT OR IGNORE INTO tag_parent_skipped (rule_id, media_id) VALUES (?1, ?2)")?.execute(params![rule.id, media])?;
             }
         }
         Ok(true)
@@ -151,8 +151,8 @@ pub fn remove_cascade(db: &Connection, media: i64, tag: i64) -> rusqlite::Result
     Ok(removed)
 }
 
-/// Après le retrait de tags posés par une règle (décochée, supprimée, fusion défaite) : remet ceux
-/// qu'une autre règle cochée justifie encore, son enfant étant toujours sur le média.
+/// Après le retrait de tags posés par une règle (supprimée avec sa case de retrait, fusion défaite) :
+/// remet ceux qu'une autre règle allumée justifie encore, son enfant étant toujours sur le média.
 pub fn restore_justified(db: &Connection, removed: &[(i64, i64)]) -> rusqlite::Result<()> {
     let tagger = Tagger::load(db)?;
     loop {

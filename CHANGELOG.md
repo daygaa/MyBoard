@@ -3,6 +3,32 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Refonte des synonymes et des parents, lot R2 : parents simplifiés (28/10/2026) — Backup v65
+
+SPEC : livrés `[~]` : TAGM-16 (retour T3, points TAGM-16.1, TAGM-16.2, TAGM-16.3 ; refonte, décisions D10 à
+D10.5) ; TAGM-20 et DEV-07 complétés. Complément de D-047 (schéma 8).
+
+- **Un seul interrupteur par règle** : allumée, chaque nouvel ajout de l'enfant pose le parent ; éteinte, elle ne
+  pose plus rien et ne retire rien ; rallumée, rien n'est rattrapé. « Auto » et les médias « sautés » disparaissent.
+- **Création** : si des médias ont déjà l'enfant, la pop-in propose (case cochée) d'y poser aussi le parent.
+- **Suppression** : la pop-in montre la chaîne et propose (case décochée) de retirer le parent des médias où la
+  règle l'a posé, avec ce qui est venu avec lui en chaîne ; aussi depuis le menu du clic droit.
+- **Champs** : ils ne se vident qu'à la confirmation. **Pop-ins** : un tag n'y est jamais coupé en fin de ligne.
+- **Anciennes bases** : à la première ouverture, une règle cochée avec « Auto » devient allumée, toutes les autres
+  éteintes ; aucun média ne change.
+- **Base d'essai** : le modèle de `refonte` contient les cas du lot (images A à F, tags `essai_…`).
+
+Vérifié dans la version compilée, sur des copies des bases d'essai : conversion de `refonte-ancien` (règles 1 et
+« 123 → def » allumées, 2 à 4 éteintes, « Auto » et la table des « sautés » disparus, 133 511 liens tag-média et
+53 synonymes inchangés, plus de case « Auto ») ; création : pop-in et case cochée, « Annuler » garde les deux champs,
+case décochée = règle créée sans rien poser (champs vidés), case cochée = parent posé ; chaîne chaton → chat →
+animal → être vivant posée d'un coup, et arrêtée sur un « chat » déjà là ; interrupteur : éteint ne retire rien et
+ne pose plus, rallumé ne rattrape rien ; suppression : chaîne et « (3 médias) » affichés, case décochée, « Annuler »
+depuis le menu du clic droit rend le menu, retrait seulement là où la règle l'a posé (un « animal » posé à la main et
+un autre justifié par « chien → animal » restent) ; noms longs : chaque tag sur une seule ligne dans un texte de 4
+lignes, copie en caractères ordinaires ; code de partage : règle « Auto » éteint importée éteinte, « Annuler » retire
+ce que les règles importées ont posé ; zéro erreur `tsc` et `clippy`.
+
 ## Refonte des synonymes et des parents, lot R1 : bases d'essai (27/10/2026) — Backup v64
 
 SPEC : nouvelle demande DEV-07 (retour T3, point AUT.21), livrée `[~]`. Notes ajoutées à TAGM-15 à TAGM-18 : la

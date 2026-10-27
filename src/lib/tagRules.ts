@@ -1,8 +1,9 @@
-// Actions des synonymes (TAGM-15) et des règles de parents (TAGM-16), communes à la page
+// Actions des synonymes (TAGM-15) et des règles de parents (TAGM-16, refonte TAGM-20), communes à la page
 // « Synonymes et parents » et aux colonnes du tableau du gestionnaire : vérification par le cœur Rust,
 // pop-in de confirmation quand des médias vont changer (Q5-A ; « Oui » rouge pour une fusion), puis
-// relecture des tags et badge bref. Décocher n'a pas de confirmation : recocher le défait (GEN-21).
-// Les refus (nom pris, boucle…) sont renvoyés à l'appelant, qui les affiche sous son champ.
+// relecture des tags et badge bref. Décocher un synonyme ou éteindre une règle n'a pas de confirmation.
+// Les refus (nom pris, boucle…) sont renvoyés à l'appelant, qui les affiche sous son champ. La suppression
+// d'une règle a sa propre pop-in (ParentDeleteDialog).
 
 import { create } from "zustand";
 
@@ -13,7 +14,8 @@ import { rulesApi, type AliasRow, type ParentRow } from "./rulesApi";
 import { followRename, runTagAction as runAction } from "./tagManager";
 import { displayTag, normalizeTag } from "./tags";
 
-/** Pop-in de confirmation en attente ; `option` : case à cocher (cochée par défaut) passée à `run`. */
+/** Pop-in de confirmation en attente ; `option` : case à cocher (cochée par défaut) passée à `run` ;
+ *  `done` : réponse de l'utilisateur (confirmé ou annulé). */
 export type RuleAsk = {
   title: string;
   message: string;
@@ -21,10 +23,12 @@ export type RuleAsk = {
   danger?: boolean;
   option?: string;
   run: (option: boolean) => Promise<unknown>;
+  done?: (confirmed: boolean) => void;
 };
 
 export const useRuleAsk = create<{ ask: RuleAsk | null }>(() => ({ ask: null }));
-const ask = (request: RuleAsk) => useRuleAsk.setState({ ask: request });
+/** Ouvre la pop-in ; la promesse dit si elle a été confirmée. */
+const ask = (request: RuleAsk) => new Promise<boolean>((done) => useRuleAsk.setState({ ask: { ...request, done } }));
 
 /** Nom d'un tag d'après son identifiant (liste du gestionnaire). */
 export type NameOf = (id: number) => string;
@@ -33,8 +37,20 @@ export type NameOf = (id: number) => string;
  *  curseur d'attente pendant ce temps (GEN-13). */
 const runTagAction = <T>(label: string, call: () => Promise<T>) => runAction(label, () => whileBusy(call));
 
-const q = (name: string) => `« ${displayTag(name)} »`;
-const media = (n: number) => `${formatNumber(n)} ${plural(n, "média")}`;
+/** Tag cité, jamais coupé en fin de ligne (retour T3, point TAGM-16.3) : espaces insécables autour et dedans,
+ *  traits d'union insécables ; un tag plus long qu'une ligne se coupe quand même (`overflow-wrap`, dans la
+ *  pop-in). `copyPlain` rend les caractères ordinaires à la copie. */
+export const q = (name: string) => `« ${displayTag(name).replace(/ /g, " ").replace(/-/g, "‑")} »`;
+/** « 3 médias », jamais coupé entre le nombre et le mot. */
+export const media = (n: number) => `${formatNumber(n)} ${plural(n, "média")}`;
+
+/** Copie d'un texte de pop-in : traits d'union et espaces ordinaires, pour coller un tag dans un champ. */
+export function copyPlain(e: React.ClipboardEvent) {
+  const text = window.getSelection()?.toString();
+  if (!text) return;
+  e.preventDefault();
+  e.clipboardData.setData("text/plain", text.replace(/‑/g, "-").replace(/ /g, " "));
+}
 
 // --- Synonymes
 
@@ -102,74 +118,44 @@ export function deleteAlias(row: AliasRow, nameOf: NameOf) {
   ask({ ...aliasDeletion(row, nameOf), confirmLabel: "Oui" });
 }
 
-// --- Règles de parents
+// --- Règles de parents (refonte, décisions D10 à D10.5)
 
-/** « child → parent » ; renvoie le refus à afficher, ou `null`. */
-export async function addParent(child: { id: number; name: string }, parent: { id: number; name: string }): Promise<string | null> {
+/** « child → parent », allumée ; renvoie le refus à afficher, `null` si elle est créée, `false` si la pop-in
+ *  est annulée (les champs gardent leur texte, retour T3, point TAGM-16.2). Des médias ont déjà l'enfant : une
+ *  case, cochée, y pose aussi le parent (D10.1). */
+export async function addParent(child: { id: number; name: string }, parent: { id: number; name: string }): Promise<string | null | false> {
   const check = await rulesApi.parentCheck(child.id, parent.id).catch((e: unknown) => ({ error: String(e), media: 0 }));
   if (check.error) return check.error;
-  const run = async () => {
-    const added = await runTagAction("Ajouter une règle de parent", () => rulesApi.createParent(child.id, parent.id));
+  const run = async (apply: boolean) => {
+    const added = await runTagAction("Ajouter une règle de parent", () => rulesApi.createParent(child.id, parent.id, apply));
     if (added) showGridBadge(`${q(parent.name)} ajouté à ${media(added)}`);
   };
-  if (check.media === 0) await run();
-  else ask({ title: "Ajouter la règle ?", message: `${q(parent.name)} sera ajouté à ${media(check.media)} qui ${check.media > 1 ? "ont" : "a"} ${q(child.name)}.`, confirmLabel: "Ajouter", run });
-  return null;
-}
-
-const skippedOption = (n: number, child: string, when: string) => `Aussi sur ${n > 1 ? `les ${media(n)} qui ont` : "le média qui a"} reçu ${q(child)} ${when}`;
-
-/** Case d'une règle : décochée, le parent est retiré des médias qui l'ont reçu par elle ; recochée, il
- *  leur est remis, et l'ajout est proposé aux médias qui ont reçu l'enfant entre-temps. */
-export async function toggleParent(row: ParentRow, nameOf: NameOf) {
-  const [child, parent] = [nameOf(row.childId), nameOf(row.parentId)];
-  if (row.enabled) {
-    const done = await runTagAction("Désactiver la règle", () => rulesApi.setParentEnabled(row.id, false, false));
-    if (done !== undefined && row.media > 0) showGridBadge(`${q(parent)} retiré de ${media(row.media)}`);
-    return;
+  if (check.media === 0) {
+    await run(false);
+    return null;
   }
-  const check = await rulesApi.parentEnableCheck(row.id).catch(() => ({ restore: 0, skipped: 0 }));
-  const run = (addSkipped: boolean) => runTagAction("Réactiver la règle", () => rulesApi.setParentEnabled(row.id, true, addSkipped));
-  if (check.restore === 0 && check.skipped === 0) return void (await run(false));
-  ask({
-    title: "Réactiver la règle ?",
-    message: check.restore > 0 ? `${q(parent)} sera remis sur ${media(check.restore)}.` : `La règle s'appliquera de nouveau aux prochains ajouts de ${q(child)}.`,
-    option: check.skipped > 0 ? skippedOption(check.skipped, child, "pendant que la règle était désactivée") : undefined,
-    confirmLabel: "Réactiver",
+  const n = check.media;
+  const confirmed = await ask({
+    title: "Ajouter la règle ?",
+    message: `${q(child.name)} → ${q(parent.name)} : chaque nouvel ajout de ${q(child.name)} posera ${q(parent.name)}.`,
+    option: `Ajouter aussi ${q(parent.name)} ${n > 1 ? `aux ${media(n)} qui ont` : "au média qui a"} déjà ${q(child.name)}`,
+    confirmLabel: "Ajouter",
     run,
   });
+  return confirmed ? null : false;
 }
 
-/** Interrupteur « Auto » ; rallumé, l'ajout est proposé aux médias qui ont reçu l'enfant entre-temps. */
-export async function toggleAuto(row: ParentRow, nameOf: NameOf) {
-  if (row.auto) return void (await runTagAction("Ajout automatique", () => rulesApi.setParentAuto(row.id, false, false)));
-  const check = await rulesApi.parentEnableCheck(row.id).catch(() => ({ restore: 0, skipped: 0 }));
-  const run = (addSkipped: boolean) => runTagAction("Ajout automatique", () => rulesApi.setParentAuto(row.id, true, addSkipped));
-  if (check.skipped === 0) return void (await run(false));
-  const [child, parent] = [nameOf(row.childId), nameOf(row.parentId)];
-  ask({
-    title: "Rallumer l'ajout automatique ?",
-    message: `Chaque nouvel ajout de ${q(child)} posera de nouveau ${q(parent)}.`,
-    option: skippedOption(check.skipped, child, "pendant qu'il était éteint"),
-    confirmLabel: "Rallumer",
-    run,
-  });
+/** Interrupteur d'une règle : éteinte, elle ne pose plus le parent aux nouveaux ajouts de l'enfant ; rien
+ *  n'est retiré, et rien n'est rattrapé en la rallumant (D10, D10.2). */
+export async function toggleParent(row: ParentRow, nameOf: NameOf) {
+  const on = !row.enabled;
+  const done = await runTagAction(on ? "Allumer la règle" : "Éteindre la règle", () => rulesApi.setParentEnabled(row.id, on));
+  if (done !== undefined) showGridBadge(`${q(nameOf(row.childId))} → ${q(nameOf(row.parentId))} : ${on ? "allumée" : "éteinte"}`);
 }
 
-/** Confirmation de la corbeille d'une règle (aussi utilisée par son menu du clic droit, CTX-02). */
-export function parentDeletion(row: ParentRow, nameOf: NameOf) {
-  const [child, parent] = [nameOf(row.childId), nameOf(row.parentId)];
-  return {
-    title: "Supprimer la règle ?",
-    message:
-      row.enabled && row.media > 0
-        ? `${q(parent)} sera retiré ${row.media > 1 ? `des ${media(row.media)} qui l'ont reçu` : "du média qui l'a reçu"} par la règle ${q(child)} → ${q(parent)}.`
-        : `La règle ${q(child)} → ${q(parent)} sera oubliée.`,
-    danger: true,
-    run: () => runTagAction("Supprimer la règle", () => rulesApi.deleteParent(row.id)),
-  };
-}
-
-export function deleteParent(row: ParentRow, nameOf: NameOf) {
-  ask({ ...parentDeletion(row, nameOf), confirmLabel: "Oui" });
+/** Suppression d'une règle (pop-in ParentDeleteDialog) ; `remove` : la case de retrait (D10.3). */
+export async function deleteParent(row: ParentRow, nameOf: NameOf, remove: boolean, removed: number) {
+  const done = await runTagAction("Supprimer la règle", () => rulesApi.deleteParent(row.id, remove));
+  if (done === undefined) return;
+  showGridBadge(remove && removed > 0 ? `${q(nameOf(row.parentId))} retiré de ${media(removed)}` : "Règle supprimée");
 }
