@@ -3,6 +3,29 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Refonte des synonymes et des parents, lot R1 : bases d'essai (27/10/2026) — Backup v64
+
+SPEC : nouvelle demande DEV-07 (retour T3, point AUT.21), livrée `[~]`. Notes ajoutées à TAGM-15 à TAGM-18 : la
+refonte est décidée (document « Refonte synonymes et parents - décisions.md » : décisions D1 à D15, cas limites,
+plan en 8 lots). Aucun changement de l'application.
+
+- **Base `refonte`** (`échantillon test SFW\MyBoard-test\refonte`) : copie de `booru` (bonnes catégories), ses
+  médias pointent vers `BooruScrap - 3k demo - Copie` ; 3 293 médias (les 7 dont le fichier n'est plus dans la copie
+  sont retirés).
+- **Base `refonte-ancien`** : la même, faite avec la version d'avant la refonte, pour tester la conversion : 46
+  groupes de tags proches fusionnés au niveau « Large » (47 anciens synonymes, comme dans `booru-copy` : cattail →
+  cat_tail, hands_up → hand_up…), et les cas A-01 à A-06 (tags `essai_…`, leur description dit le cas) : deux
+  synonymes cochés vers le même tag, un nom seul coché, un synonyme décoché et un nom seul décoché, des règles dans
+  les 4 états avec des médias « sautés », une règle déplacée par une fusion, une fusion faite sans garder l'ancien nom.
+- **Trois fichiers à double-cliquer** dans `MyBoard-test` : « Lancer MyBoard - refonte », « Lancer MyBoard - refonte
+  ancien format », « Remettre les bases refonte à zéro » (recopie les modèles de `refonte-modeles` ; refusé tant
+  qu'un MyBoard tourne).
+
+Vérifié : remise à zéro d'une base volontairement modifiée (contenu identique au modèle ensuite) ; refus quand
+MyBoard tourne ; « Lancer » ouvre bien MyBoard sur `refonte` (dossier de données, version 7 après ouverture, 3 293
+médias) ; dans la version compilée (inchangée), sur une copie : 25 vignettes visibles sur 25 chargées, une image GIF
+et une vidéo lues depuis la copie des fichiers ; compteurs des tags et des médias justes après le retrait des 7 médias.
+
 ## Phase 3, correctifs du test, retouches du lot 16 : titres collés, espace fixe, retour en haut fluide (26/10/2026) — Backup v63
 
 SPEC : `[x]` (validé par toi) : point TAGM-15.14. Livrés `[~]` : TAGM-04 (retouches des points TAGM-15.3 et
