@@ -910,6 +910,8 @@ par tag, et pas si le tag est déjà proposé par son nom).
   verrouillée » quand le service des miniatures ou un import écrit en même temps. Sans les conditions
   ajoutées au déclencheur, retirer un tag ordinaire de 50 000 médias prenait 1,8 s : corrigé (643 ms).
 
+**Remplacée en partie par D-047 (27/10)** : synonymes en groupes avec fusion par nom, règles de parents à un seul interrupteur, règles qui suivent la fusion dans les deux sens.
+
 ## D-043 — Champ à pastilles : une zone éditable tenue par MyBoard (25/10/2026)
 
 **Pourquoi.** Le retour du 25/10 (SEL-12) demande du texte tapé à plusieurs endroits du champ, une sélection à
@@ -991,3 +993,42 @@ collée à 57 px elle aussi. Retour en haut : `glideToTop` (`lib/scroller.ts`), 
 (`requestAnimationFrame`), courbe « ease-out » sur 250 ms, horloge propre qui part de la 1re image et n'avance pas
 de plus de 34 ms par image (une image lente ne fait pas sauter la glissade) ; la molette ne l'interrompt pas
 (GEN-24). `scrollToTop` (changement de page de l'application) reste immédiat.
+
+## D-047 — Refonte des synonymes et des parents : le modèle (27/10/2026)
+
+**Pourquoi.** Au test de la phase 3, l'utilisateur a trouvé le système confus (retour T3, points TAGM-15.12,
+TAGM-15.13, TAGM-16.1, TAGM-16.4, TAGM-11.2) : un « synonyme » était en fait une fusion (il retaggait des
+milliers de médias), décocher et supprimer faisaient presque la même chose, un synonyme décoché ne servait à rien,
+les règles de parents avaient deux réglages et des médias « sautés ». Toutes les décisions ont été prises AVANT de
+coder (document `txt post-test\Refonte synonymes et parents - décisions.md`, décisions D1 à D15 ; SPEC TAGM-20).
+
+**Le modèle.**
+- **Groupe de synonymes** : un ensemble de noms reliés avec un tag principal ; un nom appartient à un seul groupe
+  (en ajouter un d'un autre groupe réunit les deux). Le lien ne change aucun média : une recherche d'un nom vaut
+  pour tout le groupe, en inclusion comme en exclusion, joker compris (D1, D2, D5, D5.1).
+- **Fusion par nom** : chaque nom non principal est soit relié (un vrai tag, à part), soit fusionné dans le
+  principal (ses médias portent le principal). La fusion garde, par nom, ce qu'il faut pour être défaite à
+  l'identique : ses médias, ceux qui avaient déjà le principal, sa catégorie, sa description, son état masqué (le
+  principe de `tag_alias_media`, D-042, étendu). Toujours réversible : plus de fusion définitive (D7). Changer de
+  principal = tout défaire puis refaire vers le nouveau, en une transaction (D3.1). Un nom tapé qui n'est pas un
+  tag devient un nom fusionné sans média (D4.1).
+- **Un seul endroit pour résoudre un nom** (déjà le cas : `tagging::resolve`, `search::term_set`, `tags::find`) :
+  nom fusionné → le principal ; nom relié → son propre tag ; la recherche ajoute ensuite tout le groupe.
+- **Règles de parents** : un seul interrupteur (`enabled`), plus d'« Auto » ni de médias « sautés ». Éteinte, une
+  règle ne retire rien et ne pose plus rien ; rallumée, rien de rétroactif. Le parent n'est posé qu'à l'ajout de
+  l'enfant (une chaîne s'arrête sur un tag déjà là, D10.5). Retirer un parent n'arrive qu'à la suppression de la
+  règle, par une case, et seulement là où la règle l'a posé (`tag_parent_media`, `remove_cascade`,
+  `restore_justified` gardés) (D10 à D10.4).
+- **Fusion et règles** : à la fusion, une règle d'un nom passe au principal ; à la défusion, elle revient. Une
+  règle qui deviendrait un doublon, interne au groupe ou une boucle est mise de côté le temps de la fusion. Une
+  règle dont l'enfant est dans le groupe peut s'étendre à tout le groupe, au choix ; défusionner retire ce que
+  l'extension a posé (D11 à D11.3).
+- **Conversion** à la première ouverture par la nouvelle version : synonyme coché → nom fusionné ; décoché → nom
+  relié (D12.1) ; règle cochée avec « Auto » → allumée, tous les autres états → éteinte, médias inchangés, liste des
+  « sautés » oubliée. Limite connue : une règle déplacée par une ANCIENNE fusion ne sait pas d'où elle vient.
+- **Réserve des médias retirés** (DEL-05) : elle garde aussi les noms d'origine dans les groupes.
+- **Code de partage** : nouveau format seul, sans compatibilité (aucun autre utilisateur) (D13).
+- **Essais** : bases `refonte` et `refonte-ancien` réinitialisables (DEV-07) ; chaque lot y ajoute ses cas ; test
+  complet de tous les cas limites après le lot R8.
+
+Le détail des tables (schéma v8 et suivants) sera ajouté ici avec les lots R2 (parents) et R3 (groupes).
