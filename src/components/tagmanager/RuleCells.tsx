@@ -1,22 +1,25 @@
 // Colonnes « Synonymes » et « Parents » du tableau du gestionnaire (TAGM-15, TAGM-16, Q3-A) : un
-// bouton avec le nombre de règles ouvre une petite liste modifiable, comme la description. Synonymes :
-// les noms redirigés vers ce tag. Parents : les parents du tag (modifiables) puis ses enfants, en
-// lecture seule (ils se modifient depuis leur propre ligne ou la page « Synonymes et parents »).
+// bouton avec le nombre ouvre une petite liste, comme la description. Synonymes : le groupe du tag, en
+// lecture seule jusqu'au lot R4 (proposition 2 A du lot R3), avec un lien vers l'onglet « Synonymes et
+// parents ». Parents : les parents du tag (modifiables) puis ses enfants, en lecture seule (ils se
+// modifient depuis leur propre ligne ou l'onglet).
 
 import { useState } from "react";
 import { createPortal } from "react-dom";
-import { Equal, ListTree } from "lucide-react";
+import { Equal, ListTree, Star } from "lucide-react";
 
 import { TagInput } from "@/components/tags/TagInput";
 import { usePopover } from "@/hooks/usePopover";
 import type { ManagedTag } from "@/lib/api";
 import { formatNumber, plural } from "@/lib/format";
-import type { AliasRow, ParentRow } from "@/lib/rulesApi";
-import { addAlias, addParent } from "@/lib/tagRules";
+import { openTagTab } from "@/lib/router";
+import type { GroupRow, ParentRow } from "@/lib/rulesApi";
+import { addParent } from "@/lib/tagRules";
 import { displayTag, normalizeTag } from "@/lib/tags";
 import { cn } from "@/lib/utils";
 import { useTagResolver } from "./RuleForm";
-import { AliasLine, ParentLine, type TagOf } from "./RuleLines";
+import { ParentLine, TagName, type TagOf } from "./RuleLines";
+import { useGroupFilter } from "./RulesTab";
 
 const WIDTH = 320;
 
@@ -84,22 +87,37 @@ function Panel({ popover, zone, title, children }: { popover: ReturnType<typeof 
 
 const Empty = ({ text }: { text: string }) => <p className="px-1.5 py-1 text-xs text-muted-foreground">{text}</p>;
 
-export function SynonymsCell({ tag, aliases, tagOf }: { tag: ManagedTag; aliases: AliasRow[]; tagOf: TagOf }) {
+export function SynonymsCell({ tag, group, tagOf }: { tag: ManagedTag; group: GroupRow | null; tagOf: TagOf }) {
   const popover = usePopover(WIDTH);
   const label = displayTag(tag.name);
+  const others = group ? group.names.length : 0;
+  const manage = () => {
+    popover.toggle();
+    useGroupFilter.setState({ text: label });
+    openTagTab("rules");
+  };
   return (
     <>
-      <CellButton zone="gestionnaire-tags.synonymes" icon={Equal} count={aliases.length} title={`Synonymes de « ${label} »`} popover={popover} />
+      <CellButton zone="gestionnaire-tags.synonymes" icon={Equal} count={others} title={`Synonymes de « ${label} »`} popover={popover} />
       {popover.open && (
-        <Panel popover={popover} zone="gestionnaire-tags.synonymes.liste" title={`Taper l'un de ces noms donne « ${label} » :`}>
-          {aliases.length ? aliases.map((row) => <AliasLine key={row.id} row={row} tagOf={tagOf} showTarget={false} />) : <Empty text="Aucun synonyme." />}
-          <AddField
-            zone="gestionnaire-tags.synonymes.ajout"
-            placeholder="Ajouter un synonyme…"
-            self={tag.name}
-            listed={aliases.map((row) => row.alias)}
-            onAdd={(text) => addAlias(text, tag)}
-          />
+        <Panel popover={popover} zone="gestionnaire-tags.synonymes.liste" title={group ? `Groupe de synonymes de « ${label} » :` : `« ${label} » n'a pas de synonyme.`}>
+          {group && (
+            <div className="space-y-0.5">
+              <div className="flex h-7 items-center gap-1.5 px-1.5 text-sm">
+                <Star className="h-3.5 w-3.5 shrink-0 fill-[#d9a94e] text-[#d9a94e]" />
+                <TagName tag={tagOf(group.principalId)} />
+              </div>
+              {group.names.map((n) => (
+                <div key={n.id} className="flex h-7 items-center gap-1.5 px-1.5 pl-6 text-sm">
+                  {n.tagId !== null ? <TagName tag={tagOf(n.tagId)} /> : <span className="min-w-0 truncate font-mono text-muted-foreground">{displayTag(n.name)}</span>}
+                  <span className="ml-auto shrink-0 text-[11px] text-muted-foreground">{n.merged ? "fusionné" : "relié"}</span>
+                </div>
+              ))}
+            </div>
+          )}
+          <button type="button" data-zone="gestionnaire-tags.synonymes.gerer" onClick={manage} className="mt-2 w-full rounded-md px-1.5 py-1 text-left text-xs text-[#d9a94e] transition hover:bg-secondary">
+            Gérer dans « Synonymes et parents »
+          </button>
         </Panel>
       )}
     </>

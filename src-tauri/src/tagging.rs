@@ -1,4 +1,4 @@
-//! Pose de tags sur des médias en suivant les synonymes (TAGM-15) et les règles de parents
+//! Pose de tags sur des médias en suivant les groupes de synonymes (TAGM-15, D-047) et les règles de parents
 //! (TAGM-16). Tous les chemins qui ajoutent un tag passent par ici : visionneuse, barre du bas de la
 //! sélection, tags par défaut de l'import, import JSON (DEV-01), fusion, restauration (DEL-05).
 //!
@@ -13,24 +13,22 @@ use rusqlite::{Connection, OptionalExtension, params};
 
 use crate::tags::{DEFAULT_CATEGORY, NewTag, normalize};
 
-/// Tag à poser : son identifiant, et le synonyme tapé s'il y en a un (noté pour pouvoir défaire la
-/// fusion, TAGM-15).
+/// Tag à poser : son identifiant, et le nom fusionné tapé s'il y en a un (noté pour pouvoir défaire la
+/// fusion, D-047).
 #[derive(Clone, Copy, Debug)]
 pub struct Target {
     pub tag_id: i64,
-    pub alias_id: Option<i64>,
+    pub name_id: Option<i64>,
 }
 
-/// Tag désigné par ce nom : un tag existant, sinon le tag principal d'un synonyme actif.
+/// Tag désigné par ce nom : un tag existant (un nom relié est un vrai tag), sinon le principal du groupe où ce
+/// nom est fusionné.
 pub fn resolve(db: &Connection, raw: &str) -> rusqlite::Result<Option<Target>> {
     let Some(name) = normalize(raw) else { return Ok(None) };
-    let tag: Option<i64> = db.prepare_cached("SELECT id FROM tags WHERE name = ?1")?.query_row([&name], |r| r.get(0)).optional()?;
-    if let Some(tag_id) = tag {
-        return Ok(Some(Target { tag_id, alias_id: None }));
+    if let Some(tag_id) = crate::groups::tag_named(db, &name)? {
+        return Ok(Some(Target { tag_id, name_id: None }));
     }
-    db.prepare_cached("SELECT tag_id, id FROM tag_aliases WHERE alias = ?1 AND enabled = 1")?
-        .query_row([&name], |r| Ok(Target { tag_id: r.get(0)?, alias_id: Some(r.get(1)?) }))
-        .optional()
+    Ok(crate::groups::merged_name(db, &name)?.map(|(id, _, principal)| Target { tag_id: principal, name_id: Some(id) }))
 }
 
 /// Comme `resolve`, mais crée le tag s'il n'existe pas (TAGM-07). À appeler dans une transaction
@@ -45,7 +43,7 @@ pub fn resolve_or_create(db: &Connection, tag: &NewTag, now: i64) -> anyhow::Res
         None => db.query_row("SELECT id FROM tag_categories WHERE key = ?1", [DEFAULT_CATEGORY], |r| r.get(0))?,
     };
     db.prepare_cached("INSERT INTO tags (name, category_id, created_at) VALUES (?1, ?2, ?3)")?.execute(params![name, category, now])?;
-    Ok(Some(Target { tag_id: db.last_insert_rowid(), alias_id: None }))
+    Ok(Some(Target { tag_id: db.last_insert_rowid(), name_id: None }))
 }
 
 /// Une règle « enfant → parent ». `active` : allumée (D-047).
@@ -79,13 +77,13 @@ impl Tagger {
         self.by_child.contains_key(&tag)
     }
 
-    /// Pose un tag (tapé, importé…) sur un média, avec ses parents en chaîne ; note le synonyme tapé.
-    /// Renvoie vrai si le tag est nouveau sur ce média.
+    /// Pose un tag (tapé, importé…) sur un média, avec ses parents en chaîne ; note le nom fusionné tapé (le
+    /// défusionner le rendra à ce média). Renvoie vrai si le tag est nouveau sur ce média.
     pub fn attach(&self, db: &Connection, media: i64, target: Target) -> rusqlite::Result<bool> {
         let added = self.put(db, media, target.tag_id, &mut Vec::new())?;
-        if let Some(alias) = target.alias_id {
-            db.prepare_cached("INSERT OR IGNORE INTO tag_alias_media (alias_id, media_id, had_target) VALUES (?1, ?2, ?3)")?
-                .execute(params![alias, media, !added])?;
+        if let Some(name) = target.name_id {
+            db.prepare_cached("INSERT OR IGNORE INTO tag_group_media (name_id, media_id, had_principal) VALUES (?1, ?2, ?3)")?
+                .execute(params![name, media, !added])?;
         }
         Ok(added)
     }

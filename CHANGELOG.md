@@ -3,6 +3,36 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Refonte des synonymes et des parents, lot R3 : groupes de synonymes (28/10/2026) — Backup v67
+
+SPEC : livrés `[~]` : TAGM-15 (retour T3, points TAGM-15.4, TAGM-15.5, TAGM-15.6, TAGM-15.7, TAGM-15.13 ; refonte,
+décisions D1, D2, D2.1, D2.2, D3, D3.1, D4, D4.1, D5, D5.1, D7, D12.1, D14), TAGM-16 (point TAGM-16.5) ; TAGM-20 et
+DEV-07 complétés. Complément de D-047 (schéma 9).
+
+- **Groupes de synonymes** : des noms reliés autour d'un tag principal ; chercher l'un trouve les médias de tous,
+  l'exclure les exclut tous, joker compris. Rien ne change sur les médias tant qu'on ne fusionne pas.
+- **Fusion par nom** : un interrupteur par nom et un pour le groupe (« à moitié » s'il est en partie fusionné) ; la
+  défusion rend à chaque média exactement ses tags.
+- **Ligne dépliable** : étoile pour changer de tag principal, croix pour retirer un nom, corbeille pour supprimer le
+  groupe ; menus du clic droit.
+- **Formulaire** : « Tag principal » et « Synonymes » en pastilles, interrupteur « Fusionner », aperçu du groupe obtenu ;
+  pop-in de fusion avec ton texte (point TAGM-15.7).
+- **Colonne « Synonymes »** du tableau : le groupe du tag, en lecture seule, avec un lien vers l'onglet.
+- **Anciennes bases** : les anciens synonymes deviennent des groupes à la première ouverture.
+- **Parents** (point TAGM-16.5) : bouton « Créer », case de la création sans « aussi ».
+
+Vérifié dans la version compilée, sur des copies des bases d'essai : conversion de `refonte-ancien` (53 anciens
+synonymes → 49 groupes, 51 noms fusionnés et 2 reliés, « essai clebs » devenu un tag sans média ; recherche
+« essai toutou » 3 images, nom fusionné « essai minou » 5, joker « essai tou* » 3, « essai chat -essai matou » 0 ;
+suggestion « essai minou → essai chat » ; défusion puis refusion de « essai minou » : chaque image retrouve exactement
+ses tags) ; formulaire : aperçu (nom qui n'est pas un tag annoncé fusionné sans média), interrupteur éteint, groupe
+créé, champs vidés ; recherche du groupe 4 images, exclusion 4, joker 4 ; ligne « à moitié », panneau ; fusion d'un
+nom (pop-in au texte du point TAGM-15.7) puis défusion exacte ; « tout fusionner » depuis « à moitié » ; changement
+de principal (4 images passent au nouveau), puis tout défaire : chaque image retrouve ses tags d'origine ; retrait
+d'un nom (texte demandé) ; réunion de deux groupes (aperçu, puis groupe réuni) ; nom fusionné tapé sur une image :
+principal posé et noté, rendu à la défusion ; colonne et son lien (onglet filtré sur le tag) ; suppression du groupe
+(les tags restent) ; zéro erreur `tsc` et `clippy`.
+
 ## Refonte des synonymes et des parents, retouches du lot R2 : pop-ins des règles (28/10/2026) — Backup v66
 
 SPEC : `[x]` (validés par toi) : points TAGM-16.2, TAGM-16.3 ; GEN-22 passe en `[~]`. Livré `[~]` : retouches de

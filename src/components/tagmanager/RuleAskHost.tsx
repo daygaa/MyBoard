@@ -24,7 +24,7 @@ function Ask({ ask }: { ask: RuleAsk }) {
       message={
         <div onCopy={copyPlain} className="[overflow-wrap:break-word]">
           {ask.lead && <p className="mb-1.5 text-[15px] text-foreground">{ask.lead}</p>}
-          <p>{ask.message}</p>
+          <p className="whitespace-pre-line">{ask.message}</p>
         </div>
       }
       danger={ask.danger}

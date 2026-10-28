@@ -21,9 +21,10 @@ export function NewTagButton({ tags, rules, tagOf, onCreated }: Props) {
   const names = useMemo(() => new Set(tags.map((t) => t.name)), [tags]);
   const refusal = (name: string) => {
     if (names.has(name)) return "Ce tag existe déjà";
-    const alias = rules.aliases.find((a) => a.enabled && a.alias === name);
-    const target = alias && tagOf(alias.tagId);
-    return target ? `C'est déjà un synonyme de « ${displayTag(target.name)} »` : null;
+    // Nom fusionné dans un groupe (ce n'est plus un tag) : refusé (détail validé le 27/10).
+    const group = rules.mergedNames.get(name);
+    const target = group && tagOf(group.principalId);
+    return target ? `« ${displayTag(name)} » est fusionné dans « ${displayTag(target.name)} »` : null;
   };
   return (
     <>

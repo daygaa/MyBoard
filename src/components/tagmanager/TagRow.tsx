@@ -12,7 +12,7 @@ import { CategorySelect } from "@/components/tags/CategorySelect";
 import { Checkbox } from "@/components/ui/checkbox";
 import type { ManagedTag } from "@/lib/api";
 import { formatNumber } from "@/lib/format";
-import type { AliasRow, ParentRow } from "@/lib/rulesApi";
+import type { GroupRow, ParentRow } from "@/lib/rulesApi";
 import { displayTag, withDescription } from "@/lib/tags";
 import { setTagsCategory, setTagsHidden } from "@/lib/tagManager";
 import { cn, titleIfCut } from "@/lib/utils";
@@ -46,7 +46,7 @@ type Props = {
   onDelete: (tag: ManagedTag) => void;
   onMenu: (e: React.MouseEvent, tag: ManagedTag) => void;
   /** Synonymes du tag, règles dont il est l'enfant, puis le parent (TAGM-15, TAGM-16). */
-  aliases: AliasRow[];
+  group: GroupRow | null;
   parents: ParentRow[];
   childRules: ParentRow[];
   tagOf: TagOf;
@@ -136,7 +136,7 @@ export const TagRow = memo(function TagRow(props: Props) {
         <TagDescriptionButton tag={tag} />
       </div>
       <div className="flex justify-center">
-        <SynonymsCell tag={tag} aliases={props.aliases} tagOf={props.tagOf} />
+        <SynonymsCell tag={tag} group={props.group} tagOf={props.tagOf} />
       </div>
       <div className="flex justify-center">
         <ParentsCell tag={tag} parents={props.parents} childRules={props.childRules} tagOf={props.tagOf} />

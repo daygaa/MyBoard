@@ -246,7 +246,7 @@ export function TagManagerPage() {
             message={
               deleting.length === 1 ? (
                 <TagDeleteMessage tag={deleting[0]} />
-              ) : deleting.some((t) => rules.aliasesOf.has(t.id) || rules.parentsOf.has(t.id) || rules.childrenOf.has(t.id)) ? (
+              ) : deleting.some((t) => rules.groupOf.has(t.id) || rules.parentsOf.has(t.id) || rules.childrenOf.has(t.id)) ? (
                 "Ils seront retirés de tous leurs médias. Leurs synonymes et leurs règles de parents partiront avec eux."
               ) : (
                 "Ils seront retirés de tous leurs médias."

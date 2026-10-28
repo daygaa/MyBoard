@@ -1,20 +1,18 @@
-// Lignes des synonymes (TAGM-15) et des règles de parents (TAGM-16), communes à la page « Synonymes
-// et parents » et aux petites listes du tableau du gestionnaire : synonyme : case (cochée = actif ;
-// décochée = désactivé, en gris, gardé dans la liste) ; règle : interrupteur (éteinte = en gris, refonte D10) ;
-// « synonyme → tag » ou « enfant → parent », nombre de médias notés, corbeille. Clic droit (CTX-16) : les
-// mêmes actions.
+// Lignes des règles de parents (TAGM-16), communes à la page « Synonymes et parents » et aux petites listes
+// du tableau du gestionnaire : interrupteur (éteinte = en gris, refonte D10), « enfant → parent », nombre de
+// médias où le parent a été posé, corbeille. Clic droit (CTX-16) : les mêmes actions. Les groupes de
+// synonymes : GroupLine.tsx.
 
 import { useState } from "react";
 import { ArrowRight, Trash2 } from "lucide-react";
 
-import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import { useCategories } from "@/hooks/useCategories";
 import type { ManagedTag } from "@/lib/api";
-import { openContextMenu, type MenuItem } from "@/lib/contextMenu";
+import { openContextMenu } from "@/lib/contextMenu";
 import { formatNumber, plural } from "@/lib/format";
-import type { AliasRow, ParentRow } from "@/lib/rulesApi";
-import { aliasDeletion, deleteAlias, toggleAlias, toggleParent } from "@/lib/tagRules";
+import type { ParentRow } from "@/lib/rulesApi";
+import { toggleParent } from "@/lib/tagRules";
 import { displayTag } from "@/lib/tags";
 import { cn, titleIfCut } from "@/lib/utils";
 import { ParentDeleteDialog } from "./ParentDeleteDialog";
@@ -26,15 +24,7 @@ const ARROW = "h-3 w-3 shrink-0 text-muted-foreground";
 
 const nameOf = (tagOf: TagOf) => (id: number) => tagOf(id)?.name ?? "?";
 
-/** Entrée rouge du menu, avec la même confirmation que la corbeille (CTX-01, CTX-02). */
-const menuDeletion = (label: string, { title, message, run }: { title: string; message: string; run: () => unknown }): MenuItem => ({
-  label,
-  danger: true,
-  confirm: { title, message, danger: true },
-  run: () => void run(),
-});
-
-function TagName({ tag }: { tag: ManagedTag | undefined }) {
+export function TagName({ tag }: { tag: ManagedTag | undefined }) {
   const { color } = useCategories();
   return (
     <span onMouseEnter={(e) => titleIfCut(e.currentTarget)} className="min-w-0 truncate font-mono" style={{ color: tag && !tag.hidden ? color(tag.categoryId) : undefined }}>
@@ -63,41 +53,6 @@ function Trash({ label, onClick }: { label: string; onClick: () => void }) {
     >
       <Trash2 className="h-3.5 w-3.5" />
     </button>
-  );
-}
-
-export function AliasLine({ row, tagOf, showTarget = true }: { row: AliasRow; tagOf: TagOf; showTarget?: boolean }) {
-  const names = nameOf(tagOf);
-  return (
-    <div
-      data-zone="regles.synonyme"
-      onContextMenu={(e) =>
-        openContextMenu(e, () => [
-          { label: row.enabled ? "Désactiver le synonyme" : "Réactiver le synonyme", run: () => void toggleAlias(row, names) },
-          "separator",
-          menuDeletion("Supprimer le synonyme…", aliasDeletion(row, names)),
-        ])
-      }
-      className={cn(LINE, !row.enabled && "opacity-55")}
-    >
-      <Checkbox
-        checked={row.enabled}
-        onCheckedChange={() => void toggleAlias(row, names)}
-        aria-label={`Synonyme « ${displayTag(row.alias)} » actif`}
-        title={row.enabled ? "Actif. Décocher défait la fusion." : "Désactivé. Cocher le réactive."}
-      />
-      <span onMouseEnter={(e) => titleIfCut(e.currentTarget)} className="min-w-0 truncate font-mono text-muted-foreground">
-        {displayTag(row.alias)}
-      </span>
-      {showTarget && (
-        <>
-          <ArrowRight className={ARROW} />
-          <TagName tag={tagOf(row.tagId)} />
-        </>
-      )}
-      <Count n={row.media} title={`${formatNumber(row.media)} ${plural(row.media, "média noté", "médias notés")} : décocher leur remet « ${displayTag(row.alias)} »`} />
-      <Trash label="Supprimer le synonyme" onClick={() => deleteAlias(row, names)} />
-    </div>
   );
 }
 

@@ -1050,3 +1050,19 @@ dans ces pop-ins a des espaces et des traits d'union insécables (`q`), rendus o
 encore défiler dans ce sens) ; plus de deux chaînes : largeur `(100 % - 2 écarts) / 2,12` (environ 12 % de la 3e
 dépasse) ; les colonnes s'étirent à la hauteur de la plus haute, limitée à 240 px (`max-h-60`), pour que la pop-in
 garde sa taille quand on fait défiler ; une longue colonne s'ouvre centrée sur la règle.
+
+**Complément du 28/10 (lot R3, schéma 9).** Tables `tag_groups` (un principal par groupe), `tag_group_names` (un nom :
+relié = `tag_id`, ou fusionné = `name` et les réglages du tag pour le recréer ; contrainte « l'un ou l'autre ») et
+`tag_group_media` (médias d'un nom fusionné, `had_principal`). `tag_aliases` et `tag_alias_media` sont converties puis
+supprimées (coché → fusionné avec sa liste ; décoché → relié au tag du même nom ; nom seul décoché → tag sans média
+relié). Déclencheurs : un groupe sans nom disparaît ; le principal retiré d'un média le fait sortir des listes des noms
+fusionnés ; les groupes changent ce que trouve une recherche (SRCH-17). « Avait déjà le principal » se compte par le
+média lui-même, pas par un autre nom fusionné du groupe ; défusionner ne retire le principal que des médias qui ne
+l'avaient pas et qu'aucun autre nom fusionné du groupe ne note. Changer de principal : les fusions (avec médias) sont
+défaites, le principal change, l'ancien prend l'état qu'avait le nouveau, puis les fusions sont refaites, en une
+transaction. Réunir deux groupes : les fusions de l'autre sont défaites (les noms sans média suivent tels quels), ses
+noms et son principal rejoignent le groupe et prennent l'état de l'interrupteur. Modules : `groups.rs` (fusion,
+défusion, principal, retrait, suppression), `group_create.rs` (formulaire, réunion, fusions du gestionnaire jusqu'au lot
+R6), `group_list.rs` (liste, aperçu sans écriture, médias concernés). Recherche : un terme (ou un joker) donne les tags
+trouvés, puis les principaux et noms reliés de leurs groupes (`GROUP_TAGS`, une requête). Interface : `GroupForm`,
+`GroupLine`, `lib/groupRules.ts`, interrupteur « à moitié » (`aria-checked="mixed"`).

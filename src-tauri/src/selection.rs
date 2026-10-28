@@ -69,8 +69,8 @@ fn edit_tags(conn: &mut Connection, ids: &str, add: &[NewTag], remove: &[i64]) -
     let tagger = Tagger::load(&tx)?;
     for tag in add {
         let Some(target) = resolve_or_create(&tx, tag, now)? else { continue };
-        if target.alias_id.is_none() && !tagger.has_rules(target.tag_id) {
-            // Ni synonyme à noter ni parent à poser : une seule requête, comme avant le lot 5.
+        if target.name_id.is_none() && !tagger.has_rules(target.tag_id) {
+            // Ni nom fusionné à noter ni parent à poser : une seule requête, comme avant le lot 5.
             tx.prepare_cached(&format!("INSERT OR IGNORE INTO media_tags (media_id, tag_id) SELECT id, ?2 FROM media WHERE id IN ({SELECTION})"))?
                 .execute(params![ids, target.tag_id])?;
             continue;

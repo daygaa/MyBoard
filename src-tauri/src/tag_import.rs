@@ -6,9 +6,10 @@ use rusqlite::{Connection, OptionalExtension, TransactionBehavior, params};
 use serde::{Deserialize, Serialize};
 use tauri::State;
 
+use crate::groups::{self, add_pure, group_of_tag, merged_name, principal, tag_named};
 use crate::tagging::resolve;
 use crate::tags::{DEFAULT_CATEGORY, normalize};
-use crate::{AppState, aliases, db, parents};
+use crate::{AppState, db, parents};
 
 /// Tag d'une liste importée : catégorie par sa clé (« general »…), les identifiants changeant d'une
 /// bibliothèque à l'autre.
@@ -61,8 +62,9 @@ pub struct ImportReport {
     pub tags: Vec<i64>,
     /// Noms déjà présents (tags ou synonymes actifs) : inchangés.
     pub present: Vec<String>,
+    /// Noms ajoutés à des groupes de synonymes.
     pub aliases: Vec<i64>,
-    /// Synonymes ignorés : nom déjà pris (tag ou synonyme), ou tag principal absent.
+    /// Synonymes ignorés : nom déjà pris, tag principal absent ou nom d'un autre groupe.
     pub skipped_aliases: usize,
     pub parents: Vec<i64>,
     /// Règles ignorées : déjà présentes, tag absent, ou boucle.
@@ -88,23 +90,44 @@ fn run(db: &Connection, list: &SharedList, now: i64) -> anyhow::Result<ImportRep
         )?;
         report.tags.push(db.last_insert_rowid());
     }
+    // Groupes de synonymes (jusqu'au nouveau code de partage, lot R8) : un nom coché devient un nom fusionné
+    // sans média s'il n'est pas déjà pris ; un nom décoché relie le tag de ce nom, s'il est libre. Un import ne
+    // fusionne jamais un tag existant : seulement à la main.
     for item in &list.aliases {
         let Some(alias) = normalize(&item.alias) else { continue };
-        let taken: bool = db.query_row(
-            "SELECT EXISTS(SELECT 1 FROM tags WHERE name = ?1) OR EXISTS(SELECT 1 FROM tag_aliases WHERE alias = ?1)",
-            [&alias],
-            |r| r.get(0),
-        )?;
-        // Un nom déjà utilisé ici n'est jamais fusionné par un import : seulement à la main.
-        let Some(target) = resolve(db, &item.tag)?.filter(|_| !taken) else {
+        let Some(target) = resolve(db, &item.tag)? else {
             report.skipped_aliases += 1;
             continue;
         };
-        db.execute(
-            "INSERT INTO tag_aliases (alias, tag_id, enabled, created_at) VALUES (?1, ?2, ?3, ?4)",
-            params![alias, target.tag_id, item.enabled, now],
-        )?;
-        report.aliases.push(db.last_insert_rowid());
+        let p = target.tag_id;
+        // Le principal doit être libre ou déjà principal de son groupe.
+        let group = match group_of_tag(db, p)? {
+            Some(g) if principal(db, g)? == p => Some(g),
+            Some(_) => None,
+            None => {
+                db.execute("INSERT INTO tag_groups (principal_id, created_at) VALUES (?1, ?2)", params![p, now])?;
+                Some(db.last_insert_rowid())
+            }
+        };
+        let tag = tag_named(db, &alias)?;
+        let row = match (group, item.enabled, tag) {
+            (Some(g), true, None) if merged_name(db, &alias)?.is_none() => Some(add_pure(db, g, &alias, now)?),
+            (Some(g), false, Some(t)) if t != p && group_of_tag(db, t)?.is_none() => {
+                db.execute("INSERT INTO tag_group_names (group_id, tag_id, created_at) VALUES (?1, ?2, ?3)", params![g, t, now])?;
+                Some(db.last_insert_rowid())
+            }
+            _ => None,
+        };
+        match row {
+            Some(id) => report.aliases.push(id),
+            None => {
+                report.skipped_aliases += 1;
+                // Groupe créé pour rien : il ne reste pas vide.
+                if let Some(g) = group {
+                    db.execute("DELETE FROM tag_groups WHERE id = ?1 AND NOT EXISTS (SELECT 1 FROM tag_group_names WHERE group_id = ?1)", [g])?;
+                }
+            }
+        }
     }
     for rule in &list.parents {
         let (Some(child), Some(parent)) = (resolve(db, &rule.child)?, resolve(db, &rule.parent)?) else {
@@ -152,7 +175,7 @@ pub async fn import_tags(state: State<'_, AppState>, list: SharedList) -> Result
 }
 
 /// « Annuler » après l'import : les règles créées sont supprimées (les parents qu'elles ont posés sont retirés),
-/// puis les synonymes et les tags créés.
+/// puis les noms ajoutés aux groupes et les tags créés.
 #[tauri::command]
 pub async fn undo_tag_import(state: State<'_, AppState>, tags: Vec<i64>, aliases: Vec<i64>, parents: Vec<i64>) -> Result<(), String> {
     with_tx(&state, true, |db, _| {
@@ -160,7 +183,7 @@ pub async fn undo_tag_import(state: State<'_, AppState>, tags: Vec<i64>, aliases
             parents::delete(db, id, true)?;
         }
         for id in aliases {
-            aliases::delete(db, id)?;
+            groups::remove_name(db, id)?;
         }
         for id in tags {
             db.execute("DELETE FROM tags WHERE id = ?1", [id])?;

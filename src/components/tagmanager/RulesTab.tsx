@@ -1,19 +1,25 @@
-// Onglet « Synonymes et parents » du gestionnaire de tags (TAGM-15, TAGM-16) : toutes les règles en un
-// seul endroit, en deux colonnes côte à côte. Chacune : un champ pour ajouter une règle, un filtre par
-// nom, puis la liste (synonymes : case pour désactiver / réactiver ; parents : interrupteur, refonte D10 ;
+// Onglet « Synonymes et parents » du gestionnaire de tags (TAGM-15, TAGM-16, refonte TAGM-20) : tout en un
+// seul endroit, en deux colonnes côte à côte. Synonymes : le formulaire de création (GroupForm), un filtre
+// par nom, puis les groupes (GroupLine) ; parents : deux champs, un filtre, les règles (interrupteur, D10 ;
 // corbeille). La page ne défile pas : les tableaux s'arrêtent au bas de la fenêtre et chaque liste a sa
 // barre de défilement (demande du 26/10), qui garde la molette (GEN-24).
 
 import { useMemo, useState, type ReactNode } from "react";
 import { Search } from "lucide-react";
+import { create } from "zustand";
 
 import type { RulesIndex } from "@/hooks/useTagRules";
 import type { ManagedTag } from "@/lib/api";
 import { formatNumber } from "@/lib/format";
-import { addAlias, addParent } from "@/lib/tagRules";
+import { addParent } from "@/lib/tagRules";
 import { normalizeTag } from "@/lib/tags";
+import { GroupForm } from "./GroupForm";
+import { GroupLine } from "./GroupLine";
 import { RuleForm, useTagResolver } from "./RuleForm";
-import { AliasLine, ParentLine, type TagOf } from "./RuleLines";
+import { ParentLine, type TagOf } from "./RuleLines";
+
+/** Filtre des synonymes, réglable d'ailleurs (lien « Gérer dans « Synonymes et parents » » du tableau). */
+export const useGroupFilter = create<{ text: string }>(() => ({ text: "" }));
 
 function Panel({ zone, title, count, help, form, filter, onFilter, children, empty }: {
   zone: string;
@@ -60,22 +66,19 @@ export function RulesTab({ tags, rules }: { tags: ManagedTag[]; rules: RulesInde
   const tagOf: TagOf = (id) => byId.get(id);
   const name = (id: number) => byId.get(id)?.name ?? "";
   const { resolve, dialog } = useTagResolver();
-  const [aliasFilter, setAliasFilter] = useState("");
+  const groupFilter = useGroupFilter((s) => s.text);
   const [parentFilter, setParentFilter] = useState("");
-  const a = normalizeTag(aliasFilter);
+  const g = normalizeTag(groupFilter);
   const p = normalizeTag(parentFilter);
 
-  const aliases = rules.aliases
-    .filter((r) => matches(a, r.alias, name(r.tagId)))
-    .sort((x, y) => name(x.tagId).localeCompare(name(y.tagId)) || x.alias.localeCompare(y.alias));
+  // Un groupe passe le filtre si un de ses noms (principal, relié ou fusionné) le contient.
+  const groups = rules.groups
+    .filter((r) => matches(g, name(r.principalId), ...r.names.map((n) => n.name)))
+    .sort((x, y) => name(x.principalId).localeCompare(name(y.principalId)));
   const parents = rules.parents
     .filter((r) => matches(p, name(r.childId), name(r.parentId)))
     .sort((x, y) => name(x.childId).localeCompare(name(y.childId)) || name(x.parentId).localeCompare(name(y.parentId)));
 
-  const createAlias = async (alias: string, target: string) => {
-    const tag = await resolve(target);
-    return tag ? addAlias(alias, tag) : null;
-  };
   // Pop-in « Créer un nouveau tag » ou confirmation annulée : les champs gardent leur texte (TAGM-16.2).
   const createParent = async (child: string, parent: string) => {
     const from = await resolve(child);
@@ -89,15 +92,15 @@ export function RulesTab({ tags, rules }: { tags: ManagedTag[]; rules: RulesInde
       <Panel
         zone="regles.synonymes"
         title="Synonymes"
-        count={rules.aliases.length}
-        help="Taper, importer ou chercher le synonyme donne le tag principal. Un tag existant devient synonyme par fusion ; décocher la défait."
-        form={<RuleForm zone="regles.synonymes.ajout" placeholders={["Synonyme…", "Tag principal…"]} onAdd={createAlias} />}
-        filter={aliasFilter}
-        onFilter={setAliasFilter}
-        empty={rules.aliases.length ? "Aucun synonyme ne correspond au filtre." : "Aucun synonyme pour le moment."}
+        count={rules.groups.length}
+        help="Des noms reliés : chercher l'un trouve les médias de tous. Fusionner un nom fait passer ses médias au tag principal ; éteindre la fusion la défait."
+        form={<GroupForm tags={tags} tagOf={tagOf} />}
+        filter={groupFilter}
+        onFilter={(text) => useGroupFilter.setState({ text })}
+        empty={rules.groups.length ? "Aucun groupe ne correspond au filtre." : "Aucun synonyme pour le moment."}
       >
-        {aliases.map((row) => (
-          <AliasLine key={row.id} row={row} tagOf={tagOf} />
+        {groups.map((row) => (
+          <GroupLine key={row.id} group={row} tagOf={tagOf} />
         ))}
       </Panel>
       <Panel

@@ -1,5 +1,5 @@
 // Ajout d'un synonyme ou d'une règle de parent : un ou deux champs à suggestions (« synonyme → tag »,
-// « enfant → parent »), Entrée ou « Ajouter ». Un tag tapé qui n'existe pas encore passe par la pop-in
+// « enfant → parent »), Entrée ou « Créer » (retour T3, point TAGM-16.5). Un tag tapé qui n'existe pas encore passe par la pop-in
 // « Créer un nouveau tag » (choix de la catégorie) ; un synonyme tapé donne son tag principal. Le refus
 // éventuel (nom pris, boucle…) s'affiche sous les champs.
 
@@ -57,7 +57,7 @@ type Props = {
   className?: string;
 };
 
-/** Deux champs « gauche → droite » et « Ajouter ». */
+/** Deux champs « gauche → droite » et « Créer ». */
 export function RuleForm({ zone, placeholders, onAdd, className }: Props) {
   const [left, setLeft] = useState("");
   const [right, setRight] = useState("");
@@ -104,7 +104,7 @@ export function RuleForm({ zone, placeholders, onAdd, className }: Props) {
           onClick={() => void submit()}
           className={cn("h-8 bg-[#d9a94e] text-xs text-[#1a1408] hover:bg-[#e3b75f] disabled:hover:bg-[#d9a94e]")}
         >
-          Ajouter
+          Créer
         </Button>
       </div>
       {error && <p data-zone={`${zone}.refus`} className="mt-1.5 text-xs text-rose-300">{error}</p>}

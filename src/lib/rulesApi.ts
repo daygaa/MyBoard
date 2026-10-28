@@ -1,19 +1,32 @@
-// Synonymes et tags parents (TAGM-15 à TAGM-18) : appels au cœur Rust (src-tauri/src/tag_rules.rs,
-// tag_import.rs) et types échangés.
+// Groupes de synonymes et tags parents (TAGM-15 à TAGM-18, refonte TAGM-20) : appels au cœur Rust
+// (src-tauri/src/tag_rules.rs, tag_import.rs) et types échangés.
 
 import { invoke } from "@tauri-apps/api/core";
 
 import type { SharedTag } from "./api";
 
-/** Synonyme « alias → tag principal » ; `media` : médias notés pour défaire la fusion. */
-export type AliasRow = { id: number; alias: string; tagId: number; enabled: boolean; media: number; createdAt: number };
+/** Nom d'un groupe (hors principal) : relié (`tagId`, un vrai tag) ou fusionné (`tagId` vide) ; `media` :
+ *  médias du tag, ou médias notés pour défaire la fusion. */
+export type NameRow = { id: number; tagId: number | null; name: string; merged: boolean; media: number };
+/** Groupe de synonymes ; `media` : médias que trouve la recherche d'un de ses noms. */
+export type GroupRow = { id: number; principalId: number; media: number; names: NameRow[]; createdAt: number };
 /** Règle « enfant → parent » ; `enabled` = son interrupteur (D-047) ; `media` : médias qui ont reçu le
  *  parent par elle. */
 export type ParentRow = { id: number; childId: number; parentId: number; enabled: boolean; media: number; createdAt: number };
-export type TagRules = { aliases: AliasRow[]; parents: ParentRow[] };
+export type TagRules = { groups: GroupRow[]; parents: ParentRow[] };
 
-/** Refus expliqué, ou médias du tag qui sera fusionné (`null` : aucun tag de ce nom). */
-export type AliasCheck = { error: string | null; tagMedia: number | null };
+export type PreviewName = { name: string; merged: boolean; media: number };
+/** Aperçu du formulaire de création (rien n'est écrit) : voir `group_list.rs`. */
+export type GroupPreview = {
+  principal: string | null;
+  newPrincipal: boolean;
+  principalFrom: string | null;
+  existing: PreviewName[];
+  added: PreviewName[];
+  pure: string[];
+  joined: string[];
+  fullyMerged: boolean;
+};
 /** Refus expliqué, ou médias qui ont déjà l'enfant sans le parent (case de la confirmation). */
 export type RuleCheck = { error: string | null; media: number };
 /** Une chaîne, du tag le plus bas au plus haut (noms) ; `at` : place de l'enfant de la règle (son parent suit). */
@@ -38,12 +51,16 @@ export type ImportReport = {
 
 export const rulesApi = {
   list: () => invoke<TagRules>("list_tag_rules"),
-  aliasCheck: (alias: string, target: number) => invoke<AliasCheck>("alias_check", { alias, target }),
-  createAlias: (alias: string, target: number) => invoke<void>("create_alias", { alias, target }),
-  /** Médias du tag du même nom, fusionné à nouveau si l'on recoche ; `null` : aucun. */
-  aliasEnableCheck: (id: number) => invoke<number | null>("alias_enable_check", { id }),
-  setAliasEnabled: (id: number, enabled: boolean) => invoke<void>("set_alias_enabled", { id, enabled }),
-  deleteAlias: (id: number) => invoke<void>("delete_alias", { id }),
+  groupPreview: (principal: string, names: string[]) => invoke<GroupPreview>("group_preview", { principal, names }),
+  /** `merge` : l'interrupteur « Fusionner » du formulaire ; renvoie le groupe. */
+  createGroup: (principal: number, names: string[], merge: boolean) => invoke<number>("create_group", { principal, names, merge }),
+  setNameMerged: (id: number, merged: boolean) => invoke<void>("set_name_merged", { id, merged }),
+  setGroupMerged: (id: number, merged: boolean) => invoke<void>("set_group_merged", { id, merged }),
+  removeGroupName: (id: number) => invoke<void>("remove_group_name", { id }),
+  deleteGroup: (id: number) => invoke<void>("delete_group", { id }),
+  /** Médias qui passeront au nouveau principal (D3.1). */
+  principalCheck: (group: number, name: number) => invoke<number>("principal_check", { group, name }),
+  setGroupPrincipal: (group: number, name: number) => invoke<void>("set_group_principal", { group, name }),
   parentCheck: (child: number, parent: number) => invoke<RuleCheck>("parent_check", { child, parent }),
   /** `apply` : poser aussi le parent sur les médias qui ont déjà l'enfant ; renvoie le nombre de médias qui
    *  l'ont reçu. */

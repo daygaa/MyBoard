@@ -125,7 +125,7 @@ export function TagTable({ tags, checked, editing, sort, onSort, onCheckAll, rul
                   color={color(tag.categoryId)}
                   checked={checked.has(tag.id)}
                   editing={editing === tag.id}
-                  aliases={rules.aliasesOf.get(tag.id) ?? NONE}
+                  group={rules.groupOf.get(tag.id) ?? null}
                   parents={rules.parentsOf.get(tag.id) ?? (NONE as ParentRow[])}
                   childRules={rules.childrenOf.get(tag.id) ?? NONE}
                   tagOf={tagOf}

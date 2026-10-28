@@ -1,13 +1,15 @@
 //! MyBoard — partie Rust : base de données, import, miniatures, tags, recherche, visionneuse.
 //! L'interface (React) appelle les commandes déclarées ici via `invoke`.
 
-pub mod aliases;
 pub mod clipboard_text;
 pub mod db;
 pub mod deletion;
 pub mod display;
 pub mod favorites;
 pub mod folders;
+pub mod group_create;
+pub mod group_list;
+pub mod groups;
 pub mod ffmpeg;
 pub mod formats;
 pub mod fullscreen;
@@ -152,11 +154,14 @@ pub fn run() {
             tag_import::undo_tag_import,
             tag_manager::ignore_similar,
             tag_rules::list_tag_rules,
-            tag_rules::alias_check,
-            tag_rules::create_alias,
-            tag_rules::alias_enable_check,
-            tag_rules::set_alias_enabled,
-            tag_rules::delete_alias,
+            tag_rules::group_preview,
+            tag_rules::create_group,
+            tag_rules::set_name_merged,
+            tag_rules::set_group_merged,
+            tag_rules::remove_group_name,
+            tag_rules::delete_group,
+            tag_rules::principal_check,
+            tag_rules::set_group_principal,
             tag_rules::parent_check,
             tag_rules::create_parent,
             tag_rules::parent_delete_check,

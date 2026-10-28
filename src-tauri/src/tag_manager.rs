@@ -5,13 +5,13 @@
 //!
 //! Chaque opération multiple est une transaction ; les compteurs (`tags.media_count`,
 //! `media.tag_count`) et l'index de recherche suivent par les déclencheurs de la base (D-005, D-027).
-//! Fusion : `aliases::merge_into` (synonymes, règles de parents, TAGM-15 à TAGM-17).
+//! Fusion : `group_create::merge_tag` (groupes de synonymes, règles de parents, TAGM-15 à TAGM-17, D-047).
 
 use rusqlite::{Connection, OptionalExtension, TransactionBehavior, params, params_from_iter};
 use serde::{Deserialize, Serialize};
 use tauri::State;
 
-use crate::aliases::merge_into;
+use crate::group_create::merge_tag;
 use crate::tags::normalize;
 use crate::{AppState, db};
 
@@ -40,8 +40,8 @@ pub struct TagManagerData {
 }
 
 /// Résultat d'un renommage : fait, ou nom déjà porté par un autre tag (fusion proposée, CTX-04) ou
-/// par un synonyme actif (`alias` : fusion proposée avec son tag principal, TAGM-15) ; `OwnAlias` :
-/// le nom est un synonyme de ce tag lui-même.
+/// par un nom fusionné d'un groupe (`alias` : fusion proposée avec son principal, TAGM-15) ; `OwnAlias` :
+/// le nom est fusionné dans ce tag lui-même.
 #[derive(Debug, Serialize)]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum Renamed {
@@ -87,7 +87,8 @@ fn rename(db: &Connection, id: i64, raw: &str) -> rusqlite::Result<Renamed> {
     }
     let aliased: Option<(i64, String, i64)> = db
         .query_row(
-            "SELECT t.id, t.name, t.media_count FROM tag_aliases a JOIN tags t ON t.id = a.tag_id WHERE a.alias = ?1 AND a.enabled = 1",
+            "SELECT t.id, t.name, t.media_count FROM tag_group_names n JOIN tag_groups g ON g.id = n.group_id JOIN tags t ON t.id = g.principal_id
+             WHERE n.name = ?1",
             [&name],
             |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
         )
@@ -108,15 +109,15 @@ pub struct MergeGroup {
     pub target: i64,
 }
 
-/// Fusionne chaque groupe dans son tag gardé, tous en une transaction : leurs médias passent au tag
-/// gardé (avec ses parents), puis ils sont supprimés ; avec `keep`, leurs noms deviennent des synonymes
-/// du tag gardé, ce qui permet de défaire la fusion (TAGM-17, GEN-21).
+/// Fusionne chaque groupe dans son tag gardé, tous en une transaction : chaque tag rejoint le groupe de
+/// synonymes du tag gardé, fusionné (ses médias passent au tag gardé, avec ses parents) ; sans `keep`, son nom
+/// est ensuite oublié (TAGM-17, GEN-21 ; ces pop-ins sont revues au lot R6).
 fn merge(conn: &mut Connection, groups: &[MergeGroup], keep: bool) -> anyhow::Result<()> {
     let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
     let now = db::now_ms();
     for group in groups {
         for &source in &group.sources {
-            merge_into(&tx, source, group.target, keep, now)?;
+            merge_tag(&tx, source, group.target, keep, now)?;
         }
     }
     tx.commit()?;

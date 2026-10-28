@@ -1,6 +1,6 @@
 //! Tags et catégories : autocomplétion, tags d'une page, ajout / retrait sur un média. Gestionnaire de
 //! tags (renommer, fusionner, masquer…) : `tag_manager.rs` ; synonymes et parents : `tagging.rs`,
-//! `aliases.rs`, `parents.rs`.
+//! `groups.rs`, `parents.rs`.
 //!
 //! Les compteurs (`tags.media_count`, `media.tag_count`) sont tenus par les déclencheurs SQL
 //! (D-005) : ce module n'y touche jamais. Un tag est lié à l'identifiant du média, jamais à
@@ -42,7 +42,7 @@ pub struct TagInfo {
     pub hidden: bool,
     /// Bulle d'aide au survol du tag (TAGM-14).
     pub description: Option<String>,
-    /// Suggestion venue d'un synonyme (TAGM-15) : le nom tapé, affiché « synonyme → nom ».
+    /// Suggestion venue d'un nom fusionné (TAGM-15, D-047) : le nom tapé, affiché « nom → principal ».
     #[serde(skip_serializing_if = "Option::is_none")]
     pub alias: Option<String>,
 }
@@ -73,7 +73,7 @@ pub(crate) fn tag_from_row(r: &rusqlite::Row) -> rusqlite::Result<TagInfo> {
     Ok(TagInfo { id: r.get(0)?, name: r.get(1)?, category_id: r.get(2)?, media_count: r.get(3)?, hidden: r.get(4)?, description: r.get(5)?, alias: None })
 }
 
-/// Tag principal d'un synonyme, avec le synonyme (colonne 6).
+/// Principal d'un nom fusionné, avec ce nom (colonne 6).
 fn alias_from_row(r: &rusqlite::Row) -> rusqlite::Result<TagInfo> {
     Ok(TagInfo { alias: Some(r.get(6)?), ..tag_from_row(r)? })
 }
@@ -88,7 +88,8 @@ pub fn categories(db: &Connection) -> rusqlite::Result<Vec<Category>> {
 
 /// Autocomplétion (SRCH-06, D-016) : d'abord les tags qui COMMENCENT par le texte, puis ceux
 /// qui le CONTIENNENT ; les plus utilisés en premier. Les tags masqués ne sont pas proposés (TAGM-05).
-/// Les synonymes actifs (TAGM-15) sont proposés « synonyme → tag », sauf si le tag l'est déjà.
+/// Les noms fusionnés (TAGM-15, D-047) sont proposés « nom → principal », sauf si le principal l'est déjà ; un
+/// nom relié est un vrai tag, proposé comme tel.
 pub fn autocomplete(db: &Connection, text: &str) -> rusqlite::Result<Vec<TagInfo>> {
     let Some(prefix) = normalize(text) else { return Ok(Vec::new()) };
     // Bornes [prefix, prefix + U+10FFFF) : la recherche utilise l'index unique sur `name`.
@@ -100,8 +101,8 @@ pub fn autocomplete(db: &Connection, text: &str) -> rusqlite::Result<Vec<TagInfo
         .collect::<rusqlite::Result<Vec<_>>>()?;
     let aliases = db
         .prepare_cached(&format!(
-            "SELECT {T_COLUMNS}, a.alias FROM tag_aliases a JOIN tags t ON t.id = a.tag_id
-             WHERE a.alias >= ?1 AND a.alias < ?2 AND a.enabled = 1 AND t.hidden = 0 ORDER BY t.media_count DESC, a.alias LIMIT ?3"
+            "SELECT {T_COLUMNS}, n.name FROM tag_group_names n JOIN tag_groups g ON g.id = n.group_id JOIN tags t ON t.id = g.principal_id
+             WHERE n.name >= ?1 AND n.name < ?2 AND t.hidden = 0 ORDER BY t.media_count DESC, n.name LIMIT ?3"
         ))?
         .query_map(params![prefix, upper, limit], alias_from_row)?
         .collect::<rusqlite::Result<Vec<_>>>()?;
@@ -113,14 +114,14 @@ pub fn autocomplete(db: &Connection, text: &str) -> rusqlite::Result<Vec<TagInfo
             .collect::<rusqlite::Result<Vec<_>>>()?;
         let aliases = db
             .prepare_cached(&format!(
-                "SELECT {T_COLUMNS}, a.alias FROM tag_aliases a JOIN tags t ON t.id = a.tag_id
-                 WHERE instr(a.alias, ?1) > 1 AND a.enabled = 1 AND t.hidden = 0 ORDER BY t.media_count DESC, a.alias LIMIT ?2"
+                "SELECT {T_COLUMNS}, n.name FROM tag_group_names n JOIN tag_groups g ON g.id = n.group_id JOIN tags t ON t.id = g.principal_id
+                 WHERE instr(n.name, ?1) > 1 AND t.hidden = 0 ORDER BY t.media_count DESC, n.name LIMIT ?2"
             ))?
             .query_map(params![prefix, limit], alias_from_row)?
             .collect::<rusqlite::Result<Vec<_>>>()?;
         found.extend(merged(tags, aliases));
     }
-    // Un tag proposé par son nom ne l'est pas aussi par un synonyme ; un seul synonyme par tag.
+    // Un tag proposé par son nom ne l'est pas aussi par un nom fusionné ; un seul nom fusionné par tag.
     let named: HashSet<i64> = found.iter().filter(|t| t.alias.is_none()).map(|t| t.id).collect();
     let mut aliased = HashSet::new();
     found.retain(|t| t.alias.is_none() || (!named.contains(&t.id) && aliased.insert(t.id)));
@@ -128,7 +129,7 @@ pub fn autocomplete(db: &Connection, text: &str) -> rusqlite::Result<Vec<TagInfo
     Ok(found)
 }
 
-/// Tags et synonymes trouvés, les plus utilisés en premier (à égalité, le tag avant le synonyme).
+/// Tags et noms fusionnés trouvés, les plus utilisés en premier (à égalité, le tag avant le nom fusionné).
 fn merged(tags: Vec<TagInfo>, aliases: Vec<TagInfo>) -> Vec<TagInfo> {
     let mut all = tags;
     all.extend(aliases);
@@ -136,15 +137,17 @@ fn merged(tags: Vec<TagInfo>, aliases: Vec<TagInfo>) -> Vec<TagInfo> {
     all
 }
 
-/// Tag existant portant exactement ce nom (après normalisation), ou tag principal du synonyme actif
-/// de ce nom (TAGM-15 : taper le synonyme donne le tag principal, sans pop-in de création).
+/// Tag existant portant exactement ce nom (après normalisation), ou principal du groupe où ce nom est
+/// fusionné (TAGM-15, D-047 : taper le nom donne le principal, sans pop-in de création).
 pub fn find(db: &Connection, name: &str) -> rusqlite::Result<Option<TagInfo>> {
     let Some(name) = normalize(name) else { return Ok(None) };
     let tag = db.prepare_cached(&format!("SELECT {TAG_COLUMNS} FROM tags WHERE name = ?1"))?.query_row([&name], tag_from_row).optional()?;
     if tag.is_some() {
         return Ok(tag);
     }
-    db.prepare_cached(&format!("SELECT {T_COLUMNS}, a.alias FROM tag_aliases a JOIN tags t ON t.id = a.tag_id WHERE a.alias = ?1 AND a.enabled = 1"))?
+    db.prepare_cached(&format!(
+        "SELECT {T_COLUMNS}, n.name FROM tag_group_names n JOIN tag_groups g ON g.id = n.group_id JOIN tags t ON t.id = g.principal_id WHERE n.name = ?1"
+    ))?
         .query_row([&name], alias_from_row)
         .optional()
 }
@@ -190,8 +193,8 @@ pub async fn page_tags(state: State<'_, AppState>, ids: Vec<i64>) -> Result<Vec<
     tags_of_media(&state.db.lock().unwrap(), &ids, false).map_err(|e| e.to_string())
 }
 
-/// Ajoute un tag à un média (VIEW-22) ; le crée s'il n'existe pas (TAGM-07). Un synonyme donne son
-/// tag principal (TAGM-15) ; les parents suivent (TAGM-16).
+/// Ajoute un tag à un média (VIEW-22) ; le crée s'il n'existe pas (TAGM-07). Un nom fusionné donne son
+/// principal (TAGM-15) ; les parents suivent (TAGM-16).
 #[tauri::command]
 pub async fn add_media_tag(state: State<'_, AppState>, media_id: i64, tag: NewTag) -> Result<(), String> {
     let mut conn = state.db.lock().unwrap();

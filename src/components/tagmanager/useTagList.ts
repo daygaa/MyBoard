@@ -43,7 +43,7 @@ export function useTagList(rules: RulesIndex) {
       count: (a, b) => a.mediaCount - b.mediaCount,
       created: (a, b) => a.createdAt - b.createdAt,
       description: (a, b) => Number(!!a.description) - Number(!!b.description),
-      aliases: (a, b) => (rules.aliasesOf.get(a.id)?.length ?? 0) - (rules.aliasesOf.get(b.id)?.length ?? 0),
+      aliases: (a, b) => (rules.groupOf.get(a.id)?.names.length ?? 0) - (rules.groupOf.get(b.id)?.names.length ?? 0),
       parents: (a, b) => (rules.parentsOf.get(a.id)?.length ?? 0) - (rules.parentsOf.get(b.id)?.length ?? 0),
     };
     const sign = sort.desc ? -1 : 1;
