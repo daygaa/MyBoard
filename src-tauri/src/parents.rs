@@ -27,14 +27,19 @@ pub struct RuleCheck {
 pub struct DeleteCheck {
     /// Médias où la règle a posé le parent (case de retrait).
     pub media: i64,
-    /// Autres tags posés par elle en chaîne : ils partent avec le parent.
-    pub chained: Vec<String>,
-    /// Chaînes qui passent par la règle, du plus bas au plus haut (noms) ; vide pour une règle seule.
-    pub chains: Vec<Vec<String>>,
+    /// Chaînes qui passent par la règle ; vide pour une règle seule.
+    pub chains: Vec<Chain>,
 }
 
-/// Chaînes montrées au plus (une règle peut avoir plusieurs parents ou enfants).
-const MAX_CHAINS: usize = 3;
+/// Une chaîne, du tag le plus bas au plus haut (noms) ; `at` : place de l'enfant de la règle (son parent suit).
+#[derive(Debug, Serialize)]
+pub struct Chain {
+    pub tags: Vec<String>,
+    pub at: usize,
+}
+
+/// Chaînes montrées au plus (une règle peut avoir plusieurs parents ou enfants) : elles défilent dans la pop-in.
+const MAX_CHAINS: usize = 20;
 
 fn name(db: &Connection, id: i64) -> rusqlite::Result<String> {
     db.query_row("SELECT name FROM tags WHERE id = ?1", [id], |r| r.get(0)).map(|n: String| n.replace('_', " "))
@@ -137,30 +142,28 @@ fn paths(db: &Connection, start: i64, up: bool) -> rusqlite::Result<Vec<Vec<i64>
 }
 
 pub fn delete_check(db: &Connection, id: i64) -> rusqlite::Result<DeleteCheck> {
-    let Some((child, parent)) = rule_of(db, id)? else { return Ok(DeleteCheck { media: 0, chained: Vec::new(), chains: Vec::new() }) };
+    let Some((child, parent)) = rule_of(db, id)? else { return Ok(DeleteCheck { media: 0, chains: Vec::new() }) };
     let media = db.query_row(
         "SELECT COUNT(DISTINCT media_id) FROM tag_parent_media WHERE rule_id = ?1 AND tag_id = ?2",
         params![id, parent],
         |r| r.get(0),
     )?;
-    let chained = db
-        .prepare("SELECT DISTINCT t.name FROM tag_parent_media l JOIN tags t ON t.id = l.tag_id WHERE l.rule_id = ?1 AND l.tag_id != ?2 ORDER BY t.name")?
-        .query_map(params![id, parent], |r| r.get(0))?
-        .collect::<rusqlite::Result<Vec<String>>>()?;
     let mut chains = Vec::new();
     'all: for mut below in paths(db, child, false)? {
         below.reverse();
+        let at = below.len() - 1;
         for above in paths(db, parent, true)? {
             let ids = [below.clone(), above].concat();
             if ids.len() > 2 {
-                chains.push(ids.iter().map(|&t| db.query_row("SELECT name FROM tags WHERE id = ?1", [t], |r| r.get(0))).collect::<rusqlite::Result<Vec<String>>>()?);
+                let tags = ids.iter().map(|&t| db.query_row("SELECT name FROM tags WHERE id = ?1", [t], |r| r.get(0))).collect::<rusqlite::Result<Vec<String>>>()?;
+                chains.push(Chain { tags, at });
             }
             if chains.len() >= MAX_CHAINS {
                 break 'all;
             }
         }
     }
-    Ok(DeleteCheck { media, chained, chains })
+    Ok(DeleteCheck { media, chains })
 }
 
 /// Corbeille : la règle est oubliée ; avec `remove`, les tags qu'elle a posés sont retirés de ces médias, avec

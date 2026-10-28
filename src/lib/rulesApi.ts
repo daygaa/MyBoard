@@ -16,9 +16,10 @@ export type TagRules = { aliases: AliasRow[]; parents: ParentRow[] };
 export type AliasCheck = { error: string | null; tagMedia: number | null };
 /** Refus expliqué, ou médias qui ont déjà l'enfant sans le parent (case de la confirmation). */
 export type RuleCheck = { error: string | null; media: number };
-/** Suppression d'une règle : médias où elle a posé le parent, tags venus avec lui en chaîne, chaînes qui
- *  passent par elle (noms, du plus bas au plus haut). */
-export type DeleteCheck = { media: number; chained: string[]; chains: string[][] };
+/** Une chaîne, du tag le plus bas au plus haut (noms) ; `at` : place de l'enfant de la règle (son parent suit). */
+export type Chain = { tags: string[]; at: number };
+/** Suppression d'une règle : médias où elle a posé le parent, chaînes qui passent par elle. */
+export type DeleteCheck = { media: number; chains: Chain[] };
 export type TagLinks = { aliases: number; parents: number };
 
 export type SharedAlias = { alias: string; tag: string; enabled: boolean };

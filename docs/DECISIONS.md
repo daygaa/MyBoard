@@ -1043,3 +1043,10 @@ venus en chaîne, chaînes : au plus 3, chemins lus en remontant les parents et 
 `ui/switch.tsx` (repris pour les synonymes au lot R3) ; `ParentDeleteDialog` ; la pop-in de confirmation des règles
 rend la réponse de l'utilisateur (promesse), pour qu'un formulaire ne se vide qu'à la confirmation ; un tag cité
 dans ces pop-ins a des espaces et des traits d'union insécables (`q`), rendus ordinaires à la copie (`copyPlain`).
+
+**Complément du 28/10 (retouches du lot R2).** `parent_delete_check` renvoie les chaînes avec la place de la règle
+(`at` : son enfant ; jusqu'à 20 chaînes). `ChainStrip` les dessine en colonnes : bande à défilement horizontal
+(`scroll-snap`, la molette verticale y est traduite en défilement horizontal, sauf au-dessus d'une colonne qui peut
+encore défiler dans ce sens) ; plus de deux chaînes : largeur `(100 % - 2 écarts) / 2,12` (environ 12 % de la 3e
+dépasse) ; les colonnes s'étirent à la hauteur de la plus haute, limitée à 240 px (`max-h-60`), pour que la pop-in
+garde sa taille quand on fait défiler ; une longue colonne s'ouvre centrée sur la règle.

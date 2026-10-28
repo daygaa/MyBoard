@@ -14,10 +14,11 @@ import { rulesApi, type AliasRow, type ParentRow } from "./rulesApi";
 import { followRename, runTagAction as runAction } from "./tagManager";
 import { displayTag, normalizeTag } from "./tags";
 
-/** Pop-in de confirmation en attente ; `option` : case à cocher (cochée par défaut) passée à `run` ;
- *  `done` : réponse de l'utilisateur (confirmé ou annulé). */
+/** Pop-in de confirmation en attente ; `lead` : première ligne mise en avant ; `option` : case à cocher (cochée
+ *  par défaut) passée à `run` ; `done` : réponse de l'utilisateur (confirmé ou annulé). */
 export type RuleAsk = {
   title: string;
+  lead?: string;
   message: string;
   confirmLabel: string;
   danger?: boolean;
@@ -135,11 +136,13 @@ export async function addParent(child: { id: number; name: string }, parent: { i
     return null;
   }
   const n = check.media;
+  // Textes demandés le 28/10 (retour T3, point TAGM-16.1).
   const confirmed = await ask({
-    title: "Ajouter la règle ?",
-    message: `${q(child.name)} → ${q(parent.name)} : chaque nouvel ajout de ${q(child.name)} posera ${q(parent.name)}.`,
+    title: "Créer la règle ?",
+    lead: `${q(child.name)} → ${q(parent.name)}`,
+    message: `À chaque ajout de ${q(child.name)} à un média, ${q(parent.name)} lui sera aussi ajouté automatiquement.`,
     option: `Ajouter aussi ${q(parent.name)} ${n > 1 ? `aux ${media(n)} qui ont` : "au média qui a"} déjà ${q(child.name)}`,
-    confirmLabel: "Ajouter",
+    confirmLabel: "Créer",
     run,
   });
   return confirmed ? null : false;

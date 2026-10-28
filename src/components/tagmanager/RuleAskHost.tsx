@@ -22,9 +22,10 @@ function Ask({ ask }: { ask: RuleAsk }) {
       zone="regle-confirmation"
       title={ask.title}
       message={
-        <p onCopy={copyPlain} className="[overflow-wrap:break-word]">
-          {ask.message}
-        </p>
+        <div onCopy={copyPlain} className="[overflow-wrap:break-word]">
+          {ask.lead && <p className="mb-1.5 text-[15px] text-foreground">{ask.lead}</p>}
+          <p>{ask.message}</p>
+        </div>
       }
       danger={ask.danger}
       confirmLabel={ask.confirmLabel}

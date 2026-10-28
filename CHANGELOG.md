@@ -3,6 +3,24 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Refonte des synonymes et des parents, retouches du lot R2 : pop-ins des règles (28/10/2026) — Backup v66
+
+SPEC : `[x]` (validés par toi) : points TAGM-16.2, TAGM-16.3 ; GEN-22 passe en `[~]`. Livré `[~]` : retouches de
+TAGM-16.1. Complément de D-047.
+
+- **Création** : « Créer la règle ? », bouton « Créer » ; « « E » → « P » » sur sa ligne, plus grand et plus clair,
+  puis « À chaque ajout de « E » à un média, « P » lui sera aussi ajouté automatiquement. ».
+- **Suppression** : les chaînes en colonnes, d'après ton croquis : la règle sur un gris plus clair, la suite de la
+  chaîne sur un rouge pâle quand la case est cochée ; deux chaînes à la fois, les autres en faisant défiler vers la
+  droite ; une longue chaîne défile dans sa colonne sans agrandir la pop-in ; nouveaux textes de la case et de sa
+  précision.
+
+Vérifié dans la version compilée, sur une copie de la base d'essai (règle « x → y » avec trois chaînes, dont une de
+12 tags) : textes et bouton de la création (1re ligne 15 px et plus claire) ; texte de la suppression, 3 colonnes,
+2 entières et environ 12 % de la 3e ; colonnes à 240 px, la longue défile et montre la règle ; fond rouge pâle de la
+suite seulement case cochée ; la molette fait défiler vers la droite et la pop-in garde sa hauteur (554 px avant et
+après) ; zéro erreur `tsc` et `clippy`.
+
 ## Refonte des synonymes et des parents, lot R2 : parents simplifiés (28/10/2026) — Backup v65
 
 SPEC : livrés `[~]` : TAGM-16 (retour T3, points TAGM-16.1, TAGM-16.2, TAGM-16.3 ; refonte, décisions D10 à
