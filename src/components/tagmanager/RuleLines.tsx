@@ -65,7 +65,7 @@ export function ParentLine({ row, tagOf, showChild = true }: { row: ParentRow; t
       data-zone="regles.parent"
       onContextMenu={(e) =>
         openContextMenu(e, () => [
-          { label: row.enabled ? "Éteindre la règle" : "Allumer la règle", run: () => void toggleParent(row, names) },
+          { label: row.enabled ? "Désactiver la règle" : "Activer la règle", run: () => void toggleParent(row, names) },
           "separator",
           { label: "Supprimer la règle…", danger: true, dialog: ({ onCancel, onDone }) => <ParentDeleteDialog row={row} nameOf={names} onCancel={onCancel} onDone={onDone} /> },
         ])
@@ -77,7 +77,7 @@ export function ParentLine({ row, tagOf, showChild = true }: { row: ParentRow; t
         onToggle={() => void toggleParent(row, names)}
         zone="regles.interrupteur"
         label={`Règle « ${child} » → « ${parent} »`}
-        title={row.enabled ? `Allumée : chaque nouvel ajout de « ${child} » pose « ${parent} ».` : `Éteinte : les nouveaux ajouts de « ${child} » ne posent plus « ${parent} » ; rien n'est retiré.`}
+        title={row.enabled ? `Activée : chaque nouvel ajout de « ${child} » pose « ${parent} ».` : `Désactivée : les nouveaux ajouts de « ${child} » ne posent plus « ${parent} » ; rien n'est retiré.`}
       />
       {showChild && (
         <>

@@ -64,7 +64,7 @@ function NameLine({ group, name, principal, tagOf }: { group: GroupRow; name: Na
         onToggle={() => void toggleName(name, principal)}
         zone="regles.groupe.nom.fusion"
         label={`Fusion de « ${displayTag(name.name)} »`}
-        title={name.merged ? `Fusionné dans « ${displayTag(principal)} ». Éteindre la fusion la défait.` : `Relié, à part. Activer la fusion fait passer ses médias à « ${displayTag(principal)} ».`}
+        title={name.merged ? `Fusionné dans « ${displayTag(principal)} ». Désactiver la fusion la défait.` : "Activer la fusion"}
       />
       <button type="button" data-zone="regles.groupe.retirer" onClick={() => void ask({ ...removal, confirmLabel: "Oui" })} title="Retirer du groupe" className={cn(ICON, "hover:text-rose-400")}>
         <X className="h-3.5 w-3.5" />
@@ -88,7 +88,9 @@ export function GroupLine({ group, tagOf }: { group: GroupRow; tagOf: TagOf }) {
     { label: "Supprimer le groupe…", ...menuConfirm(deletion) },
   ];
   return (
-    <div data-zone="regles.groupe">
+    // Déplié : la ligne et son panneau forment un seul bloc (fond plus clair, cadre fin dessiné à l'intérieur, sans
+    // changer la hauteur des lignes ; retour T3, point TAGM-15.17).
+    <div data-zone="regles.groupe" className={cn("rounded-md", open && "mb-1 bg-secondary/20 outline outline-1 -outline-offset-1 outline-border")}>
       <div onContextMenu={(e) => openContextMenu(e, menu)} className={LINE}>
         <button
           type="button"
@@ -118,14 +120,14 @@ export function GroupLine({ group, tagOf }: { group: GroupRow; tagOf: TagOf }) {
           onToggle={() => void toggleGroup(group, principal)}
           zone="regles.groupe.fusion"
           label={`Fusion du groupe de « ${displayTag(principal)} »`}
-          title={state === true ? "Tout est fusionné. Éteindre défait toutes les fusions." : state === false ? "Rien n'est fusionné. Allumer fusionne tous les noms." : "En partie fusionné. Un clic fusionne tous les noms."}
+          title={state === true ? "Tout est fusionné. Désactiver défait toutes les fusions." : state === false ? "Rien n'est fusionné. Activer fusionne tous les noms." : "En partie fusionné. Un clic fusionne tous les noms."}
         />
         <button type="button" data-zone="regles.supprimer" onClick={() => void ask({ ...deletion, confirmLabel: "Oui" })} title="Supprimer le groupe" className={cn(ICON, "hover:text-rose-400")}>
           <Trash2 className="h-3.5 w-3.5" />
         </button>
       </div>
       {open && (
-        <div data-zone="regles.groupe.panneau" className="mb-1 ml-6 rounded-md border border-border bg-secondary/20 p-1">
+        <div data-zone="regles.groupe.panneau" className="ml-6 px-1 pb-1">
           <div className={LINE}>
             <span className={ICON} title="Tag principal">
               <Star className="h-3.5 w-3.5 fill-[#d9a94e] text-[#d9a94e]" />

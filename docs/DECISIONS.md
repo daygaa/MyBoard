@@ -1066,3 +1066,10 @@ défusion, principal, retrait, suppression), `group_create.rs` (formulaire, réu
 R6), `group_list.rs` (liste, aperçu sans écriture, médias concernés). Recherche : un terme (ou un joker) donne les tags
 trouvés, puis les principaux et noms reliés de leurs groupes (`GROUP_TAGS`, une requête). Interface : `GroupForm`,
 `GroupLine`, `lib/groupRules.ts`, interrupteur « à moitié » (`aria-checked="mixed"`).
+
+**Complément du 29/10 (retouches de R3).** Onglet « Synonymes et parents » : sur grand écran, les deux tableaux
+sont deux sous-grilles (`grid-rows-subgrid`) d'une même grille à cinq rangées (titre, texte, formulaire, filtre,
+liste) : chaque rangée prend la hauteur de la plus haute des deux, d'où des formulaires et des barres « Filtrer par
+nom » toujours alignés, quel que soit le nombre de lignes des textes ; colonne interne limitée à la largeur du tableau
+(`minmax(0, 1fr)`), sinon le contenu débordait sur le tableau voisin. L'aperçu du formulaire des synonymes tient sur
+une ligne de hauteur fixe ; un champ dont les pastilles passent à la ligne fait descendre les deux filtres ensemble.

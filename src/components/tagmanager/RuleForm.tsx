@@ -15,7 +15,8 @@ import { runTagAction } from "@/lib/tagManager";
 import { normalizeTag } from "@/lib/tags";
 import { cn } from "@/lib/utils";
 
-export type Named = { id: number; name: string };
+/** `alias` : le nom fusionné tapé, quand le texte a donné son tag principal. */
+export type Named = { id: number; name: string; alias?: string };
 
 /** Tag désigné par un texte tapé : existant (ou tag principal d'un synonyme), sinon créé après la
  *  pop-in « Créer un nouveau tag » ; `null` si l'utilisateur annule. */
@@ -25,7 +26,7 @@ export function useTagResolver() {
     const name = normalizeTag(text);
     if (!name) return null;
     const found = await api.findTag(name).catch(() => null);
-    if (found) return { id: found.id, name: found.name };
+    if (found) return { id: found.id, name: found.name, alias: found.alias ?? undefined };
     return new Promise((done) => setPending({ name, done }));
   };
   const dialog = (
@@ -45,7 +46,8 @@ export function useTagResolver() {
   return { resolve, dialog };
 }
 
-const FIELD = "h-8 min-w-0 flex-1";
+// Même hauteur que les champs à pastilles du formulaire des synonymes, à côté (retour T3, point TAGM-15.5).
+const FIELD = "h-9 min-w-0 flex-1";
 const INPUT = "font-mono text-xs";
 
 type Props = {
@@ -102,7 +104,7 @@ export function RuleForm({ zone, placeholders, onAdd, className }: Props) {
           size="sm"
           disabled={!ready || busy}
           onClick={() => void submit()}
-          className={cn("h-8 bg-[#d9a94e] text-xs text-[#1a1408] hover:bg-[#e3b75f] disabled:hover:bg-[#d9a94e]")}
+          className={cn("h-9 bg-[#d9a94e] text-xs text-[#1a1408] hover:bg-[#e3b75f] disabled:hover:bg-[#d9a94e]")}
         >
           Créer
         </Button>

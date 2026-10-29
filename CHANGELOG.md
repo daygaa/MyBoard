@@ -3,6 +3,27 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Refonte des synonymes et des parents, retouches du lot R3, 2e tour (29/10/2026) — Backup v69
+
+SPEC : livrés `[~]` : TAGM-15 (retour T3, points TAGM-15.5, TAGM-15.16, TAGM-15.17, Q.4). Complément de D-047.
+
+- **Formulaires alignés** : synonymes sur une ligne ([Tag principal] [Synonymes] [Fusionner] [Créer]) ; dessous, une
+  ligne d'aperçu de hauteur fixe (« Résultat : ★ … », explications dans la bulle de l'icône « i », ou refus en
+  rouge), visible quand chaque champ a une pastille ; les deux tableaux partagent leurs rangées : champs, boutons
+  et barres « Filtrer par nom » alignés ; champs des parents à la même hauteur que ceux des synonymes.
+- **Textes** : « Activer / Désactiver » partout à la place de « Allumer / Éteindre » ; bulle d'un nom relié
+  « Activer la fusion » ; refus « Ces tags sont déjà des synonymes de « X » ».
+- **Groupe déplié** : la ligne et son panneau forment un seul bloc.
+- **Règle tapée avec un nom fusionné** : la pop-in dit que la règle est créée pour le tag principal.
+
+Vérifié dans la version compilée, sur une copie de la base d'essai `refonte` : champs, boutons « Créer » et barres
+« Filtrer par nom » des deux tableaux à la même hauteur (mesurés), aucun élément ne dépasse de son tableau ; aperçu
+vide avec le seul principal, affiché avec un synonyme, filtres immobiles ; bulle de l'icône « i » ; refus au
+singulier et au pluriel ; bulles des interrupteurs (« Activer la fusion », « … Désactiver la fusion la défait. ») ;
+groupe déplié encadré avec sa ligne ; règle : bulle « Activée : … », menu « Désactiver la règle », badges
+« désactivée » puis « activée » ; « essai navire » → « essai velo » : la pop-in dit « « essai navire » est fusionné
+dans « essai bateau » : la règle est créée pour « essai bateau ». » ; zéro erreur `tsc` (pas de changement Rust).
+
 ## Refonte des synonymes et des parents, retouches du lot R3 (29/10/2026) — Backup v68
 
 SPEC : livrés `[~]` : TAGM-15 (retour T3, points TAGM-15.5, TAGM-15.7, TAGM-15.15, TAGM-15.16), TAGM-16 (point
