@@ -30,7 +30,7 @@ const FIELD = "flex min-h-9 min-w-0 flex-1 items-center rounded-lg border border
 const MERGED_GREY = "#8b8d96";
 const list = (names: string[]) => names.map((n) => `« ${displayTag(n)} »`).join(", ");
 
-function Preview({ preview, merge }: { preview: GroupPreview; merge: boolean }) {
+function Preview({ preview, merge, why }: { preview: GroupPreview; merge: boolean; why: string | null }) {
   if (!preview.principal) return null;
   const names = [
     ...preview.existing.map((n) => ({ name: n.name, merged: n.merged })),
@@ -61,6 +61,7 @@ function Preview({ preview, merge }: { preview: GroupPreview; merge: boolean }) 
           {list(preview.pure)} {preview.pure.length > 1 ? "ne sont pas des tags : ils seront des noms fusionnés" : "n'est pas un tag : ce sera un nom fusionné"} dans {p}, sans média.
         </p>
       )}
+      {why && <p className="text-rose-300">{why}</p>}
     </div>
   );
 }
@@ -100,7 +101,12 @@ export function GroupForm({ tags, tagOf }: { tags: ManagedTag[]; tagOf: (id: num
       {displayTag(c.name)}
     </TagPill>
   );
-  const ready = !!chief && chief.id !== null && names.list.length > 0 && !principal.hasText && !names.hasText && !busy;
+  // « Créer » grisé, avec la raison sous les champs : le principal tapé aussi en synonyme (sinon « X = X »
+  // était accepté puis ignoré), ou des noms qui sont tous déjà dans le groupe (retouches de R3).
+  const self = !!chief && typed.includes(chief.name);
+  const nothing = !!preview && typed.length > 0 && preview.added.length + preview.pure.length === 0;
+  const why = self ? `« ${displayTag(chief.name)} » est déjà le tag principal : retirez-le des synonymes.` : nothing ? "Ces noms font déjà partie du groupe : rien à ajouter." : null;
+  const ready = !!chief && chief.id !== null && names.list.length > 0 && !why && !!preview && !principal.hasText && !names.hasText && !busy;
   const submit = async () => {
     if (!ready || chief.id === null) return;
     setBusy(true);
@@ -164,7 +170,7 @@ export function GroupForm({ tags, tagOf }: { tags: ManagedTag[]; tagOf: (id: num
           Créer
         </Button>
       </div>
-      {preview && <Preview preview={preview} merge={merge} />}
+      {preview && <Preview preview={preview} merge={merge} why={why} />}
       {dialog}
     </div>
   );

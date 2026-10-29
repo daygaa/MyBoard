@@ -64,7 +64,7 @@ function NameLine({ group, name, principal, tagOf }: { group: GroupRow; name: Na
         onToggle={() => void toggleName(name, principal)}
         zone="regles.groupe.nom.fusion"
         label={`Fusion de « ${displayTag(name.name)} »`}
-        title={name.merged ? `Fusionné dans « ${displayTag(principal)} ». Éteindre la fusion la défait.` : `Relié, à part. Allumer la fusion fait passer ses médias à « ${displayTag(principal)} ».`}
+        title={name.merged ? `Fusionné dans « ${displayTag(principal)} ». Éteindre la fusion la défait.` : `Relié, à part. Activer la fusion fait passer ses médias à « ${displayTag(principal)} ».`}
       />
       <button type="button" data-zone="regles.groupe.retirer" onClick={() => void ask({ ...removal, confirmLabel: "Oui" })} title="Retirer du groupe" className={cn(ICON, "hover:text-rose-400")}>
         <X className="h-3.5 w-3.5" />

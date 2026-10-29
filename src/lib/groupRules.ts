@@ -9,26 +9,32 @@ import { plural } from "./format";
 import { rulesApi, type GroupPreview, type GroupRow, type NameRow } from "./rulesApi";
 import { ask, media, q, runTagAction } from "./tagRules";
 
-/** Noms qui seront fusionnés et qui ont des médias : un bloc chacun (retour T3, point TAGM-15.7). */
+/** Noms qui seront fusionnés : un bloc pour chacun de ceux qui ont des médias (retour T3, point TAGM-15.7), puis
+ *  une ligne pour ceux qui n'en ont pas, fusionnés eux aussi (retouches de R3). */
 export function mergeText(names: { name: string; media: number }[], principal: string): string {
   const blocks = names
     .filter((n) => n.media > 0)
     .map((n) => `${q(n.name)} est un tag posé sur ${media(n.media)} : ces médias :\n- obtiendront le tag ${q(principal)}\n- perdront le tag ${q(n.name)}`);
-  return `${blocks.join("\n\n")}\n\nÉteindre la fusion l'annulera.`;
+  const empty = names
+    .filter((n) => n.media === 0)
+    .map((n) => `${q(n.name)} n'est lié à aucun média pour le moment mais sera tout de même fusionné avec ${q(principal)}.`);
+  return [...blocks, ...(empty.length ? [empty.join("\n")] : []), "Désactiver la fusion l'annulera."].join("\n\n");
 }
 
 /** Formulaire de création ; renvoie vrai si c'est fait (les champs se vident alors, TAGM-15.6). */
 export async function createGroup(principal: { id: number; name: string }, names: string[], merge: boolean, preview: GroupPreview | undefined): Promise<boolean> {
+  // Le badge compte les noms vraiment ajoutés (un nom déjà dans le groupe est ignoré).
+  const count = preview ? preview.added.length + preview.pure.length : names.length;
   const run = async () => {
     const done = await runTagAction("Créer les synonymes", () => rulesApi.createGroup(principal.id, names, merge));
-    if (done !== undefined) showGridBadge(`${q(principal.name)} : ${names.length} ${plural(names.length, "synonyme")}`);
+    if (done !== undefined) showGridBadge(`${q(principal.name)} : ${count} ${plural(count, "synonyme")}`);
   };
-  const moving = merge ? (preview?.added ?? []).filter((n) => n.media > 0) : [];
-  if (moving.length === 0) {
+  const merging = merge ? [...(preview?.added ?? []), ...(preview?.pure ?? []).map((name) => ({ name, media: 0 }))] : [];
+  if (!merging.some((n) => n.media > 0)) {
     await run();
     return true;
   }
-  return ask({ title: moving.length > 1 ? "Créer les synonymes ?" : "Créer le synonyme ?", message: mergeText(moving, principal.name), confirmLabel: "Créer", run });
+  return ask({ title: count > 1 ? "Créer les synonymes ?" : "Créer le synonyme ?", message: mergeText(merging, principal.name), confirmLabel: "Créer", run });
 }
 
 /** Interrupteur de fusion d'un nom. */
@@ -56,9 +62,9 @@ export const unmergeGroup = (group: GroupRow) => runTagAction("Tout défusionner
 export async function toggleGroup(group: GroupRow, principal: string) {
   if (groupState(group) === true) return void (await unmergeGroup(group));
   const run = () => runTagAction("Tout fusionner", () => rulesApi.setGroupMerged(group.id, true));
-  const moving = group.names.filter((n) => !n.merged && n.media > 0);
-  if (moving.length === 0) return void (await run());
-  await ask({ title: "Fusionner tout le groupe ?", message: mergeText(moving, principal), confirmLabel: "Fusionner", run });
+  const merging = group.names.filter((n) => !n.merged);
+  if (!merging.some((n) => n.media > 0)) return void (await run());
+  await ask({ title: "Fusionner tout le groupe ?", message: mergeText(merging, principal), confirmLabel: "Fusionner", run });
 }
 
 /** Retirer un nom (texte de l'utilisateur, refonte D2) ; aussi pour le menu du clic droit (CTX-02). */
@@ -75,7 +81,7 @@ export function nameRemoval(name: NameRow, principal: string) {
 export function groupDeletion(group: GroupRow, principal: string) {
   return {
     title: "Supprimer le groupe ?",
-    message: `Le groupe de ${q(principal)} sera supprimé : les fusions seront défaites et les noms ne seront plus reliés ; les tags restent.`,
+    message: `Le groupe de synonymes appartenant à ${q(principal)} sera supprimé : les fusions seront désactivées et les médias retrouveront les tags originels.`,
     danger: true,
     run: () => runTagAction("Supprimer le groupe", () => rulesApi.deleteGroup(group.id)),
   };

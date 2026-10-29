@@ -3,6 +3,29 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Refonte des synonymes et des parents, retouches du lot R3 (29/10/2026) — Backup v68
+
+SPEC : livrés `[~]` : TAGM-15 (retour T3, points TAGM-15.5, TAGM-15.7, TAGM-15.15, TAGM-15.16), TAGM-16 (point
+TAGM-16.5) ; réponse au point Q.4.
+
+- **Textes** : explications des deux tableaux (synonymes sur deux lignes, parents) ; « Désactiver la fusion
+  l'annulera. » ; bulle « Activer la fusion » ; suppression d'un groupe ; case de la création d'une règle « … ayant
+  déjà … ».
+- **Pop-in de fusion** : un nom sans média est cité (« n'est lié à aucun média pour le moment mais sera tout de même
+  fusionné avec … »).
+- **Formulaire des synonymes** : pastilles centrées ; « X = X » et noms déjà dans le groupe refusés (« Créer » grisé,
+  la raison sous les champs) ; le badge compte les noms vraiment ajoutés.
+
+Vérifié dans la version compilée, sur une copie de la base d'essai `refonte` : textes des deux tableaux, bulle,
+pop-in de suppression du groupe et case de la création d'une règle (« Ajouter « essai auto » aux 2 médias ayant déjà
+« essai demeure » ») lus dans la fenêtre ; pastilles à 3 px du haut et du bas de leur ligne dans les deux champs
+(avant : 4,5 et 1,5) ; « essai maison » en synonyme puis en tag principal : « Créer » grisé et raison affichée ; nom
+déjà dans le groupe : grisé aussi ; fusion du groupe d'essai maison (essai demeure, 2 médias ; essai cabane, sans
+média) : la pop-in cite les deux ; création « essai velo » + « essai hutte » (1 média) + « essai cahute » (pas un
+tag), fusion allumée : les deux cités, badge « 2 synonymes » ; règle tapée « essai navire » (fusionné dans essai
+bateau) → « essai 123 » : la règle créée est « essai bateau → essai 123 », et taper « essai navire » sur une image
+lui pose essai bateau et essai 123 (point Q.4) ; zéro erreur `tsc` (pas de changement Rust).
+
 ## Refonte des synonymes et des parents, lot R3 : groupes de synonymes (28/10/2026) — Backup v67
 
 SPEC : livrés `[~]` : TAGM-15 (retour T3, points TAGM-15.4, TAGM-15.5, TAGM-15.6, TAGM-15.7, TAGM-15.13 ; refonte,

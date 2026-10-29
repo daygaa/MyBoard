@@ -38,7 +38,7 @@ function Panel({ zone, title, count, help, form, filter, onFilter, children, emp
         <h2 className="text-sm font-semibold text-foreground">{title}</h2>
         <span className="text-xs text-muted-foreground tabular-nums">{formatNumber(count)}</span>
       </div>
-      <p className="mb-3 text-xs text-muted-foreground">{help}</p>
+      <p className="mb-3 text-xs whitespace-pre-line text-muted-foreground">{help}</p>
       {form}
       <div className="relative mt-3 mb-2">
         <Search className="pointer-events-none absolute top-1/2 left-2.5 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
@@ -93,7 +93,7 @@ export function RulesTab({ tags, rules }: { tags: ManagedTag[]; rules: RulesInde
         zone="regles.synonymes"
         title="Synonymes"
         count={rules.groups.length}
-        help="Des noms reliés : chercher l'un trouve les médias de tous. Fusionner un nom fait passer ses médias au tag principal ; éteindre la fusion la défait."
+        help={"Rechercher un tag affichera tous les médias portant ce tag ainsi que ceux portant son/ses synonymes.\nLa fusion permet de rassembler tous les synonymes d'un groupe sous un seul tag principal et peut être désactivée à tout moment."}
         form={<GroupForm tags={tags} tagOf={tagOf} />}
         filter={groupFilter}
         onFilter={(text) => useGroupFilter.setState({ text })}
@@ -107,7 +107,7 @@ export function RulesTab({ tags, rules }: { tags: ManagedTag[]; rules: RulesInde
         zone="regles.parents"
         title="Tags parents"
         count={rules.parents.length}
-        help="Poser l'enfant pose aussi le parent, en chaîne (chat → animal → être vivant). Éteindre une règle ne retire rien : les nouveaux ajouts ne posent simplement plus le parent."
+        help="Quand un tag enfant est ajouté à un média il est automatiquement accompagné de son tag parent ; peut fonctionner en chaîne (A → B puis B → C...). Désactiver une règle ne retire aucun tag, cela met seulement en pause l'ajout automatique des parents."
         form={<RuleForm zone="regles.parents.ajout" placeholders={["Enfant…", "Parent…"]} onAdd={createParent} />}
         filter={parentFilter}
         onFilter={setParentFilter}

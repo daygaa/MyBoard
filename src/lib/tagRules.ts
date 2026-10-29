@@ -75,7 +75,7 @@ export async function addParent(child: { id: number; name: string }, parent: { i
     title: "Créer la règle ?",
     lead: `${q(child.name)} → ${q(parent.name)}`,
     message: `À chaque ajout de ${q(child.name)} à un média, ${q(parent.name)} lui sera aussi ajouté automatiquement.`,
-    option: `Ajouter ${q(parent.name)} ${n > 1 ? `aux ${media(n)} qui ont` : "au média qui a"} déjà ${q(child.name)}`,
+    option: `Ajouter ${q(parent.name)} ${n > 1 ? `aux ${media(n)} ayant` : "au média ayant"} déjà ${q(child.name)}`,
     confirmLabel: "Créer",
     run,
   });

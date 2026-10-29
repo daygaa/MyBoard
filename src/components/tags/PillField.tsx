@@ -249,7 +249,8 @@ export function PillField<T>(props: Props<T>) {
               data-pastille={t}
               data-choisie={focused && covers(sel, t) ? "" : undefined}
               contentEditable={false}
-              className="inline-flex align-middle select-none"
+              // Hauteur d'une ligne, pastille centrée dedans (avec `align-middle`, elle tombait 1,5 px trop bas).
+              className="inline-flex h-7 items-center align-top select-none"
             >
               {renderPill(doc.pills[t], () => cmd.remove(t))}
             </span>
