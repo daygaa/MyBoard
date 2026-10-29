@@ -22,6 +22,8 @@ type Props = {
   open: boolean;
   onClose: () => void;
   title: string;
+  /** Sous le titre, fixe comme lui (la règle « X → Y » d'une confirmation…). */
+  subtitle?: ReactNode;
   description?: ReactNode;
   children?: ReactNode;
   footer?: ReactNode;
@@ -45,7 +47,7 @@ type Props = {
 };
 
 export function Modal(props: Props) {
-  const { open, onClose, title, description, children, footer, zone, lift = 0, danger = false, dismissible = true, wide = false, even = false, onEnter } = props;
+  const { open, onClose, title, subtitle, description, children, footer, zone, lift = 0, danger = false, dismissible = true, wide = false, even = false, onEnter } = props;
   const close = dismissible ? onClose : () => {};
   const isTop = useEscape(open, close, { modal: true });
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -127,7 +129,9 @@ export function Modal(props: Props) {
         aria-label={title}
         data-zone={zone}
         className={cn(
-          "relative w-full rounded-xl border bg-card p-6 text-card-foreground shadow-xl outline-none",
+          // 80 % de la hauteur de la fenêtre au plus : titre, sous-titre et boutons restent en place, le
+          // contenu entre eux défile (retouches de R3, 29/10 ; toutes les pop-ins).
+          "relative flex max-h-[80vh] w-full flex-col rounded-xl border bg-card p-6 text-card-foreground shadow-xl outline-none",
           wide ? "max-w-2xl" : "max-w-md",
           danger ? "border-destructive" : "border-border",
         )}
@@ -143,10 +147,16 @@ export function Modal(props: Props) {
             <X className="h-4 w-4" />
           </button>
         )}
-        <h2 className="pr-6 text-lg font-semibold text-foreground select-text">{title}</h2>
-        {description && <div className={cn("text-sm text-muted-foreground select-text", even ? "mt-4" : "mt-1.5")}>{description}</div>}
-        {children && <div className={cn("select-text", even ? "mt-4" : "mt-5")}>{children}</div>}
-        {footer && <div className={cn("flex justify-end gap-2", even ? "mt-4" : "mt-6")}>{footer}</div>}
+        <h2 className="shrink-0 pr-6 text-lg font-semibold text-foreground select-text">{title}</h2>
+        {subtitle && <div className={cn("shrink-0 select-text", even ? "mt-4" : "mt-1.5")}>{subtitle}</div>}
+        {(description || children) && (
+          // La barre de défilement longe le bord de la pop-in ; la molette ne passe pas à la page (GEN-24).
+          <div className={cn("-mx-6 min-h-0 overflow-y-auto overscroll-contain px-6", subtitle ? "mt-1.5" : even ? "mt-4" : description ? "mt-1.5" : "mt-5")}>
+            {description && <div className="text-sm text-muted-foreground select-text">{description}</div>}
+            {children && <div className={cn("select-text", description && (even ? "mt-4" : "mt-5"))}>{children}</div>}
+          </div>
+        )}
+        {footer && <div className={cn("flex shrink-0 justify-end gap-2", even ? "mt-4" : "mt-6")}>{footer}</div>}
       </div>
     </div>,
     document.body,

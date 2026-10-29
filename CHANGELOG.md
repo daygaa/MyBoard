@@ -3,6 +3,34 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Refonte des synonymes et des parents, retouches du lot R3, 3e tour (29/10/2026) — Backup v70
+
+SPEC : livrés `[~]` : TAGM-15 (retour T3, points TAGM-15.5, TAGM-15.16, TAGM-15.17, TAGM-15.18 nouveau), GEN-25 nouveau
+(point AUT.23). Complément de D-047.
+
+- **Pop-ins** (toutes) : 80 % de la hauteur de la fenêtre au plus ; titre, sous-titre et boutons fixes, le contenu défile.
+- **Ligne d'un groupe** : principal en doré, long tiret, noms entiers puis « … + N » ; dépliée : trait fin, colonnes de
+  droite alignées, dépliage animé.
+- **Formulaire des synonymes** : « Fusionner » au-dessus de son interrupteur ; « Synonymes » limité à 3 lignes de
+  pastilles puis « +N » (dépliage à l'approche de la souris) et ligne d'écriture dessous ; pastille trop longue coupée ;
+  noms du groupe grisés dans les suggestions ; un nom relié tapé en principal le reste.
+- **Aperçu** : nouveaux noms d'abord, soulignés en doré, puis ceux du groupe, puis « … » ; couleurs en direct.
+- **Bulles** : interrupteurs (groupe, nom fusionné, « Fusionner ») et icône « i » avec les textes demandés.
+- **Tableaux** : seuls le titre et le texte d'explication restent alignés ; le tableau des parents ne bouge plus quand
+  le champ « Synonymes » grandit.
+
+Vérifié dans la version compilée, sur une copie de la base d'essai `refonte` (groupe d'essai de 26 noms ajouté) : ligne
+du groupe « essai lettres » : 2 noms entiers puis « … + 24 », aucun nom coupé, principal doré ; bulles des cinq
+interrupteurs de groupe et d'un nom fusionné ; dépliage mesuré image par image (0 → 169 px en 190 ms environ, repli de
+même) ; nombres, interrupteurs, croix et corbeille à la même position horizontale ; trait visible ; pop-in de fusion des
+26 noms : 832 px = 80 % de la fenêtre, le texte défile, titre et boutons visibles ; « Fusionner » et son interrupteur
+centrés l'un sous l'autre, 36 px ; aperçu vide avec le seul principal ; ordre et soulignement des noms ; « essai demeure »
+fusionné dans la liste : gris aussitôt dans l'aperçu ; bulles de l'icône « i » ; « essai auto » tapé en principal : le
+groupe d'« essai voiture » garde son principal ; suggestions « essai cagette » et « essai caisse » grisées ; pastille de
+plus de 170 caractères : une ligne, dans le champ ; 27 pastilles : 3 lignes, « +22 », ligne d'écriture dessous, tag principal
+centré, filtre des parents immobile ; souris sur le champ : les 27 pastilles par-dessus la liste, repli en s'éloignant ;
+zéro erreur `tsc` et `clippy`.
+
 ## Refonte des synonymes et des parents, retouches du lot R3, 2e tour (29/10/2026) — Backup v69
 
 SPEC : livrés `[~]` : TAGM-15 (retour T3, points TAGM-15.5, TAGM-15.16, TAGM-15.17, Q.4). Complément de D-047.

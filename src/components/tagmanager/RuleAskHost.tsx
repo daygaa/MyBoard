@@ -21,11 +21,12 @@ function Ask({ ask }: { ask: RuleAsk }) {
     <ConfirmDialog
       zone="regle-confirmation"
       title={ask.title}
+      // La règle « X → Y » reste en place sous le titre quand le texte défile (pop-in limitée en hauteur).
+      subtitle={ask.lead && <p onCopy={copyPlain} className="text-[15px] text-foreground [overflow-wrap:break-word]">{ask.lead}</p>}
       message={
-        <div onCopy={copyPlain} className="[overflow-wrap:break-word]">
-          {ask.lead && <p className="mb-1.5 text-[15px] text-foreground">{ask.lead}</p>}
-          <p className="whitespace-pre-line">{ask.message}</p>
-        </div>
+        <p onCopy={copyPlain} className="whitespace-pre-line [overflow-wrap:break-word]">
+          {ask.message}
+        </p>
       }
       danger={ask.danger}
       confirmLabel={ask.confirmLabel}

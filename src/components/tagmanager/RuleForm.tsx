@@ -109,7 +109,11 @@ export function RuleForm({ zone, placeholders, onAdd, className }: Props) {
           Créer
         </Button>
       </div>
-      {error && <p data-zone={`${zone}.refus`} className="mt-1.5 text-xs text-rose-300">{error}</p>}
+      {/* Ligne toujours réservée, de la hauteur de l'aperçu des synonymes : les barres « Filtrer par nom »
+          des deux tableaux restent alignées, refus ou pas (retouches de R3). */}
+      <p data-zone={`${zone}.refus`} title={error ?? undefined} className="mt-1.5 h-5 truncate text-xs leading-5 text-rose-300">
+        {error}
+      </p>
     </div>
   );
 }

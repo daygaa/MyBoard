@@ -20,7 +20,8 @@ import { createGroup } from "@/lib/groupRules";
 import { removePill } from "@/lib/pillText";
 import { rulesApi, type GroupPreview } from "@/lib/rulesApi";
 import { displayTag, normalizeTag } from "@/lib/tags";
-import { titleIfCut } from "@/lib/utils";
+import { cn } from "@/lib/utils";
+import { FitLine } from "./FitLine";
 import { useTagResolver } from "./RuleForm";
 
 /** Pastille : un tag (`id`), ou un nom qui n'en est pas un (`id` vide : il deviendra un nom fusionné). */
@@ -38,41 +39,48 @@ function notes(preview: GroupPreview, principal: string): string[] {
   const { joined, pure } = preview;
   return [
     preview.newPrincipal && `${p} n'existe pas encore : il sera créé.`,
-    preview.principalFrom && `${p} fait partie du groupe de « ${displayTag(preview.principalFrom)} » : il en deviendra le tag principal.`,
-    !preview.principalFrom && preview.existing.length > 0 && `${p} a déjà des synonymes : les nouveaux noms y seront ajoutés.`,
+    // Textes demandés le 29/10 (retouches de R3).
+    preview.member && `« ${displayTag(preview.member)} » a pour synonyme principal ${p}, ces tags seront simplement ajoutés à son groupe`,
+    !preview.member && preview.existing.length > 0 && `${p} a déjà des synonymes, ces tags seront simplement ajoutés à son groupe`,
     joined.length > 0 && (joined.length > 1 ? `Les groupes de ${list(joined)} seront réunis à celui-ci.` : `Le groupe de ${list(joined)} sera réuni à celui-ci.`),
     pure.length > 0 && `${list(pure)} ${pure.length > 1 ? "ne sont pas des tags : ils seront des noms fusionnés" : "n'est pas un tag : ce sera un nom fusionné"} dans ${p}, sans média.`,
   ].filter((n): n is string => !!n);
 }
 
-/** Ligne d'aperçu, de hauteur fixe pour que les barres « Filtrer par nom » des deux tableaux restent alignées
- *  (retour T3, point TAGM-15.5) : « Résultat : ★ X = Y = Z » (coupé s'il est trop long, entier dans sa bulle) et
- *  l'icône « i » des explications, ou le refus en rouge. Vide tant qu'un des deux champs n'a pas de pastille. */
+/** Ligne d'aperçu, de hauteur fixe (retour T3, point TAGM-15.5) : « Résultat : ★ X — » (principal en doré, comme
+ *  la ligne d'un groupe), d'abord les noms ajoutés, soulignés en doré, puis ceux déjà dans le groupe, entiers
+ *  tant qu'ils tiennent, puis « … » ; gris s'ils sont fusionnés (suit l'interrupteur et la liste, en direct).
+ *  L'icône « i » donne les explications ; un refus remplace la ligne, en rouge. Vide tant qu'un des deux champs
+ *  n'a pas de pastille. */
 function Preview({ preview, merge, why }: { preview: GroupPreview | undefined; merge: boolean; why: string | null }) {
   const principal = preview?.principal;
-  const names = preview
-    ? [
-        ...preview.existing.map((n) => ({ name: n.name, merged: n.merged })),
-        ...preview.added.map((n) => ({ name: n.name, merged: merge })),
-        ...preview.pure.map((name) => ({ name, merged: true })),
-      ]
-    : [];
+  const fresh = preview ? [...preview.added.map((n) => ({ name: n.name, merged: merge })), ...preview.pure.map((name) => ({ name, merged: true }))] : [];
+  const old = preview ? preview.existing.map((n) => ({ name: n.name, merged: n.merged })) : [];
+  const item = (n: { name: string; merged: boolean }, added: boolean) => ({
+    key: `${added ? "+" : ""}${n.name}`,
+    node: (
+      <span className={cn("font-mono", !n.merged && "text-foreground", added && "underline decoration-[#d9a94e] underline-offset-[3px]")}>{displayTag(n.name)}</span>
+    ),
+  });
   const info = preview && principal ? notes(preview, principal) : [];
   return (
     <div data-zone="regles.synonymes.ajout.apercu" className="mt-1.5 flex h-5 min-w-0 items-center gap-1.5 text-xs text-muted-foreground select-text">
       {principal && why && <span className="truncate text-rose-300">{why}</span>}
       {principal && !why && (
         <>
-          <span onMouseEnter={(e) => titleIfCut(e.currentTarget)} className="min-w-0 truncate">
-            Résultat : <Star className="inline h-3 w-3 -translate-y-px fill-[#d9a94e] text-[#d9a94e]" />{" "}
-            <span className="font-mono text-foreground">{displayTag(principal)}</span>
-            {names.map((n) => (
-              <span key={n.name} className="font-mono">
-                {" = "}
-                <span className={n.merged ? undefined : "text-foreground"}>{displayTag(n.name)}</span>
-              </span>
-            ))}
-          </span>
+          <FitLine
+            head={
+              <>
+                <span className="mr-1 shrink-0">Résultat :</span>
+                <Star className="mr-1 h-3 w-3 shrink-0 fill-[#d9a94e] text-[#d9a94e]" />
+                <span className="min-w-0 truncate font-mono text-[#d9a94e]">{displayTag(principal)}</span>
+                <span className="px-2">—</span>
+              </>
+            }
+            items={[...fresh.map((n) => item(n, true)), ...old.map((n) => item(n, false))]}
+            more={() => "…"}
+            title={[...fresh, ...old].map((n) => displayTag(n.name)).join(" · ")}
+          />
           {info.length > 0 && (
             <span data-zone="regles.synonymes.ajout.apercu.infos" title={info.join("\n")} className="grid shrink-0 cursor-default place-items-center hover:text-foreground">
               <Info className="h-3.5 w-3.5" />
@@ -115,7 +123,7 @@ export function GroupForm({ tags, tagOf }: { tags: ManagedTag[]; tagOf: (id: num
 
   const chip = (tag: { name: string; id: number | null }) => ({ name: tag.name, id: tag.id });
   const pill = (c: Chip, remove: () => void, what: string) => (
-    <TagPill color={c.id !== null ? color(tagOf(c.id)?.categoryId ?? 0) : MERGED_GREY} onRemove={remove} removeLabel={`Retirer « ${displayTag(c.name)} » ${what}`}>
+    <TagPill color={c.id !== null ? color(tagOf(c.id)?.categoryId ?? 0) : MERGED_GREY} onRemove={remove} removeLabel={`Retirer « ${displayTag(c.name)} » ${what}`} fullTitleIfCut>
       {displayTag(c.name)}
     </TagPill>
   );
@@ -123,7 +131,9 @@ export function GroupForm({ tags, tagOf }: { tags: ManagedTag[]; tagOf: (id: num
   // était accepté puis ignoré), ou des noms qui sont tous déjà dans le groupe (retouches de R3).
   const self = !!chief && typed.includes(chief.name);
   const nothing = !!preview && typed.length > 0 && preview.added.length + preview.pure.length === 0;
-  const already = typed.length > 1 ? `Ces tags sont déjà des synonymes de « ${displayTag(chief?.name ?? "")} ».` : `Ce tag est déjà un synonyme de « ${displayTag(chief?.name ?? "")} ».`;
+  // Principal du groupe : celui tapé, ou celui de son groupe s'il en est un nom relié (il le reste).
+  const head = preview?.principal ?? chief?.name ?? "";
+  const already = typed.length > 1 ? `Ces tags sont déjà des synonymes de « ${displayTag(head)} ».` : `Ce tag est déjà un synonyme de « ${displayTag(head)} ».`;
   const why = self ? `« ${displayTag(chief.name)} » est déjà le tag principal : retirez-le des synonymes.` : nothing ? already : null;
   // Aperçu seulement quand chaque champ a au moins une pastille (réponse du 29/10).
   const shown = principal.list.length > 0 && names.list.length > 0;
@@ -131,7 +141,7 @@ export function GroupForm({ tags, tagOf }: { tags: ManagedTag[]; tagOf: (id: num
   const submit = async () => {
     if (!ready || chief.id === null) return;
     setBusy(true);
-    const done = await createGroup({ id: chief.id, name: chief.name }, typed, merge, preview).finally(() => setBusy(false));
+    const done = await createGroup({ id: chief.id, name: head }, typed, merge, preview).finally(() => setBusy(false));
     if (done) {
       principal.clear();
       names.clear();
@@ -171,14 +181,29 @@ export function GroupForm({ tags, tagOf }: { tags: ManagedTag[]; tagOf: (id: num
           toItem={(tag) => chip({ name: tag.alias ?? tag.name, id: tag.alias ? null : tag.id })}
           toClip={(c) => ({ name: c.name, categoryId: (c.id !== null ? tagOf(c.id)?.categoryId : undefined) ?? 0 })}
           fromClip={(c) => chip({ name: c.name, id: byName.get(c.name)?.id ?? null })}
-          taken={(tag) => (tag.name === chief?.name ? "C'est le tag principal" : null)}
+          taken={(tag) => {
+            // Le principal tapé et les noms déjà dans son groupe sont grisés dans les suggestions (retouches de R3).
+            const n = tag.alias ?? tag.name;
+            if (n === chief?.name) return "C'est le tag principal";
+            if (n === preview?.principal) return "C'est le tag principal de ce groupe";
+            return preview?.existing.some((e) => e.name === n) ? `Déjà synonyme de « ${displayTag(head)} »` : null;
+          }}
           onSubmit={() => void submit()}
           placeholder="Synonymes…"
+          // 3 lignes de pastilles au plus, puis « +N » (retouches de R3, 29/10).
+          maxLines={3}
           renderPill={(c, remove) => pill(c, remove, "des synonymes")}
         />
-        <label className="flex shrink-0 cursor-pointer items-center gap-1.5 pl-1 text-xs text-muted-foreground">
-          <Switch on={merge} onToggle={() => setMerge(!merge)} zone="regles.synonymes.ajout.fusion" label="Fusionner" title="Activé : les médias des noms ajoutés passent au tag principal (toujours réversible)." />
+        {/* « Fusionner » et son interrupteur centré dessous, dans la hauteur du bouton « Créer ». */}
+        <label className="flex h-9 shrink-0 cursor-pointer flex-col items-center justify-center gap-1 px-0.5 text-xs leading-none text-muted-foreground">
           Fusionner
+          <Switch
+            on={merge}
+            onToggle={() => setMerge(!merge)}
+            zone="regles.synonymes.ajout.fusion"
+            label="Fusionner"
+            title={merge ? "Les tags ajoutés seront fusionnés dans le tag principal" : "Les tags ajoutés seront seulement reliés au tag principal"}
+          />
         </label>
         <Button
           data-zone="regles.synonymes.ajout.creer"

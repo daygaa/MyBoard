@@ -10,23 +10,19 @@
 // (« -abc », SRCH-26.2) : « −abc » rayé. Menu : Copier le texte · Exclure / Inclure ce nom · Retirer de
 // la recherche ‖ Tout effacer.
 
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { FileSearch } from "lucide-react";
 
 import { termMenu } from "@/components/tags/tagMenu";
 import { TagPill } from "@/components/tags/TagPill";
 import { FALLBACK_COLOR, useCategories } from "@/hooks/useCategories";
+import { useUnfolded } from "@/hooks/useUnfolded";
 import { api } from "@/lib/api";
 import { openContextMenu } from "@/lib/contextMenu";
 import { displayTag, splitFile, splitTerm, withDescription } from "@/lib/tags";
 import { cn } from "@/lib/utils";
 import { useSearch } from "@/stores/search";
-
-/** Distance d'approche de la ligne de pastilles pour déplier, et marge autour des pastilles dépliées
- *  avant de les replier (choix du 15/10), à gauche, à droite et en dessous seulement : au-dessus se
- *  trouve « Tout effacer », qui ne doit rien déplier (16/10). Elle ne bloque aucun clic. */
-const BUFFER = 16;
 
 /** Pastille d'un terme actif : couleur de la catégorie du tag s'il existe. */
 function TermPill({ term, className }: { term: string; className?: string }) {
@@ -91,36 +87,6 @@ const covered = (target: EventTarget | null) =>
   !target.closest('[data-zone="barre-laterale"]') ||
   target.closest('[data-zone$=".suggestions"]') !== null;
 
-/** Vrai quand les pastilles en trop sont dépliées : la souris est arrivée près de la ligne de
- *  pastilles, et ne s'est pas encore éloignée des pastilles dépliées (`panelRef` : l'une puis
- *  l'autre). */
-function useUnfolded(panelRef: RefObject<HTMLElement | null>, active: boolean) {
-  const [unfolded, setUnfolded] = useState(false);
-  useEffect(() => {
-    if (!active) return;
-    let was = false;
-    const update = (next: boolean) => {
-      if (next === was) return;
-      was = next;
-      setUnfolded(next);
-    };
-    const onMove = (e: MouseEvent) => {
-      const r = panelRef.current?.getBoundingClientRect();
-      const near = !!r && e.clientX >= r.left - BUFFER && e.clientX <= r.right + BUFFER && e.clientY >= r.top && e.clientY <= r.bottom + BUFFER;
-      update(near && (was || !covered(e.target)));
-    };
-    const onLeave = () => update(false);
-    window.addEventListener("mousemove", onMove);
-    document.documentElement.addEventListener("mouseleave", onLeave);
-    return () => {
-      window.removeEventListener("mousemove", onMove);
-      document.documentElement.removeEventListener("mouseleave", onLeave);
-      setUnfolded(false);
-    };
-  }, [panelRef, active]);
-  return unfolded;
-}
-
 export function SearchTerms() {
   const terms = useSearch((s) => s.terms);
   const file = useSearch((s) => s.file);
@@ -131,7 +97,9 @@ export function SearchTerms() {
   const plusRef = useRef<HTMLSpanElement>(null);
   /** Pastilles qui ne tiennent pas sur la ligne (les dernières). */
   const [hidden, setHidden] = useState(0);
-  const unfolded = useUnfolded(panelRef, hidden > 0);
+  // La ligne de pastilles, puis les pastilles dépliées (hooks/useUnfolded.ts).
+  const rectOf = useCallback(() => panelRef.current?.getBoundingClientRect(), []);
+  const unfolded = useUnfolded(rectOf, hidden > 0, covered);
 
   // Mesure avant chaque affichage : le « +N » prend sa place au bout de la 1re ligne, qui peut alors
   // contenir une pastille de moins (nouvelle mesure, toujours avant que l'écran soit dessiné).

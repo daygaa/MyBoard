@@ -1073,3 +1073,14 @@ liste) : chaque rangée prend la hauteur de la plus haute des deux, d'où des fo
 nom » toujours alignés, quel que soit le nombre de lignes des textes ; colonne interne limitée à la largeur du tableau
 (`minmax(0, 1fr)`), sinon le contenu débordait sur le tableau voisin. L'aperçu du formulaire des synonymes tient sur
 une ligne de hauteur fixe ; un champ dont les pastilles passent à la ligne fait descendre les deux filtres ensemble.
+
+**Complément du 29/10 (retouches de R3, 3e tour).** Un tag tapé en « Tag principal » qui est un nom relié d'un
+groupe le reste : les noms rejoignent ce groupe, son principal ne change pas (l'aperçu le dit : champ `member`) ; changer
+de principal se fait seulement avec l'étoile (D3). Les deux tableaux ne partagent plus que les rangées du titre et du texte
+d'explication (le champ « Synonymes » qui grandit ne fait plus descendre les parents) ; le formulaire des parents garde
+sous ses champs une ligne de la hauteur de l'aperçu (son refus y apparaît), pour que les filtres restent alignés tant que
+le champ tient sur une ligne. Composants : `FitLine` (une ligne de noms jamais coupés, puis « … + N » : ligne d'un groupe,
+aperçu), `pillOverflow.tsx` (champ à pastilles limité à N lignes : pastilles en trop cachées une à une, « +N », ligne
+d'écriture dessous ; mesure avant chaque affichage), `hooks/useUnfolded.ts` (dépliage à l'approche de la souris, sorti de
+la recherche SRCH-18 et partagé). `Modal` (GEN-25) : titre, sous-titre (`subtitle`) et boutons fixes, contenu qui défile,
+80 % de la hauteur de la fenêtre au plus.

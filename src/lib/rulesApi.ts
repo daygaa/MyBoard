@@ -20,7 +20,8 @@ export type PreviewName = { name: string; merged: boolean; media: number };
 export type GroupPreview = {
   principal: string | null;
   newPrincipal: boolean;
-  principalFrom: string | null;
+  /** Tag tapé en principal qui est un nom relié d'un groupe ; `principal` est alors celui de ce groupe. */
+  member: string | null;
   existing: PreviewName[];
   added: PreviewName[];
   pure: string[];

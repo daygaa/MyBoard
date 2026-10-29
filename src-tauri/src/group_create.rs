@@ -4,7 +4,7 @@
 
 use rusqlite::{Connection, OptionalExtension, params};
 
-use crate::groups::{add_linked, add_pure, group_of_tag, ids, listed, merge, merged_name, principal, set_principal, tag_named, unmerge};
+use crate::groups::{add_linked, add_pure, group_of_tag, ids, listed, merge, merged_name, principal, tag_named, unmerge};
 use crate::tags::normalize;
 
 /// Un nom tapé : un tag, un nom fusionné (son groupe), ou un nom libre.
@@ -42,18 +42,15 @@ fn absorb(db: &Connection, group: i64, other: i64, now: i64) -> anyhow::Result<V
     Ok(added)
 }
 
-/// Crée ou complète le groupe de `principal` avec ces noms (formulaire « Tag principal » + « Synonymes »). Le
-/// principal tapé devient celui du groupe (D3) ; un nom d'un autre groupe réunit les deux (D14) ; un nom qui
-/// n'est pas un tag devient un nom fusionné sans média (D4.1) ; avec `merge`, les noms ajoutés sont fusionnés.
+/// Crée ou complète le groupe de `principal` avec ces noms (formulaire « Tag principal » + « Synonymes »). Un
+/// principal tapé qui est déjà dans un groupe y ajoute les noms ; un nom d'un autre groupe réunit les deux (D14) ;
+/// un nom qui n'est pas un tag devient un nom fusionné sans média (D4.1) ; avec `merge`, les noms ajoutés sont
+/// fusionnés.
 pub fn create(db: &Connection, principal_tag: i64, names: &[String], merge_new: bool, now: i64) -> anyhow::Result<i64> {
+    // Principal tapé qui est un nom relié d'un groupe : les noms rejoignent ce groupe, son principal ne
+    // change pas (retouches de R3, 29/10 ; changer de principal se fait avec l'étoile, D3).
     let group = match group_of_tag(db, principal_tag)? {
-        Some(g) => {
-            if principal(db, g)? != principal_tag {
-                let row: i64 = db.query_row("SELECT id FROM tag_group_names WHERE tag_id = ?1", [principal_tag], |r| r.get(0))?;
-                set_principal(db, g, row)?;
-            }
-            g
-        }
+        Some(g) => g,
         None => {
             db.execute("INSERT INTO tag_groups (principal_id, created_at) VALUES (?1, ?2)", params![principal_tag, now])?;
             db.last_insert_rowid()

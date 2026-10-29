@@ -33,29 +33,31 @@ function Panel({ zone, title, count, help, form, filter, onFilter, children, emp
   empty: string;
 }) {
   return (
-    // Côte à côte, les deux tableaux partagent les rangées de la grille (titre, texte, formulaire, filtre, liste) :
-    // chaque rangée prend la hauteur de la plus haute, les barres « Filtrer par nom » restent alignées (TAGM-15.5).
-    <section data-zone={zone} className="flex min-h-0 min-w-0 flex-col rounded-xl border border-border bg-card/40 p-3 lg:row-span-5 lg:grid lg:grid-cols-[minmax(0,1fr)] lg:grid-rows-subgrid">
-
+    // Côte à côte, les deux tableaux partagent seulement les rangées du titre et du texte d'explication : les
+    // formulaires commencent à la même hauteur ; le reste de chaque tableau est indépendant (un champ qui grandit
+    // ne fait pas descendre l'autre tableau, retouches de R3, 29/10).
+    <section data-zone={zone} className="flex min-h-0 min-w-0 flex-col rounded-xl border border-border bg-card/40 p-3 lg:row-span-3 lg:grid lg:grid-cols-[minmax(0,1fr)] lg:grid-rows-subgrid">
       <div className="mb-1 flex items-baseline gap-2">
         <h2 className="text-sm font-semibold text-foreground">{title}</h2>
         <span className="text-xs text-muted-foreground tabular-nums">{formatNumber(count)}</span>
       </div>
       <p className="mb-3 text-xs whitespace-pre-line text-muted-foreground">{help}</p>
-      {form}
-      <div className="relative mt-3 mb-2">
-        <Search className="pointer-events-none absolute top-1/2 left-2.5 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-        <input
-          data-zone={`${zone}.filtre`}
-          value={filter}
-          onChange={(e) => onFilter(e.target.value)}
-          placeholder="Filtrer par nom…"
-          spellCheck={false}
-          className="h-8 w-full rounded-lg border border-border bg-card/60 pr-3 pl-8 text-sm text-foreground outline-none placeholder:text-muted-foreground/60 focus:border-[#d9a94e]/60"
-        />
-      </div>
-      <div data-zone={`${zone}.liste`} className="min-h-24 flex-1 space-y-0.5 overflow-y-auto overscroll-contain">
-        {children.length ? children : <p className="px-1.5 py-2 text-xs text-muted-foreground">{empty}</p>}
+      <div className="flex min-h-0 flex-1 flex-col">
+        {form}
+        <div className="relative mt-3 mb-2">
+          <Search className="pointer-events-none absolute top-1/2 left-2.5 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+          <input
+            data-zone={`${zone}.filtre`}
+            value={filter}
+            onChange={(e) => onFilter(e.target.value)}
+            placeholder="Filtrer par nom…"
+            spellCheck={false}
+            className="h-8 w-full rounded-lg border border-border bg-card/60 pr-3 pl-8 text-sm text-foreground outline-none placeholder:text-muted-foreground/60 focus:border-[#d9a94e]/60"
+          />
+        </div>
+        <div data-zone={`${zone}.liste`} className="min-h-24 flex-1 space-y-0.5 overflow-y-auto overscroll-contain">
+          {children.length ? children : <p className="px-1.5 py-2 text-xs text-muted-foreground">{empty}</p>}
+        </div>
       </div>
     </section>
   );
@@ -91,7 +93,7 @@ export function RulesTab({ tags, rules }: { tags: ManagedTag[]; rules: RulesInde
   };
 
   return (
-    <div data-zone="regles" className="grid min-h-0 flex-1 grid-cols-1 grid-rows-2 gap-4 lg:grid-cols-2 lg:grid-rows-[auto_auto_auto_auto_minmax(0,1fr)] lg:gap-y-0">
+    <div data-zone="regles" className="grid min-h-0 flex-1 grid-cols-1 grid-rows-2 gap-4 lg:grid-cols-2 lg:grid-rows-[auto_auto_minmax(0,1fr)] lg:gap-y-0">
       <Panel
         zone="regles.synonymes"
         title="Synonymes"

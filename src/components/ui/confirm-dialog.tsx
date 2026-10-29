@@ -12,6 +12,8 @@ import { Modal } from "./modal";
 
 type Props = {
   title: string;
+  /** Sous le titre, fixe quand le texte défile. */
+  subtitle?: ReactNode;
   message: ReactNode;
   danger?: boolean;
   zone: string;
@@ -21,7 +23,7 @@ type Props = {
   children?: ReactNode;
 };
 
-export function ConfirmDialog({ title, message, danger = false, zone, onCancel, onConfirm, confirmLabel = "Oui", children }: Props) {
+export function ConfirmDialog({ title, subtitle, message, danger = false, zone, onCancel, onConfirm, confirmLabel = "Oui", children }: Props) {
   return (
     <Modal
       open
@@ -30,6 +32,7 @@ export function ConfirmDialog({ title, message, danger = false, zone, onCancel, 
       onClose={onCancel}
       zone={zone}
       title={title}
+      subtitle={subtitle}
       description={message}
       footer={
         <>

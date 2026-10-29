@@ -78,8 +78,9 @@ pub struct Preview {
     pub principal: Option<String>,
     /// Le principal n'est pas encore un tag : « Créer un nouveau tag » à la validation.
     pub new_principal: bool,
-    /// Ancien principal du groupe, quand le principal tapé en était un nom relié.
-    pub principal_from: Option<String>,
+    /// Tag tapé en principal qui est un nom relié d'un groupe : il le reste, `principal` est alors celui
+    /// de son groupe.
+    pub member: Option<String>,
     /// Noms déjà dans le groupe du principal, avec leur état.
     pub existing: Vec<PreviewName>,
     /// Noms ajoutés : ils prendront l'état de l'interrupteur (D2.2).
@@ -123,21 +124,18 @@ pub fn preview(db: &Connection, principal_text: &str, names: &[String]) -> rusql
         None => typed.clone(),
     });
     out.new_principal = p.is_none();
-    let mut seen: Vec<String> = out.principal.iter().cloned().collect();
     if let (Some(tag), Some(g)) = (p, group) {
-        let old = principal(db, g)?;
-        if old != tag {
-            out.principal_from = Some(tag_name(db, old)?.0);
-            let (name, media) = tag_name(db, old)?;
-            out.existing.push(PreviewName { name, merged: false, media });
+        // Tag tapé qui est un nom relié d'un groupe : il le reste, et les noms rejoignent ce groupe, dont le
+        // principal ne change pas (retouches de R3, 29/10).
+        let real = principal(db, g)?;
+        if real != tag {
+            out.member = out.principal.take();
+            out.principal = Some(tag_name(db, real)?.0);
         }
-        for (tag_id, name) in members(db, g)? {
-            if tag_id != Some(tag) {
-                out.existing.push(name);
-            }
-        }
-        out.fully_merged = !out.existing.is_empty() && out.existing.iter().all(|n| n.merged) && out.principal_from.is_none();
+        out.existing.extend(members(db, g)?.into_iter().map(|(_, name)| name));
+        out.fully_merged = !out.existing.is_empty() && out.existing.iter().all(|n| n.merged);
     }
+    let mut seen: Vec<String> = out.principal.iter().cloned().collect();
     seen.extend(out.existing.iter().map(|n| n.name.clone()));
     for raw in names {
         let Some(name) = normalize(raw) else { continue };

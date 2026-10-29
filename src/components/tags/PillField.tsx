@@ -27,6 +27,7 @@ import { pillCommands } from "./pillCommands";
 import { applySelection, EMPTY_TEXT, readSelection } from "./pillDom";
 import { usePillListeners, type PillHandlers } from "./pillListeners";
 import { pillMouseDown } from "./pillMouse";
+import { PillOverflowParts, usePillOverflow } from "./pillOverflow";
 import { IN_FIELD } from "./TagInput";
 import { moveHighlight, SuggestionList, useTagSuggestions, type Dropdown, type Taken } from "./TagSuggestions";
 
@@ -53,6 +54,8 @@ type Props<T> = {
   onFocus?: () => void;
   onBlur?: () => void;
   editorRef?: (el: HTMLDivElement | null) => void;
+  /** Lignes de pastilles au plus ; au-delà, « +N » et une ligne d'écriture à part (pillOverflow.tsx). */
+  maxLines?: number;
 };
 
 /** Collage sur une seule ligne. */
@@ -190,6 +193,7 @@ export function PillField<T>(props: Props<T>) {
     },
   };
   usePillListeners(editor, handlers);
+  const over = usePillOverflow({ maxLines: props.maxLines, doc, sel, focused, listOpen: open, root: box, editor });
 
   const last = doc.texts.length - 1;
   return (
@@ -198,7 +202,9 @@ export function PillField<T>(props: Props<T>) {
       data-zone={zone}
       data-champ-pastilles
       onMouseDown={(e) => editor.current && pillMouseDown(e, editor.current, { pills, cmd, dragging, latest: () => latest.current })}
-      className={cn("relative cursor-text", className)}
+      // Dépliées : le champ garde sa hauteur, les pastilles passent par-dessus ce qui est dessous.
+      style={over.unfolded ? { height: over.foldedHeight } : undefined}
+      className={cn("relative cursor-text", className, over.unfolded && "z-30 !items-start")}
     >
       <div
         ref={(el) => {
@@ -239,8 +245,10 @@ export function PillField<T>(props: Props<T>) {
         className="min-h-7 min-w-0 flex-1 text-sm leading-7 break-words whitespace-pre-wrap text-foreground outline-none"
       >
         {doc.texts.flatMap((text, t) => [
+          // Pastilles au-delà de `maxLines` lignes : la ligne d'écriture passe dessous, seule.
+          t === last && props.maxLines && <span key="saut" data-saut contentEditable={false} className={over.overflow ? "block" : "hidden"} />,
           // Texte vide : 4 px entre deux pastilles ; texte tapé : 4 px de chaque côté.
-          <span key={`t:${t}:${version}`} data-texte={t} className={text ? "px-1" : "px-0.5"}>
+          <span key={`t:${t}:${version}`} data-texte={t} className={cn(text ? "px-1" : "px-0.5", !text && t < last && over.isHidden(t) && "hidden")}>
             {text || EMPTY_TEXT}
           </span>,
           t < doc.pills.length && (
@@ -249,8 +257,10 @@ export function PillField<T>(props: Props<T>) {
               data-pastille={t}
               data-choisie={focused && covers(sel, t) ? "" : undefined}
               contentEditable={false}
-              // Hauteur d'une ligne, pastille centrée dedans (avec `align-middle`, elle tombait 1,5 px trop bas).
-              className="inline-flex h-7 items-center align-top select-none"
+              // Hauteur d'une ligne, pastille centrée dedans (avec `align-middle`, elle tombait 1,5 px trop bas) ;
+              // jamais plus large que le champ, l'espace de 4 px qui la précède compris (nom coupé par « … »,
+              // retouches de R3).
+              className={cn("inline-flex h-7 max-w-[calc(100%-4px)] items-center align-top select-none", over.isHidden(t) && "hidden")}
             >
               {renderPill(doc.pills[t], () => cmd.remove(t))}
             </span>
@@ -262,6 +272,7 @@ export function PillField<T>(props: Props<T>) {
           </span>
         )}
       </div>
+      {props.maxLines && <PillOverflowParts count={over.hidden.size} unfolded={over.unfolded} focused={focused} plus={over.plus} layer={over.layer} />}
       {open && current !== null && (
         <SuggestionList
           zone={`${zone}.champ`}

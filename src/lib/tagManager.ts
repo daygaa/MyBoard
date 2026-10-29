@@ -9,7 +9,8 @@ import { api, type ManagedTag } from "./api";
 import { queryClient } from "./queryClient";
 
 export function refreshTags(): Promise<unknown> {
-  const keys = [["tag-manager"], ["tag-rules"], ["page-tags"], ["autocomplete"], ["tag"], ["media-detail"], ["media"], ["stats"], ["selection-tags"]];
+  // Aperçu du formulaire des synonymes compris : une fusion changée dans la liste s'y voit tout de suite.
+  const keys = [["tag-manager"], ["tag-rules"], ["page-tags"], ["autocomplete"], ["tag"], ["media-detail"], ["media"], ["stats"], ["selection-tags"], ["group-preview"]];
   return Promise.all(keys.map((queryKey) => queryClient.invalidateQueries({ queryKey })));
 }
 
