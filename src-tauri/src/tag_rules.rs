@@ -165,7 +165,7 @@ pub async fn tag_links(state: State<'_, AppState>, id: i64) -> Result<TagLinks, 
     read(&state, |db| {
         Ok(TagLinks {
             aliases: db.query_row(
-                "SELECT COUNT(*) FROM tag_group_names n JOIN tag_groups g ON g.id = n.group_id WHERE g.principal_id = ?1 AND n.tag_id IS NULL",
+                "SELECT COUNT(*) FROM tag_group_names n JOIN tag_groups g ON g.id = n.group_id WHERE g.principal_id = ?1 AND n.merged = 1",
                 [id],
                 |r| r.get(0),
             )?,

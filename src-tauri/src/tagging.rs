@@ -21,14 +21,14 @@ pub struct Target {
     pub name_id: Option<i64>,
 }
 
-/// Tag désigné par ce nom : un tag existant (un nom relié est un vrai tag), sinon le principal du groupe où ce
-/// nom est fusionné.
+/// Tag désigné par ce nom : un tag fusionné donne le principal de son groupe (le média est noté pour la
+/// défusion) ; sinon le tag de ce nom (un nom relié est un tag comme un autre).
 pub fn resolve(db: &Connection, raw: &str) -> rusqlite::Result<Option<Target>> {
     let Some(name) = normalize(raw) else { return Ok(None) };
-    if let Some(tag_id) = crate::groups::tag_named(db, &name)? {
-        return Ok(Some(Target { tag_id, name_id: None }));
+    if let Some((id, _, principal)) = crate::groups::merged_name(db, &name)? {
+        return Ok(Some(Target { tag_id: principal, name_id: Some(id) }));
     }
-    Ok(crate::groups::merged_name(db, &name)?.map(|(id, _, principal)| Target { tag_id: principal, name_id: Some(id) }))
+    Ok(crate::groups::tag_named(db, &name)?.map(|tag_id| Target { tag_id, name_id: None }))
 }
 
 /// Comme `resolve`, mais crée le tag s'il n'existe pas (TAGM-07). À appeler dans une transaction

@@ -107,7 +107,7 @@ export function SynonymsCell({ tag, group, tagOf }: { tag: ManagedTag; group: Gr
               </div>
               {group.names.map((n) => (
                 <div key={n.id} className="flex h-7 items-center gap-1.5 px-1.5 pl-6 text-sm">
-                  {n.tagId !== null ? <TagName tag={tagOf(n.tagId)} /> : <span className="min-w-0 truncate font-mono text-muted-foreground">{displayTag(n.name)}</span>}
+                  {!n.merged ? <TagName tag={tagOf(n.tagId)} /> : <span className="min-w-0 truncate font-mono text-muted-foreground">{displayTag(n.name)}</span>}
                   <span className="ml-auto shrink-0 text-[11px] text-muted-foreground">{n.merged ? "fusionné" : "relié"}</span>
                 </div>
               ))}

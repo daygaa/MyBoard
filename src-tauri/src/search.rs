@@ -137,38 +137,36 @@ fn set(
 }
 
 /// Suite d'une requête qui commence par `WITH found(id) AS (…)` : les médias des tags trouvés et de leurs
-/// groupes de synonymes (principal et noms reliés).
+/// groupes de synonymes (principal et noms ; un tag fusionné n'a pas de média, les siens portent le principal).
 const GROUP_TAGS: &str = "grp(id) AS (SELECT id FROM tag_groups WHERE principal_id IN found
                         UNION SELECT group_id FROM tag_group_names WHERE tag_id IN found),
      ids(id) AS (SELECT id FROM found
                  UNION SELECT principal_id FROM tag_groups WHERE id IN grp
-                 UNION SELECT tag_id FROM tag_group_names WHERE group_id IN grp AND tag_id IS NOT NULL)
+                 UNION SELECT tag_id FROM tag_group_names WHERE group_id IN grp)
      SELECT DISTINCT media_id FROM media_tags WHERE tag_id IN ids";
 
 fn term_set(db: &Connection, sets: &mut HashMap<String, Arc<RoaringBitmap>>, term: &Term) -> rusqlite::Result<Arc<RoaringBitmap>> {
     match term {
         // Tag inexistant : ensemble vide (aucun résultat s'il est demandé, sans effet s'il est exclu). Un nom
         // vaut pour tout son groupe de synonymes (refonte, décision D5) : le principal (que portent les médias
-        // des noms fusionnés) et les noms reliés ; un nom fusionné tapé donne son groupe.
+        // des tags fusionnés) et les noms reliés ; un tag fusionné tapé donne son groupe.
         Term::Exact(name) => set(
             db,
             sets,
             format!("t:{name}"),
             &format!(
-                "WITH found(id) AS (SELECT COALESCE((SELECT id FROM tags WHERE name = ?1),
-                     (SELECT g.principal_id FROM tag_group_names n JOIN tag_groups g ON g.id = n.group_id WHERE n.name = ?1))),
+                "WITH found(id) AS (SELECT id FROM tags WHERE name = ?1),
                  {GROUP_TAGS} ORDER BY media_id"
             ),
             &[name],
         ),
-        // Joker : chaque nom trouvé (tag ou nom fusionné) compte avec son groupe (D5.1).
+        // Joker : chaque tag trouvé (fusionné ou non) compte avec son groupe (D5.1).
         Term::Prefix(prefix) => set(
             db,
             sets,
             format!("p:{prefix}"),
             &format!(
-                "WITH found(id) AS (SELECT id FROM tags WHERE name >= ?1 AND name < ?2
-                     UNION SELECT g.principal_id FROM tag_group_names n JOIN tag_groups g ON g.id = n.group_id WHERE n.name >= ?1 AND n.name < ?2),
+                "WITH found(id) AS (SELECT id FROM tags WHERE name >= ?1 AND name < ?2),
                  {GROUP_TAGS}"
             ),
             &[prefix, &format!("{prefix}\u{10FFFF}")],

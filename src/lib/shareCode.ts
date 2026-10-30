@@ -17,7 +17,7 @@ export function encodeTags(tags: ManagedTag[], categories: Category[], rules: Ta
   // Groupes (jusqu'au nouveau format, lot R8) : [nom, principal, fusionné] ; un nom relié part si son tag part.
   const a = rules.groups
     .filter((g) => nameOf.has(g.principalId))
-    .flatMap((g) => g.names.filter((n) => n.merged || (n.tagId !== null && nameOf.has(n.tagId))).map((n) => [n.name, nameOf.get(g.principalId), flag(n.merged)]));
+    .flatMap((g) => g.names.filter((n) => n.merged || nameOf.has(n.tagId)).map((n) => [n.name, nameOf.get(g.principalId), flag(n.merged)]));
   const p = rules.parents
     .filter((r) => nameOf.has(r.childId) && nameOf.has(r.parentId))
     .map((r) => [nameOf.get(r.childId), nameOf.get(r.parentId), flag(r.enabled)]);

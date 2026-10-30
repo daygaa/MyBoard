@@ -7,18 +7,18 @@ use std::collections::HashMap;
 use rusqlite::{Connection, params};
 use serde::Serialize;
 
-use crate::groups::{group_of_tag, merged_name, principal, tag_named};
+use crate::groups::{group_of_tag, principal, tag_named};
 use crate::tags::normalize;
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct NameRow {
     pub id: i64,
-    /// Tag du nom relié ; `None` : nom fusionné.
-    pub tag_id: Option<i64>,
+    /// Tag du nom (relié ou fusionné : chaque nom est un tag, décision B).
+    pub tag_id: i64,
     pub name: String,
     pub merged: bool,
-    /// Médias du tag (relié) ou médias notés (fusionné).
+    /// Médias du tag (relié) ou médias notés à sa fusion (fusionné : le tag n'en a plus).
     pub media: i64,
 }
 
@@ -39,9 +39,9 @@ pub struct GroupRow {
 pub fn list(db: &Connection) -> rusqlite::Result<Vec<GroupRow>> {
     let mut names: HashMap<i64, Vec<NameRow>> = HashMap::new();
     let mut stmt = db.prepare(
-        "SELECT n.group_id, n.id, n.tag_id, COALESCE(n.name, t.name), n.tag_id IS NULL,
-                CASE WHEN n.tag_id IS NULL THEN (SELECT COUNT(*) FROM tag_group_media m WHERE m.name_id = n.id) ELSE t.media_count END
-           FROM tag_group_names n LEFT JOIN tags t ON t.id = n.tag_id ORDER BY 4",
+        "SELECT n.group_id, n.id, n.tag_id, t.name, n.merged,
+                CASE WHEN n.merged THEN (SELECT COUNT(*) FROM tag_group_media m WHERE m.name_id = n.id) ELSE t.media_count END
+           FROM tag_group_names n JOIN tags t ON t.id = n.tag_id ORDER BY 4",
     )?;
     for row in stmt.query_map([], |r| Ok((r.get::<_, i64>(0)?, NameRow { id: r.get(1)?, tag_id: r.get(2)?, name: r.get(3)?, merged: r.get(4)?, media: r.get(5)? })))? {
         let (group, name) = row?;
@@ -50,9 +50,9 @@ pub fn list(db: &Connection) -> rusqlite::Result<Vec<GroupRow>> {
     // Médias du groupe : ceux du principal (les médias fusionnés le portent), plus ceux des noms reliés.
     let mut stmt = db.prepare(
         "SELECT g.id, g.principal_id, g.created_at,
-                CASE WHEN EXISTS (SELECT 1 FROM tag_group_names n WHERE n.group_id = g.id AND n.tag_id IS NOT NULL)
+                CASE WHEN EXISTS (SELECT 1 FROM tag_group_names n WHERE n.group_id = g.id AND n.merged = 0)
                      THEN (SELECT COUNT(DISTINCT mt.media_id) FROM media_tags mt
-                            WHERE mt.tag_id IN (SELECT g.principal_id UNION SELECT tag_id FROM tag_group_names WHERE group_id = g.id AND tag_id IS NOT NULL))
+                            WHERE mt.tag_id IN (SELECT g.principal_id UNION SELECT tag_id FROM tag_group_names WHERE group_id = g.id AND merged = 0))
                      ELSE (SELECT media_count FROM tags WHERE id = g.principal_id) END,
                 (SELECT name FROM tags WHERE id = g.principal_id)
            FROM tag_groups g",
@@ -89,8 +89,6 @@ pub struct Preview {
     pub existing: Vec<PreviewName>,
     /// Noms ajoutés : ils prendront l'état de l'interrupteur (D2.2).
     pub added: Vec<PreviewName>,
-    /// Noms qui ne sont pas des tags : noms fusionnés sans média (D4.1), et ceux d'un groupe réuni.
-    pub pure: Vec<String>,
     /// Principaux des autres groupes réunis (D14).
     pub joined: Vec<String>,
     /// Groupe du principal entièrement fusionné : l'interrupteur est allumé d'office (D2.2, D8.1).
@@ -102,11 +100,11 @@ fn tag_name(db: &Connection, tag: i64) -> rusqlite::Result<(String, i64)> {
 }
 
 /// Noms d'un groupe (hors principal), avec leur état et leurs médias.
-fn members(db: &Connection, group: i64) -> rusqlite::Result<Vec<(Option<i64>, PreviewName)>> {
+fn members(db: &Connection, group: i64) -> rusqlite::Result<Vec<(i64, PreviewName)>> {
     db.prepare(
-        "SELECT n.tag_id, COALESCE(n.name, t.name), n.tag_id IS NULL,
-                CASE WHEN n.tag_id IS NULL THEN (SELECT COUNT(*) FROM tag_group_media m WHERE m.name_id = n.id) ELSE t.media_count END
-           FROM tag_group_names n LEFT JOIN tags t ON t.id = n.tag_id WHERE n.group_id = ?1 ORDER BY 2",
+        "SELECT n.tag_id, t.name, n.merged,
+                CASE WHEN n.merged THEN (SELECT COUNT(*) FROM tag_group_media m WHERE m.name_id = n.id) ELSE t.media_count END
+           FROM tag_group_names n JOIN tags t ON t.id = n.tag_id WHERE n.group_id = ?1 ORDER BY 2",
     )?
     .query_map([group], |r| Ok((r.get(0)?, PreviewName { name: r.get(1)?, merged: r.get(2)?, media: r.get(3)? })))?
     .collect()
@@ -115,10 +113,7 @@ fn members(db: &Connection, group: i64) -> rusqlite::Result<Vec<(Option<i64>, Pr
 pub fn preview(db: &Connection, principal_text: &str, names: &[String]) -> rusqlite::Result<Preview> {
     let mut out = Preview::default();
     let Some(typed) = normalize(principal_text) else { return Ok(out) };
-    let p = match tag_named(db, &typed)? {
-        Some(tag) => Some(tag),
-        None => merged_name(db, &typed)?.map(|(_, _, p)| p),
-    };
+    let p = tag_named(db, &typed)?;
     let group = match p {
         Some(tag) => group_of_tag(db, tag)?,
         None => None,
@@ -146,17 +141,15 @@ pub fn preview(db: &Connection, principal_text: &str, names: &[String]) -> rusql
         if seen.contains(&name) {
             continue;
         }
-        // Un tag ou un nom fusionné d'un autre groupe : tout ce groupe est réuni.
+        // Un tag d'un autre groupe (fusionné ou non) : tout ce groupe est réuni. Un nom qui n'est pas encore un
+        // tag le deviendra (le formulaire le crée d'abord par sa pop-in).
         let other = match tag_named(db, &name)? {
             Some(tag) => group_of_tag(db, tag)?.map(Ok).unwrap_or(Err(tag)),
-            None => match merged_name(db, &name)? {
-                Some((_, k, _)) => Ok(k),
-                None => {
-                    seen.push(name.clone());
-                    out.pure.push(name);
-                    continue;
-                }
-            },
+            None => {
+                seen.push(name.clone());
+                out.added.push(PreviewName { name, merged: false, media: 0 });
+                continue;
+            }
         };
         match other {
             Err(tag) => {
@@ -172,11 +165,7 @@ pub fn preview(db: &Connection, principal_text: &str, names: &[String]) -> rusql
                 out.added.push(PreviewName { name: pk, merged: false, media });
                 for (_, n) in members(db, k)? {
                     seen.push(n.name.clone());
-                    if n.merged && n.media == 0 {
-                        out.pure.push(n.name);
-                    } else {
-                        out.added.push(PreviewName { merged: false, ..n });
-                    }
+                    out.added.push(PreviewName { merged: false, ..n });
                 }
             }
         }
@@ -187,7 +176,7 @@ pub fn preview(db: &Connection, principal_text: &str, names: &[String]) -> rusql
 /// Changement de principal (D3.1) : médias qui passeront de l'ancien au nouveau principal (ceux des noms
 /// fusionnés, et tous ceux de l'ancien principal si le nouveau était fusionné).
 pub fn principal_check(db: &Connection, group: i64, name_id: i64) -> rusqlite::Result<i64> {
-    let was_merged: bool = db.query_row("SELECT tag_id IS NULL FROM tag_group_names WHERE id = ?1", [name_id], |r| r.get(0))?;
+    let was_merged: bool = db.query_row("SELECT merged FROM tag_group_names WHERE id = ?1", [name_id], |r| r.get(0))?;
     if was_merged {
         return db.query_row("SELECT media_count FROM tags WHERE id = ?1", [principal(db, group)?], |r| r.get(0));
     }

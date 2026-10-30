@@ -10,7 +10,7 @@ import { rulesApi, type GroupRow, type ParentRow, type TagRules } from "@/lib/ru
 export type RulesIndex = TagRules & {
   /** Groupe de chaque tag : son principal et ses noms reliés. */
   groupOf: Map<number, GroupRow>;
-  /** Groupe de chaque nom fusionné (ce n'est plus un tag). */
+  /** Groupe de chaque tag fusionné, par son nom (taper ce nom donne le principal). */
   mergedNames: Map<string, GroupRow>;
   /** Règles dont le tag est l'enfant (ses parents). */
   parentsOf: Map<number, ParentRow[]>;
@@ -39,8 +39,8 @@ export function useTagRules(): RulesIndex {
     for (const g of data.groups) {
       groupOf.set(g.principalId, g);
       for (const n of g.names) {
-        if (n.tagId !== null) groupOf.set(n.tagId, g);
-        else mergedNames.set(n.name, g);
+        groupOf.set(n.tagId, g);
+        if (n.merged) mergedNames.set(n.name, g);
       }
     }
     return {

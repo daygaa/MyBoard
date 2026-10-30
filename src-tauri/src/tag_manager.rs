@@ -79,17 +79,13 @@ fn list(db: &Connection) -> rusqlite::Result<TagManagerData> {
 
 fn rename(db: &Connection, id: i64, raw: &str) -> rusqlite::Result<Renamed> {
     let Some(name) = normalize(raw) else { return Ok(Renamed::Empty) };
-    let other: Option<(i64, String, i64)> = db
-        .query_row("SELECT id, name, media_count FROM tags WHERE name = ?1 AND id != ?2", params![name, id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))
-        .optional()?;
-    if let Some((id, name, media_count)) = other {
-        return Ok(Renamed::Exists { id, name, media_count, alias: None });
-    }
+    // Nom d'un tag fusionné : c'est son principal qui compte (le renommage propose de rejoindre son groupe).
     let aliased: Option<(i64, String, i64)> = db
         .query_row(
-            "SELECT t.id, t.name, t.media_count FROM tag_group_names n JOIN tag_groups g ON g.id = n.group_id JOIN tags t ON t.id = g.principal_id
-             WHERE n.name = ?1",
-            [&name],
+            "SELECT t.id, t.name, t.media_count FROM tag_group_names n JOIN tags m ON m.id = n.tag_id JOIN tag_groups g ON g.id = n.group_id
+               JOIN tags t ON t.id = g.principal_id
+              WHERE m.name = ?1 AND n.merged = 1 AND m.id != ?2",
+            params![name, id],
             |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
         )
         .optional()?;
@@ -97,6 +93,12 @@ fn rename(db: &Connection, id: i64, raw: &str) -> rusqlite::Result<Renamed> {
         Some((target, _, _)) if target == id => return Ok(Renamed::OwnAlias),
         Some((target, target_name, media_count)) => return Ok(Renamed::Exists { id: target, name: target_name, media_count, alias: Some(name) }),
         None => {}
+    }
+    let other: Option<(i64, String, i64)> = db
+        .query_row("SELECT id, name, media_count FROM tags WHERE name = ?1 AND id != ?2", params![name, id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))
+        .optional()?;
+    if let Some((id, name, media_count)) = other {
+        return Ok(Renamed::Exists { id, name, media_count, alias: None });
     }
     db.execute("UPDATE tags SET name = ?1 WHERE id = ?2", params![name, id])?;
     Ok(Renamed::Done)

@@ -99,6 +99,8 @@ function NameEditor({ tag, onDone, onRename }: { tag: ManagedTag; onDone: () => 
 export const TagRow = memo(function TagRow(props: Props) {
   const { tag, color, checked, editing, onCheck, onEdit, onRename, onSearch, onDelete, onMenu } = props;
   const label = displayTag(tag.name);
+  // Tag fusionné (il reste un tag, sans média, décision B) : en gris, comme dans les groupes de synonymes.
+  const mergedInto = props.group?.names.some((n) => n.tagId === tag.id && n.merged) ? props.group.principalName : null;
   return (
     <div
       data-zone="gestionnaire-tags.ligne"
@@ -116,11 +118,11 @@ export const TagRow = memo(function TagRow(props: Props) {
             type="button"
             onClick={() => onSearch(tag)}
             onMouseEnter={(e) => titleIfCut(e.currentTarget)}
-            title={withDescription(`Rechercher « ${label} »`, tag.description)}
+            title={withDescription(mergedInto ? `Fusionné dans « ${displayTag(mergedInto)} »` : `Rechercher « ${label} »`, tag.description)}
             className="block max-w-full truncate text-left font-mono hover:underline"
-            style={{ color: tag.hidden ? undefined : color }}
+            style={{ color: tag.hidden || mergedInto ? undefined : color }}
           >
-            <span className={cn(tag.hidden && "text-muted-foreground")}>{label}</span>
+            <span className={cn((tag.hidden || mergedInto) && "text-muted-foreground")}>{label}</span>
           </button>
         )}
       </div>

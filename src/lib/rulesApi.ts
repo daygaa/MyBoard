@@ -7,7 +7,8 @@ import type { SharedTag } from "./api";
 
 /** Nom d'un groupe (hors principal) : relié (`tagId`, un vrai tag) ou fusionné (`tagId` vide) ; `media` :
  *  médias du tag, ou médias notés pour défaire la fusion. */
-export type NameRow = { id: number; tagId: number | null; name: string; merged: boolean; media: number };
+/** Nom d'un groupe : toujours un tag (décision B), fusionné ou non ; `media` : ceux du tag, ou ceux notés à sa fusion. */
+export type NameRow = { id: number; tagId: number; name: string; merged: boolean; media: number };
 /** Groupe de synonymes ; `media` : médias que trouve la recherche d'un de ses noms. */
 export type GroupRow = { id: number; principalId: number; principalName: string; media: number; names: NameRow[]; createdAt: number };
 /** Règle « enfant → parent » ; `enabled` = son interrupteur (D-047) ; `media` : médias qui ont reçu le
@@ -24,7 +25,6 @@ export type GroupPreview = {
   member: string | null;
   existing: PreviewName[];
   added: PreviewName[];
-  pure: string[];
   joined: string[];
   fullyMerged: boolean;
 };

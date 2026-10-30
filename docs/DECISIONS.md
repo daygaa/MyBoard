@@ -1112,3 +1112,15 @@ voulait pas. Désormais un tag fusionné reste un tag à part entière : la fusi
 défusion, qui reçoivent le principal), la défusion les lui rend ; il reste dans la liste des tags (0 média) ; le taper
 donne le principal ; il s'affiche en gris. Plus aucun nom de synonyme sans tag (D4.1 abandonnée). Lot « R3 bis » :
 schéma 10, conversion des noms fusionnés existants en tags.
+
+**Complément du 30/10 (lot R3 bis, schéma 10).** `tag_group_names` reçoit `merged` ; chaque ligne a son `tag_id`
+(fusionné ou non) ; les anciennes colonnes du nom fusionné (`name`, `category_id`, `description`, `hidden`,
+`tag_created_at`) restent vides, sans reconstruire la table (sa reconstruction aurait effacé les listes de médias par
+clé étrangère). Conversion : chaque nom fusionné devient un tag (ses réglages, sans média ; un nom qui n'avait jamais
+été un tag : catégorie « Général »). Fusion : médias notés, rôles de parents passés au principal (retour au lot R5),
+principal posé, puis le tag est retiré de ses médias (il reste, à 0 média). Défusion : le tag est reposé sur les
+médias notés, le principal retiré de ceux qui ne l'avaient pas. Saisie : un tag fusionné donne le principal (le média
+est noté pour la défusion) ; suggestions : « X → Y » au lieu du tag X ; recherche : un tag trouvé compte avec tout son
+groupe. Réunir deux groupes défait toutes les fusions de l'autre groupe ; ses noms prennent l'état de l'interrupteur.
+La description du tag fusionné n'est plus recopiée sur le principal (il la garde). Le nettoyage des tags non utilisés
+garde les tags des groupes (D15.1).

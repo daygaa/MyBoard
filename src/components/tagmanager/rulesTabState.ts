@@ -11,7 +11,7 @@ import { createStore, useStore, type StoreApi } from "zustand";
 import type { PillDoc } from "@/lib/pillText";
 import { openTagTab } from "@/lib/router";
 
-/** Pastille du formulaire des groupes : un tag (`id`), ou un nom fusionné (`id` vide). */
+/** Pastille du formulaire des groupes : un tag (`id`), ou un tag fusionné tapé par son nom (`id` vide). */
 export type Chip = { name: string; id: number | null };
 
 export type RulesTabState = {

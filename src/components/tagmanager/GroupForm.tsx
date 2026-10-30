@@ -28,21 +28,20 @@ import { useRulesStore, type Chip } from "./rulesTabState";
 
 /** Cadre des champs, comme ceux de la barre de la sélection. */
 const FIELD = "flex min-h-9 min-w-0 flex-1 items-center rounded-lg border border-border bg-background px-1.5 py-0.5 focus-within:border-[#d9a94e]";
-/** Nom qui n'est pas un tag (il deviendra un nom fusionné) : gris. */
+/** Tag fusionné dans un autre groupe, tapé par son nom : gris. */
 const MERGED_GREY = "#8b8d96";
 const list = (names: string[]) => names.map((n) => `« ${displayTag(n)} »`).join(", ");
 
 /** Ce qui va se passer, en phrases (bulle de l'icône « i »). */
 function notes(preview: GroupPreview, principal: string): string[] {
   const p = `« ${displayTag(principal)} »`;
-  const { joined, pure } = preview;
+  const { joined } = preview;
   return [
     preview.newPrincipal && `${p} n'existe pas encore : il sera créé.`,
     // Textes demandés le 29/10 (retouches de R3).
     preview.member && `« ${displayTag(preview.member)} » a pour synonyme principal ${p}, ces tags seront simplement ajoutés à son groupe`,
     !preview.member && preview.existing.length > 0 && `${p} a déjà des synonymes, ces tags seront simplement ajoutés à son groupe`,
     joined.length > 0 && (joined.length > 1 ? `Les groupes de ${list(joined)} seront réunis à celui-ci.` : `Le groupe de ${list(joined)} sera réuni à celui-ci.`),
-    pure.length > 0 && `${list(pure)} ${pure.length > 1 ? "ne sont pas des tags : ils seront des noms fusionnés" : "n'est pas un tag : ce sera un nom fusionné"} dans ${p}, sans média.`,
   ].filter((n): n is string => !!n);
 }
 
@@ -53,7 +52,7 @@ function notes(preview: GroupPreview, principal: string): string[] {
  *  n'a pas de pastille. */
 function Preview({ preview, merge, why }: { preview: GroupPreview | undefined; merge: boolean; why: string | null }) {
   const principal = preview?.principal;
-  const fresh = preview ? [...preview.added.map((n) => ({ name: n.name, merged: merge })), ...preview.pure.map((name) => ({ name, merged: true }))] : [];
+  const fresh = preview ? preview.added.map((n) => ({ name: n.name, merged: merge })) : [];
   const old = preview ? preview.existing.map((n) => ({ name: n.name, merged: n.merged })) : [];
   const item = (n: { name: string; merged: boolean }, added: boolean) => ({
     key: `${added ? "+" : ""}${n.name}`,
@@ -141,7 +140,7 @@ export function GroupForm({ tags, tagOf }: { tags: ManagedTag[]; tagOf: (id: num
   // « Créer » grisé, avec la raison sous les champs : le principal tapé aussi en synonyme (sinon « X = X »
   // était accepté puis ignoré), ou des noms qui sont tous déjà dans le groupe (retouches de R3).
   const self = !!chief && typed.includes(chief.name);
-  const nothing = !!preview && typed.length > 0 && preview.added.length + preview.pure.length === 0;
+  const nothing = !!preview && typed.length > 0 && preview.added.length === 0;
   // Principal du groupe : celui tapé, ou celui de son groupe s'il en est un nom relié (il le reste).
   const head = preview?.principal ?? chief?.name ?? "";
   const already = typed.length > 1 ? `Ces tags sont déjà des synonymes de « ${displayTag(head)} ».` : `Ce tag est déjà un synonyme de « ${displayTag(head)} ».`;

@@ -3,6 +3,29 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Refonte des synonymes et des parents, lot R3 bis : un tag fusionné reste un tag (30/10/2026) — Backup v74
+
+SPEC : livrés `[~]` : TAGM-15 (retour T3, point TAGM-15.22), TAGM-08 (point TAGM-08.2, partie D15.1) ; TAGM-20
+complété. Complément de D-047 (schéma 10).
+
+- **Tag fusionné** : il reste un tag à part entière, sans média (ses médias reçoivent le principal) ; il apparaît dans
+  le gestionnaire des tags, en gris, avec la bulle « Fusionné dans « Y » » ; la défusion lui rend ses médias.
+- **Comme avant** : taper un tag fusionné donne le principal, les suggestions le proposent « X → Y », la recherche
+  d'un nom trouve tout le groupe, la défusion est exacte.
+- **Plus aucun synonyme sans tag** : un import de liste de tags crée le tag ; les noms fusionnés des bases existantes
+  deviennent des tags (schéma 10).
+- **Nettoyage des tags non utilisés** : les tags des groupes de synonymes sont gardés, avec le message.
+
+Vérifié dans la version compilée, sur des copies des bases d'essai : `refonte` (schéma 9 → 10) : essai navire, essai
+vaisseau et essai bagnole devenus des tags sans média, listes de médias gardées ; gestionnaire : « essai navire », 0
+média, gris, « Fusionné dans « essai bateau » » ; « essai navire » tapé sur une image : essai bateau posé ; suggestions
+« essai_navire → essai_bateau » ; recherche navire = bateau = vaisseau = 3 images ; défusion d'essai navire : le tag
+revient sur ses 3 images (dont celle où il avait été tapé), refusion : 0 média, le tag existe toujours ; changement de
+principal vers essai bagnole (fusionné) puis tout défusionner : chaque image retrouve exactement ses tags ; nettoyage :
+« 4 tags gardés : ils sont dans un groupe de synonymes » ; `refonte-ancien` (schéma 7 → 10) : 49 groupes, 51 tags
+fusionnés (aucun avec des médias), 2 reliés, aucun nom sans tag ; recherche « essai minou » 5, « essai toutou » 3,
+« essai tou* » 3, « essai chat -essai matou » 0 (comme au lot R3) ; zéro erreur `tsc` et `clippy`.
+
 ## Refonte des synonymes et des parents, retouches du lot R3, 6e tour (30/10/2026) — Backup v73
 
 SPEC : livrés `[~]` : TAGM-15 (retour T3, points TAGM-15.5 et TAGM-15.21 nouveau).

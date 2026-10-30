@@ -51,6 +51,10 @@ pub struct TagInfo {
 pub const TAG_COLUMNS: &str = "id, name, category_id, media_count, hidden, description";
 /// Les mêmes, préfixées (requêtes avec jointure).
 const T_COLUMNS: &str = "t.id, t.name, t.category_id, t.media_count, t.hidden, t.description";
+/// Tags fusionnés (`m`) avec le principal de leur groupe (`t`).
+const MERGED_JOIN: &str = "tag_group_names n JOIN tags m ON m.id = n.tag_id JOIN tag_groups g ON g.id = n.group_id JOIN tags t ON t.id = g.principal_id AND n.merged = 1";
+/// Un tag fusionné n'est pas proposé sous son nom, mais « nom → principal ».
+const NOT_MERGED: &str = "id NOT IN (SELECT tag_id FROM tag_group_names WHERE merged = 1)";
 
 /// Tag à créer s'il n'existe pas encore (visionneuse, tags par défaut de l'import).
 #[derive(Clone, Debug, Deserialize)]
@@ -88,34 +92,34 @@ pub fn categories(db: &Connection) -> rusqlite::Result<Vec<Category>> {
 
 /// Autocomplétion (SRCH-06, D-016) : d'abord les tags qui COMMENCENT par le texte, puis ceux
 /// qui le CONTIENNENT ; les plus utilisés en premier. Les tags masqués ne sont pas proposés (TAGM-05).
-/// Les noms fusionnés (TAGM-15, D-047) sont proposés « nom → principal », sauf si le principal l'est déjà ; un
-/// nom relié est un vrai tag, proposé comme tel.
+/// Les tags fusionnés (TAGM-15, D-047) sont proposés « nom → principal » (le choisir donne le principal), sauf si
+/// le principal l'est déjà ; un nom relié est un tag comme un autre, proposé comme tel.
 pub fn autocomplete(db: &Connection, text: &str) -> rusqlite::Result<Vec<TagInfo>> {
     let Some(prefix) = normalize(text) else { return Ok(Vec::new()) };
     // Bornes [prefix, prefix + U+10FFFF) : la recherche utilise l'index unique sur `name`.
     let upper = format!("{prefix}\u{10FFFF}");
     let limit = SUGGESTIONS as i64;
     let tags = db
-        .prepare_cached(&format!("SELECT {TAG_COLUMNS} FROM tags WHERE name >= ?1 AND name < ?2 AND hidden = 0 ORDER BY media_count DESC, name LIMIT ?3"))?
+        .prepare_cached(&format!("SELECT {TAG_COLUMNS} FROM tags WHERE name >= ?1 AND name < ?2 AND hidden = 0 AND {NOT_MERGED} ORDER BY media_count DESC, name LIMIT ?3"))?
         .query_map(params![prefix, upper, limit], tag_from_row)?
         .collect::<rusqlite::Result<Vec<_>>>()?;
     let aliases = db
         .prepare_cached(&format!(
-            "SELECT {T_COLUMNS}, n.name FROM tag_group_names n JOIN tag_groups g ON g.id = n.group_id JOIN tags t ON t.id = g.principal_id
-             WHERE n.name >= ?1 AND n.name < ?2 AND t.hidden = 0 ORDER BY t.media_count DESC, n.name LIMIT ?3"
+            "SELECT {T_COLUMNS}, m.name FROM {MERGED_JOIN}
+             WHERE m.name >= ?1 AND m.name < ?2 AND t.hidden = 0 ORDER BY t.media_count DESC, m.name LIMIT ?3"
         ))?
         .query_map(params![prefix, upper, limit], alias_from_row)?
         .collect::<rusqlite::Result<Vec<_>>>()?;
     let mut found = merged(tags, aliases);
     if found.len() < SUGGESTIONS as usize {
         let tags = db
-            .prepare_cached(&format!("SELECT {TAG_COLUMNS} FROM tags WHERE instr(name, ?1) > 1 AND hidden = 0 ORDER BY media_count DESC, name LIMIT ?2"))?
+            .prepare_cached(&format!("SELECT {TAG_COLUMNS} FROM tags WHERE instr(name, ?1) > 1 AND hidden = 0 AND {NOT_MERGED} ORDER BY media_count DESC, name LIMIT ?2"))?
             .query_map(params![prefix, limit], tag_from_row)?
             .collect::<rusqlite::Result<Vec<_>>>()?;
         let aliases = db
             .prepare_cached(&format!(
-                "SELECT {T_COLUMNS}, n.name FROM tag_group_names n JOIN tag_groups g ON g.id = n.group_id JOIN tags t ON t.id = g.principal_id
-                 WHERE instr(n.name, ?1) > 1 AND t.hidden = 0 ORDER BY t.media_count DESC, n.name LIMIT ?2"
+                "SELECT {T_COLUMNS}, m.name FROM {MERGED_JOIN}
+                 WHERE instr(m.name, ?1) > 1 AND t.hidden = 0 ORDER BY t.media_count DESC, m.name LIMIT ?2"
             ))?
             .query_map(params![prefix, limit], alias_from_row)?
             .collect::<rusqlite::Result<Vec<_>>>()?;
@@ -137,19 +141,15 @@ fn merged(tags: Vec<TagInfo>, aliases: Vec<TagInfo>) -> Vec<TagInfo> {
     all
 }
 
-/// Tag existant portant exactement ce nom (après normalisation), ou principal du groupe où ce nom est
-/// fusionné (TAGM-15, D-047 : taper le nom donne le principal, sans pop-in de création).
+/// Tag portant exactement ce nom (après normalisation) ; un tag fusionné donne le principal de son groupe
+/// (TAGM-15, D-047 : taper le nom donne le principal, sans pop-in de création), avec ce nom en `alias`.
 pub fn find(db: &Connection, name: &str) -> rusqlite::Result<Option<TagInfo>> {
     let Some(name) = normalize(name) else { return Ok(None) };
-    let tag = db.prepare_cached(&format!("SELECT {TAG_COLUMNS} FROM tags WHERE name = ?1"))?.query_row([&name], tag_from_row).optional()?;
-    if tag.is_some() {
-        return Ok(tag);
+    let merged = db.prepare_cached(&format!("SELECT {T_COLUMNS}, m.name FROM {MERGED_JOIN} WHERE m.name = ?1"))?.query_row([&name], alias_from_row).optional()?;
+    if merged.is_some() {
+        return Ok(merged);
     }
-    db.prepare_cached(&format!(
-        "SELECT {T_COLUMNS}, n.name FROM tag_group_names n JOIN tag_groups g ON g.id = n.group_id JOIN tags t ON t.id = g.principal_id WHERE n.name = ?1"
-    ))?
-        .query_row([&name], alias_from_row)
-        .optional()
+    db.prepare_cached(&format!("SELECT {TAG_COLUMNS} FROM tags WHERE name = ?1"))?.query_row([&name], tag_from_row).optional()
 }
 
 /// Tags présents sur ces médias, chacun avec son nombre TOTAL de médias (SRCH-10). Les tags masqués

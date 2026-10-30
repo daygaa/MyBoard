@@ -6,7 +6,7 @@ use rusqlite::{Connection, OptionalExtension, TransactionBehavior, params};
 use serde::{Deserialize, Serialize};
 use tauri::State;
 
-use crate::groups::{self, add_pure, group_of_tag, merged_name, principal, tag_named};
+use crate::groups::{self, group_of_tag, principal, tag_named};
 use crate::tagging::resolve;
 use crate::tags::{DEFAULT_CATEGORY, normalize};
 use crate::{AppState, db, parents};
@@ -90,8 +90,8 @@ fn run(db: &Connection, list: &SharedList, now: i64) -> anyhow::Result<ImportRep
         )?;
         report.tags.push(db.last_insert_rowid());
     }
-    // Groupes de synonymes (jusqu'au nouveau code de partage, lot R8) : un nom coché devient un nom fusionné
-    // sans média s'il n'est pas déjà pris ; un nom décoché relie le tag de ce nom, s'il est libre. Un import ne
+    // Groupes de synonymes (jusqu'au nouveau code de partage, lot R8) : un nom coché qui n'est pas un tag devient
+    // un tag fusionné, sans média (décision B : jamais de synonyme sans tag ; l'annulation de l'import le supprime) ; un nom décoché relie le tag de ce nom, s'il est libre. Un import ne
     // fusionne jamais un tag existant : seulement à la main.
     for item in &list.aliases {
         let Some(alias) = normalize(&item.alias) else { continue };
@@ -111,7 +111,13 @@ fn run(db: &Connection, list: &SharedList, now: i64) -> anyhow::Result<ImportRep
         };
         let tag = tag_named(db, &alias)?;
         let row = match (group, item.enabled, tag) {
-            (Some(g), true, None) if merged_name(db, &alias)?.is_none() => Some(add_pure(db, g, &alias, now)?),
+            (Some(g), true, None) => {
+                db.execute("INSERT INTO tags (name, category_id, created_at) VALUES (?1, ?2, ?3)", params![alias, default, now])?;
+                let t = db.last_insert_rowid();
+                report.tags.push(t);
+                db.execute("INSERT INTO tag_group_names (group_id, tag_id, merged, created_at) VALUES (?1, ?2, 1, ?3)", params![g, t, now])?;
+                Some(db.last_insert_rowid())
+            }
             (Some(g), false, Some(t)) if t != p && group_of_tag(db, t)?.is_none() => {
                 db.execute("INSERT INTO tag_group_names (group_id, tag_id, created_at) VALUES (?1, ?2, ?3)", params![g, t, now])?;
                 Some(db.last_insert_rowid())

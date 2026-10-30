@@ -28,12 +28,12 @@ export function mergeText(names: { name: string; media: number }[], principal: s
 /** Formulaire de création ; renvoie vrai si c'est fait (les champs se vident alors, TAGM-15.6). */
 export async function createGroup(principal: { id: number; name: string }, names: string[], merge: boolean, preview: GroupPreview | undefined): Promise<boolean> {
   // Le badge compte les noms vraiment ajoutés (un nom déjà dans le groupe est ignoré).
-  const count = preview ? preview.added.length + preview.pure.length : names.length;
+  const count = preview ? preview.added.length : names.length;
   const run = async () => {
     const done = await runTagAction("Créer les synonymes", () => rulesApi.createGroup(principal.id, names, merge));
     if (done !== undefined) showGridBadge(`${q(principal.name)} : ${count} ${plural(count, "synonyme")}`);
   };
-  const merging = merge ? [...(preview?.added ?? []), ...(preview?.pure ?? []).map((name) => ({ name, media: 0 }))] : [];
+  const merging = merge ? (preview?.added ?? []) : [];
   if (!merging.some((n) => n.media > 0)) {
     await run();
     return true;
