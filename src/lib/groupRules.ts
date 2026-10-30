@@ -12,9 +12,13 @@ import { ask, media, q, runTagAction } from "./tagRules";
 /** Noms qui seront fusionnés : un bloc pour chacun de ceux qui ont des médias (retour T3, point TAGM-15.7), puis
  *  une ligne pour ceux qui n'en ont pas, fusionnés eux aussi (retouches de R3). */
 export function mergeText(names: { name: string; media: number }[], principal: string): string {
+  // Virgule après le nombre, singulier pour un seul média (retour T3, point TAGM-15.21).
   const blocks = names
     .filter((n) => n.media > 0)
-    .map((n) => `${q(n.name)} est un tag posé sur ${media(n.media)} : ces médias :\n- obtiendront le tag ${q(principal)}\n- perdront le tag ${q(n.name)}`);
+    .map((n) => {
+      const one = n.media === 1;
+      return `${q(n.name)} est un tag posé sur ${media(n.media)}, ${one ? "ce média" : "ces médias"} :\n- ${one ? "obtiendra" : "obtiendront"} le tag ${q(principal)}\n- ${one ? "perdra" : "perdront"} le tag ${q(n.name)}`;
+    });
   const empty = names
     .filter((n) => n.media === 0)
     .map((n) => `${q(n.name)} n'est lié à aucun média pour le moment mais sera tout de même fusionné avec ${q(principal)}.`);

@@ -1,7 +1,7 @@
 // Champ à pastilles limité à `maxLines` lignes de pastilles (retouches de R3, 29/10 : champ « Synonymes » du
 // formulaire des groupes). Au-delà, « +N » au bout de la dernière ligne : une pastille qui n'y tient plus y
 // passe, et la suivante prend sa place si elle tient ; on écrit alors sur une ligne à part, dessous, sans
-// pastille. La souris qui arrive sur la dernière ligne déplie toutes les pastilles par-dessus ce qui est
+// pastille. La souris qui arrive sur les lignes de pastilles déplie toutes les pastilles par-dessus ce qui est
 // dessous, comme les termes de la recherche (SRCH-18, hooks/useUnfolded.ts) ; le clavier aussi, quand le
 // curseur va près d'une pastille cachée. On écrit dans le champ déplié : il le reste jusqu'au texte vide.
 
@@ -46,13 +46,13 @@ export function usePillOverflow<T>({ maxLines, doc, sel, focused, listOpen, typi
   const last = doc.texts.length - 1;
   const at = sel.focus.t;
   const byKeyboard = focused && at !== last && (hidden.has(at) || hidden.has(at - 1));
-  // Se déplie quand la souris arrive sur la dernière ligne de pastilles (celle du « +N »), sans marge
-  // (retouches de R3, 30/10) ; dépliées, elles le restent tant que la souris est dessus.
+  // Se déplie quand la souris arrive sur les lignes de pastilles (pas sur la ligne d'écriture dessous), sans
+  // marge (retouches de R3, 30/10) ; dépliées, elles le restent tant que la souris est dessus.
   const rectOf = useCallback(() => {
     if (layer.current) return layer.current.getBoundingClientRect();
     const ed = editor.current?.getBoundingClientRect();
     const box = root.current?.getBoundingClientRect();
-    return ed && box && maxLines ? new DOMRect(box.left, ed.top + (maxLines - 1) * LINE, box.width, LINE) : undefined;
+    return ed && box && maxLines ? new DOMRect(box.left, ed.top, box.width, maxLines * LINE) : undefined;
   }, [editor, root, maxLines]);
   const canStart = useCallback(() => !list.current, []);
   const byMouse = useUnfolded(rectOf, !!maxLines && hidden.size > 0, covered, 0, canStart);

@@ -3,6 +3,19 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Refonte des synonymes et des parents, retouches du lot R3, 6e tour (30/10/2026) — Backup v73
+
+SPEC : livrés `[~]` : TAGM-15 (retour T3, points TAGM-15.5 et TAGM-15.21 nouveau).
+
+- **Champ « Synonymes »** : il se déplie au survol de ses 3 lignes de pastilles (plus seulement de la 3e).
+- **Pop-ins de fusion** : « « X » est un tag posé sur N médias, ces médias : » ; avec 1 média : « sur 1 média, ce
+  média : - obtiendra… - perdra… ».
+
+Vérifié dans la version compilée, sur une copie de la base d'essai `refonte` : 20 pastilles : souris sur la ligne
+d'écriture : rien ne se déplie ; sur la 1re, la 2e ou la 3e ligne : les 20 pastilles ; pop-in de fusion du groupe
+d'essai voiture : « essai auto » (2 médias, pluriel) et « essai caisse » (1 média, singulier) ; zéro erreur `tsc` (pas
+de changement Rust).
+
 ## Refonte des synonymes et des parents, retouches du lot R3, 5e tour (30/10/2026) — Backup v72
 
 SPEC : livrés `[~]` : TAGM-15 (retour T3, points TAGM-15.5, TAGM-15.19) ; GEN-26 noté (flux audio, plus tard).
