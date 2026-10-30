@@ -3,7 +3,7 @@
 
 import { invoke } from "@tauri-apps/api/core";
 
-import type { SharedTag } from "./api";
+import type { NewTag, SharedTag } from "./api";
 
 /** Nom d'un groupe (hors principal) : relié (`tagId`, un vrai tag) ou fusionné (`tagId` vide) ; `media` :
  *  médias du tag, ou médias notés pour défaire la fusion. */
@@ -54,7 +54,8 @@ export const rulesApi = {
   list: () => invoke<TagRules>("list_tag_rules"),
   groupPreview: (principal: string, names: string[]) => invoke<GroupPreview>("group_preview", { principal, names }),
   /** `merge` : l'interrupteur « Fusionner » du formulaire ; renvoie le groupe. */
-  createGroup: (principal: number, names: string[], merge: boolean) => invoke<number>("create_group", { principal, names, merge }),
+  /** `newTags` : noms tapés qui ne sont pas encore des tags, créés avec le groupe (retour T3, point TAGM-15.24). */
+  createGroup: (principal: number, names: string[], merge: boolean, newTags: NewTag[] = []) => invoke<number>("create_group", { principal, names, merge, newTags }),
   setNameMerged: (id: number, merged: boolean) => invoke<void>("set_name_merged", { id, merged }),
   setGroupMerged: (id: number, merged: boolean) => invoke<void>("set_group_merged", { id, merged }),
   removeGroupName: (id: number) => invoke<void>("remove_group_name", { id }),
@@ -62,10 +63,11 @@ export const rulesApi = {
   /** Médias qui passeront au nouveau principal (D3.1). */
   principalCheck: (group: number, name: number) => invoke<number>("principal_check", { group, name }),
   setGroupPrincipal: (group: number, name: number) => invoke<void>("set_group_principal", { group, name }),
-  parentCheck: (child: number, parent: number) => invoke<RuleCheck>("parent_check", { child, parent }),
+  /** `parent` vide : il n'est pas encore un tag (il sera créé avec la règle). */
+  parentCheck: (child: number, parent: number | null) => invoke<RuleCheck>("parent_check", { child, parent }),
   /** `apply` : poser aussi le parent sur les médias qui ont déjà l'enfant ; renvoie le nombre de médias qui
    *  l'ont reçu. */
-  createParent: (child: number, parent: number, apply: boolean) => invoke<number>("create_parent", { child, parent, apply }),
+  createParent: (child: number, parent: number | null, apply: boolean, newParent?: NewTag) => invoke<number>("create_parent", { child, parent, newParent, apply }),
   setParentEnabled: (id: number, enabled: boolean) => invoke<void>("set_parent_enabled", { id, enabled }),
   parentDeleteCheck: (id: number) => invoke<DeleteCheck>("parent_delete_check", { id }),
   /** `remove` : retirer le parent des médias où la règle l'a posé. */

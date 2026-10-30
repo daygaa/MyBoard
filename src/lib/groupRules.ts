@@ -5,6 +5,7 @@
 // la refaire la rétablit (GEN-21).
 
 import { showGridBadge } from "@/stores/badge";
+import type { NewTag } from "./api";
 import { plural } from "./format";
 import { rulesApi, type GroupPreview, type GroupRow, type NameRow } from "./rulesApi";
 import { ask, media, q, runTagAction } from "./tagRules";
@@ -26,11 +27,11 @@ export function mergeText(names: { name: string; media: number }[], principal: s
 }
 
 /** Formulaire de création ; renvoie vrai si c'est fait (les champs se vident alors, TAGM-15.6). */
-export async function createGroup(principal: { id: number; name: string }, names: string[], merge: boolean, preview: GroupPreview | undefined): Promise<boolean> {
+export async function createGroup(principal: { id: number; name: string }, names: string[], merge: boolean, preview: GroupPreview | undefined, newTags: NewTag[] = []): Promise<boolean> {
   // Le badge compte les noms vraiment ajoutés (un nom déjà dans le groupe est ignoré).
   const count = preview ? preview.added.length : names.length;
   const run = async () => {
-    const done = await runTagAction("Créer les synonymes", () => rulesApi.createGroup(principal.id, names, merge));
+    const done = await runTagAction("Créer les synonymes", () => rulesApi.createGroup(principal.id, names, merge, newTags));
     if (done !== undefined) showGridBadge(`${q(principal.name)} : ${count} ${plural(count, "synonyme")}`);
   };
   const merging = merge ? (preview?.added ?? []) : [];

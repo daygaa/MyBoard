@@ -76,8 +76,8 @@ pub async fn group_preview(state: State<'_, AppState>, principal: String, names:
 
 /// Crée ou complète le groupe de `principal` ; `merge` : l'interrupteur « Fusionner » du formulaire.
 #[tauri::command]
-pub async fn create_group(state: State<'_, AppState>, principal: i64, names: Vec<String>, merge: bool) -> Result<i64, String> {
-    write(&state, |db, now| group_create::create(db, principal, &names, merge, now))
+pub async fn create_group(state: State<'_, AppState>, principal: i64, names: Vec<String>, merge: bool, new_tags: Vec<NewTag>) -> Result<i64, String> {
+    write(&state, |db, now| group_create::create(db, principal, &names, merge, &new_tags, now))
 }
 
 #[tauri::command]
@@ -114,15 +114,27 @@ pub async fn set_group_principal(state: State<'_, AppState>, group: i64, name: i
 // --- Règles de parents
 
 #[tauri::command]
-pub async fn parent_check(state: State<'_, AppState>, child: i64, parent: i64) -> Result<RuleCheck, String> {
-    read(&state, |db| parents::check(db, child, parent))
+pub async fn parent_check(state: State<'_, AppState>, child: i64, parent: Option<i64>) -> Result<RuleCheck, String> {
+    read(&state, |db| match parent {
+        Some(parent) => parents::check(db, child, parent),
+        // Parent pas encore créé (il le sera avec la règle) : aucune boucle possible, tous les médias de l'enfant.
+        None => Ok(RuleCheck { error: None, media: db.query_row("SELECT COUNT(*) FROM media_tags WHERE tag_id = ?1", [child], |r| r.get(0))? }),
+    })
 }
 
 /// `apply` : la case « Ajouter aux médias qui ont déjà l'enfant ». Renvoie le nombre de médias qui ont reçu
-/// le parent.
+/// le parent. `new_parent` : parent tapé qui n'est pas encore un tag, créé ici avec la règle (retour T3, point
+/// TAGM-15.24 : rien n'est créé si la règle ne l'est pas).
 #[tauri::command]
-pub async fn create_parent(state: State<'_, AppState>, child: i64, parent: i64, apply: bool) -> Result<usize, String> {
-    write(&state, |db, now| parents::create(db, child, parent, apply, now))
+pub async fn create_parent(state: State<'_, AppState>, child: i64, parent: Option<i64>, new_parent: Option<NewTag>, apply: bool) -> Result<usize, String> {
+    write(&state, |db, now| {
+        let parent = match (parent, new_parent) {
+            (Some(parent), _) => parent,
+            (None, Some(tag)) => resolve_or_create(db, &tag, now)?.ok_or_else(|| anyhow::anyhow!("nom de tag vide"))?.tag_id,
+            (None, None) => anyhow::bail!("parent manquant"),
+        };
+        parents::create(db, child, parent, apply, now)
+    })
 }
 
 #[tauri::command]

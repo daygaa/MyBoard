@@ -41,7 +41,7 @@ fn absorb(db: &Connection, group: i64, other: i64, now: i64) -> anyhow::Result<V
 /// principal tapé qui est déjà dans un groupe y ajoute les noms ; un nom d'un autre groupe réunit les deux (D14) ;
 /// un nom qui n'est pas encore un tag devient un tag (catégorie par défaut ; le formulaire le crée d'abord par la
 /// pop-in « Créer un nouveau tag ») ; avec `merge`, les noms ajoutés sont fusionnés.
-pub fn create(db: &Connection, principal_tag: i64, names: &[String], merge_new: bool, now: i64) -> anyhow::Result<i64> {
+pub fn create(db: &Connection, principal_tag: i64, names: &[String], merge_new: bool, new_tags: &[NewTag], now: i64) -> anyhow::Result<i64> {
     // Principal tapé qui est un nom relié d'un groupe : les noms rejoignent ce groupe, son principal ne
     // change pas (retouches de R3, 29/10 ; changer de principal se fait avec l'étoile, D3).
     let group = match group_of_tag(db, principal_tag)? {
@@ -62,7 +62,9 @@ pub fn create(db: &Connection, principal_tag: i64, names: &[String], merge_new: 
                 None => added.push(add_linked(db, group, t, now)?),
             },
             Some(Ref::New(name)) => {
-                if let Some(t) = resolve_or_create(db, &NewTag { name, category_id: None }, now)? {
+                // Catégorie choisie dans la pop-in « Créer un nouveau tag » : le tag n'est créé qu'ici, avec le groupe.
+                let category_id = new_tags.iter().find(|t| normalize(&t.name).as_deref() == Some(name.as_str())).and_then(|t| t.category_id);
+                if let Some(t) = resolve_or_create(db, &NewTag { name, category_id }, now)? {
                     added.push(add_linked(db, group, t.tag_id, now)?);
                 }
             }
@@ -86,7 +88,7 @@ pub fn merge_tag(db: &Connection, source: i64, target: i64, keep: bool, now: i64
         return Ok(());
     }
     let name: String = db.query_row("SELECT name FROM tags WHERE id = ?1", [source], |r| r.get(0))?;
-    create(db, target, std::slice::from_ref(&name), true, now)?;
+    create(db, target, std::slice::from_ref(&name), true, &[], now)?;
     // Déjà relié au groupe : `create` le laisse tel quel, la fusion demandée le fusionne.
     let row: Option<i64> = db.query_row("SELECT id FROM tag_group_names WHERE tag_id = ?1", [source], |r| r.get(0)).optional()?;
     if let Some(row) = row {

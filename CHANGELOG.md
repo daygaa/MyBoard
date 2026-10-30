@@ -3,6 +3,23 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Refonte des synonymes et des parents : tags existants, tags créés à la confirmation (30/10/2026) — Backup v77
+
+SPEC : livrés `[~]` : TAGM-15, TAGM-16 (retour T3, points TAGM-15.23 et TAGM-15.24, nouveaux).
+
+- **« Tag principal » et « Enfant »** : seulement un tag existant ; un nom qui n'est pas un tag est refusé, avec la
+  raison ; « Tag principal » sans « … ».
+- **« Synonymes » et « Parent »** : un nom nouveau passe par la pop-in « Créer un nouveau tag » (choix de la
+  catégorie), mais le tag n'est créé en base qu'avec le groupe ou la règle ; pastille retirée ou règle annulée : rien
+  n'est créé.
+
+Vérifié dans la version compilée, sur une copie de la base d'essai `refonte` : textes « Tag principal », « Enfant »,
+« Parent » ; « essai inconnu » en tag principal et « essai inconnu deux » en enfant : refusés, pas de pop-in, raison
+affichée ; « essai nouveau un » en synonyme : pop-in, pastille, aucun tag en base, toujours rien après avoir retiré la
+pastille ; « essai nouveau deux » : tag en base seulement après « Créer », dans le groupe d'essai maison ; « essai
+nouveau trois » en parent : rien en base, ni après la pop-in de la règle annulée ; règle créée : tag en base, règle
+présente, posé sur les 2 médias ; zéro erreur `tsc` et `clippy`.
+
 ## Refonte des synonymes et des parents : champs des règles de parents en pastilles (30/10/2026) — Backup v76
 
 SPEC : livré `[~]` : TAGM-16 (retour T3, point TAGM-16.6).

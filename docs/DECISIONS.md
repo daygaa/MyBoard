@@ -1124,3 +1124,10 @@ est noté pour la défusion) ; suggestions : « X → Y » au lieu du tag X ; re
 groupe. Réunir deux groupes défait toutes les fusions de l'autre groupe ; ses noms prennent l'état de l'interrupteur.
 La description du tag fusionné n'est plus recopiée sur le principal (il la garde). Le nettoyage des tags non utilisés
 garde les tags des groupes (D15.1).
+
+**Complément du 30/10 (tags créés à la confirmation).** Les formulaires des synonymes et des parents ne créent
+plus de tag à la frappe : « Tag principal » et « Enfant » n'acceptent qu'un tag existant ; dans « Synonymes » et
+« Parent », la pop-in « Créer un nouveau tag » choisit seulement la catégorie (pastille sans identifiant, avec sa
+catégorie) ; le tag est créé par la commande qui crée le groupe (`create_group`, `new_tags`) ou la règle
+(`create_parent`, `new_parent`), dans sa transaction. `useTagResolver` offre trois modes : créer tout de suite (cellules
+du tableau des tags), plus tard, ou refuser.

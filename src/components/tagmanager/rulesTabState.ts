@@ -12,8 +12,9 @@ import type { PillDoc } from "@/lib/pillText";
 import { openTagTab } from "@/lib/router";
 import type { RuleDocs } from "./RuleForm";
 
-/** Pastille du formulaire des groupes : un tag (`id`), ou un tag fusionné tapé par son nom (`id` vide). */
-export type Chip = { name: string; id: number | null };
+/** Pastille du formulaire des groupes : un tag (`id`), un tag fusionné tapé par son nom (`id` vide), ou un tag à
+ *  créer avec le groupe (`id` vide, `category` choisie dans la pop-in, retour T3, point TAGM-15.24). */
+export type Chip = { name: string; id: number | null; category?: number };
 
 export type RulesTabState = {
   principal: PillDoc<Chip> | null;

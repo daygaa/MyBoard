@@ -19,7 +19,7 @@ import type { ManagedTag } from "@/lib/api";
 import { createGroup } from "@/lib/groupRules";
 import { removePill } from "@/lib/pillText";
 import { rulesApi, type GroupPreview } from "@/lib/rulesApi";
-import { displayTag } from "@/lib/tags";
+import { displayTag, normalizeTag } from "@/lib/tags";
 import { cn } from "@/lib/utils";
 import { FitLine } from "./FitLine";
 import { useTagResolver } from "./RuleForm";
@@ -50,7 +50,7 @@ function notes(preview: GroupPreview, principal: string): string[] {
  *  tant qu'ils tiennent, puis « … » ; gris s'ils sont fusionnés (suit l'interrupteur et la liste, en direct).
  *  L'icône « i » donne les explications ; un refus remplace la ligne, en rouge. Vide tant qu'un des deux champs
  *  n'a pas de pastille. */
-function Preview({ preview, merge, why }: { preview: GroupPreview | undefined; merge: boolean; why: string | null }) {
+function Preview({ preview, merge, why, notice }: { preview: GroupPreview | undefined; merge: boolean; why: string | null; notice: string | null }) {
   const principal = preview?.principal;
   const fresh = preview ? preview.added.map((n) => ({ name: n.name, merged: merge })) : [];
   const old = preview ? preview.existing.map((n) => ({ name: n.name, merged: n.merged })) : [];
@@ -63,8 +63,9 @@ function Preview({ preview, merge, why }: { preview: GroupPreview | undefined; m
   const info = preview && principal ? notes(preview, principal) : [];
   return (
     <div data-zone="regles.synonymes.ajout.apercu" className="mt-1.5 flex h-5 min-w-0 items-center gap-1.5 text-xs text-muted-foreground select-text">
-      {principal && why && <span className="truncate text-rose-300">{why}</span>}
-      {principal && !why && (
+      {notice && <span className="truncate text-rose-300">{notice}</span>}
+      {!notice && principal && why && <span className="truncate text-rose-300">{why}</span>}
+      {!notice && principal && !why && (
         <>
           <FitLine
             head={
@@ -99,7 +100,10 @@ export function GroupForm({ tags, tagOf }: { tags: ManagedTag[]; tagOf: (id: num
   const principal = usePills<Chip>((a, b) => a.name === b.name, saved.principal);
   const names = usePills<Chip>((a, b) => a.name === b.name, saved.names);
   useEffect(() => store.setState({ principal: principal.doc, names: names.doc }), [store, principal.doc, names.doc]);
-  const { resolve, dialog } = useTagResolver();
+  const { resolveExisting, resolveLater, dialog } = useTagResolver();
+  // Tag principal tapé qui n'est pas un tag : refusé, la raison sous les champs jusqu'à la prochaine frappe.
+  const [unknown, setUnknown] = useState<string | null>(null);
+  useEffect(() => setUnknown(null), [principal.doc]);
   const [merge, setMergeState] = useState(saved.merge.on);
   const setMerge = (on: boolean, auto?: string) => {
     setMergeState(on);
@@ -133,7 +137,7 @@ export function GroupForm({ tags, tagOf }: { tags: ManagedTag[]; tagOf: (id: num
 
   const chip = (tag: { name: string; id: number | null }) => ({ name: tag.name, id: tag.id });
   const pill = (c: Chip, remove: () => void, what: string) => (
-    <TagPill color={c.id !== null ? color(tagOf(c.id)?.categoryId ?? 0) : MERGED_GREY} onRemove={remove} removeLabel={`Retirer « ${displayTag(c.name)} » ${what}`} fullTitleIfCut>
+    <TagPill color={c.id !== null ? color(tagOf(c.id)?.categoryId ?? 0) : c.category !== undefined ? color(c.category) : MERGED_GREY} onRemove={remove} removeLabel={`Retirer « ${displayTag(c.name)} » ${what}`} fullTitleIfCut>
       {displayTag(c.name)}
     </TagPill>
   );
@@ -151,7 +155,8 @@ export function GroupForm({ tags, tagOf }: { tags: ManagedTag[]; tagOf: (id: num
   const submit = async () => {
     if (!ready || chief.id === null) return;
     setBusy(true);
-    const done = await createGroup({ id: chief.id, name: head }, typed, merge, preview).finally(() => setBusy(false));
+    const fresh = names.list.filter((c) => c.id === null && c.category !== undefined).map((c) => ({ name: c.name, categoryId: c.category ?? null }));
+    const done = await createGroup({ id: chief.id, name: head }, typed, merge, preview, fresh).finally(() => setBusy(false));
     if (done) {
       principal.clear();
       names.clear();
@@ -167,15 +172,17 @@ export function GroupForm({ tags, tagOf }: { tags: ManagedTag[]; tagOf: (id: num
           className={FIELD}
           pills={principal}
           pillKey={(c) => c.name}
+          // Un tag existant seulement (retour T3, point TAGM-15.23).
           resolve={async (raw) => {
-            const tag = await resolve(raw);
+            const tag = await resolveExisting(raw);
+            if (!tag) setUnknown(`« ${displayTag(normalizeTag(raw))} » n'est pas un tag : le tag principal doit être un tag existant.`);
             return tag ? { name: tag.name, id: tag.id } : null;
           }}
           toItem={(tag) => chip({ name: tag.name, id: tag.id })}
           toClip={(c) => ({ name: c.name, categoryId: (c.id !== null ? tagOf(c.id)?.categoryId : undefined) ?? 0 })}
           fromClip={(c) => chip({ name: c.name, id: byName.get(c.name)?.id ?? null })}
           onSubmit={() => void submit()}
-          placeholder="Tag principal…"
+          placeholder="Tag principal"
           renderPill={(c, remove) => pill(c, remove, "du tag principal")}
         />
         <PillField
@@ -184,11 +191,11 @@ export function GroupForm({ tags, tagOf }: { tags: ManagedTag[]; tagOf: (id: num
           className={FIELD}
           pills={names}
           pillKey={(c) => c.name}
-          // Un nom qui n'est pas un tag ouvre « Créer un nouveau tag », comme le tag principal (retouches de R3,
-          // 30/10 : D4.1 abandonnée ici) ; un nom fusionné ailleurs reste ce nom (son groupe sera réuni, D14).
+          // Un nom qui n'est pas un tag passe par « Créer un nouveau tag » (D4.1 abandonnée ici) ; le tag n'est créé
+          // qu'avec le groupe (retour T3, point TAGM-15.24). Un tag fusionné ailleurs reste ce nom (groupe réuni, D14).
           resolve={async (raw) => {
-            const tag = await resolve(raw);
-            return tag ? { name: tag.alias ?? tag.name, id: tag.alias ? null : tag.id } : null;
+            const tag = await resolveLater(raw);
+            return tag ? { name: tag.alias ?? tag.name, id: tag.alias ? null : tag.id, category: tag.category } : null;
           }}
           toItem={(tag) => chip({ name: tag.alias ?? tag.name, id: tag.alias ? null : tag.id })}
           toClip={(c) => ({ name: c.name, categoryId: (c.id !== null ? tagOf(c.id)?.categoryId : undefined) ?? 0 })}
@@ -227,7 +234,7 @@ export function GroupForm({ tags, tagOf }: { tags: ManagedTag[]; tagOf: (id: num
           Créer
         </Button>
       </div>
-      <Preview preview={shown ? preview : undefined} merge={merge} why={why} />
+      <Preview preview={shown ? preview : undefined} merge={merge} why={why} notice={unknown} />
       {dialog}
     </div>
   );
