@@ -3,6 +3,21 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Refonte des synonymes et des parents : champs des règles de parents en pastilles (30/10/2026) — Backup v76
+
+SPEC : livré `[~]` : TAGM-16 (retour T3, point TAGM-16.6).
+
+- **Formulaire des règles** : « Enfant » et « Parent » deviennent des champs à pastilles, comme ceux des synonymes ;
+  une seule pastille par champ : une fois le tag choisi, on ne peut plus qu'effacer sa pastille ; le texte d'aide
+  disparaît quand une pastille est là ; « Enfant » et « Parent » sans « … ». Un tag fusionné tapé reste affiché en
+  gris (la règle va sur son principal, la pop-in le dit).
+
+Vérifié dans la version compilée, sur une copie de la base d'essai `refonte` : champs vides « Enfant » / « Parent »
+(36 px) ; « essai demeure » + Entrée : pastille centrée (3 px au-dessus et en dessous), texte d'aide masqué ; « abc »
+tapé ensuite : rien ne s'écrit ; dans « Parent », « essai demeure » grisé dans les suggestions ; « essai navire »
+(fusionné) : pastille grise ; Retour arrière : pastille effacée, « Parent » revient ; « essai auto » puis Entrée :
+pop-in « Créer la règle ? », règle créée, champs vidés ; zéro erreur `tsc` (pas de changement Rust).
+
 ## Refonte des synonymes et des parents : nettoyage des tags non utilisés (30/10/2026) — Backup v75
 
 SPEC : livré `[~]` : TAGM-08 (retour T3, point TAGM-08.2).

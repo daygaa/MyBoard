@@ -14,7 +14,7 @@ import { addParent } from "@/lib/tagRules";
 import { normalizeTag } from "@/lib/tags";
 import { GroupForm } from "./GroupForm";
 import { GroupLine } from "./GroupLine";
-import { RuleForm, useTagResolver } from "./RuleForm";
+import { RuleForm } from "./RuleForm";
 import { ParentLine, type TagOf } from "./RuleLines";
 import { frozenOrder, RulesTabProvider, useRulesEntry, useRulesStore, useRulesTab } from "./rulesTabState";
 
@@ -95,7 +95,6 @@ function RulesTabPage({ tags, rules }: Props) {
   const byId = useMemo(() => new Map(tags.map((t) => [t.id, t])), [tags]);
   const tagOf: TagOf = (id) => byId.get(id);
   const name = (id: number) => byId.get(id)?.name ?? "";
-  const { resolve, dialog } = useTagResolver();
   const groupFilter = useRulesTab((s) => s.groupFilter);
   const parentFilter = useRulesTab((s) => s.parentFilter);
   const g = normalizeTag(groupFilter);
@@ -118,14 +117,6 @@ function RulesTabPage({ tags, rules }: Props) {
   const parents = rules.parents
     .filter((r) => matches(p, name(r.childId), name(r.parentId)))
     .sort((x, y) => name(x.childId).localeCompare(name(y.childId)) || name(x.parentId).localeCompare(name(y.parentId)));
-
-  // Pop-in « Créer un nouveau tag » ou confirmation annulée : les champs gardent leur texte (TAGM-16.2).
-  const createParent = async (child: string, parent: string) => {
-    const from = await resolve(child);
-    if (!from) return false;
-    const to = await resolve(parent);
-    return to ? addParent(from, to) : false;
-  };
 
   return (
     <div data-zone="regles" className="grid min-h-0 flex-1 grid-cols-1 grid-rows-2 gap-4 lg:grid-cols-2 lg:grid-rows-[auto_auto_minmax(0,1fr)] lg:gap-y-0">
@@ -151,10 +142,12 @@ function RulesTabPage({ tags, rules }: Props) {
         form={
           <RuleForm
             zone="regles.parents.ajout"
-            placeholders={["Enfant…", "Parent…"]}
-            onAdd={createParent}
-            saved={store.getState().parentTexts}
-            onTexts={(parentTexts) => store.setState({ parentTexts })}
+            placeholders={["Enfant", "Parent"]}
+            onAdd={addParent}
+            tags={tags}
+            tagOf={tagOf}
+            saved={store.getState().parentDocs}
+            onDocs={(parentDocs) => store.setState({ parentDocs })}
           />
         }
         filter={parentFilter}
@@ -165,7 +158,6 @@ function RulesTabPage({ tags, rules }: Props) {
           <ParentLine key={row.id} row={row} tagOf={tagOf} />
         ))}
       </Panel>
-      {dialog}
     </div>
   );
 }

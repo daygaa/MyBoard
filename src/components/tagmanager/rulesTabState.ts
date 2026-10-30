@@ -10,6 +10,7 @@ import { createStore, useStore, type StoreApi } from "zustand";
 
 import type { PillDoc } from "@/lib/pillText";
 import { openTagTab } from "@/lib/router";
+import type { RuleDocs } from "./RuleForm";
 
 /** Pastille du formulaire des groupes : un tag (`id`), ou un tag fusionné tapé par son nom (`id` vide). */
 export type Chip = { name: string; id: number | null };
@@ -20,7 +21,8 @@ export type RulesTabState = {
   /** Interrupteur « Fusionner » ; `auto` : tag principal et état du groupe pour lesquels il a été réglé
    *  d'office (D2.2), pour ne pas le régler à nouveau au retour. */
   merge: { on: boolean; auto: string | null };
-  parentTexts: [string, string];
+  /** Champs « Enfant » et « Parent » du formulaire des règles. */
+  parentDocs: RuleDocs;
   /** Groupes dépliés. */
   open: number[];
   /** Ordre des groupes, figé pour cette page. */
@@ -35,7 +37,7 @@ const FRESH: RulesTabState = {
   principal: null,
   names: null,
   merge: { on: false, auto: null },
-  parentTexts: ["", ""],
+  parentDocs: [null, null],
   open: [],
   order: null,
   groupFilter: "",

@@ -56,6 +56,9 @@ type Props<T> = {
   editorRef?: (el: HTMLDivElement | null) => void;
   /** Lignes de pastilles au plus ; au-delà, « +N » et une ligne d'écriture à part (pillOverflow.tsx). */
   maxLines?: number;
+  /** Une seule pastille : une fois posée, plus rien ne s'écrit (on peut l'effacer) et le texte d'aide disparaît
+   *  (formulaire des parents, retour T3, point TAGM-16.6). */
+  single?: boolean;
 };
 
 /** Collage sur une seule ligne. */
@@ -77,6 +80,7 @@ export function PillField<T>(props: Props<T>) {
   const dragging = useRef(false);
   const latest = useRef(pills);
   const cmd = pillCommands(pills, props);
+  const full = !!props.single && doc.pills.length > 0;
 
   // Texte où se trouve le curseur, et ses suggestions (tags déjà là grisés, SRCH-29).
   const current = textAt(sel);
@@ -140,12 +144,14 @@ export function PillField<T>(props: Props<T>) {
 
   /** Texte collé : un morceau copié dans un champ à pastilles redevient des pastilles. */
   const paste = (text: string, data: DataTransfer | null) => {
+    if (full) return;
     const piece = pastedPiece(data, text);
     if (piece) cmd.pastePiece(piece);
     else if (text) cmd.typeText(oneLine(text), null);
   };
   const onCompositionEnd = () => {
     composing.current = false;
+    if (full) return setVersion((v) => v + 1); // pastille déjà là : le caractère composé n'est pas gardé
     const el = editor.current;
     const selection = window.getSelection();
     const span = selection?.anchorNode?.parentElement?.closest<HTMLElement>("[data-texte]");
@@ -167,6 +173,7 @@ export function PillField<T>(props: Props<T>) {
         return;
       }
       e.preventDefault();
+      if (full && e.inputType.startsWith("insert")) return;
       const data = e.data ?? e.dataTransfer?.getData("text/plain") ?? "";
       if (e.inputType === "insertText" || e.inputType === "insertReplacementText") cmd.typeText(data);
       else if (e.inputType === "insertFromPaste") paste(data, e.dataTransfer);
@@ -267,7 +274,7 @@ export function PillField<T>(props: Props<T>) {
             </span>
           ),
         ])}
-        {!pills.hasText && doc.texts[last] === "" && (
+        {!pills.hasText && doc.texts[last] === "" && !full && (
           <span contentEditable={false} data-aide className="pointer-events-none text-muted-foreground select-none">
             {placeholder}
           </span>

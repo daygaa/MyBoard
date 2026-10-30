@@ -1,19 +1,23 @@
-// Ajout d'un synonyme ou d'une règle de parent : un ou deux champs à suggestions (« synonyme → tag »,
-// « enfant → parent »), Entrée ou « Créer » (retour T3, point TAGM-16.5). Un tag tapé qui n'existe pas encore passe par la pop-in
-// « Créer un nouveau tag » (choix de la catégorie) ; un synonyme tapé donne son tag principal. Le refus
-// éventuel (nom pris, boucle…) s'affiche sous les champs.
+// Création d'une règle de parent : deux champs à pastilles, « Enfant » → « Parent », une seule pastille chacun
+// (retour T3, point TAGM-16.6 : une fois le tag choisi, on ne peut plus qu'effacer sa pastille), Entrée ou
+// « Créer » (point TAGM-16.5). Un tag tapé qui n'existe pas encore passe par la pop-in « Créer un nouveau tag »
+// (choix de la catégorie) ; un tag fusionné tapé reste affiché (en gris) et la règle va sur son principal (Q.4).
+// Le refus éventuel (nom pris, boucle…) s'affiche sous les champs. `useTagResolver` sert aussi ailleurs.
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ArrowRight } from "lucide-react";
 
 import { CreateTagDialog } from "@/components/tags/CreateTagDialog";
-import { TagInput } from "@/components/tags/TagInput";
+import { PillField } from "@/components/tags/PillField";
+import { TagPill } from "@/components/tags/TagPill";
 import { Button } from "@/components/ui/button";
-import { api } from "@/lib/api";
+import { useCategories } from "@/hooks/useCategories";
+import { usePills, type Pills } from "@/hooks/usePills";
+import { api, type ManagedTag } from "@/lib/api";
+import type { PillDoc } from "@/lib/pillText";
 import { rulesApi } from "@/lib/rulesApi";
 import { runTagAction } from "@/lib/tagManager";
-import { normalizeTag } from "@/lib/tags";
-import { cn } from "@/lib/utils";
+import { displayTag, normalizeTag } from "@/lib/tags";
 
 /** `alias` : le nom fusionné tapé, quand le texte a donné son tag principal. */
 export type Named = { id: number; name: string; alias?: string };
@@ -46,69 +50,91 @@ export function useTagResolver() {
   return { resolve, dialog };
 }
 
-// Même hauteur que les champs à pastilles du formulaire des synonymes, à côté (retour T3, point TAGM-15.5).
-const FIELD = "h-9 min-w-0 flex-1";
-const INPUT = "font-mono text-xs";
+/** Cadre des champs, comme ceux du formulaire des synonymes (même hauteur, pastille centrée). */
+const FIELD = "flex min-h-9 min-w-0 flex-1 items-center rounded-lg border border-border bg-background px-1.5 py-0.5 focus-within:border-[#d9a94e]";
+/** Tag fusionné tapé par son nom : gris. */
+const MERGED_GREY = "#8b8d96";
+
+export type RuleDocs = [PillDoc<Named> | null, PillDoc<Named> | null];
 
 type Props = {
   zone: string;
   placeholders: [string, string];
-  /** Les deux textes tapés ; renvoie le refus à afficher, `null` (champs vidés) ou `false` (annulé : les
-   *  champs gardent leur texte, retour T3, point TAGM-16.2). */
-  onAdd: (left: string, right: string) => Promise<string | null | false>;
+  /** Les deux tags choisis ; renvoie le refus à afficher, `null` (champs vidés) ou `false` (annulé : les
+   *  champs gardent leurs pastilles, retour T3, point TAGM-16.2). */
+  onAdd: (left: Named, right: Named) => Promise<string | null | false>;
+  tags: ManagedTag[];
+  tagOf: (id: number) => ManagedTag | undefined;
   className?: string;
-  /** Textes retrouvés au retour sur l'onglet, et chaque changement à garder (point TAGM-15.20). */
-  saved?: [string, string];
-  onTexts?: (texts: [string, string]) => void;
+  /** Champs retrouvés au retour sur l'onglet, et chaque changement à garder (point TAGM-15.20). */
+  saved?: RuleDocs;
+  onDocs?: (docs: RuleDocs) => void;
 };
 
+const same = (a: Named, b: Named) => a.id === b.id && a.alias === b.alias;
+
 /** Deux champs « gauche → droite » et « Créer ». */
-export function RuleForm({ zone, placeholders, onAdd, className, saved, onTexts }: Props) {
-  const [left, setLeft] = useState(saved?.[0] ?? "");
-  const [right, setRight] = useState(saved?.[1] ?? "");
-  useEffect(() => onTexts?.([left, right]), [left, right]); // `onTexts` : écriture dans un état extérieur
+export function RuleForm({ zone, placeholders, onAdd, tags, tagOf, className, saved, onDocs }: Props) {
+  const { color } = useCategories();
+  const byName = useMemo(() => new Map(tags.map((t) => [t.name, t])), [tags]);
+  const left = usePills<Named>(same, saved?.[0]);
+  const right = usePills<Named>(same, saved?.[1]);
+  useEffect(() => onDocs?.([left.doc, right.doc]), [left.doc, right.doc]); // `onDocs` : écriture dans un état extérieur
+  const { resolve, dialog } = useTagResolver();
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const ready = normalizeTag(left) !== "" && normalizeTag(right) !== "";
+  const from = left.list[0];
+  const to = right.list[0];
+  useEffect(() => setError(null), [from, to]);
+  const ready = !!from && !!to && !left.hasText && !right.hasText && !busy;
   const submit = async () => {
-    if (!ready || busy) return;
+    if (!ready) return;
     setBusy(true);
-    const refused = await onAdd(left, right).finally(() => setBusy(false));
+    const refused = await onAdd(from, to).finally(() => setBusy(false));
     setError(refused || null);
     if (refused === null) {
-      setLeft("");
-      setRight("");
+      left.clear();
+      right.clear();
     }
   };
-  // Chaque champ grise le tag déjà tapé dans l'autre (SRCH-29).
-  const field = (value: string, set: (v: string) => void, placeholder: string, part: string, other: string) => (
-    <TagInput
+  // Chaque champ grise le tag déjà choisi dans l'autre (SRCH-29).
+  const field = (pills: Pills<Named>, part: string, placeholder: string, other: Named | undefined) => (
+    <PillField
       zone={`${zone}.${part}`}
-      value={value}
-      taken={(tag) => (tag.name === normalizeTag(other) ? "Ce tag est déjà dans l'autre champ" : null)}
-      onChange={(v) => {
-        set(v);
-        setError(null);
-      }}
-      onSubmit={() => void submit()}
-      onPick={(tag) => set(tag.name)}
-      placeholder={placeholder}
+      single
+      dropdown="bottom"
       className={FIELD}
-      inputClassName={INPUT}
+      pills={pills}
+      pillKey={(t) => `${t.id}:${t.alias ?? ""}`}
+      resolve={resolve}
+      toItem={(tag) => ({ id: tag.id, name: tag.name, alias: tag.alias ?? undefined })}
+      toClip={(t) => ({ name: t.alias ?? t.name, categoryId: tagOf(t.id)?.categoryId ?? 0 })}
+      fromClip={(c) => {
+        const t = byName.get(c.name);
+        return t ? { id: t.id, name: t.name } : null;
+      }}
+      taken={(tag) => (other && tag.id === other.id ? "Ce tag est déjà dans l'autre champ" : null)}
+      onSubmit={() => void submit()}
+      placeholder={placeholder}
+      renderPill={(t, remove) => (
+        <TagPill color={t.alias ? MERGED_GREY : color(tagOf(t.id)?.categoryId ?? 0)} onRemove={remove} removeLabel={`Retirer « ${displayTag(t.alias ?? t.name)} »`} fullTitleIfCut>
+          {displayTag(t.alias ?? t.name)}
+        </TagPill>
+      )}
     />
   );
   return (
     <div data-zone={zone} className={className}>
       <div className="flex items-center gap-1.5">
-        {field(left, setLeft, placeholders[0], "gauche", right)}
+        {field(left, "gauche", placeholders[0], to)}
         <ArrowRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-        {field(right, setRight, placeholders[1], "droite", left)}
+        {field(right, "droite", placeholders[1], from)}
         <Button
           data-zone={`${zone}.ajouter`}
           size="sm"
-          disabled={!ready || busy}
+          disabled={!ready}
           onClick={() => void submit()}
-          className={cn("h-9 bg-[#d9a94e] text-xs text-[#1a1408] hover:bg-[#e3b75f] disabled:hover:bg-[#d9a94e]")}
+          className="h-9 bg-[#d9a94e] text-xs text-[#1a1408] hover:bg-[#e3b75f] disabled:hover:bg-[#d9a94e]"
         >
           Créer
         </Button>
@@ -118,6 +144,7 @@ export function RuleForm({ zone, placeholders, onAdd, className, saved, onTexts 
       <p data-zone={`${zone}.refus`} title={error ?? undefined} className="mt-1.5 h-5 truncate text-xs leading-5 text-rose-300">
         {error}
       </p>
+      {dialog}
     </div>
   );
 }
