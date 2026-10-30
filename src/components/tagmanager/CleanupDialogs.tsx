@@ -16,8 +16,7 @@ import { formatNumber, plural } from "@/lib/format";
 import { deleteTags, mergeTags } from "@/lib/tagManager";
 import { CANCEL, KeepChoice, kept, mostUsed, RED, TagName } from "./TagChoice";
 
-/** `keptInGroups` : tags sans média gardés parce qu'ils sont dans un groupe de synonymes (D15.1). */
-export function UnusedTagsDialog({ tags, keptInGroups, onClose }: { tags: ManagedTag[]; keptInGroups: number; onClose: () => void }) {
+export function UnusedTagsDialog({ tags, onClose }: { tags: ManagedTag[]; onClose: () => void }) {
   const [manual, setManual] = useState(false);
   const [kept, setKept] = useState<Set<number>>(new Set());
   const doomed = tags.filter((t) => !kept.has(t.id));
@@ -45,11 +44,6 @@ export function UnusedTagsDialog({ tags, keptInGroups, onClose }: { tags: Manage
         </>
       }
     >
-      {keptInGroups > 0 && (
-        <p data-zone="tags-non-utilises.gardes" className="mb-3 text-sm text-muted-foreground select-text">
-          {keptInGroups > 1 ? `${formatNumber(keptInGroups)} tags gardés : ils sont dans un groupe de synonymes.` : "1 tag gardé : il est dans un groupe de synonymes."}
-        </p>
-      )}
       <label data-zone="tags-non-utilises.manuelle" className="flex cursor-pointer items-center gap-2 text-sm text-foreground">
         <Checkbox data-principale checked={manual} onCheckedChange={(c) => setManual(c === true)} />
         Sélection manuelle

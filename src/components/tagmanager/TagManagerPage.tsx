@@ -82,10 +82,12 @@ export function TagManagerPage() {
   const [dialog, setDialog] = useState<Dialog>(similar ? "similar" : null);
   const similarLevel = useUI((s) => s.similarLevel);
   const groups = useMemo(() => similarGroups(all, data?.ignored ?? [], similarLevel), [all, data, similarLevel]);
-  // Tags sans média, sauf ceux d'un groupe de synonymes (un tag fusionné n'a plus de média : le supprimer
-  // casserait sa fusion ; refonte, décision D15.1, avancée au lot R3 bis).
-  const unused = useMemo(() => all.filter((t) => t.mediaCount === 0 && !rules.groupOf.has(t.id)), [all, rules.groupOf]);
-  const keptInGroups = useMemo(() => all.filter((t) => t.mediaCount === 0 && rules.groupOf.has(t.id)).length, [all, rules.groupOf]);
+  // « Non utilisé » : sans média, et ni dans un groupe de synonymes (fusionné ou non) ni dans une règle de parents
+  // (enfant ou parent) : ceux-là servent, ils ne sont même pas proposés (retour T3, point TAGM-08.2).
+  const unused = useMemo(
+    () => all.filter((t) => t.mediaCount === 0 && !rules.groupOf.has(t.id) && !rules.parentsOf.has(t.id) && !rules.childrenOf.has(t.id)),
+    [all, rules],
+  );
   // Tags cochés encore présents (un tag supprimé ou fusionné quitte la liste).
   const checkedTags = useMemo(() => all.filter((t) => checked.has(t.id)), [all, checked]);
 
@@ -281,7 +283,7 @@ export function TagManagerPage() {
           />
         )}
         {dialog === "import" && <ImportTagsDialog onClose={() => setDialog(null)} />}
-        {dialog === "unused" && <UnusedTagsDialog tags={unused} keptInGroups={keptInGroups} onClose={() => setDialog(null)} />}
+        {dialog === "unused" && <UnusedTagsDialog tags={unused} onClose={() => setDialog(null)} />}
         {dialog === "merge" && <MergeTagsDialog tags={checkedTags} onClose={() => setDialog(null)} onDone={() => setDialog(null)} />}
       </main>
     </>

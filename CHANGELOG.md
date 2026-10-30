@@ -3,6 +3,19 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Refonte des synonymes et des parents : nettoyage des tags non utilisés (30/10/2026) — Backup v75
+
+SPEC : livré `[~]` : TAGM-08 (retour T3, point TAGM-08.2).
+
+- **« Supprimer les tags non utilisés »** : un tag sans média qui est dans un groupe de synonymes (fusionné ou non) ou
+  dans une règle de parents (enfant ou parent) n'est plus proposé ; le message « N tags gardés » est retiré.
+
+Vérifié dans la version compilée, sur une copie de la base d'essai `refonte` : « essai test x » sur 3 images,
+« essai test y » sans média, règle « essai test x → essai test y » : « essai test y » n'est pas proposé, ni aucun tag
+sans média des groupes (essai navire, essai vaisseau, essai bagnole, essai bicyclette, essai velo) ; « essai test
+seul » (sans média, sans groupe ni règle) l'est ; plus de message « gardés » ; zéro erreur `tsc` (pas de changement
+Rust).
+
 ## Refonte des synonymes et des parents, lot R3 bis : un tag fusionné reste un tag (30/10/2026) — Backup v74
 
 SPEC : livrés `[~]` : TAGM-15 (retour T3, point TAGM-15.22), TAGM-08 (point TAGM-08.2, partie D15.1) ; TAGM-20
