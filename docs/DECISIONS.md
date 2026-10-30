@@ -1093,3 +1093,14 @@ avant compris), il y retrouve tout. Il est remis à neuf par un changement de pa
 eux. L'ordre des groupes est figé dès que les noms de tous les principaux sont connus ; un nouveau groupe prend sa place
 alphabétique parmi les autres. Champ à pastilles limité : il se déplie sur sa dernière ligne seulement, sans marge
 (`useUnfolded` prend désormais une marge et une condition de départ), et reste déplié pendant la frappe.
+
+**Complément du 30/10 (retouches de R3, 5e tour), remplace le magasin unique du 4e tour.** L'état de l'onglet
+« Synonymes et parents » est rangé par page de l'historique : chaque page de l'onglet reçoit un numéro (champ `regles` de
+l'état de l'historique) et son propre magasin (`rulesTabState.ts`, fourni par un contexte React) ; une nouvelle
+ouverture par un clic crée une page sans numéro, donc un état neuf ; un retour arrière / avant retrouve le magasin de sa
+page, même après un détour par d'autres pages. Les données (groupes, règles) restent communes : ce qui change dans une
+page se voit dans les autres. Le lien « Gérer dans « Synonymes et parents » » passe son filtre à la nouvelle page. Le
+nom du principal est lu avec le groupe (`GroupRow.principalName`) : l'ordre et l'affichage ne dépendent plus de la
+relecture de la liste des tags (cause du saut de la ligne et du « ? »). D4.1 abandonnée pour le formulaire : un synonyme
+qui n'est pas un tag passe par « Créer un nouveau tag ». Champ à pastilles : l'espace entre deux pastilles est la marge
+droite de chacune (et non plus un texte vide de 4 px), pour que chaque ligne commence au bord.

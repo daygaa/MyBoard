@@ -27,6 +27,9 @@ pub struct NameRow {
 pub struct GroupRow {
     pub id: i64,
     pub principal_id: i64,
+    /// Nom du principal, lu avec le groupe : l'affichage n'attend pas la relecture de la liste des tags (après
+    /// un changement de principal, la ligne affichait « ? » un instant, retouches de R3).
+    pub principal_name: String,
     /// Médias que trouve la recherche d'un nom du groupe.
     pub media: i64,
     pub names: Vec<NameRow>,
@@ -50,14 +53,15 @@ pub fn list(db: &Connection) -> rusqlite::Result<Vec<GroupRow>> {
                 CASE WHEN EXISTS (SELECT 1 FROM tag_group_names n WHERE n.group_id = g.id AND n.tag_id IS NOT NULL)
                      THEN (SELECT COUNT(DISTINCT mt.media_id) FROM media_tags mt
                             WHERE mt.tag_id IN (SELECT g.principal_id UNION SELECT tag_id FROM tag_group_names WHERE group_id = g.id AND tag_id IS NOT NULL))
-                     ELSE (SELECT media_count FROM tags WHERE id = g.principal_id) END
+                     ELSE (SELECT media_count FROM tags WHERE id = g.principal_id) END,
+                (SELECT name FROM tags WHERE id = g.principal_id)
            FROM tag_groups g",
     )?;
-    let rows = stmt.query_map([], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, i64>(1)?, r.get::<_, i64>(2)?, r.get::<_, i64>(3)?)))?;
+    let rows = stmt.query_map([], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, i64>(1)?, r.get::<_, i64>(2)?, r.get::<_, i64>(3)?, r.get::<_, String>(4)?)))?;
     let mut out = Vec::new();
     for row in rows {
-        let (id, principal_id, created_at, media) = row?;
-        out.push(GroupRow { id, principal_id, media, names: names.remove(&id).unwrap_or_default(), created_at });
+        let (id, principal_id, created_at, media, principal_name) = row?;
+        out.push(GroupRow { id, principal_id, principal_name, media, names: names.remove(&id).unwrap_or_default(), created_at });
     }
     Ok(out)
 }

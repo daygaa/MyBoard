@@ -12,14 +12,13 @@ import { TagInput } from "@/components/tags/TagInput";
 import { usePopover } from "@/hooks/usePopover";
 import type { ManagedTag } from "@/lib/api";
 import { formatNumber, plural } from "@/lib/format";
-import { openTagTab } from "@/lib/router";
 import type { GroupRow, ParentRow } from "@/lib/rulesApi";
 import { addParent } from "@/lib/tagRules";
 import { displayTag, normalizeTag } from "@/lib/tags";
 import { cn } from "@/lib/utils";
 import { useTagResolver } from "./RuleForm";
 import { ParentLine, TagName, type TagOf } from "./RuleLines";
-import { useGroupFilter } from "./RulesTab";
+import { openRulesFiltered } from "./rulesTabState";
 
 const WIDTH = 320;
 
@@ -93,8 +92,7 @@ export function SynonymsCell({ tag, group, tagOf }: { tag: ManagedTag; group: Gr
   const others = group ? group.names.length : 0;
   const manage = () => {
     popover.toggle();
-    useGroupFilter.setState({ text: label });
-    openTagTab("rules");
+    openRulesFiltered(label);
   };
   return (
     <>

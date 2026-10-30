@@ -6,7 +6,6 @@
 
 import { useEffect, useLayoutEffect, useMemo, useRef, type ReactNode } from "react";
 import { Search } from "lucide-react";
-import { create } from "zustand";
 
 import type { RulesIndex } from "@/hooks/useTagRules";
 import type { ManagedTag } from "@/lib/api";
@@ -17,10 +16,7 @@ import { GroupForm } from "./GroupForm";
 import { GroupLine } from "./GroupLine";
 import { RuleForm, useTagResolver } from "./RuleForm";
 import { ParentLine, type TagOf } from "./RuleLines";
-import { frozenOrder, useRulesTab } from "./rulesTabState";
-
-/** Filtre des synonymes, réglable d'ailleurs (lien « Gérer dans « Synonymes et parents » » du tableau). */
-export const useGroupFilter = create<{ text: string }>(() => ({ text: "" }));
+import { frozenOrder, RulesTabProvider, useRulesEntry, useRulesStore, useRulesTab } from "./rulesTabState";
 
 function Panel({ zone, title, count, help, form, filter, onFilter, children, empty }: {
   zone: string;
@@ -34,10 +30,11 @@ function Panel({ zone, title, count, help, form, filter, onFilter, children, emp
   empty: string;
 }) {
   // Retour arrière / avant : la liste reprend où elle en était (point TAGM-15.20).
+  const store = useRulesStore();
   const listRef = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {
-    if (listRef.current) listRef.current.scrollTop = useRulesTab.getState().scroll[zone] ?? 0;
-  }, [zone]);
+    if (listRef.current) listRef.current.scrollTop = store.getState().scroll[zone] ?? 0;
+  }, [store, zone]);
   return (
     // Côte à côte, les deux tableaux partagent seulement les rangées du titre et du texte d'explication : les
     // formulaires commencent à la même hauteur ; le reste de chaque tableau est indépendant (un champ qui grandit
@@ -66,7 +63,7 @@ function Panel({ zone, title, count, help, form, filter, onFilter, children, emp
           data-zone={`${zone}.liste`}
           onScroll={(e) => {
             const top = e.currentTarget.scrollTop;
-            useRulesTab.setState((s) => ({ scroll: { ...s.scroll, [zone]: top } }));
+            store.setState((s) => ({ scroll: { ...s.scroll, [zone]: top } }));
           }}
           className="min-h-24 flex-1 space-y-0.5 overflow-y-auto overscroll-contain"
         >
@@ -80,33 +77,43 @@ function Panel({ zone, title, count, help, form, filter, onFilter, children, emp
 /** Texte cherché dans un des noms (sans tenir compte des « _ » ni des majuscules). */
 const matches = (needle: string, ...names: string[]) => !needle || names.some((n) => n.includes(needle));
 
-export function RulesTab({ tags, rules }: { tags: ManagedTag[]; rules: RulesIndex }) {
+type Props = { tags: ManagedTag[]; rules: RulesIndex };
+
+/** L'onglet, avec l'état de sa page d'historique (rulesTabState.ts) : un retour arrière / avant vers une autre
+ *  page de l'onglet le recrée avec l'état de celle-ci. */
+export function RulesTab(props: Props) {
+  const { key, store } = useRulesEntry();
+  return (
+    <RulesTabProvider value={store}>
+      <RulesTabPage key={key} {...props} />
+    </RulesTabProvider>
+  );
+}
+
+function RulesTabPage({ tags, rules }: Props) {
+  const store = useRulesStore();
   const byId = useMemo(() => new Map(tags.map((t) => [t.id, t])), [tags]);
   const tagOf: TagOf = (id) => byId.get(id);
   const name = (id: number) => byId.get(id)?.name ?? "";
   const { resolve, dialog } = useTagResolver();
-  const groupFilter = useGroupFilter((s) => s.text);
+  const groupFilter = useRulesTab((s) => s.groupFilter);
   const parentFilter = useRulesTab((s) => s.parentFilter);
   const g = normalizeTag(groupFilter);
   const p = normalizeTag(parentFilter);
 
-  // Ordre des groupes figé jusqu'au rechargement de l'onglet : changer de principal ne déplace pas la ligne
-  // (point TAGM-15.19) ; un nouveau groupe prend sa place alphabétique (rulesTabState.ts).
+  // Ordre des groupes figé pour cette page de l'onglet : changer de principal ne déplace pas la ligne (point
+  // TAGM-15.19) ; un nouveau groupe prend sa place alphabétique (rulesTabState.ts). Le nom du principal vient
+  // avec le groupe : l'ordre ne dépend pas de la relecture de la liste des tags.
   const frozen = useRulesTab((s) => s.order);
-  const alphabetical = useMemo(
-    () => [...rules.groups].sort((x, y) => (byId.get(x.principalId)?.name ?? "").localeCompare(byId.get(y.principalId)?.name ?? "")).map((r) => r.id),
-    [rules.groups, byId],
-  );
-  // Figé seulement une fois les noms de tous les principaux connus (sinon l'ordre de création serait gardé).
-  const named = rules.groups.every((r) => byId.has(r.principalId));
-  const order = useMemo(() => (named ? frozenOrder(alphabetical, frozen) : alphabetical), [named, alphabetical, frozen]);
+  const alphabetical = useMemo(() => [...rules.groups].sort((x, y) => x.principalName.localeCompare(y.principalName)).map((r) => r.id), [rules.groups]);
+  const order = useMemo(() => frozenOrder(alphabetical, frozen), [alphabetical, frozen]);
   useEffect(() => {
-    if (named && (!frozen || order.length !== frozen.length || order.some((id, i) => id !== frozen[i]))) useRulesTab.setState({ order });
-  }, [named, order, frozen]);
+    if (!frozen || order.length !== frozen.length || order.some((id, i) => id !== frozen[i])) store.setState({ order });
+  }, [store, order, frozen]);
   const rank = new Map(order.map((id, i) => [id, i]));
   // Un groupe passe le filtre si un de ses noms (principal, relié ou fusionné) le contient.
   const groups = rules.groups
-    .filter((r) => matches(g, name(r.principalId), ...r.names.map((n) => n.name)))
+    .filter((r) => matches(g, r.principalName, ...r.names.map((n) => n.name)))
     .sort((x, y) => (rank.get(x.id) ?? 0) - (rank.get(y.id) ?? 0));
   const parents = rules.parents
     .filter((r) => matches(p, name(r.childId), name(r.parentId)))
@@ -129,7 +136,7 @@ export function RulesTab({ tags, rules }: { tags: ManagedTag[]; rules: RulesInde
         help={"Rechercher un tag affichera tous les médias portant ce tag ainsi que ceux portant son/ses synonymes.\nLa fusion permet de rassembler tous les synonymes d'un groupe sous un seul tag principal et peut être désactivée à tout moment."}
         form={<GroupForm tags={tags} tagOf={tagOf} />}
         filter={groupFilter}
-        onFilter={(text) => useGroupFilter.setState({ text })}
+        onFilter={(text) => store.setState({ groupFilter: text })}
         empty={rules.groups.length ? "Aucun groupe ne correspond au filtre." : "Aucun synonyme pour le moment."}
       >
         {groups.map((row) => (
@@ -146,12 +153,12 @@ export function RulesTab({ tags, rules }: { tags: ManagedTag[]; rules: RulesInde
             zone="regles.parents.ajout"
             placeholders={["Enfant…", "Parent…"]}
             onAdd={createParent}
-            saved={useRulesTab.getState().parentTexts}
-            onTexts={(parentTexts) => useRulesTab.setState({ parentTexts })}
+            saved={store.getState().parentTexts}
+            onTexts={(parentTexts) => store.setState({ parentTexts })}
           />
         }
         filter={parentFilter}
-        onFilter={(text) => useRulesTab.setState({ parentFilter: text })}
+        onFilter={(text) => store.setState({ parentFilter: text })}
         empty={rules.parents.length ? "Aucune règle ne correspond au filtre." : "Aucune règle pour le moment."}
       >
         {parents.map((row) => (

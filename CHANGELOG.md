@@ -3,6 +3,27 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Refonte des synonymes et des parents, retouches du lot R3, 5e tour (30/10/2026) — Backup v72
+
+SPEC : livrés `[~]` : TAGM-15 (retour T3, points TAGM-15.5, TAGM-15.19) ; GEN-26 noté (flux audio, plus tard).
+Complément de D-047.
+
+- **Historique** : chaque ouverture de l'onglet par un clic est une nouvelle page, neuve ; le bouton 4 retrouve l'état de
+  la page où l'on revient (champs, groupes dépliés, filtres, ordre, défilement), même après être allé ailleurs par un
+  clic, avec les données à jour.
+- **Changement de principal** : plus de saut de la ligne ni de « ? ».
+- **Champ « Synonymes »** : un clic ailleurs le replie ; toutes les lignes de pastilles commencent au bord ; un nom qui
+  n'est pas un tag ouvre « Créer un nouveau tag ».
+
+Vérifié dans la version compilée, sur une copie de la base d'essai `refonte` : 22 pastilles : 1re pastille de chaque
+ligne à 0 px du bord, replié et déplié (11 lignes) ; on écrit dans le champ déplié, souris partie : déplié ; clic sur le
+titre du tableau : replié ; « essai cabane neuve » tapé en synonyme : pop-in « Créer un nouveau tag », tag créé,
+pastille à la couleur de sa catégorie ; changement de principal relevé image par image pendant 2,5 s : la ligne reste
+à sa place, jamais de « ? » ; page A (champ rempli, groupe déplié, filtre des parents) → clic « Tags » → clic
+« Synonymes et parents » : page C neuve, ordre alphabétique ; fusion d'« essai maison » dans la page C ; bouton 4 deux
+fois : page A retrouvée, avec « essai maison » fusionné ; avance deux fois : page C retrouvée ; lien « Gérer dans
+« Synonymes et parents » » : nouvelle page filtrée sur « essai maison » ; zéro erreur `tsc` et `clippy`.
+
 ## Refonte des synonymes et des parents, retouches du lot R3, 4e tour (30/10/2026) — Backup v71
 
 SPEC : livrés `[~]` : TAGM-15 (retour T3, points TAGM-15.5, TAGM-15.17, TAGM-15.19 et TAGM-15.20 nouveaux). Complément de

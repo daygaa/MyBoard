@@ -9,7 +9,7 @@ import type { SharedTag } from "./api";
  *  médias du tag, ou médias notés pour défaire la fusion. */
 export type NameRow = { id: number; tagId: number | null; name: string; merged: boolean; media: number };
 /** Groupe de synonymes ; `media` : médias que trouve la recherche d'un de ses noms. */
-export type GroupRow = { id: number; principalId: number; media: number; names: NameRow[]; createdAt: number };
+export type GroupRow = { id: number; principalId: number; principalName: string; media: number; names: NameRow[]; createdAt: number };
 /** Règle « enfant → parent » ; `enabled` = son interrupteur (D-047) ; `media` : médias qui ont reçu le
  *  parent par elle. */
 export type ParentRow = { id: number; childId: number; parentId: number; enabled: boolean; media: number; createdAt: number };

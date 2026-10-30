@@ -57,11 +57,12 @@ export function usePillOverflow<T>({ maxLines, doc, sel, focused, listOpen, typi
   const canStart = useCallback(() => !list.current, []);
   const byMouse = useUnfolded(rectOf, !!maxLines && hidden.size > 0, covered, 0, canStart);
   const unfolded = hidden.size > 0 && (byMouse || byKeyboard || sticky);
-  // On écrit dans le champ déplié : il reste déplié jusqu'à ce que le texte soit vide (effacé ou validé).
+  // On écrit dans le champ déplié : il reste déplié jusqu'à ce que le texte soit vide (effacé ou validé), ou
+  // qu'un clic ailleurs fasse quitter le champ (retouches de R3, 30/10).
   useEffect(() => {
-    if (!typing) setSticky(false);
+    if (!typing || !focused) setSticky(false);
     else if (unfolded) setSticky(true);
-  }, [typing, unfolded]);
+  }, [typing, focused, unfolded]);
 
   useLayoutEffect(() => {
     const ed = editor.current;

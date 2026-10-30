@@ -247,9 +247,10 @@ export function PillField<T>(props: Props<T>) {
         {doc.texts.flatMap((text, t) => [
           // Pastilles au-delà de `maxLines` lignes : la ligne d'écriture passe dessous, seule.
           t === last && props.maxLines && <span key="saut" data-saut contentEditable={false} className={over.overflow ? "block" : "hidden"} />,
-          // Texte vide : 4 px entre deux pastilles (aucun avant la 1re : elle s'aligne sur le début des lignes
-          // suivantes, retouches de R3) ; texte tapé : 4 px de chaque côté.
-          <span key={`t:${t}:${version}`} data-texte={t} className={cn(text ? "px-1" : (t > 0 || t === last) && "px-0.5",!text && t < last && over.isHidden(t) && "hidden")}>
+          // Texte vide : sans largeur, l'espace de 4 px est la marge droite de chaque pastille : toute ligne commence
+          // au bord, quelle que soit la façon dont elle passe à la ligne (retouches de R3, 30/10) ; texte tapé : 4 px
+          // à sa droite ; champ sans pastille : le curseur à 2 px du bord, comme avant.
+          <span key={`t:${t}:${version}`} data-texte={t} className={cn(text ? "pr-1" : doc.pills.length === 0 && "px-0.5", !text && t < last && over.isHidden(t) && "hidden")}>
             {text || EMPTY_TEXT}
           </span>,
           t < doc.pills.length && (
@@ -259,9 +260,8 @@ export function PillField<T>(props: Props<T>) {
               data-choisie={focused && covers(sel, t) ? "" : undefined}
               contentEditable={false}
               // Hauteur d'une ligne, pastille centrée dedans (avec `align-middle`, elle tombait 1,5 px trop bas) ;
-              // jamais plus large que le champ, l'espace de 4 px qui la précède compris (nom coupé par « … »,
-              // retouches de R3).
-              className={cn("inline-flex h-7 max-w-[calc(100%-4px)] items-center align-top select-none", over.isHidden(t) && "hidden")}
+              // jamais plus large que le champ, sa marge de 4 px comprise (nom coupé par « … », retouches de R3).
+              className={cn("mr-1 inline-flex h-7 max-w-[calc(100%-4px)] items-center align-top select-none", over.isHidden(t) && "hidden")}
             >
               {renderPill(doc.pills[t], () => cmd.remove(t))}
             </span>

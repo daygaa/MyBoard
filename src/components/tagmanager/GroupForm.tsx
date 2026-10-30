@@ -19,11 +19,11 @@ import type { ManagedTag } from "@/lib/api";
 import { createGroup } from "@/lib/groupRules";
 import { removePill } from "@/lib/pillText";
 import { rulesApi, type GroupPreview } from "@/lib/rulesApi";
-import { displayTag, normalizeTag } from "@/lib/tags";
+import { displayTag } from "@/lib/tags";
 import { cn } from "@/lib/utils";
 import { FitLine } from "./FitLine";
 import { useTagResolver } from "./RuleForm";
-import { useRulesTab, type Chip } from "./rulesTabState";
+import { useRulesStore, type Chip } from "./rulesTabState";
 
 
 /** Cadre des champs, comme ceux de la barre de la sélection. */
@@ -95,15 +95,16 @@ export function GroupForm({ tags, tagOf }: { tags: ManagedTag[]; tagOf: (id: num
   const { color } = useCategories();
   const byName = useMemo(() => new Map(tags.map((t) => [t.name, t])), [tags]);
   // Retour arrière / avant : les champs et l'interrupteur sont retrouvés tels quels (point TAGM-15.20).
-  const [saved] = useState(() => useRulesTab.getState());
+  const store = useRulesStore();
+  const [saved] = useState(() => store.getState());
   const principal = usePills<Chip>((a, b) => a.name === b.name, saved.principal);
   const names = usePills<Chip>((a, b) => a.name === b.name, saved.names);
-  useEffect(() => useRulesTab.setState({ principal: principal.doc, names: names.doc }), [principal.doc, names.doc]);
+  useEffect(() => store.setState({ principal: principal.doc, names: names.doc }), [store, principal.doc, names.doc]);
   const { resolve, dialog } = useTagResolver();
   const [merge, setMergeState] = useState(saved.merge.on);
   const setMerge = (on: boolean, auto?: string) => {
     setMergeState(on);
-    useRulesTab.setState((s) => ({ merge: { on, auto: auto ?? s.merge.auto } }));
+    store.setState((s) => ({ merge: { on, auto: auto ?? s.merge.auto } }));
   };
   const [busy, setBusy] = useState(false);
   const chief = principal.list[0];
@@ -127,7 +128,7 @@ export function GroupForm({ tags, tagOf }: { tags: ManagedTag[]; tagOf: (id: num
   // fois par principal (pas à nouveau au retour sur l'onglet, où il garde l'état choisi).
   const auto = !chief ? "" : preview ? `${chief.name}|${preview.fullyMerged}` : null;
   useEffect(() => {
-    if (auto === null || auto === useRulesTab.getState().merge.auto) return;
+    if (auto === null || auto === store.getState().merge.auto) return;
     setMerge(!!preview?.fullyMerged && !!chief, auto);
   }, [auto]); // le reste suit `auto`
 
@@ -184,9 +185,11 @@ export function GroupForm({ tags, tagOf }: { tags: ManagedTag[]; tagOf: (id: num
           className={FIELD}
           pills={names}
           pillKey={(c) => c.name}
-          resolve={(raw) => {
-            const name = normalizeTag(raw);
-            return name ? { name, id: byName.get(name)?.id ?? null } : null;
+          // Un nom qui n'est pas un tag ouvre « Créer un nouveau tag », comme le tag principal (retouches de R3,
+          // 30/10 : D4.1 abandonnée ici) ; un nom fusionné ailleurs reste ce nom (son groupe sera réuni, D14).
+          resolve={async (raw) => {
+            const tag = await resolve(raw);
+            return tag ? { name: tag.alias ?? tag.name, id: tag.alias ? null : tag.id } : null;
           }}
           toItem={(tag) => chip({ name: tag.alias ?? tag.name, id: tag.alias ? null : tag.id })}
           toClip={(c) => ({ name: c.name, categoryId: (c.id !== null ? tagOf(c.id)?.categoryId : undefined) ?? 0 })}

@@ -17,7 +17,7 @@ import { displayTag } from "@/lib/tags";
 import { cn, titleIfCut } from "@/lib/utils";
 import { FitLine } from "./FitLine";
 import { TagName, type TagOf } from "./RuleLines";
-import { useRulesTab } from "./rulesTabState";
+import { useRulesStore } from "./rulesTabState";
 
 const LINE = "flex h-8 items-center gap-2 rounded-md px-1.5 text-sm hover:bg-secondary/40";
 const ICON = "grid h-6 w-6 shrink-0 place-items-center rounded text-muted-foreground transition hover:bg-secondary";
@@ -85,7 +85,8 @@ const ICON_SPACER = <span aria-hidden className="w-6 shrink-0" />;
 /** Dépliage en douceur (retouches de R3) : le panneau passe de 0 à sa hauteur en 200 ms ; replié, il quitte la
  *  page à la fin du mouvement. Un groupe déplié le reste au retour sur l'onglet (point TAGM-15.20). */
 function useUnfold(id: number) {
-  const [was] = useState(() => useRulesTab.getState().open.includes(id));
+  const store = useRulesStore();
+  const [was] = useState(() => store.getState().open.includes(id));
   const [open, setOpen] = useState(was);
   const [mounted, setMounted] = useState(was);
   const [expanded, setExpanded] = useState(was);
@@ -97,7 +98,7 @@ function useUnfold(id: number) {
   }, [open, mounted, expanded]);
   const toggle = () => {
     setOpen(!open);
-    useRulesTab.setState((s) => ({ open: open ? s.open.filter((x) => x !== id) : [...s.open, id] }));
+    store.setState((s) => ({ open: open ? s.open.filter((x) => x !== id) : [...s.open, id] }));
     if (!open) setMounted(true);
     else if (expanded) setExpanded(false);
     else setMounted(false); // replié avant d'avoir commencé à se déplier : aucun mouvement à attendre
@@ -109,7 +110,7 @@ function useUnfold(id: number) {
 export function GroupLine({ group, tagOf }: { group: GroupRow; tagOf: TagOf }) {
   const { open, mounted, expanded, ref, toggle, onEnd } = useUnfold(group.id);
   const principalTag = tagOf(group.principalId);
-  const principal = principalTag?.name ?? "?";
+  const principal = group.principalName;
   // Ordre alphabétique, le tag principal rangé avec les autres dans le panneau : changer de principal ne
   // déplace aucun nom (point TAGM-15.17).
   const names = [...group.names].sort(byName);
@@ -183,7 +184,7 @@ export function GroupLine({ group, tagOf }: { group: GroupRow; tagOf: TagOf }) {
                     <span className={ICON} title="Tag principal">
                       <Star className="h-3.5 w-3.5 fill-[#d9a94e] text-[#d9a94e]" />
                     </span>
-                    <TagName tag={principalTag} />
+                    {principalTag ? <TagName tag={principalTag} /> : <span className="min-w-0 truncate font-mono">{displayTag(principal)}</span>}
                     <span className="ml-auto shrink-0 pl-1 text-xs text-muted-foreground tabular-nums">{principalTag ? formatNumber(principalTag.mediaCount) : ""}</span>
                     {SPACER}
                     {ICON_SPACER}

@@ -47,20 +47,9 @@ export function useTagTab(): TagTab {
   return useSyncExternalStore(subscribe, () => (window.location.hash.startsWith(RULES) ? "rules" : "tags"));
 }
 
-/** Changement de page par un clic (onglet, lien, menu), pas par un retour arrière / avant : ce qui doit
- *  repartir à neuf s'y abonne (onglet « Synonymes et parents », retour T3, point TAGM-15.20). */
-const clickListeners = new Set<() => void>();
-export function onClickNavigation(listener: () => void) {
-  clickListeners.add(listener);
-}
-const go = (target: string) => {
-  clickListeners.forEach((listener) => listener());
-  window.location.hash = target;
-};
-
 export function openTagTab(tab: TagTab) {
   const target = tab === "rules" ? RULES : PATHS.tags;
-  if (window.location.hash !== target) go(target);
+  if (window.location.hash !== target) window.location.hash = target;
   scrollToTop();
 }
 
@@ -73,6 +62,6 @@ export function scopeOf(hash: string): ViewScope {
 
 export function navigate(route: Route, folderId?: number) {
   const target = route === "folder" ? `#/dossier/${folderId}` : PATHS[route];
-  if (window.location.hash !== target && !(route === "library" && routeOf(window.location.hash) === "library")) go(target);
+  if (window.location.hash !== target && !(route === "library" && routeOf(window.location.hash) === "library")) window.location.hash = target;
   scrollToTop();
 }
