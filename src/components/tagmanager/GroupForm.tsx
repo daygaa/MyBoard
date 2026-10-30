@@ -23,9 +23,8 @@ import { displayTag, normalizeTag } from "@/lib/tags";
 import { cn } from "@/lib/utils";
 import { FitLine } from "./FitLine";
 import { useTagResolver } from "./RuleForm";
+import { useRulesTab, type Chip } from "./rulesTabState";
 
-/** Pastille : un tag (`id`), ou un nom qui n'en est pas un (`id` vide : il deviendra un nom fusionné). */
-type Chip = { name: string; id: number | null };
 
 /** Cadre des champs, comme ceux de la barre de la sélection. */
 const FIELD = "flex min-h-9 min-w-0 flex-1 items-center rounded-lg border border-border bg-background px-1.5 py-0.5 focus-within:border-[#d9a94e]";
@@ -95,10 +94,17 @@ function Preview({ preview, merge, why }: { preview: GroupPreview | undefined; m
 export function GroupForm({ tags, tagOf }: { tags: ManagedTag[]; tagOf: (id: number) => ManagedTag | undefined }) {
   const { color } = useCategories();
   const byName = useMemo(() => new Map(tags.map((t) => [t.name, t])), [tags]);
-  const principal = usePills<Chip>((a, b) => a.name === b.name);
-  const names = usePills<Chip>((a, b) => a.name === b.name);
+  // Retour arrière / avant : les champs et l'interrupteur sont retrouvés tels quels (point TAGM-15.20).
+  const [saved] = useState(() => useRulesTab.getState());
+  const principal = usePills<Chip>((a, b) => a.name === b.name, saved.principal);
+  const names = usePills<Chip>((a, b) => a.name === b.name, saved.names);
+  useEffect(() => useRulesTab.setState({ principal: principal.doc, names: names.doc }), [principal.doc, names.doc]);
   const { resolve, dialog } = useTagResolver();
-  const [merge, setMerge] = useState(false);
+  const [merge, setMergeState] = useState(saved.merge.on);
+  const setMerge = (on: boolean, auto?: string) => {
+    setMergeState(on);
+    useRulesTab.setState((s) => ({ merge: { on, auto: auto ?? s.merge.auto } }));
+  };
   const [busy, setBusy] = useState(false);
   const chief = principal.list[0];
   const typed = names.list.map((n) => n.name);
@@ -117,9 +123,13 @@ export function GroupForm({ tags, tagOf }: { tags: ManagedTag[]; tagOf: (id: num
     const old = principal.list.findIndex((c) => c.name === last.current?.name);
     principal.edit((doc, sel) => removePill(doc, sel, old >= 0 ? old : 0));
   }, [principal.list]); // `edit` ne change que l'état du champ
-  // Interrupteur : allumé d'office quand le groupe du principal est entièrement fusionné (D2.2, D8.1).
-  const fully = preview?.fullyMerged ?? false;
-  useEffect(() => setMerge(fully), [chief?.name, fully]);
+  // Interrupteur : allumé d'office quand le groupe du principal est entièrement fusionné (D2.2, D8.1), une
+  // fois par principal (pas à nouveau au retour sur l'onglet, où il garde l'état choisi).
+  const auto = !chief ? "" : preview ? `${chief.name}|${preview.fullyMerged}` : null;
+  useEffect(() => {
+    if (auto === null || auto === useRulesTab.getState().merge.auto) return;
+    setMerge(!!preview?.fullyMerged && !!chief, auto);
+  }, [auto]); // le reste suit `auto`
 
   const chip = (tag: { name: string; id: number | null }) => ({ name: tag.name, id: tag.id });
   const pill = (c: Chip, remove: () => void, what: string) => (

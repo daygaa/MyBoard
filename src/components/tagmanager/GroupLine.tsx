@@ -17,6 +17,7 @@ import { displayTag } from "@/lib/tags";
 import { cn, titleIfCut } from "@/lib/utils";
 import { FitLine } from "./FitLine";
 import { TagName, type TagOf } from "./RuleLines";
+import { useRulesTab } from "./rulesTabState";
 
 const LINE = "flex h-8 items-center gap-2 rounded-md px-1.5 text-sm hover:bg-secondary/40";
 const ICON = "grid h-6 w-6 shrink-0 place-items-center rounded text-muted-foreground transition hover:bg-secondary";
@@ -74,16 +75,20 @@ function NameLine({ group, name, principal, tagOf }: { group: GroupRow; name: Na
   );
 }
 
+/** Noms par ordre alphabétique (sans les « _ »). */
+const byName = (a: { name: string }, b: { name: string }) => displayTag(a.name).localeCompare(displayTag(b.name));
+
 /** Place de l'interrupteur et de l'icône de fin de ligne, pour aligner les colonnes de droite. */
 const SPACER = <span aria-hidden className="w-7 shrink-0" />;
 const ICON_SPACER = <span aria-hidden className="w-6 shrink-0" />;
 
 /** Dépliage en douceur (retouches de R3) : le panneau passe de 0 à sa hauteur en 200 ms ; replié, il quitte la
- *  page à la fin du mouvement. */
-function useUnfold() {
-  const [open, setOpen] = useState(false);
-  const [mounted, setMounted] = useState(false);
-  const [expanded, setExpanded] = useState(false);
+ *  page à la fin du mouvement. Un groupe déplié le reste au retour sur l'onglet (point TAGM-15.20). */
+function useUnfold(id: number) {
+  const [was] = useState(() => useRulesTab.getState().open.includes(id));
+  const [open, setOpen] = useState(was);
+  const [mounted, setMounted] = useState(was);
+  const [expanded, setExpanded] = useState(was);
   const ref = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {
     if (!open || !mounted || expanded) return;
@@ -92,6 +97,7 @@ function useUnfold() {
   }, [open, mounted, expanded]);
   const toggle = () => {
     setOpen(!open);
+    useRulesTab.setState((s) => ({ open: open ? s.open.filter((x) => x !== id) : [...s.open, id] }));
     if (!open) setMounted(true);
     else if (expanded) setExpanded(false);
     else setMounted(false); // replié avant d'avoir commencé à se déplier : aucun mouvement à attendre
@@ -101,9 +107,13 @@ function useUnfold() {
 }
 
 export function GroupLine({ group, tagOf }: { group: GroupRow; tagOf: TagOf }) {
-  const { open, mounted, expanded, ref, toggle, onEnd } = useUnfold();
+  const { open, mounted, expanded, ref, toggle, onEnd } = useUnfold(group.id);
   const principalTag = tagOf(group.principalId);
   const principal = principalTag?.name ?? "?";
+  // Ordre alphabétique, le tag principal rangé avec les autres dans le panneau : changer de principal ne
+  // déplace aucun nom (point TAGM-15.17).
+  const names = [...group.names].sort(byName);
+  const rows = [...names.map((n) => ({ key: n.id, name: n.name, row: n as NameRow | null })), { key: -1, name: principal, row: null }].sort(byName);
   const state = groupState(group);
   const deletion = groupDeletion(group, principal);
   const menu = (): MenuEntry[] => [
@@ -139,9 +149,9 @@ export function GroupLine({ group, tagOf }: { group: GroupRow; tagOf: TagOf }) {
               {group.names.length > 0 && <span className="px-2 text-muted-foreground">—</span>}
             </>
           }
-          items={group.names.map((n) => ({ key: String(n.id), node: <Name name={n} tagOf={tagOf} /> }))}
+          items={names.map((n) => ({ key: String(n.id), node: <Name name={n} tagOf={tagOf} /> }))}
           more={(n) => `… + ${n}`}
-          title={[principal, ...group.names.map((n) => n.name)].map(displayTag).join(" · ")}
+          title={[principal, ...names.map((n) => n.name)].map(displayTag).join(" · ")}
         />
         <span className="shrink-0 pl-1 text-xs text-muted-foreground tabular-nums" title={`${formatNumber(group.media)} ${plural(group.media, "média")} trouvés en cherchant un de ces noms`}>
           {formatNumber(group.media)}
@@ -163,19 +173,23 @@ export function GroupLine({ group, tagOf }: { group: GroupRow; tagOf: TagOf }) {
         <div ref={ref} onTransitionEnd={onEnd} className={cn("grid transition-[grid-template-rows] duration-200 ease-out", expanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]")}>
           <div className="min-h-0 overflow-hidden">
             <div data-trait className="h-px bg-[#3a3d47]" />
-            <div data-zone="regles.groupe.panneau" className="ml-6 py-1">
-              <div className={LINE}>
-                <span className={ICON} title="Tag principal">
-                  <Star className="h-3.5 w-3.5 fill-[#d9a94e] text-[#d9a94e]" />
-                </span>
-                <TagName tag={principalTag} />
-                <span className="ml-auto shrink-0 pl-1 text-xs text-muted-foreground tabular-nums">{principalTag ? formatNumber(principalTag.mediaCount) : ""}</span>
-                {SPACER}
-                {ICON_SPACER}
-              </div>
-              {group.names.map((n) => (
-                <NameLine key={n.id} group={group} name={n} principal={principal} tagOf={tagOf} />
-              ))}
+            {/* Étoiles sous la flèche de dépliage (point TAGM-15.17). */}
+            <div data-zone="regles.groupe.panneau" className="py-1">
+              {rows.map(({ key, row }) =>
+                row ? (
+                  <NameLine key={key} group={group} name={row} principal={principal} tagOf={tagOf} />
+                ) : (
+                  <div key={key} className={LINE}>
+                    <span className={ICON} title="Tag principal">
+                      <Star className="h-3.5 w-3.5 fill-[#d9a94e] text-[#d9a94e]" />
+                    </span>
+                    <TagName tag={principalTag} />
+                    <span className="ml-auto shrink-0 pl-1 text-xs text-muted-foreground tabular-nums">{principalTag ? formatNumber(principalTag.mediaCount) : ""}</span>
+                    {SPACER}
+                    {ICON_SPACER}
+                  </div>
+                ),
+              )}
             </div>
           </div>
         </div>

@@ -1084,3 +1084,12 @@ aperçu), `pillOverflow.tsx` (champ à pastilles limité à N lignes : pastilles
 d'écriture dessous ; mesure avant chaque affichage), `hooks/useUnfolded.ts` (dépliage à l'approche de la souris, sorti de
 la recherche SRCH-18 et partagé). `Modal` (GEN-25) : titre, sous-titre (`subtitle`) et boutons fixes, contenu qui défile,
 80 % de la hauteur de la fenêtre au plus.
+
+**Complément du 30/10 (retouches de R3, 4e tour).** L'état de l'onglet « Synonymes et parents » (champs,
+interrupteur « Fusionner », groupes dépliés, filtre des parents, ordre des groupes, défilement des listes) vit dans un
+magasin (`rulesTabState.ts`) plutôt que dans les composants : l'onglet est recréé à chaque retour (retour arrière /
+avant compris), il y retrouve tout. Il est remis à neuf par un changement de page fait par un clic : `openTagTab` et
+`navigate` (lib/router.ts) préviennent leurs abonnés (`onClickNavigation`) ; un retour arrière / avant ne passe pas par
+eux. L'ordre des groupes est figé dès que les noms de tous les principaux sont connus ; un nouveau groupe prend sa place
+alphabétique parmi les autres. Champ à pastilles limité : il se déplie sur sa dernière ligne seulement, sans marge
+(`useUnfolded` prend désormais une marge et une condition de départ), et reste déplié pendant la frappe.

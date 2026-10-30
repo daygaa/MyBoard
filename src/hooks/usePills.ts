@@ -6,7 +6,7 @@
 
 import { useState } from "react";
 
-import { caretAt, hasRawText, START, type PillDoc, type Sel } from "@/lib/pillText";
+import { caretAt, endOf, hasRawText, START, type PillDoc, type Sel } from "@/lib/pillText";
 
 type Snapshot<T> = { doc: PillDoc<T>; sel: Sel };
 type State<T> = Snapshot<T> & { past: Snapshot<T>[]; future: Snapshot<T>[]; group: string | null };
@@ -15,9 +15,10 @@ const INITIAL: State<never> = { doc: { texts: [""], pills: [] }, sel: caretAt(ST
 
 export type Pills<T> = ReturnType<typeof usePills<T>>;
 
-/** `same` : deux pastilles du même tag (pas de doublon). */
-export function usePills<T>(same: (a: T, b: T) => boolean) {
-  const [s, setS] = useState<State<T>>(INITIAL);
+/** `same` : deux pastilles du même tag (pas de doublon) ; `initial` : contenu retrouvé (curseur à la fin, sans
+ *  historique). */
+export function usePills<T>(same: (a: T, b: T) => boolean, initial?: PillDoc<T> | null) {
+  const [s, setS] = useState<State<T>>(() => (initial ? { ...INITIAL, doc: initial, sel: caretAt(endOf(initial)) } : INITIAL));
   return {
     doc: s.doc,
     sel: s.sel,

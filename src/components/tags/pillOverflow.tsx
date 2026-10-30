@@ -1,11 +1,11 @@
 // Champ à pastilles limité à `maxLines` lignes de pastilles (retouches de R3, 29/10 : champ « Synonymes » du
 // formulaire des groupes). Au-delà, « +N » au bout de la dernière ligne : une pastille qui n'y tient plus y
 // passe, et la suivante prend sa place si elle tient ; on écrit alors sur une ligne à part, dessous, sans
-// pastille. La souris qui approche déplie toutes les pastilles par-dessus ce qui est dessous, comme les termes
-// de la recherche (SRCH-18, hooks/useUnfolded.ts) ; le clavier aussi, quand le curseur va près d'une pastille
-// cachée.
+// pastille. La souris qui arrive sur la dernière ligne déplie toutes les pastilles par-dessus ce qui est
+// dessous, comme les termes de la recherche (SRCH-18, hooks/useUnfolded.ts) ; le clavier aussi, quand le
+// curseur va près d'une pastille cachée. On écrit dans le champ déplié : il le reste jusqu'au texte vide.
 
-import { useCallback, useLayoutEffect, useRef, useState, type RefObject } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
 
 import { useUnfolded } from "@/hooks/useUnfolded";
 import type { PillDoc, Sel } from "@/lib/pillText";
@@ -26,32 +26,54 @@ type Args<T> = {
   doc: PillDoc<T>;
   sel: Sel;
   focused: boolean;
-  /** Liste de suggestions ouverte : rien ne se déplie (elle passerait dessous). */
+  /** Liste de suggestions ouverte : rien ne se déplie (elle passerait dessous) ; ce qui est déplié le reste. */
   listOpen: boolean;
+  /** Du texte tapé là où est le curseur. */
+  typing: boolean;
   root: RefObject<HTMLDivElement | null>;
   editor: RefObject<HTMLDivElement | null>;
 };
 
-export function usePillOverflow<T>({ maxLines, doc, sel, focused, listOpen, root, editor }: Args<T>) {
+export function usePillOverflow<T>({ maxLines, doc, sel, focused, listOpen, typing, root, editor }: Args<T>) {
   const [hidden, setHidden] = useState<Set<number>>(() => new Set());
+  const [sticky, setSticky] = useState(false);
+  const [listTop, setListTop] = useState<number | null>(null);
   const plus = useRef<HTMLSpanElement>(null);
   const layer = useRef<HTMLDivElement>(null);
   const folded = useRef(0);
+  const list = useRef(listOpen);
+  list.current = listOpen;
   const last = doc.texts.length - 1;
   const at = sel.focus.t;
   const byKeyboard = focused && at !== last && (hidden.has(at) || hidden.has(at - 1));
-  const rectOf = useCallback(() => (layer.current ?? root.current)?.getBoundingClientRect(), [root]);
-  const byMouse = useUnfolded(rectOf, !!maxLines && hidden.size > 0 && !listOpen, covered);
-  const unfolded = hidden.size > 0 && (byMouse || byKeyboard);
+  // Se déplie quand la souris arrive sur la dernière ligne de pastilles (celle du « +N »), sans marge
+  // (retouches de R3, 30/10) ; dépliées, elles le restent tant que la souris est dessus.
+  const rectOf = useCallback(() => {
+    if (layer.current) return layer.current.getBoundingClientRect();
+    const ed = editor.current?.getBoundingClientRect();
+    const box = root.current?.getBoundingClientRect();
+    return ed && box && maxLines ? new DOMRect(box.left, ed.top + (maxLines - 1) * LINE, box.width, LINE) : undefined;
+  }, [editor, root, maxLines]);
+  const canStart = useCallback(() => !list.current, []);
+  const byMouse = useUnfolded(rectOf, !!maxLines && hidden.size > 0, covered, 0, canStart);
+  const unfolded = hidden.size > 0 && (byMouse || byKeyboard || sticky);
+  // On écrit dans le champ déplié : il reste déplié jusqu'à ce que le texte soit vide (effacé ou validé).
+  useEffect(() => {
+    if (!typing) setSticky(false);
+    else if (unfolded) setSticky(true);
+  }, [typing, unfolded]);
 
   useLayoutEffect(() => {
     const ed = editor.current;
     const box = root.current;
     if (!maxLines || !ed || !box) return;
     if (unfolded) {
-      // Fond et cadre sous les pastilles dépliées, du haut du champ jusqu'en bas de la dernière ligne.
+      // Fond et cadre sous les pastilles dépliées, du haut du champ jusqu'en bas de la dernière ligne ; les
+      // suggestions s'ouvrent sous la ligne d'écriture.
       const padding = parseFloat(getComputedStyle(box).paddingBottom);
-      if (layer.current) layer.current.style.height = `${ed.getBoundingClientRect().bottom - box.getBoundingClientRect().top + padding + 1}px`;
+      const bottom = ed.getBoundingClientRect().bottom - box.getBoundingClientRect().top;
+      if (layer.current) layer.current.style.height = `${bottom + padding + 1}px`;
+      setListTop(bottom + padding + 1); // la liste ajoute sa marge (`mt-1`)
       return;
     }
     // Mesure à neuf avant chaque affichage : tout est montré le temps de la mesure (style posé ici, ôté à
@@ -91,7 +113,7 @@ export function usePillOverflow<T>({ maxLines, doc, sel, focused, listOpen, root
 
   /** Pastille `k` cachée (et le texte vide qui la précède). */
   const isHidden = (k: number) => !unfolded && hidden.has(k);
-  return { hidden, unfolded, isHidden, overflow: !!maxLines && hidden.size > 0, plus, layer, foldedHeight: folded.current };
+  return { hidden, unfolded, isHidden, overflow: !!maxLines && hidden.size > 0, plus, layer, foldedHeight: folded.current, listTop: unfolded ? listTop : null };
 }
 
 /** « +N » et, dépliées, le fond des pastilles. */

@@ -3,6 +3,27 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Refonte des synonymes et des parents, retouches du lot R3, 4e tour (30/10/2026) — Backup v71
+
+SPEC : livrés `[~]` : TAGM-15 (retour T3, points TAGM-15.5, TAGM-15.17, TAGM-15.19 et TAGM-15.20 nouveaux). Complément de
+D-047.
+
+- **Champ « Synonymes »** : il se déplie quand la souris arrive sur sa 3e ligne (sans marge), reste déplié pendant la
+  frappe jusqu'au texte vide ; suggestions ouvertes : il ne se déplie pas ; 1re pastille alignée sur les autres lignes.
+- **Groupe déplié** : étoiles sous la flèche ; noms par ordre alphabétique, le principal rangé avec les autres.
+- **Ordre des groupes** figé jusqu'au rechargement de l'onglet : changer de principal ne déplace plus la ligne.
+- **Retour arrière / avant** : l'onglet retrouve ses champs, ses groupes dépliés, son filtre, son ordre et son
+  défilement ; un clic sur un onglet ou une autre page le remet à neuf.
+
+Vérifié dans la version compilée, sur une copie de la base d'essai `refonte` : 20 pastilles : 1re pastille de chaque
+ligne à 0 px du bord ; souris sous le champ, sur la ligne d'écriture ou sur la 1re ligne : rien ne se déplie ; sur la
+3e ligne : les 20 pastilles ; on écrit « essai ma » dans le champ déplié et la souris s'en va : il reste déplié, la
+liste s'ouvre sous la ligne d'écriture ; texte effacé : replié ; suggestions ouvertes, souris sur la 3e ligne : rien ne
+se déplie ; flèche et étoiles du panneau au même x ; panneau « auto · bagnole · caisse · voiture★ », puis « auto★ ·
+bagnole · caisse · voiture » après le changement de principal, la ligne du groupe à la même place ; bouton 4 puis
+avance : 20 pastilles, groupe déplié, filtre et défilement des parents, ordre retrouvés ; clics sur « Tags » puis
+« Synonymes et parents » : tout à neuf, ordre alphabétique ; zéro erreur `tsc` (pas de changement Rust).
+
 ## Refonte des synonymes et des parents, retouches du lot R3, 3e tour (29/10/2026) — Backup v70
 
 SPEC : livrés `[~]` : TAGM-15 (retour T3, points TAGM-15.5, TAGM-15.16, TAGM-15.17, TAGM-15.18 nouveau), GEN-25 nouveau

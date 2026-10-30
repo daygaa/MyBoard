@@ -3,7 +3,7 @@
 // « Créer un nouveau tag » (choix de la catégorie) ; un synonyme tapé donne son tag principal. Le refus
 // éventuel (nom pris, boucle…) s'affiche sous les champs.
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ArrowRight } from "lucide-react";
 
 import { CreateTagDialog } from "@/components/tags/CreateTagDialog";
@@ -57,12 +57,16 @@ type Props = {
    *  champs gardent leur texte, retour T3, point TAGM-16.2). */
   onAdd: (left: string, right: string) => Promise<string | null | false>;
   className?: string;
+  /** Textes retrouvés au retour sur l'onglet, et chaque changement à garder (point TAGM-15.20). */
+  saved?: [string, string];
+  onTexts?: (texts: [string, string]) => void;
 };
 
 /** Deux champs « gauche → droite » et « Créer ». */
-export function RuleForm({ zone, placeholders, onAdd, className }: Props) {
-  const [left, setLeft] = useState("");
-  const [right, setRight] = useState("");
+export function RuleForm({ zone, placeholders, onAdd, className, saved, onTexts }: Props) {
+  const [left, setLeft] = useState(saved?.[0] ?? "");
+  const [right, setRight] = useState(saved?.[1] ?? "");
+  useEffect(() => onTexts?.([left, right]), [left, right]); // `onTexts` : écriture dans un état extérieur
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const ready = normalizeTag(left) !== "" && normalizeTag(right) !== "";

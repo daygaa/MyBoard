@@ -193,7 +193,7 @@ export function PillField<T>(props: Props<T>) {
     },
   };
   usePillListeners(editor, handlers);
-  const over = usePillOverflow({ maxLines: props.maxLines, doc, sel, focused, listOpen: open, root: box, editor });
+  const over = usePillOverflow({ maxLines: props.maxLines, doc, sel, focused, listOpen: open, typing: typed !== "", root: box, editor });
 
   const last = doc.texts.length - 1;
   return (
@@ -247,8 +247,9 @@ export function PillField<T>(props: Props<T>) {
         {doc.texts.flatMap((text, t) => [
           // Pastilles au-delà de `maxLines` lignes : la ligne d'écriture passe dessous, seule.
           t === last && props.maxLines && <span key="saut" data-saut contentEditable={false} className={over.overflow ? "block" : "hidden"} />,
-          // Texte vide : 4 px entre deux pastilles ; texte tapé : 4 px de chaque côté.
-          <span key={`t:${t}:${version}`} data-texte={t} className={cn(text ? "px-1" : "px-0.5", !text && t < last && over.isHidden(t) && "hidden")}>
+          // Texte vide : 4 px entre deux pastilles (aucun avant la 1re : elle s'aligne sur le début des lignes
+          // suivantes, retouches de R3) ; texte tapé : 4 px de chaque côté.
+          <span key={`t:${t}:${version}`} data-texte={t} className={cn(text ? "px-1" : (t > 0 || t === last) && "px-0.5",!text && t < last && over.isHidden(t) && "hidden")}>
             {text || EMPTY_TEXT}
           </span>,
           t < doc.pills.length && (
@@ -283,7 +284,7 @@ export function PillField<T>(props: Props<T>) {
           onPick={pick}
           taken={taken}
           className="max-w-[28rem] min-w-56"
-          style={{ left: listLeft }}
+          style={over.listTop === null ? { left: listLeft } : { left: listLeft, top: over.listTop }}
         />
       )}
     </div>
