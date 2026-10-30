@@ -1104,3 +1104,11 @@ nom du principal est lu avec le groupe (`GroupRow.principalName`) : l'ordre et l
 relecture de la liste des tags (cause du saut de la ligne et du « ? »). D4.1 abandonnée pour le formulaire : un synonyme
 qui n'est pas un tag passe par « Créer un nouveau tag ». Champ à pastilles : l'espace entre deux pastilles est la marge
 droite de chacune (et non plus un texte vide de 4 px), pour que chaque ligne commence au bord.
+
+**Correction du 30/10 (décision B de l'utilisateur, retour T3, point TAGM-15.22), remplace une partie du complément
+du lot R3.** Au lot R3, un nom fusionné cessait d'être un tag (ligne de `tag_group_names` sans `tag_id`, avec les réglages
+du tag pour le recréer à la défusion) : choix technique de Claude, jamais expliqué clairement à l'utilisateur, qui ne le
+voulait pas. Désormais un tag fusionné reste un tag à part entière : la fusion lui retire ses médias (notés pour la
+défusion, qui reçoivent le principal), la défusion les lui rend ; il reste dans la liste des tags (0 média) ; le taper
+donne le principal ; il s'affiche en gris. Plus aucun nom de synonyme sans tag (D4.1 abandonnée). Lot « R3 bis » :
+schéma 10, conversion des noms fusionnés existants en tags.
