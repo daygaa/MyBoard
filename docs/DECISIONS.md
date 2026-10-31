@@ -1131,3 +1131,15 @@ plus de tag à la frappe : « Tag principal » et « Enfant » n'acceptent qu'un
 catégorie) ; le tag est créé par la commande qui crée le groupe (`create_group`, `new_tags`) ou la règle
 (`create_parent`, `new_parent`), dans sa transaction. `useTagResolver` offre trois modes : créer tout de suite (cellules
 du tableau des tags), plus tard, ou refuser.
+
+**Décisions du 31/10 pour le lot R4 (réponses de l'utilisateur).** Suggestions de tags (D6 revue) : un tag d'un
+groupe porte l'icône « = » à gauche de son nombre de médias ; son survol ouvre une zone de MyBoard (pas une bulle
+Windows) avec les autres noms RELIÉS du groupe et leur nombre de médias (principal compris) ; un tag fusionné reste
+« X → Y ». Pastilles de la recherche : pas d'icône de lien ; une bulle de MyBoard, de taille limitée, « = chaton = … »
+(noms reliés seulement). Suppression avec la décision B : principal → case « Supprimer aussi … », décochée = défusion
+d'abord, puis le reste du groupe se garde sans fusion avec le plus utilisé comme principal ; tag fusionné → ses médias
+gardent le principal (sa liste est oubliée), case « Supprimer « principal » de ces N médias » qui ne vaut que pour les
+médias qui n'ont reçu le principal que par ce tag (même règle que la défusion : jamais un tag qui était là avant).
+Réserve : un tag reçu par fusion est gardé avec son nom d'origine ; à la restauration, fusion active → le principal et
+la note ; défusionné → le nom d'origine ; supprimé entre-temps → le principal. Onglet « Tags » : son état (filtres, tri,
+nombre affiché, position, tags cochés) est rangé par page d'historique, comme celui de l'onglet des règles.
