@@ -1156,4 +1156,6 @@ a réussi, avant `refreshTags` (l'aperçu relu avec les pastilles encore là ref
 de la ligne tant que la liste des tags ne connaît pas un tag tout juste créé. Suggestions et `find_tag` : `TagInfo.synonyms`
 (autres noms reliés du groupe, principal d'abord) ; `components/ui/hover-card.tsx` : bulle de MyBoard posée par-dessus
 tout (portail, `pointer-events: none`), à côté ou dessous de son élément, jamais hors de la fenêtre. Barre latérale de la
-bibliothèque : `z-[35]`, entre la zone fixe de la grille (30) et l'en-tête (40).
+bibliothèque : `z-20`, et `z-[35]` seulement pendant la frappe dans sa recherche (`focus-within`), entre la
+zone fixe de la grille (30) et l'en-tête (40) : toujours à 35, elle passait devant le menu burger (30) et son fond (20)
+(corrigé le 31/10, v79).

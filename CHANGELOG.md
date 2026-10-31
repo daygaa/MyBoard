@@ -3,6 +3,20 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Correction : menu burger caché par la barre latérale (31/10/2026) — Backup v79
+
+SPEC : GRID-14 (retour T3, point AUT.26), régression de la version v78.
+
+- **Menu burger** : la correction des suggestions (v78) faisait passer la barre latérale de la bibliothèque devant le
+  menu : il paraissait à moitié transparent et ses boutons ne répondaient plus. La barre latérale ne passe plus
+  au-dessus de la zone fixe de la grille que pendant la frappe dans sa recherche (le seul moment où ses suggestions
+  peuvent la recouvrir) ; le reste du temps, elle reste sous le menu, comme avant.
+
+Vérifié dans la version compilée, sur une copie de la base d'essai `refonte` : menu ouvert, les 9 entrées sont bien
+l'élément sous la souris, un vrai clic sur « Gestionnaire de Tags » ouvre le gestionnaire, capture : menu opaque ;
+pendant la frappe, la liste des suggestions reste au-dessus de la zone fixe ; menu ouvert juste après la frappe : devant
+la barre latérale ; zéro erreur `tsc`.
+
 ## Refonte des synonymes et des parents, lot R4-1 : suggestions « = », bulle des pastilles, onglet « Tags » au retour arrière, deux défauts (31/10/2026) — Backup v78
 
 SPEC : livrés `[~]` : TAGM-15 (retour T3, points TAGM-15.25, TAGM-15.26, TAGM-15.27), TAGM-04 (point TAGM-04.14),
