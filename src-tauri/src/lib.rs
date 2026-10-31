@@ -23,6 +23,7 @@ pub mod scope;
 pub mod search;
 pub mod selection;
 pub mod system_menu;
+pub mod tag_delete;
 pub mod tag_import;
 pub mod tag_manager;
 pub mod tag_rules;
@@ -148,6 +149,7 @@ pub fn run() {
             tag_manager::set_tags_category,
             tag_manager::set_tags_hidden,
             tag_manager::delete_tags,
+            tag_manager::delete_preview,
             tag_manager::set_tag_description,
             tag_import::preview_tag_import,
             tag_import::import_tags,
@@ -167,7 +169,6 @@ pub fn run() {
             tag_rules::parent_delete_check,
             tag_rules::set_parent_enabled,
             tag_rules::delete_parent,
-            tag_rules::tag_links,
             tag_rules::create_tag,
         ])
         .run(tauri::generate_context!())

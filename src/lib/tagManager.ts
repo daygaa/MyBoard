@@ -29,7 +29,7 @@ export async function runTagAction<T>(action: string, call: () => Promise<T>): P
 export const setTagsCategory = (ids: number[], categoryId: number) => runTagAction("Changer de catégorie", () => api.setTagsCategory(ids, categoryId));
 export const setTagsHidden = (ids: number[], hidden: boolean) =>
   runTagAction(hidden ? "Masquer de la recherche" : "Ne plus masquer de la recherche", () => api.setTagsHidden(ids, hidden));
-export const deleteTags = (ids: number[]) => runTagAction("Supprimer le tag", () => api.deleteTags(ids));
+export const deleteTags = (ids: number[], withMerged = false, strip = false) => runTagAction("Supprimer le tag", () => api.deleteTags(ids, withMerged, strip));
 /** Tag renommé ou fusionné (SRCH-27) : la recherche en cours (et celle de la visionneuse ouverte)
  *  prend le nouveau nom. */
 export function followRename(from: string, to: string) {

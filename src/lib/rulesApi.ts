@@ -13,7 +13,7 @@ export type NameRow = { id: number; tagId: number; name: string; merged: boolean
 export type GroupRow = { id: number; principalId: number; principalName: string; media: number; names: NameRow[]; createdAt: number };
 /** Règle « enfant → parent » ; `enabled` = son interrupteur (D-047) ; `media` : médias qui ont reçu le
  *  parent par elle. */
-export type ParentRow = { id: number; childId: number; parentId: number; enabled: boolean; media: number; createdAt: number };
+export type ParentRow = { id: number; childId: number; parentId: number; enabled: boolean; media: number; createdAt: number; childName: string; parentName: string };
 export type TagRules = { groups: GroupRow[]; parents: ParentRow[] };
 
 export type PreviewName = { name: string; merged: boolean; media: number };
@@ -34,7 +34,6 @@ export type RuleCheck = { error: string | null; media: number };
 export type Chain = { tags: string[]; at: number };
 /** Suppression d'une règle : médias où elle a posé le parent, chaînes qui passent par elle. */
 export type DeleteCheck = { media: number; chains: Chain[] };
-export type TagLinks = { aliases: number; parents: number };
 
 export type SharedAlias = { alias: string; tag: string; enabled: boolean };
 export type SharedRule = { child: string; parent: string; enabled: boolean };
@@ -72,7 +71,6 @@ export const rulesApi = {
   parentDeleteCheck: (id: number) => invoke<DeleteCheck>("parent_delete_check", { id }),
   /** `remove` : retirer le parent des médias où la règle l'a posé. */
   deleteParent: (id: number, remove: boolean) => invoke<void>("delete_parent", { id, remove }),
-  tagLinks: (id: number) => invoke<TagLinks>("tag_links", { id }),
   /** Tag tapé dans le champ d'une règle, créé sans média ; renvoie son identifiant. */
   createTag: (name: string, categoryId: number) => invoke<number>("create_tag", { name, categoryId }),
   previewImport: (list: SharedList) => invoke<ImportReport>("preview_tag_import", { list }),

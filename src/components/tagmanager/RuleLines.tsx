@@ -22,8 +22,6 @@ export type TagOf = (id: number) => ManagedTag | undefined;
 const LINE = "flex h-8 items-center gap-2 rounded-md px-1.5 text-sm hover:bg-secondary/40";
 const ARROW = "h-3 w-3 shrink-0 text-muted-foreground";
 
-const nameOf = (tagOf: TagOf) => (id: number) => tagOf(id)?.name ?? "?";
-
 /** Nom d'un tag à la couleur de sa catégorie ; `fallback` : son nom tant que la liste des tags ne le connaît pas
  *  encore (tag tout juste créé avec son groupe : la ligne affichait « ? », retour T3, point TAGM-15.25). */
 export function TagName({ tag, fallback }: { tag: ManagedTag | undefined; fallback?: string }) {
@@ -60,7 +58,8 @@ function Trash({ label, onClick }: { label: string; onClick: () => void }) {
 }
 
 export function ParentLine({ row, tagOf, showChild = true }: { row: ParentRow; tagOf: TagOf; showChild?: boolean }) {
-  const names = nameOf(tagOf);
+  // Noms lus avec la règle tant que la liste des tags ne connaît pas un tag tout juste créé (retour T3, point TAGM-16.7).
+  const names = (id: number) => tagOf(id)?.name ?? (id === row.childId ? row.childName : id === row.parentId ? row.parentName : "?");
   const [deleting, setDeleting] = useState(false);
   const [child, parent] = [displayTag(names(row.childId)), displayTag(names(row.parentId))];
   return (
@@ -84,11 +83,11 @@ export function ParentLine({ row, tagOf, showChild = true }: { row: ParentRow; t
       />
       {showChild && (
         <>
-          <TagName tag={tagOf(row.childId)} />
+          <TagName tag={tagOf(row.childId)} fallback={row.childName} />
           <ArrowRight className={ARROW} />
         </>
       )}
-      <TagName tag={tagOf(row.parentId)} />
+      <TagName tag={tagOf(row.parentId)} fallback={row.parentName} />
       <Count n={row.media} title={`« ${parent} » posé sur ${formatNumber(row.media)} ${plural(row.media, "média")} par cette règle`} />
       <Trash label="Supprimer la règle" onClick={() => setDeleting(true)} />
       {deleting && <ParentDeleteDialog row={row} nameOf={names} onCancel={() => setDeleting(false)} onDone={() => setDeleting(false)} />}

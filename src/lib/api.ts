@@ -87,6 +87,17 @@ export type TagInfo = {
   synonyms?: Synonym[];
 };
 
+/** Pop-in de suppression : ce qui arrivera aux groupes de synonymes des tags (tag_delete.rs). */
+export type DeletePreview = {
+  /** Tags fusionnés dans un principal supprimé, eux-mêmes non supprimés (case « Supprimer aussi »). */
+  merged: string[];
+  principals: { name: string; kept: string[]; next: string | null; keptAlso: string[]; nextAlso: string | null }[];
+  /** Tag fusionné supprimé : ses médias notés, et ceux qui n'ont son principal que par lui. */
+  fused: { name: string; principal: string; media: number; only: number }[];
+  linked: { name: string; principal: string; dissolved: boolean }[];
+  parents: number;
+};
+
 /** Autre nom relié du groupe d'un tag ; les tags fusionnés n'y sont pas (ils n'ont aucun média). */
 export type Synonym = { name: string; categoryId: number; mediaCount: number; principal: boolean };
 
@@ -162,7 +173,8 @@ export type RestoreCandidate = {
   hash: string;
   fileName: string;
   deletedAt: number;
-  tags: { name: string; category: number }[];
+  /** Tags qui seront posés ; `alias` : le tag fusionné d'origine, montré « kitty → cat » (retour T3, point AUT.22). */
+  tags: { name: string; category: number; alias?: string }[];
   favorite: boolean;
   folders: { name: string; exists: boolean }[];
   notes: string | null;
@@ -256,7 +268,9 @@ export const api = {
   mergeTagGroups: (groups: { sources: number[]; target: number }[], keepAliases: boolean) => invoke<void>("merge_tag_groups", { groups, keepAliases }),
   setTagsCategory: (ids: number[], categoryId: number) => invoke<number>("set_tags_category", { ids, categoryId }),
   setTagsHidden: (ids: number[], hidden: boolean) => invoke<number>("set_tags_hidden", { ids, hidden }),
-  deleteTags: (ids: number[]) => invoke<number>("delete_tags", { ids }),
+  /** `withMerged`, `strip` : les cases de la pop-in de suppression (retour T3, point TAGM-15.28). */
+  deleteTags: (ids: number[], withMerged = false, strip = false) => invoke<number>("delete_tags", { ids, withMerged, strip }),
+  deletePreview: (ids: number[]) => invoke<DeletePreview>("delete_preview", { ids }),
   setTagDescription: (id: number, text: string) => invoke<void>("set_tag_description", { id, text }),
   ignoreSimilar: (ids: number[]) => invoke<void>("ignore_similar", { ids }),
 };

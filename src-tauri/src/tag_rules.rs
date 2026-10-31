@@ -2,7 +2,7 @@
 //! (TAGM-15, TAGM-16, refonte TAGM-20) : groupes de synonymes et règles de parents. Chaque commande est une
 //! transaction (D-005).
 
-use rusqlite::{Connection, TransactionBehavior, params};
+use rusqlite::{Connection, TransactionBehavior};
 use serde::Serialize;
 use tauri::State;
 
@@ -24,6 +24,10 @@ pub struct ParentRow {
     /// Médias qui ont reçu le parent par cette règle.
     pub media: i64,
     pub created_at: i64,
+    /// Noms de l'enfant et du parent, lus avec la règle : la ligne n'attend pas la relecture de la liste des tags (un
+    /// parent tout juste créé s'affichait « ? » un instant, retour T3, point TAGM-16.7).
+    pub child_name: String,
+    pub parent_name: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -35,11 +39,13 @@ pub struct TagRules {
 fn list(db: &Connection) -> rusqlite::Result<TagRules> {
     let mut stmt = db.prepare(
         "SELECT p.id, p.child_id, p.parent_id, p.enabled,
-                (SELECT COUNT(*) FROM tag_parent_media m WHERE m.rule_id = p.id AND m.tag_id = p.parent_id), p.created_at
-         FROM tag_parents p",
+                (SELECT COUNT(*) FROM tag_parent_media m WHERE m.rule_id = p.id AND m.tag_id = p.parent_id), p.created_at, c.name, t.name
+         FROM tag_parents p JOIN tags c ON c.id = p.child_id JOIN tags t ON t.id = p.parent_id",
     )?;
     let parents = stmt
-        .query_map([], |r| Ok(ParentRow { id: r.get(0)?, child_id: r.get(1)?, parent_id: r.get(2)?, enabled: r.get(3)?, media: r.get(4)?, created_at: r.get(5)? }))?
+        .query_map([], |r| {
+            Ok(ParentRow { id: r.get(0)?, child_id: r.get(1)?, parent_id: r.get(2)?, enabled: r.get(3)?, media: r.get(4)?, created_at: r.get(5)?, child_name: r.get(6)?, parent_name: r.get(7)? })
+        })?
         .collect::<rusqlite::Result<_>>()?;
     Ok(TagRules { groups: group_list::list(db)?, parents })
 }
@@ -161,27 +167,5 @@ pub async fn create_tag(state: State<'_, AppState>, name: String, category_id: i
     write(&state, |db, now| {
         let target = resolve_or_create(db, &NewTag { name, category_id: Some(category_id) }, now)?;
         target.map(|t| t.tag_id).ok_or_else(|| anyhow::anyhow!("nom de tag vide"))
-    })
-}
-
-/// Ce qui disparaîtra avec ce tag (pop-in « Supprimer le tag… ») : ses noms fusionnés (s'il est le principal
-/// d'un groupe) et ses règles de parents.
-#[derive(Debug, Serialize)]
-pub struct TagLinks {
-    pub aliases: i64,
-    pub parents: i64,
-}
-
-#[tauri::command]
-pub async fn tag_links(state: State<'_, AppState>, id: i64) -> Result<TagLinks, String> {
-    read(&state, |db| {
-        Ok(TagLinks {
-            aliases: db.query_row(
-                "SELECT COUNT(*) FROM tag_group_names n JOIN tag_groups g ON g.id = n.group_id WHERE g.principal_id = ?1 AND n.merged = 1",
-                [id],
-                |r| r.get(0),
-            )?,
-            parents: db.query_row("SELECT COUNT(*) FROM tag_parents WHERE child_id = ?1 OR parent_id = ?1", params![id], |r| r.get(0))?,
-        })
     })
 }

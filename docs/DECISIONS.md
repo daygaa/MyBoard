@@ -1159,3 +1159,17 @@ tout (portail, `pointer-events: none`), à côté ou dessous de son élément, j
 bibliothèque : `z-20`, et `z-[35]` seulement pendant la frappe dans sa recherche (`focus-within`), entre la
 zone fixe de la grille (30) et l'en-tête (40) : toujours à 35, elle passait devant le menu burger (30) et son fond (20)
 (corrigé le 31/10, v79).
+
+**Complément du 31/10 (lot R4-2).** Suppression de tags : `tag_delete.rs` (`preview` pour la pop-in, `delete` dans
+la transaction de la commande `delete_tags(ids, with_merged, strip)`). Principal supprimé : les tags fusionnés gardés
+sont défusionnés (`groups::unmerge`), puis le plus utilisé des noms restants (à égalité, le premier par ordre
+alphabétique) prend sa place (sa ligne reçoit l'ancien principal, effacée avec lui) ; moins de deux noms : le groupe
+est effacé. Tag fusionné supprimé, principal gardé : ses notes partent avec lui ; `strip` retire le principal
+(`remove_cascade` puis `restore_justified`) des médias qu'il note sans « l'avait avant » et qu'aucun autre tag
+fusionné gardé du groupe ne note. Interface : `TagDeleteDialog` (menu du clic droit par une entrée `dialog`,
+gestionnaire), à la place de `TagDeleteMessage` et de la commande `tag_links` (supprimées). Réserve (`reserve.rs`) :
+la liste JSON des tags gardés porte, pour un tag fusionné, `merged: { principal, category, had }` ; un principal que
+le média n'avait que par fusion n'y est pas à part ; à la restauration, les tags simples d'abord, puis les tags
+fusionnés (`resolve`), dont la note reprend `had` ; la pop-in reçoit des `ShownTag` (`alias` : « kitty → cat »).
+Règles de parents : `ParentRow.childName` et `parentName` (lus avec la règle). Menu burger : `useOutsideClose`
+(options `rightButton`, `ignore`), comme la note des médias. « Tag principal » : `PillField single`.

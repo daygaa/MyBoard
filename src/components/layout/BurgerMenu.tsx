@@ -4,12 +4,13 @@
 // Dossiers : liste, « + Nouveau », menu ⋮ de chacun (FolderList, FOLD-01, FOLD-02). Entre les deux :
 // « Rechercher un fichier » (FileSearch, SRCH-26).
 
-import type { ComponentType } from "react";
+import { useRef, type ComponentType } from "react";
 import { LibraryBig, Settings, Star, Tags, Upload, X } from "lucide-react";
 
 import { FolderList } from "@/components/folders/FolderList";
 import { FileSearch } from "@/components/search/FileSearch";
 
+import { useOutsideClose } from "@/hooks/useOutsideClose";
 import { useEscape } from "@/lib/escape";
 import { navigate, useRoute, type Route } from "@/lib/router";
 import { cn } from "@/lib/utils";
@@ -51,9 +52,14 @@ export function BurgerMenu() {
   const open = useUI((s) => s.burgerOpen);
   const setOpen = useUI((s) => s.setBurgerOpen);
   const close = () => setOpen(false);
+  const panelRef = useRef<HTMLElement>(null);
 
   // Échap (et le bouton 4 de la souris, VIEW-03) ferme le menu.
   useEscape(open, close);
+  // Un clic (gauche ou droit) n'importe où en dehors du menu le ferme seulement, sans rien activer dessous : le fond
+  // assombri ne couvre ni l'en-tête ni la zone fixe au-dessus de la grille (retour T3, point AUT.3). La barre de
+  // titre (la fenêtre : déplacer, réduire, fermer) garde ses clics, le menu reste ouvert (réponse du 31/10).
+  useOutsideClose(open, [panelRef], close, { rightButton: true, ignore: '[data-zone="barre-titre"]' });
 
   return (
     <>
@@ -68,6 +74,7 @@ export function BurgerMenu() {
         )}
       />
       <aside
+        ref={panelRef}
         data-zone="menu"
         aria-label="Menu de navigation"
         aria-hidden={!open}

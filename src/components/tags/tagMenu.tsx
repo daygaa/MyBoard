@@ -6,19 +6,16 @@
 // « Copier le tag » copie la forme enregistrée (« long_hair ») : elle se colle telle quelle dans une
 // recherche. Renommer : pop-in, et fusion proposée si le nom existe déjà ; Masquer (TAGM-05) : plus
 // proposé dans les recherches ni dans la barre latérale, toujours sur les médias ; Supprimer : retiré
-// de tous ses médias, après confirmation (qui dit aussi ses synonymes et règles de parents, qui partent
-// avec lui : TAGM-15, TAGM-16).
-
-import { useQuery } from "@tanstack/react-query";
+// de tous ses médias, après confirmation (qui dit aussi ce qui arrive à son groupe de synonymes et quelles
+// règles de parents partent avec lui : TagDeleteDialog, TAGM-15, TAGM-16).
 
 import { api, type Category, type MediaKind, type TagInfo } from "@/lib/api";
 import type { MenuEntry, MenuItem } from "@/lib/contextMenu";
-import { formatNumber, plural } from "@/lib/format";
-import { rulesApi } from "@/lib/rulesApi";
-import { displayTag, splitTerm } from "@/lib/tags";
-import { deleteTags, setTagsCategory, setTagsHidden } from "@/lib/tagManager";
+import { splitTerm } from "@/lib/tags";
+import { setTagsCategory, setTagsHidden } from "@/lib/tagManager";
 import { useSearch } from "@/stores/search";
 import { RenameTagDialog } from "./RenameTagDialog";
+import { TagDeleteDialog } from "./TagDeleteDialog";
 
 /** « cette image / cette vidéo / ce document / ce fichier audio » (un GIF est une image) : menu des tags
  *  (« Retirer de… »), bulle d'un tag déjà sur le média (SRCH-29). */
@@ -60,33 +57,11 @@ function hideEntry(tag: TagInfo | null | undefined): MenuItem {
   };
 }
 
-/** « Il sera retiré de N médias. » */
-function removedFrom(count: number): string {
-  if (count === 0) return "Il n'est sur aucun média.";
-  return `Il sera retiré de ${formatNumber(count)} ${plural(count, "média")}.`;
-}
-
-/** Texte de la confirmation « Supprimer le tag… » : ses médias, puis ce qui part avec lui. */
-export function TagDeleteMessage({ tag }: { tag: Pick<TagInfo, "id" | "mediaCount"> }) {
-  const { data } = useQuery({ queryKey: ["tag-links", tag.id], queryFn: () => rulesApi.tagLinks(tag.id) });
-  const parts = [
-    data?.aliases ? `${formatNumber(data.aliases)} ${plural(data.aliases, "synonyme")}` : "",
-    data?.parents ? `${formatNumber(data.parents)} ${plural(data.parents, "règle de parent", "règles de parents")}` : "",
-  ].filter(Boolean);
-  return (
-    <div className="space-y-4">
-      <p>{removedFrom(tag.mediaCount)}</p>
-      {parts.length > 0 && <p>Partiront avec lui : {parts.join(", ")}.</p>}
-    </div>
-  );
-}
-
 function deleteEntry(tag: TagInfo): MenuItem {
   return {
     label: "Supprimer le tag…",
     danger: true,
-    confirm: { title: `Supprimer « ${displayTag(tag.name)} » ?`, message: <TagDeleteMessage tag={tag} />, danger: true },
-    run: () => void deleteTags([tag.id]),
+    dialog: ({ onCancel, onDone }) => <TagDeleteDialog tags={[tag]} onCancel={onCancel} onDone={onDone} />,
   };
 }
 

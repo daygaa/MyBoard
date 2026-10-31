@@ -167,6 +167,9 @@ export function GroupForm({ tags, tagOf }: { tags: ManagedTag[]; tagOf: (id: num
       <div className="flex items-center gap-1.5">
         <PillField
           zone="regles.synonymes.ajout.principal"
+          // Une seule pastille, comme « Enfant » : une fois posée, plus rien ne s'écrit, le texte d'aide disparaît, un tag
+          // long reste sur une ligne (retour T3, point TAGM-15.29).
+          single
           dropdown="bottom"
           className={FIELD}
           pills={principal}

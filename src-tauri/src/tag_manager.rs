@@ -7,11 +7,12 @@
 //! `media.tag_count`) et l'index de recherche suivent par les déclencheurs de la base (D-005, D-027).
 //! Fusion : `group_create::merge_tag` (groupes de synonymes, règles de parents, TAGM-15 à TAGM-17, D-047).
 
-use rusqlite::{Connection, OptionalExtension, TransactionBehavior, params, params_from_iter};
+use rusqlite::{Connection, OptionalExtension, TransactionBehavior, params};
 use serde::{Deserialize, Serialize};
 use tauri::State;
 
 use crate::group_create::merge_tag;
+use crate::tag_delete::{self, DeletePreview};
 use crate::tags::normalize;
 use crate::{AppState, db};
 
@@ -52,7 +53,7 @@ pub enum Renamed {
     OwnAlias,
 }
 
-fn marks(n: usize) -> String {
+pub(crate) fn marks(n: usize) -> String {
     vec!["?"; n].join(",")
 }
 
@@ -177,20 +178,24 @@ pub async fn set_tags_hidden(state: State<'_, AppState>, ids: Vec<i64>, hidden: 
     update_many(&mut state.db.lock().unwrap(), "UPDATE tags SET hidden = ?1 WHERE id = ?2", &hidden, &ids).map_err(err)
 }
 
-/// Supprime des tags (retirés de leurs médias) ; renvoie le nombre supprimé.
+/// Supprime des tags (retirés de leurs médias) ; renvoie le nombre supprimé. Groupes de synonymes : `tag_delete.rs`
+/// (`with_merged` : case « Supprimer aussi » ; `strip` : case « Supprimer « principal » de ces médias »).
 #[tauri::command]
-pub async fn delete_tags(state: State<'_, AppState>, ids: Vec<i64>) -> Result<usize, String> {
-    if ids.is_empty() {
-        return Ok(0);
-    }
+pub async fn delete_tags(state: State<'_, AppState>, ids: Vec<i64>, with_merged: bool, strip: bool) -> Result<usize, String> {
     let mut conn = state.db.lock().unwrap();
-    (|| -> rusqlite::Result<usize> {
+    (|| -> anyhow::Result<usize> {
         let tx = conn.transaction()?;
-        let deleted = tx.execute(&format!("DELETE FROM tags WHERE id IN ({})", marks(ids.len())), params_from_iter(&ids))?;
+        let deleted = tag_delete::delete(&tx, &ids, with_merged, strip)?;
         tx.commit()?;
         Ok(deleted)
     })()
-    .map_err(err)
+    .map_err(|e| format!("{e:#}"))
+}
+
+/// Pop-in « Supprimer… » : ce qui arrivera aux groupes de synonymes des tags.
+#[tauri::command]
+pub async fn delete_preview(state: State<'_, AppState>, ids: Vec<i64>) -> Result<DeletePreview, String> {
+    tag_delete::preview(&state.db.lock().unwrap(), &ids).map_err(err)
 }
 
 /// Description d'un tag (TAGM-14) ; texte vide = aucune.

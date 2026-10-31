@@ -18,9 +18,9 @@ import { createStore, type StoreApi } from "zustand";
 
 import { GridBadge } from "@/components/library/GridBadge";
 import { MergeTagDialog, renameTag } from "@/components/tags/RenameTagDialog";
-import { TagDeleteMessage, tagMenu } from "@/components/tags/tagMenu";
+import { TagDeleteDialog } from "@/components/tags/TagDeleteDialog";
+import { tagMenu } from "@/components/tags/tagMenu";
 import { Button } from "@/components/ui/button";
-import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useCategories } from "@/hooks/useCategories";
 import { useElementHeight } from "@/hooks/useElementHeight";
 import { useTagRules } from "@/hooks/useTagRules";
@@ -31,7 +31,7 @@ import { navigate, useTagTab, type TagTab } from "@/lib/router";
 import { displayTag } from "@/lib/tags";
 import { hasEscapeLayer } from "@/lib/escape";
 import { SIMILAR } from "@/lib/historySteps";
-import { deleteTags, similarGroups } from "@/lib/tagManager";
+import { similarGroups } from "@/lib/tagManager";
 import { cn } from "@/lib/utils";
 import { showGridBadge } from "@/stores/badge";
 import { searchInLibrary } from "@/stores/search";
@@ -250,28 +250,7 @@ function ManagerPage({ tab, store }: { tab: TagTab; store: StoreApi<TagsTabState
         <RuleAskHost />
 
         {merging && <MergeTagDialog source={merging.source} existing={merging.existing} onCancel={() => setMerging(null)} onDone={() => setMerging(null)} />}
-        {deleting && (
-          <ConfirmDialog
-            zone="gestionnaire-tags.confirmation"
-            danger
-            title={deleting.length === 1 ? `Supprimer « ${displayTag(deleting[0].name)} » ?` : `Supprimer ces ${formatNumber(deleting.length)} tags ?`}
-            message={
-              deleting.length === 1 ? (
-                <TagDeleteMessage tag={deleting[0]} />
-              ) : deleting.some((t) => rules.groupOf.has(t.id) || rules.parentsOf.has(t.id) || rules.childrenOf.has(t.id)) ? (
-                "Ils seront retirés de tous leurs médias. Leurs synonymes et leurs règles de parents partiront avec eux."
-              ) : (
-                "Ils seront retirés de tous leurs médias."
-              )
-            }
-            onCancel={() => setDeleting(null)}
-            onConfirm={() => {
-              const ids = deleting.map((t) => t.id);
-              setDeleting(null);
-              void deleteTags(ids);
-            }}
-          />
-        )}
+        {deleting && <TagDeleteDialog tags={deleting} onCancel={() => setDeleting(null)} onDone={() => setDeleting(null)} />}
         {dialog === "similar" && (
           <SimilarTagsDialog
             groups={groups}

@@ -47,7 +47,8 @@ function Row({ item, checked, onToggle }: { item: RestoreCandidate; checked: boo
         {item.tags.length > 0 && (
           <span className="flex flex-wrap gap-x-2 gap-y-0.5">
             {item.tags.map((t) => (
-              <span key={t.name} style={{ color: color(t.category) }}>
+              <span key={`${t.alias ?? ""}>${t.name}`} style={{ color: color(t.category) }}>
+                {t.alias && <span className="text-muted-foreground">{displayTag(t.alias)} → </span>}
                 {displayTag(t.name)}
               </span>
             ))}

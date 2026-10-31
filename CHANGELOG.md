@@ -3,6 +3,34 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Refonte des synonymes et des parents, lot R4-2 : suppression d'un tag d'un groupe, réserve, menu burger, « Tag principal » (31/10/2026) — Backup v80
+
+SPEC : livrés `[~]` : TAGM-15 (retour T3, points TAGM-15.28 et TAGM-15.29), TAGM-16 (point TAGM-16.7, nouveau), DEL-05
+(point AUT.22), NAV-02 (point AUT.3).
+
+- **Supprimer un tag d'un groupe** : une seule pop-in (menu du clic droit, corbeille, tags cochés), qui dit ce que
+  devient chaque groupe. Principal : case « Supprimer aussi … (fusionnés dans …) », décochée : ils sont d'abord
+  défusionnés (leurs médias les retrouvent), les noms restants gardent le plus utilisé comme principal. Tag fusionné :
+  ses médias gardent le principal ; case « Supprimer « … » de ces médias » (seulement là où il n'est venu que par lui).
+  Tag relié : il quitte le groupe.
+- **Réserve des médias retirés** : un tag fusionné est gardé sous son nom d'origine ; à la restauration, fusion active
+  → le principal (la défusion lui rendra son tag), défusionné → son tag, supprimé entre-temps → le principal ; la
+  pop-in montre « kitty → cat ».
+- **Menu burger** : un clic gauche ou droit en dehors (en-tête, filtres, pagination, « Importer »…) le ferme seulement.
+- **« Tag principal »** : une seule pastille, comme « Enfant » (plus de frappe, plus de 2e ligne).
+- **Règles de parents** : plus de « ? » quand le parent vient d'être créé.
+
+Vérifié dans la version compilée, sur des copies de la base d'essai `refonte` : menu burger (clics sur « Importer », le
+filtre « Images », une vignette, clic droit : menu fermé, rien d'activé ; clic dans le menu, barre de titre : menu
+ouvert ; Échap, bouton du menu) ; « Tag principal » et « Enfant » avec un tag de 52 caractères : 36 px (une ligne),
+texte d'aide caché, frappe bloquée ; nouvelle règle de parents image par image : aucun « ? » (4 avant) ; réserve :
+3 médias retirés (contenu gardé vérifié), navire défusionné et bagnole supprimé pendant ce temps, pop-in « essai
+voiture » / « essai bateau, essai navire » / « essai navire, essai vaisseau → essai bateau », tags restaurés justes ;
+média aux deux tags fusionnés restaurés : notes justes, défusion exacte ; suppressions : principal case décochée
+(défusion, nouveau principal) et cochée, tag fusionné avec la case (média sans le principal avant : retiré ; avec :
+gardé), tag relié (groupe dissous), pop-in de plusieurs tags, ouverture par le clic droit puis « Annuler » ; zéro
+erreur `tsc` et `clippy`.
+
 ## Correction : menu burger caché par la barre latérale (31/10/2026) — Backup v79
 
 SPEC : GRID-14 (retour T3, point AUT.26), régression de la version v78.

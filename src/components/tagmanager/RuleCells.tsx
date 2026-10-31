@@ -126,7 +126,7 @@ export function ParentsCell({ tag, parents, childRules, tagOf }: { tag: ManagedT
   const popover = usePopover(WIDTH);
   const { resolve, dialog } = useTagResolver();
   const label = displayTag(tag.name);
-  const childNames = childRules.map((r) => ({ id: r.id, name: tagOf(r.childId)?.name ?? "?", enabled: r.enabled }));
+  const childNames = childRules.map((r) => ({ id: r.id, name: tagOf(r.childId)?.name ?? r.childName, enabled: r.enabled }));
   const title = `Parents de « ${label} »${childRules.length ? ` · ${formatNumber(childRules.length)} ${plural(childRules.length, "enfant")}` : ""}`;
   return (
     <>
