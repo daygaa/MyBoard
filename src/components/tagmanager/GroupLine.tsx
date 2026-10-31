@@ -31,7 +31,7 @@ const menuConfirm = ({ title, message, run }: { title: string; message: string; 
 
 /** Nom d'un groupe : un tag relié à la couleur de sa catégorie, un tag fusionné en gris. */
 function Name({ name, tagOf }: { name: NameRow; tagOf: TagOf }) {
-  if (!name.merged) return <TagName tag={tagOf(name.tagId)} />;
+  if (!name.merged) return <TagName tag={tagOf(name.tagId)} fallback={name.name} />;
   return (
     <span onMouseEnter={(e) => titleIfCut(e.currentTarget)} className="min-w-0 truncate font-mono text-muted-foreground">
       {displayTag(name.name)}

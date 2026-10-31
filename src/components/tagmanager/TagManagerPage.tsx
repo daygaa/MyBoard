@@ -9,10 +9,12 @@
 // tout, TAGM-11.1). Onglet « Synonymes et parents » : RulesTab, avec « Tags proches » seul au bout à droite de
 // l'en-tête (TAGM-13.4). Les onglets, l'en-tête de la page et les filtres restent en haut pendant le
 // défilement, les titres des colonnes du tableau dessous (retour T3, point TAGM-15.3) ; un nouveau filtre ou
-// tri ramène en haut de la page, en glissant (retour T3, point TAGM-04.13).
+// tri ramène en haut de la page, en glissant (retour T3, point TAGM-04.13). L'état de l'onglet « Tags » est
+// rangé par page d'historique (tagsTabState.ts, retour T3, point TAGM-04.14).
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, ChevronDown, Tags } from "lucide-react";
+import { createStore, type StoreApi } from "zustand";
 
 import { GridBadge } from "@/components/library/GridBadge";
 import { MergeTagDialog, renameTag } from "@/components/tags/RenameTagDialog";
@@ -25,8 +27,7 @@ import { useTagRules } from "@/hooks/useTagRules";
 import type { ManagedTag, Renamed } from "@/lib/api";
 import { openContextMenu } from "@/lib/contextMenu";
 import { formatNumber, plural } from "@/lib/format";
-import { navigate, useTagTab } from "@/lib/router";
-import { glideToTop } from "@/lib/scroller";
+import { navigate, useTagTab, type TagTab } from "@/lib/router";
 import { displayTag } from "@/lib/tags";
 import { hasEscapeLayer } from "@/lib/escape";
 import { SIMILAR } from "@/lib/historySteps";
@@ -47,33 +48,39 @@ import { RulesTab } from "./RulesTab";
 import { TagFilters } from "./TagFilters";
 import { Tabs } from "./TagManagerTabs";
 import { TagTable } from "./TagTable";
+import { freshTagsTab, NO_FILTERS, STEP, useTagsEntry, useTagsTab, type TagsTabState } from "./tagsTabState";
 import { useTagList } from "./useTagList";
 
 const TOOL = "h-8 gap-1.5 border-border bg-card/60 text-xs hover:bg-secondary hover:text-foreground";
-/** Tags affichés à la fois, puis en plus à chaque « Afficher 100 de plus » (TAGM-04.5). */
-const STEP = 100;
 /** Largeur de la page : 72 % de la fenêtre (TAGM-04.2), toute la fenêtre si elle est étroite. */
 const PAGE = "mx-auto w-full max-w-[max(72rem,72vw)] px-4 lg:px-6";
 
 type Dialog = "similar" | "import" | "unused" | "merge" | null;
 
 export function TagManagerPage() {
+  return useTagTab() === "tags" ? <TagsTabEntry /> : <ManagerPage tab="rules" store={null} />;
+}
+
+/** Onglet « Tags » : recréé avec l'état de sa page à chaque retour arrière / avant vers une autre page. */
+function TagsTabEntry() {
+  const { key, store } = useTagsEntry();
+  return <ManagerPage key={key} tab="tags" store={store} />;
+}
+
+function ManagerPage({ tab, store }: { tab: TagTab; store: StoreApi<TagsTabState> | null }) {
   const { list: categories } = useCategories();
   const rules = useTagRules();
-  const { data, visible, filtered, filters, setFilters, sort, sortBy } = useTagList(rules);
+  // Onglet « Synonymes et parents » : un état de passage (ses filtres ne servent pas).
+  const [spare] = useState(() => createStore<TagsTabState>(freshTagsTab));
+  const state = store ?? spare;
+  const { data, visible, filtered, filters, setFilters, sort, sortBy } = useTagList(rules, state);
   const all = useMemo(() => data?.tags ?? [], [data]);
-  const tab = useTagTab();
-  const [limit, setLimit] = useState(STEP);
-  useEffect(() => {
-    setLimit(STEP);
-    glideToTop();
-  }, [filters, sort]);
+  const { limit, checked, setChecked } = useTagsTab(state, tab === "tags" && !!data);
   const topRef = useRef<HTMLDivElement>(null);
   const topHeight = useElementHeight(topRef);
   const shown = useMemo(() => visible.slice(0, limit), [visible, limit]);
   const byId = useMemo(() => new Map(all.map((t) => [t.id, t])), [all]);
   const tagOf = useCallback((id: number) => byId.get(id), [byId]);
-  const [checked, setChecked] = useState<Set<number>>(new Set());
   const [editing, setEditing] = useState<number | null>(null);
   const [merging, setMerging] = useState<{ source: ManagedTag; existing: Extract<Renamed, { kind: "exists" }> } | null>(null);
   const [deleting, setDeleting] = useState<ManagedTag[] | null>(null);
@@ -160,7 +167,7 @@ export function TagManagerPage() {
                 tagOf={tagOf}
                 onCreated={(name) => {
                   // Le filtre montre le nouveau tag (choix de l'utilisateur), sinon il pourrait tomber après les 100 premiers.
-                  setFilters({ text: displayTag(name), category: null, hidden: false, rare: false });
+                  setFilters({ ...NO_FILTERS, text: displayTag(name) });
                   showGridBadge(`Tag « ${displayTag(name)} » créé`);
                 }}
               />
@@ -223,7 +230,7 @@ export function TagManagerPage() {
               tagOf={tagOf}
               total={visible.length}
               more={Math.min(STEP, visible.length - shown.length)}
-              onMore={() => setLimit((n) => n + STEP)}
+              onMore={() => state.setState((s) => ({ limit: s.limit + STEP }))}
             />
 
             {checkedTags.length > 0 && (

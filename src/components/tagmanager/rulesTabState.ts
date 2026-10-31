@@ -3,13 +3,15 @@
 // des groupes alphabétique) ; un retour arrière / avant sur une page de l'onglet, même après être allé ailleurs
 // par un clic, retrouve son état : champs, interrupteur « Fusionner », groupes dépliés, filtres, ordre des
 // groupes, défilement des listes. Les données, elles, sont communes : un groupe créé ou une fusion faite dans
-// une autre page de l'onglet s'y voit. Le numéro de la page est noté dans l'état de l'historique (`regles`).
+// une autre page de l'onglet s'y voit. Le numéro de la page est noté dans l'état de l'historique (`regles`,
+// lib/pageStates.ts).
 
-import { createContext, useContext, useEffect, useState } from "react";
-import { createStore, useStore, type StoreApi } from "zustand";
+import { createContext, useContext } from "react";
+import { useStore, type StoreApi } from "zustand";
 
+import { historyPageStates } from "@/lib/pageStates";
 import type { PillDoc } from "@/lib/pillText";
-import { openTagTab } from "@/lib/router";
+import { openTagTab, tagTabOf } from "@/lib/router";
 import type { RuleDocs } from "./RuleForm";
 
 /** Pastille du formulaire des groupes : un tag (`id`), un tag fusionné tapé par son nom (`id` vide), ou un tag à
@@ -46,12 +48,8 @@ const FRESH: RulesTabState = {
   scroll: {},
 };
 
-const STEP = "regles";
-const RULES = "#/tags/regles";
-const stores = new Map<string, StoreApi<RulesTabState>>();
 /** Filtre posé par le lien « Gérer dans « Synonymes et parents » » de la colonne du tableau des tags. */
 let pendingFilter: string | null = null;
-let counter = 0;
 
 /** Ouvre l'onglet (nouvelle page) filtré sur ce texte. */
 export function openRulesFiltered(text: string) {
@@ -59,36 +57,16 @@ export function openRulesFiltered(text: string) {
   openTagTab("rules");
 }
 
-/** Numéro de la page d'historique en cours ; une page qui n'en a pas (nouvelle ouverture) en reçoit un. */
-function entryKey(): string {
-  const state = (window.history.state ?? {}) as Record<string, unknown>;
-  if (typeof state[STEP] === "string") return state[STEP];
-  const key = `${Date.now()}-${++counter}`;
-  window.history.replaceState({ ...state, [STEP]: key }, "");
-  return key;
-}
-
-function storeFor(key: string): StoreApi<RulesTabState> {
-  let store = stores.get(key);
-  if (!store) {
+/** Page de l'onglet affichée, relue à chaque retour arrière / avant ; son état. */
+export const useRulesEntry = historyPageStates<RulesTabState>(
+  "regles",
+  (hash) => tagTabOf(hash) === "rules",
+  () => {
     const groupFilter = pendingFilter ?? "";
     pendingFilter = null;
-    store = createStore<RulesTabState>(() => ({ ...FRESH, groupFilter }));
-    stores.set(key, store);
-  }
-  return store;
-}
-
-/** Page de l'onglet affichée, relue à chaque retour arrière / avant ; son état. */
-export function useRulesEntry(): { key: string; store: StoreApi<RulesTabState> } {
-  const [key, setKey] = useState(entryKey);
-  useEffect(() => {
-    const onPop = () => window.location.hash.startsWith(RULES) && setKey(entryKey());
-    window.addEventListener("popstate", onPop);
-    return () => window.removeEventListener("popstate", onPop);
-  }, []);
-  return { key, store: storeFor(key) };
-}
+    return { ...FRESH, groupFilter };
+  },
+);
 
 const Context = createContext<StoreApi<RulesTabState> | null>(null);
 export const RulesTabProvider = Context.Provider;

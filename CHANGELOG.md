@@ -3,6 +3,33 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Refonte des synonymes et des parents, lot R4-1 : suggestions « = », bulle des pastilles, onglet « Tags » au retour arrière, deux défauts (31/10/2026) — Backup v78
+
+SPEC : livrés `[~]` : TAGM-15 (retour T3, points TAGM-15.25, TAGM-15.26, TAGM-15.27), TAGM-04 (point TAGM-04.14),
+NAV-06 (point AUT.25), GRID-14 (point AUT.26).
+
+- **Création d'un groupe** : les champs se vident dès que le groupe est créé ; plus de « Ces tags sont déjà des
+  synonymes de… » ni de « ? » dans la nouvelle ligne pendant une fraction de seconde.
+- **Suggestions** : un tag d'un groupe a l'icône « = » à gauche de son nombre de médias ; au survol, une zone à droite
+  de la liste montre ses autres synonymes reliés et leur nombre (le principal d'abord, avec son étoile). Tag fusionné :
+  inchangé (« X → Y »).
+- **Pastilles de la recherche** : au survol, une bulle « = chaton = … » (« = −chaton… » pour un terme exclu), 6 lignes
+  au plus puis « … + N », la description du tag dessous.
+- **Onglet « Tags »** : le retour arrière / avant retrouve ses filtres, son tri, le nombre de tags affichés, les tags
+  cochés et sa position ; une ouverture par un clic part de zéro.
+- **Retour arrière depuis la recherche d'un tag** : l'onglet « Tags » revient directement, sans bibliothèque vide.
+- **Suggestions de la barre latérale** : au-dessus de la zone fixe de la grille.
+
+Vérifié dans la version compilée, sur une copie de la base d'essai `refonte` : création d'un groupe image par image
+(240 images) : aucune avec « déjà » ni « ? », champs vides à la 4e image (la v77 : 5 images avec « déjà », 5 avec « ? ») ;
+suggestions « essai bicyclette », « essai voiture », « essai caisse » : « = » et zone justes, « essai bagnole » et
+« essai navire » (fusionnés) sans « = » ; bulles de « essai voiture », « −essai voiture », « essai maison » et d'un
+groupe de 15 synonymes longs (6 lignes puis « … + 9 ») ; retour arrière depuis la recherche d'un tag, image par image :
+aucune bibliothèque sans recherche (la v77 : une) ; page de l'onglet « Tags » (filtre « a », « Rares », tri par nom, 200
+tags, 3 cochés, position 2 600 px) retrouvée à l'identique après la bibliothèque, l'avance et deux retours ; nouvelle
+ouverture : neuve ; filtre de l'onglet des règles toujours retrouvé ; point commun liste des suggestions / zone fixe :
+la liste est dessus ; zéro erreur `tsc` et `clippy`.
+
 ## Refonte des synonymes et des parents : tags existants, tags créés à la confirmation (30/10/2026) — Backup v77
 
 SPEC : livrés `[~]` : TAGM-15, TAGM-16 (retour T3, points TAGM-15.23 et TAGM-15.24, nouveaux).

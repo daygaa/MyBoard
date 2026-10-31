@@ -45,6 +45,20 @@ pub struct TagInfo {
     /// Suggestion venue d'un nom fusionné (TAGM-15, D-047) : le nom tapé, affiché « nom → principal ».
     #[serde(skip_serializing_if = "Option::is_none")]
     pub alias: Option<String>,
+    /// Autres noms reliés de son groupe (suggestions et `find` seulement, `synonyms_of`).
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub synonyms: Vec<Synonym>,
+}
+
+/// Autre nom relié du groupe d'un tag (retour T3, points TAGM-15.26 et TAGM-15.27) : zone de l'icône « = » des
+/// suggestions, bulle des pastilles de la recherche. Les tags fusionnés n'y sont pas : ils n'ont aucun média.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Synonym {
+    pub name: String,
+    pub category_id: i64,
+    pub media_count: i64,
+    pub principal: bool,
 }
 
 /// Colonnes d'un tag, dans l'ordre lu par `tag_from_row`.
@@ -74,7 +88,7 @@ pub fn normalize(raw: &str) -> Option<String> {
 }
 
 pub(crate) fn tag_from_row(r: &rusqlite::Row) -> rusqlite::Result<TagInfo> {
-    Ok(TagInfo { id: r.get(0)?, name: r.get(1)?, category_id: r.get(2)?, media_count: r.get(3)?, hidden: r.get(4)?, description: r.get(5)?, alias: None })
+    Ok(TagInfo { id: r.get(0)?, name: r.get(1)?, category_id: r.get(2)?, media_count: r.get(3)?, hidden: r.get(4)?, description: r.get(5)?, alias: None, synonyms: Vec::new() })
 }
 
 /// Principal d'un nom fusionné, avec ce nom (colonne 6).
@@ -130,7 +144,23 @@ pub fn autocomplete(db: &Connection, text: &str) -> rusqlite::Result<Vec<TagInfo
     let mut aliased = HashSet::new();
     found.retain(|t| t.alias.is_none() || (!named.contains(&t.id) && aliased.insert(t.id)));
     found.truncate(SUGGESTIONS as usize);
+    for tag in found.iter_mut().filter(|t| t.alias.is_none()) {
+        tag.synonyms = synonyms_of(db, tag.id)?;
+    }
     Ok(found)
+}
+
+/// Les autres noms reliés du groupe de ce tag, le principal d'abord puis par nom ; vide hors d'un groupe ou pour un
+/// tag fusionné.
+fn synonyms_of(db: &Connection, id: i64) -> rusqlite::Result<Vec<Synonym>> {
+    db.prepare_cached(
+        "SELECT t.name, t.category_id, t.media_count, t.id = g.principal_id FROM tag_groups g JOIN tags t
+            ON t.id = g.principal_id OR t.id IN (SELECT tag_id FROM tag_group_names WHERE group_id = g.id AND merged = 0)
+         WHERE (g.principal_id = ?1 OR g.id = (SELECT group_id FROM tag_group_names WHERE tag_id = ?1 AND merged = 0)) AND t.id != ?1
+         ORDER BY t.id = g.principal_id DESC, t.name",
+    )?
+    .query_map([id], |r| Ok(Synonym { name: r.get(0)?, category_id: r.get(1)?, media_count: r.get(2)?, principal: r.get(3)? }))?
+    .collect()
 }
 
 /// Tags et noms fusionnés trouvés, les plus utilisés en premier (à égalité, le tag avant le nom fusionné).
@@ -142,14 +172,18 @@ fn merged(tags: Vec<TagInfo>, aliases: Vec<TagInfo>) -> Vec<TagInfo> {
 }
 
 /// Tag portant exactement ce nom (après normalisation) ; un tag fusionné donne le principal de son groupe
-/// (TAGM-15, D-047 : taper le nom donne le principal, sans pop-in de création), avec ce nom en `alias`.
+/// (TAGM-15, D-047 : taper le nom donne le principal, sans pop-in de création), avec ce nom en `alias`. Avec les
+/// autres noms reliés du groupe du tag trouvé (bulle des pastilles de la recherche, retour T3, point TAGM-15.27).
 pub fn find(db: &Connection, name: &str) -> rusqlite::Result<Option<TagInfo>> {
     let Some(name) = normalize(name) else { return Ok(None) };
     let merged = db.prepare_cached(&format!("SELECT {T_COLUMNS}, m.name FROM {MERGED_JOIN} WHERE m.name = ?1"))?.query_row([&name], alias_from_row).optional()?;
-    if merged.is_some() {
-        return Ok(merged);
-    }
-    db.prepare_cached(&format!("SELECT {TAG_COLUMNS} FROM tags WHERE name = ?1"))?.query_row([&name], tag_from_row).optional()
+    let found = match merged {
+        Some(tag) => Some(tag),
+        None => db.prepare_cached(&format!("SELECT {TAG_COLUMNS} FROM tags WHERE name = ?1"))?.query_row([&name], tag_from_row).optional()?,
+    };
+    let Some(mut tag) = found else { return Ok(None) };
+    tag.synonyms = synonyms_of(db, tag.id)?;
+    Ok(Some(tag))
 }
 
 /// Tags présents sur ces médias, chacun avec son nombre TOTAL de médias (SRCH-10). Les tags masqués

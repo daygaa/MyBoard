@@ -2,15 +2,19 @@
 // l'interface (quelques milliers de tags : instantané). Filtres : nom, catégorie, « Masqués »,
 // « Rares » (un seul média, TAGM-11) ; tri par colonne, clic sur l'en-tête (un 2e clic inverse).
 // Tris Description, Synonymes, Parents (TAGM-04.7) : les tags qui en ont d'abord (le plus de synonymes /
-// de parents en haut), puis ceux qui n'en ont pas ; à égalité, toujours de A à Z.
+// de parents en haut), puis ceux qui n'en ont pas ; à égalité, toujours de A à Z. Filtres et tri sont rangés dans
+// l'état de la page d'historique (tagsTabState.ts, retour T3, point TAGM-04.14).
 
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, type Dispatch, type SetStateAction } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useStore, type StoreApi } from "zustand";
 
 import { useCategories } from "@/hooks/useCategories";
 import type { RulesIndex } from "@/hooks/useTagRules";
 import { api, type ManagedTag } from "@/lib/api";
+import { glideToTop } from "@/lib/scroller";
 import { normalizeTag } from "@/lib/tags";
+import { STEP, type TagsTabState } from "./tagsTabState";
 
 export type SortKey = "name" | "category" | "count" | "created" | "description" | "aliases" | "parents";
 export type Sort = { key: SortKey; desc: boolean };
@@ -20,11 +24,23 @@ const FIRST_DESC: Record<SortKey, boolean> = { name: false, category: false, cou
 
 export type Filters = { text: string; category: number | null; hidden: boolean; rare: boolean };
 
-export function useTagList(rules: RulesIndex) {
+export function useTagList(rules: RulesIndex, store: StoreApi<TagsTabState>) {
   const { data } = useQuery({ queryKey: ["tag-manager"], queryFn: api.listManagedTags });
   const { byId } = useCategories();
-  const [filters, setFilters] = useState<Filters>({ text: "", category: null, hidden: false, rare: false });
-  const [sort, setSort] = useState<Sort>({ key: "count", desc: true });
+  const filters = useStore(store, (s) => s.filters);
+  const sort = useStore(store, (s) => s.sort);
+  // Un nouveau filtre ou tri repart des 100 premiers (TAGM-04.5), en haut de la page (retour T3, point TAGM-04.13).
+  const change = useCallback(
+    (patch: Partial<TagsTabState>) => {
+      store.setState({ ...patch, limit: STEP });
+      glideToTop();
+    },
+    [store],
+  );
+  const setFilters: Dispatch<SetStateAction<Filters>> = useCallback(
+    (v) => change({ filters: typeof v === "function" ? v(store.getState().filters) : v }),
+    [change, store],
+  );
 
   const all = data?.tags;
   const visible = useMemo(() => {
@@ -52,6 +68,6 @@ export function useTagList(rules: RulesIndex) {
   }, [all, filters, sort, byId, rules]);
 
   const filtered = filters.text.trim() !== "" || filters.category !== null || filters.hidden || filters.rare;
-  const sortBy = (key: SortKey) => setSort((s) => (s.key === key ? { key, desc: !s.desc } : { key, desc: FIRST_DESC[key] }));
+  const sortBy = (key: SortKey) => change({ sort: sort.key === key ? { key, desc: !sort.desc } : { key, desc: FIRST_DESC[key] } });
   return { data, visible, filtered, filters, setFilters, sort, sortBy };
 }

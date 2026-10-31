@@ -24,11 +24,14 @@ const ARROW = "h-3 w-3 shrink-0 text-muted-foreground";
 
 const nameOf = (tagOf: TagOf) => (id: number) => tagOf(id)?.name ?? "?";
 
-export function TagName({ tag }: { tag: ManagedTag | undefined }) {
+/** Nom d'un tag à la couleur de sa catégorie ; `fallback` : son nom tant que la liste des tags ne le connaît pas
+ *  encore (tag tout juste créé avec son groupe : la ligne affichait « ? », retour T3, point TAGM-15.25). */
+export function TagName({ tag, fallback }: { tag: ManagedTag | undefined; fallback?: string }) {
   const { color } = useCategories();
+  const name = tag?.name ?? fallback;
   return (
     <span onMouseEnter={(e) => titleIfCut(e.currentTarget)} className="min-w-0 truncate font-mono" style={{ color: tag && !tag.hidden ? color(tag.categoryId) : undefined }}>
-      {tag ? displayTag(tag.name) : "?"}
+      {name !== undefined ? displayTag(name) : "?"}
     </span>
   );
 }

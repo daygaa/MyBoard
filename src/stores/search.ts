@@ -134,12 +134,29 @@ export function searchFile(file: string) {
   } else useSearch.getState().setFile(file);
 }
 
+/** Adresse de la page affichée (mise à jour par « hashchange », qui suit « popstate »). */
+let shownHash = window.location.hash;
+/** Recherche d'une étape de retour arrière / avant vers une page sans recherche, remise avec le changement de page. */
+let deferred: Search | null = null;
+
+/** Remet la recherche d'une étape de l'historique, sans nouvelle étape. */
+function restore(saved: Search) {
+  const { terms, file } = useSearch.getState();
+  window.history.replaceState({ ...window.history.state, ...saved }, ""); // noms à jour
+  if (!same(saved, { terms, file })) useSearch.setState(apply(saved, false));
+}
+
 // Étape de départ : aucune recherche.
 window.history.replaceState({ ...window.history.state, ...NONE }, "");
 // Étape créée par un changement de page de l'application : dans une autre vue (favoris, dossier,
 // bibliothèque), la recherche repart de zéro, page 1 ; sinon (Importer…), la recherche du moment y est
 // notée, pour la retrouver en y revenant.
 window.addEventListener("hashchange", () => {
+  shownHash = window.location.hash;
+  if (deferred) {
+    restore(deferred);
+    deferred = null;
+  }
   const view = searchView(window.location.hash);
   const changed = view !== null && view !== lastView;
   if (view !== null) lastView = view;
@@ -150,10 +167,13 @@ window.addEventListener("hashchange", () => {
   window.history.replaceState({ ...window.history.state, ...next }, "");
   if (changed) useSearch.setState(apply(next, false));
 });
-// Retour ou avance dans l'historique : la recherche de cette étape revient, sans nouvelle étape.
+// Retour ou avance dans l'historique : la recherche de cette étape revient, sans nouvelle étape. Vers une page
+// sans recherche (gestionnaire de tags, Importer) dont l'adresse change, elle revient avec le changement de page
+// (« hashchange », qui arrive séparément, après) : remise tout de suite, la bibliothèque encore affichée se
+// montrait un instant sans sa recherche (retour T3, point AUT.25).
 window.addEventListener("popstate", (e) => {
   const saved = searchOf(e.state);
-  const { terms, file } = useSearch.getState();
-  if (saved) window.history.replaceState({ ...window.history.state, ...saved }, ""); // noms à jour
-  if (saved && !same(saved, { terms, file })) useSearch.setState(apply(saved, false));
+  if (!saved) return;
+  if (searchView(window.location.hash) === null && window.location.hash !== shownHash) deferred = saved;
+  else restore(saved);
 });

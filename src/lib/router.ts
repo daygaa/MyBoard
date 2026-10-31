@@ -43,8 +43,14 @@ export function useFolderId(): number | null {
 export type TagTab = "tags" | "rules";
 const RULES = "#/tags/regles";
 
+/** Onglet du gestionnaire de tags désigné par l'adresse ; `null` hors du gestionnaire. */
+export function tagTabOf(hash: string): TagTab | null {
+  if (!hash.startsWith(PATHS.tags)) return null;
+  return hash.startsWith(RULES) ? "rules" : "tags";
+}
+
 export function useTagTab(): TagTab {
-  return useSyncExternalStore(subscribe, () => (window.location.hash.startsWith(RULES) ? "rules" : "tags"));
+  return useSyncExternalStore(subscribe, () => tagTabOf(window.location.hash) ?? "tags");
 }
 
 export function openTagTab(tab: TagTab) {

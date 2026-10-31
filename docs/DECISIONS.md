@@ -1143,3 +1143,17 @@ médias qui n'ont reçu le principal que par ce tag (même règle que la défusi
 Réserve : un tag reçu par fusion est gardé avec son nom d'origine ; à la restauration, fusion active → le principal et
 la note ; défusionné → le nom d'origine ; supprimé entre-temps → le principal. Onglet « Tags » : son état (filtres, tri,
 nombre affiché, position, tags cochés) est rangé par page d'historique, comme celui de l'onglet des règles.
+
+**Complément du 31/10 (lot R4-1).** État par page d'historique mis en commun (`lib/pageStates.ts`,
+`historyPageStates(champ, estLaPage, étatNeuf)`) : l'onglet « Synonymes et parents » (`regles`) et l'onglet « Tags »
+(`ongletTags`, `tagsTabState.ts` : filtres, tri, nombre affiché, tags cochés, position) ; `TagManagerPage` recrée la page
+de l'onglet « Tags » à chaque page d'historique (clé = son numéro) ; un nouveau filtre ou tri remet 100 tags et glisse en
+haut dans son setter (plus d'effet au montage, qui aurait défait la position retrouvée). `router.tagTabOf(adresse)`.
+Retour arrière vers une page sans recherche (gestionnaire, Importer) : la recherche de l'étape n'est plus remise à
+« popstate » mais à « hashchange », qui arrive séparément, avec le changement de page (sinon la bibliothèque, encore
+affichée, se dessinait un instant sans sa recherche). Création d'un groupe : les champs se vident dès que la commande
+a réussi, avant `refreshTags` (l'aperçu relu avec les pastilles encore là refusait un instant) ; `TagName` prend le nom
+de la ligne tant que la liste des tags ne connaît pas un tag tout juste créé. Suggestions et `find_tag` : `TagInfo.synonyms`
+(autres noms reliés du groupe, principal d'abord) ; `components/ui/hover-card.tsx` : bulle de MyBoard posée par-dessus
+tout (portail, `pointer-events: none`), à côté ou dessous de son élément, jamais hors de la fenêtre. Barre latérale de la
+bibliothèque : `z-[35]`, entre la zone fixe de la grille (30) et l'en-tête (40).

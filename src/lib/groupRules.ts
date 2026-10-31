@@ -26,20 +26,23 @@ export function mergeText(names: { name: string; media: number }[], principal: s
   return [...blocks, ...(empty.length ? [empty.join("\n")] : []), "Désactiver la fusion l'annulera."].join("\n\n");
 }
 
-/** Formulaire de création ; renvoie vrai si c'est fait (les champs se vident alors, TAGM-15.6). */
-export async function createGroup(principal: { id: number; name: string }, names: string[], merge: boolean, preview: GroupPreview | undefined, newTags: NewTag[] = []): Promise<boolean> {
+/** Formulaire de création. `onCreated` est appelé dès que le groupe existe (les champs se vident alors,
+ *  TAGM-15.6), avant la relecture des listes : sinon l'aperçu, relu avec les pastilles encore dans les champs,
+ *  annonçait un instant « déjà des synonymes » (retour T3, point TAGM-15.25). */
+export async function createGroup(principal: { id: number; name: string }, names: string[], merge: boolean, preview: GroupPreview | undefined, newTags: NewTag[], onCreated: () => void) {
   // Le badge compte les noms vraiment ajoutés (un nom déjà dans le groupe est ignoré).
   const count = preview ? preview.added.length : names.length;
   const run = async () => {
-    const done = await runTagAction("Créer les synonymes", () => rulesApi.createGroup(principal.id, names, merge, newTags));
+    const done = await runTagAction("Créer les synonymes", async () => {
+      const id = await rulesApi.createGroup(principal.id, names, merge, newTags);
+      onCreated();
+      return id;
+    });
     if (done !== undefined) showGridBadge(`${q(principal.name)} : ${count} ${plural(count, "synonyme")}`);
   };
   const merging = merge ? (preview?.added ?? []) : [];
-  if (!merging.some((n) => n.media > 0)) {
-    await run();
-    return true;
-  }
-  return ask({ title: count > 1 ? "Créer les synonymes ?" : "Créer le synonyme ?", message: mergeText(merging, principal.name), confirmLabel: "Créer", run });
+  if (!merging.some((n) => n.media > 0)) return run();
+  await ask({ title: count > 1 ? "Créer les synonymes ?" : "Créer le synonyme ?", message: mergeText(merging, principal.name), confirmLabel: "Créer", run });
 }
 
 /** Interrupteur de fusion d'un nom. */

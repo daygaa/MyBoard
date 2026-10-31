@@ -156,11 +156,10 @@ export function GroupForm({ tags, tagOf }: { tags: ManagedTag[]; tagOf: (id: num
     if (!ready || chief.id === null) return;
     setBusy(true);
     const fresh = names.list.filter((c) => c.id === null && c.category !== undefined).map((c) => ({ name: c.name, categoryId: c.category ?? null }));
-    const done = await createGroup({ id: chief.id, name: head }, typed, merge, preview, fresh).finally(() => setBusy(false));
-    if (done) {
+    await createGroup({ id: chief.id, name: head }, typed, merge, preview, fresh, () => {
       principal.clear();
       names.clear();
-    }
+    }).finally(() => setBusy(false));
   };
   return (
     <div data-zone="regles.synonymes.ajout">

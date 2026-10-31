@@ -4,19 +4,21 @@
 // barre de la sélection) : ordre inversé, le tag le plus utilisé est en bas, au plus près du champ
 // (VIEW-21) ; la flèche ↑ monte donc vers les suivants.
 // Noms longs : la liste s'élargit jusqu'au double, puis le nom passe sur 2 lignes, puis « … » avec le nom
-// complet dans une bulle au survol (SRCH-22). Synonyme (TAGM-15) : proposé « synonyme → tag ».
+// complet dans une bulle au survol (SRCH-22). Tag fusionné (TAGM-15) : proposé « tag fusionné → principal ». Tag
+// d'un groupe : icône « = » à gauche de son nombre ; au survol, ses autres noms reliés (retour T3, point TAGM-15.26).
 // Recherche de la barre latérale (`onAddTerm`) : boutons + / − devant chaque tag (SRCH-21).
 // Tag déjà là (`taken`, SRCH-29, choix du 25/10) : il garde sa place, son nom est grisé avec une bulle qui
 // dit pourquoi ; un clic sur son nom ne fait rien et les flèches le sautent. Recherche (`termTaken`) : le
 // bouton + ou − qui ne changerait rien à la recherche en cours est grisé, avec sa bulle ; l'autre reste
 // actif (un tag inclus peut passer en exclusion, et inversement).
 
-import type { CSSProperties, KeyboardEvent, MouseEvent } from "react";
+import { useState, type CSSProperties, type KeyboardEvent, type MouseEvent } from "react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { Minus, Plus } from "lucide-react";
+import { Equal, Minus, Plus, Star } from "lucide-react";
 
+import { HoverCard } from "@/components/ui/hover-card";
 import { useCategories } from "@/hooks/useCategories";
-import { api, type TagInfo } from "@/lib/api";
+import { api, type Synonym, type TagInfo } from "@/lib/api";
 import { formatNumber } from "@/lib/format";
 import { displayTag } from "@/lib/tags";
 import { cn, titleIfCut } from "@/lib/utils";
@@ -116,6 +118,40 @@ function TermButton({ tag, exclude, off, onAdd }: { tag: TagInfo; exclude: boole
   );
 }
 
+/** Icône « = » d'un tag d'un groupe ; au survol, à côté de la liste, ses autres noms reliés avec leur nombre de
+ *  médias, le principal d'abord avec son étoile (retour T3, point TAGM-15.26). */
+function SynonymsHint({ synonyms }: { synonyms: Synonym[] }) {
+  const { color } = useCategories();
+  const [anchor, setAnchor] = useState<DOMRect | null>(null);
+  return (
+    <span
+      data-zone="tag.suggestions.synonymes"
+      onMouseEnter={(e) => {
+        const row = e.currentTarget.closest("li")?.getBoundingClientRect();
+        const list = e.currentTarget.closest("ul")?.getBoundingClientRect();
+        if (row && list) setAnchor(new DOMRect(list.left, row.top, list.width, row.height));
+      }}
+      onMouseLeave={() => setAnchor(null)}
+      className="grid shrink-0 place-items-center text-muted-foreground transition hover:text-[#d9a94e]"
+    >
+      <Equal className="h-3.5 w-3.5" />
+      {anchor && (
+        <HoverCard anchor={anchor} place="side" zone="tag.suggestions.synonymes.liste">
+          {synonyms.map((s) => (
+            <div key={s.name} className="flex h-7 items-center gap-1.5 text-sm">
+              {s.principal ? <Star className="h-3 w-3 shrink-0 fill-[#d9a94e] text-[#d9a94e]" /> : <span className="w-3 shrink-0" />}
+              <span className="min-w-0 truncate" style={{ color: color(s.categoryId) }}>
+                {displayTag(s.name)}
+              </span>
+              <span className="ml-auto shrink-0 pl-4 text-xs text-muted-foreground tabular-nums">{formatNumber(s.mediaCount)}</span>
+            </div>
+          ))}
+        </HoverCard>
+      )}
+    </span>
+  );
+}
+
 export function SuggestionList({ zone, suggestions, highlight, setHighlight, dropdown, onPick, negated, onAddTerm, taken, termTaken, className, style }: Props) {
   const { color } = useCategories();
   const search = onAddTerm !== undefined;
@@ -165,6 +201,7 @@ export function SuggestionList({ zone, suggestions, highlight, setHighlight, dro
               {tag.alias && <span className="text-muted-foreground">{displayTag(tag.alias)} → </span>}
               {displayTag(tag.name)}
             </span>
+            {!tag.alias && tag.synonyms?.length ? <SynonymsHint synonyms={tag.synonyms} /> : null}
             <span className={cn("shrink-0 text-xs tabular-nums", reason ? "text-muted-foreground/60" : "text-muted-foreground")}>{formatNumber(tag.mediaCount)}</span>
           </button>
         </li>

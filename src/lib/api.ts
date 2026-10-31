@@ -82,7 +82,13 @@ export type TagInfo = {
   description: string | null;
   /** Suggestion venue d'un synonyme (TAGM-15) : le nom tapé, affiché « synonyme → nom ». */
   alias?: string;
+  /** Autres noms reliés de son groupe (suggestions et `findTag` seulement ; retour T3, points TAGM-15.26 et
+   *  TAGM-15.27). */
+  synonyms?: Synonym[];
 };
+
+/** Autre nom relié du groupe d'un tag ; les tags fusionnés n'y sont pas (ils n'ont aucun média). */
+export type Synonym = { name: string; categoryId: number; mediaCount: number; principal: boolean };
 
 /** Tag du gestionnaire (TAGM-04) : avec sa date de création (TAGM-12). */
 export type ManagedTag = TagInfo & { createdAt: number };

@@ -9,6 +9,8 @@
 // centrée comme la croix et son texte placé comme celui d'un tag (retour T3, point SRCH-26.1) ; exclu
 // (« -abc », SRCH-26.2) : « −abc » rayé. Menu : Copier le texte · Exclure / Inclure ce nom · Retirer de
 // la recherche ‖ Tout effacer.
+// Tag d'un groupe : au survol, une bulle de MyBoard « = chaton = … » (« = −chaton… » s'il est exclu) avec ses autres
+// noms reliés, de taille limitée, puis sa description (retour T3, point TAGM-15.27).
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -16,6 +18,7 @@ import { FileSearch } from "lucide-react";
 
 import { termMenu } from "@/components/tags/tagMenu";
 import { TagPill } from "@/components/tags/TagPill";
+import { HoverCard } from "@/components/ui/hover-card";
 import { FALLBACK_COLOR, useCategories } from "@/hooks/useCategories";
 import { useUnfolded } from "@/hooks/useUnfolded";
 import { api } from "@/lib/api";
@@ -24,6 +27,26 @@ import { displayTag, splitFile, splitTerm, withDescription } from "@/lib/tags";
 import { cn } from "@/lib/utils";
 import { useSearch } from "@/stores/search";
 
+/** Lignes de la bulle des synonymes au plus ; au-delà, « … + N ». */
+const MAX_LINES = 6;
+
+/** « = chaton = neko … », coupé entre deux noms après `MAX_LINES` lignes : un nom de moins à chaque mesure, avant
+ *  l'affichage, tant que ça dépasse. */
+function SynonymLine({ names }: { names: string[] }) {
+  const ref = useRef<HTMLParagraphElement>(null);
+  const [shown, setShown] = useState(names.length);
+  useLayoutEffect(() => {
+    const box = ref.current;
+    if (box && shown > 1 && box.scrollHeight > parseFloat(getComputedStyle(box).lineHeight) * MAX_LINES + 1) setShown((n) => n - 1);
+  });
+  return (
+    <p ref={ref} className="line-clamp-6 leading-5 [overflow-wrap:anywhere]">
+      {names.slice(0, shown).map((n) => `= ${n}`).join(" ")}
+      {shown < names.length && ` … + ${names.length - shown}`}
+    </p>
+  );
+}
+
 /** Pastille d'un terme actif : couleur de la catégorie du tag s'il existe. */
 function TermPill({ term, className }: { term: string; className?: string }) {
   const removeTerm = useSearch((s) => s.removeTerm);
@@ -31,19 +54,32 @@ function TermPill({ term, className }: { term: string; className?: string }) {
   const { exclude, name, prefix } = splitTerm(term);
   const { data: tag } = useQuery({ queryKey: ["tag", name], queryFn: () => api.findTag(name), enabled: !prefix });
   const label = `${exclude ? "−" : ""}${displayTag(name)}${prefix ? "*" : ""}`;
+  const synonyms = prefix ? [] : (tag?.synonyms ?? []).map((s) => `${exclude ? "−" : ""}${displayTag(s.name)}`);
+  const [anchor, setAnchor] = useState<DOMRect | null>(null);
   return (
-    <TagPill
-      color={tag ? color(tag.categoryId) : prefix ? "#d9a94e" : FALLBACK_COLOR}
-      onRemove={() => removeTerm(term)}
-      removeLabel={`Retirer « ${label} » de la recherche`}
-      title={withDescription(exclude ? `Exclut ${displayTag(name)}` : undefined, tag?.description)}
-      struck={exclude}
-      onContextMenu={(e) => openContextMenu(e, () => termMenu(term, tag, list))}
-      fullTitleIfCut
-      className={className}
-    >
-      {label}
-    </TagPill>
+    <>
+      <TagPill
+        color={tag ? color(tag.categoryId) : prefix ? "#d9a94e" : FALLBACK_COLOR}
+        onRemove={() => removeTerm(term)}
+        removeLabel={`Retirer « ${label} » de la recherche`}
+        // Avec des synonymes, la bulle de MyBoard remplace celle de Windows (description comprise).
+        title={synonyms.length ? undefined : withDescription(exclude ? `Exclut ${displayTag(name)}` : undefined, tag?.description)}
+        struck={exclude}
+        onContextMenu={(e) => openContextMenu(e, () => termMenu(term, tag, list))}
+        fullTitleIfCut={!synonyms.length}
+        onMouseEnter={synonyms.length ? (e) => setAnchor(e.currentTarget.getBoundingClientRect()) : undefined}
+        onMouseLeave={() => setAnchor(null)}
+        className={className}
+      >
+        {label}
+      </TagPill>
+      {anchor && (
+        <HoverCard anchor={anchor} place="below" zone="barre-laterale.recherche.termes.synonymes">
+          <SynonymLine key={synonyms.join("\n")} names={synonyms} />
+          {tag?.description && <p className="mt-1 line-clamp-6 text-muted-foreground [overflow-wrap:anywhere]">{tag.description}</p>}
+        </HoverCard>
+      )}
+    </>
   );
 }
 

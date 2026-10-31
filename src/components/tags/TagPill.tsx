@@ -25,6 +25,9 @@ type Props = {
   fullTitleIfCut?: boolean;
   /** Icône entre la croix et le texte (loupe du nom de fichier, SRCH-26), centrée comme la croix. */
   icon?: ReactNode;
+  /** Survol de la pastille (bulle des synonymes des pastilles de la recherche, retour T3, point TAGM-15.27). */
+  onMouseEnter?: (e: MouseEvent<HTMLElement>) => void;
+  onMouseLeave?: () => void;
 };
 
 export function TagPill({
@@ -39,6 +42,8 @@ export function TagPill({
   struck,
   fullTitleIfCut,
   icon,
+  onMouseEnter,
+  onMouseLeave,
 }: Props) {
   const onTextEnter = fullTitleIfCut ? (e: MouseEvent<HTMLElement>) => titleIfCut(e.currentTarget) : undefined;
   return (
@@ -46,6 +51,8 @@ export function TagPill({
       data-zone="tag.pastille"
       title={title}
       onContextMenu={onContextMenu}
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
       className={cn("inline-flex max-w-full items-center gap-1 rounded-md border px-2 py-0.5 text-xs", className)}
       // Couleur de la base (TAGM-01) : 15 % pour le fond, 30 % pour la bordure (comme la v8).
       style={{ color, backgroundColor: `${color}26`, borderColor: `${color}4d` }}
