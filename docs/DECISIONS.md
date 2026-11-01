@@ -1195,3 +1195,8 @@ où elles ont posé des tags gardés, et pour un seul tag ses chaînes (`parents
 `delete_tags(…, remove_posed)` lit les tags posés par ces règles (`tag_parent_media`) avant la suppression, puis les
 retire (`remove_cascade`) et remet ceux qu'une autre règle justifie (`restore_justified`), comme `delete_parent`.
 `ChainStrip` a une variante `deleted` : le tag rayé, ses deux règles sur le gris clair.
+
+**Complément du 02/11 (habitudes de saisie, GEN-27 et GEN-17).** `lib/fieldHabits.ts`, chargé au démarrage comme
+`browserKeys.ts` : Échap dans un champ (input, textarea, zone éditable) retire le focus, seulement si la pile d'Échap
+(`lib/escape.ts`) est vide et que rien n'a déjà traité la touche ; un appui multiple (`detail` ≥ 2) dans un `<label>`
+qui contient une case à cocher ne déclenche pas la sélection du texte (le clic, lui, coche toujours la case).

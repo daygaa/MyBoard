@@ -52,7 +52,7 @@ export function ParentDeleteDialog({ row, nameOf, onCancel, onDone }: Props) {
             <Checkbox data-principale checked={remove} onCheckedChange={(c) => setRemove(c === true)} />
             <span className="min-w-0">
               {further
-                ? `Retirer ${q(parent)} ainsi que les tags ultérieurs de la chaîne aux médias les ayant obtenus par cette règle (${media(n)})`
+                ? `Retirer ${q(parent)} ainsi que les tags ultérieurs ${chains.length > 1 ? "des chaînes" : "de la chaîne"} aux médias les ayant obtenus par cette règle (${media(n)})`
                 : `Retirer ${q(parent)} aux médias l'ayant obtenu par cette règle (${media(n)})`}
             </span>
           </label>

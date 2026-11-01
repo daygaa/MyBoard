@@ -3,6 +3,24 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Échap dans les champs, double clic sur le texte des cases, « des chaînes » (02/11/2026) — Backup v83
+
+SPEC : livrés `[~]` : GEN-27 (nouveau ; retour T3, point AUT.27), GEN-17 (point AUT.28), TAGM-16 (point TAGM-16.11).
+
+- **Échap dans un champ de saisie** (tous les champs) : le champ perd le focus. En dernier recours : une liste de
+  suggestions ouverte se ferme d'abord, une pop-in se ferme comme avant, le renommage dans la ligne s'annule comme avant.
+- **Texte d'une case à cocher** : un double ou triple clic coche la case sans surligner le texte ; le clic glissé le
+  surligne toujours.
+- **Pop-ins de suppression d'une règle et d'un tag** : « ainsi que les tags ultérieurs des chaînes » quand plusieurs
+  chaînes sont montrées.
+
+Vérifié dans la version compilée, sur une copie de la base d'essai `refonte` : Échap dans la recherche (sans liste :
+focus retiré ; avec la liste : 1er Échap la ferme, 2e retire le focus), dans le filtre du gestionnaire avec un tag coché
+(1er Échap : focus retiré, le tag reste coché ; 2e : décoché), dans la pop-in « Créer un tag » (fermée) et le renommage
+dans la ligne (annulé) ; textes « des chaînes » (règle « essai x → essai y », tag « essai x ») et « de la chaîne » (tag « essai chien ») ;
+zéro erreur `tsc` et `clippy`. **Non vérifié** : le double clic sur le texte d'une case (les clics simulés ne surlignent
+pas ce texte, ni dans la version d'avant ni dans celle-ci ; ils surlignent un texte ordinaire) : à tester à la souris.
+
 ## Règles de parents dans la pop-in de suppression d'un tag (02/11/2026) — Backup v82
 
 SPEC : livré `[~]` : TAGM-16 (retour T3, point TAGM-16.8). Refonte des règles annulée le 01/11 (TAGM-16.9, TAGM-16.10).

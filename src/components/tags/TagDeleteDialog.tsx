@@ -77,6 +77,8 @@ function RulesBlock({ data, removing, onRemove }: { data: DeletePreview; removin
   const n = data.posed;
   const many = data.rules.length > 1;
   const objects = data.parents.length > 1 || data.further;
+  // Plusieurs chaînes : « des chaînes » (retour T3, point TAGM-16.11) ; sans dessin (plusieurs tags), dès deux règles.
+  const chains = data.chains.length > 1 || (data.chains.length === 0 && many) ? "des chaînes" : "de la chaîne";
   return (
     <div data-zone="tag-suppression.regles" onCopy={copyPlain} className="border-t border-border pt-3 [overflow-wrap:break-word]">
       <div className="space-y-1 text-sm text-muted-foreground">
@@ -97,7 +99,7 @@ function RulesBlock({ data, removing, onRemove }: { data: DeletePreview; removin
           <label className="flex cursor-pointer items-center gap-2 text-sm text-foreground">
             <Checkbox checked={removing} onCheckedChange={(c) => onRemove(c === true)} />
             <span className="min-w-0">
-              {`Retirer ${list(data.parents)}${data.further ? " ainsi que les tags ultérieurs de la chaîne" : ""} aux médias ${objects ? "les ayant obtenus" : "l'ayant obtenu"} par ${many ? "ces règles" : "cette règle"} (${media(n)})`}
+              {`Retirer ${list(data.parents)}${data.further ? ` ainsi que les tags ultérieurs ${chains}` : ""} aux médias ${objects ? "les ayant obtenus" : "l'ayant obtenu"} par ${many ? "ces règles" : "cette règle"} (${media(n)})`}
             </span>
           </label>
           <p className="mt-1 pl-6 text-xs text-muted-foreground">Seuls ces tags sont retirés des médias ; les autres règles de la chaîne restent.</p>
