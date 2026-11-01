@@ -1182,3 +1182,9 @@ panneau déplié de l'onglet et petite liste de la colonne « Synonymes » du ta
 l'opération : le champ se vide à la confirmation, comme les formulaires). Menu burger ouvert : classe `menu-ouvert`
 sur la page (`index.css` : `pointer-events: none` sur le contenu de la zone qui défile), sur le modèle du curseur
 d'attente (`attente`) ; les clics y tombent sur la zone elle-même, que `useOutsideClose` traite.
+
+**Décision du 01/11 (règles de parents, lot R4 bis annulé).** Une règle reste un lien « enfant → parent » (un tag peut
+avoir plusieurs parents par plusieurs liens) ; les mots restent dans le sens d'Hydrus Network (l'enfant, plus précis,
+pose le parent, plus large). Raison : une règle à plusieurs tags n'aurait changé que l'affichage et la création (les
+données auraient gardé des liens un à un), pour beaucoup de travail. Seul le texte des règles dans la pop-in de
+suppression d'un tag est revu (TAGM-16.8).
