@@ -279,6 +279,13 @@ html.attente * {
   cursor: progress !important;
 }
 
+/* Menu burger ouvert (NAV-02, components/layout/BurgerMenu.tsx) : la page dessous ne réagit plus à la souris, ni
+   main ni effet de survol ; un clic la touche seulement pour fermer le menu (retour T3, point AUT.3). La barre de
+   titre, hors de la zone qui défile, garde ses clics. */
+html.menu-ouvert #defilement * {
+  pointer-events: none !important;
+}
+
 /* Vignettes de moins de ~2,2 cm à l'écran (GRID-11, `data-nom-seul` posé sur la grille) : plus
    de badge vidéo / GIF, de poids / dimensions ni d'étoile favori (GRID-08) ; au survol, le nom
    prend toute la largeur, à la taille calculée par la vignette (`--name-size`). Hors des couches

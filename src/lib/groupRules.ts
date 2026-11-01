@@ -26,10 +26,19 @@ export function mergeText(names: { name: string; media: number }[], principal: s
   return [...blocks, ...(empty.length ? [empty.join("\n")] : []), "Désactiver la fusion l'annulera."].join("\n\n");
 }
 
+/** Le groupe obtenu, pour la pop-in d'une réunion de groupes (D14) : « P » (tag principal), « a » et « b ». */
+function joinText(joined: string[], principal: string, preview: GroupPreview): string {
+  const names = [...preview.existing, ...preview.added].map((n) => q(n.name));
+  const groups = joined.map(q).join(", ");
+  return `${joined.length > 1 ? `Les groupes de ${groups} seront réunis` : `Le groupe de ${groups} sera réuni`} à celui de ${q(principal)}.\nGroupe obtenu : ${q(principal)} (tag principal), ${names.join(", ")}.`;
+}
+
 /** Formulaire de création. `onCreated` est appelé dès que le groupe existe (les champs se vident alors,
  *  TAGM-15.6), avant la relecture des listes : sinon l'aperçu, relu avec les pastilles encore dans les champs,
- *  annonçait un instant « déjà des synonymes » (retour T3, point TAGM-15.25). */
-export async function createGroup(principal: { id: number; name: string }, names: string[], merge: boolean, preview: GroupPreview | undefined, newTags: NewTag[], onCreated: () => void) {
+ *  annonçait un instant « déjà des synonymes » (retour T3, point TAGM-15.25). `confirmJoin` : une réunion de groupes
+ *  passe par la pop-in (colonne « Synonymes », sans ligne d'aperçu), avec la fusion s'il y en a une. Renvoie vrai si
+ *  le groupe est créé, ou si la pop-in est confirmée (la création suit). */
+export async function createGroup(principal: { id: number; name: string }, names: string[], merge: boolean, preview: GroupPreview | undefined, newTags: NewTag[], onCreated: () => void, confirmJoin = false) {
   // Le badge compte les noms vraiment ajoutés (un nom déjà dans le groupe est ignoré).
   const count = preview ? preview.added.length : names.length;
   const run = async () => {
@@ -39,10 +48,39 @@ export async function createGroup(principal: { id: number; name: string }, names
       return id;
     });
     if (done !== undefined) showGridBadge(`${q(principal.name)} : ${count} ${plural(count, "synonyme")}`);
+    return done !== undefined;
   };
-  const merging = merge ? (preview?.added ?? []) : [];
-  if (!merging.some((n) => n.media > 0)) return run();
-  await ask({ title: count > 1 ? "Créer les synonymes ?" : "Créer le synonyme ?", message: mergeText(merging, principal.name), confirmLabel: "Créer", run });
+  const merging = (merge ? (preview?.added ?? []) : []).some((n) => n.media > 0);
+  const joined = confirmJoin && preview ? preview.joined : [];
+  if (!merging && joined.length === 0) return run();
+  const message = [
+    joined.length > 0 && preview ? joinText(joined, principal.name, preview) : "",
+    merging && preview ? mergeText(preview.added, principal.name) : "",
+  ].filter(Boolean).join("\n\n");
+  const title = joined.length > 0 ? "Réunir les groupes ?" : count > 1 ? "Créer les synonymes ?" : "Créer le synonyme ?";
+  return ask({ title, message, confirmLabel: joined.length > 0 ? "Réunir" : "Créer", run });
+}
+
+/** Ajout d'un synonyme dans la colonne « Synonymes » du tableau des tags (réponse 3 A du lot R4) : `chief` est le
+ *  principal du groupe du tag, ou le tag lui-même s'il n'a pas de groupe (il en devient le principal). Le nom ajouté
+ *  est relié, ou fusionné d'office si tout le groupe l'est (D2.2) ; un tag d'un autre groupe réunit les deux (pop-in) ;
+ *  un tag à créer (`id` vide) ne l'est qu'avec lui (TAGM-15.24). Renvoie le refus à afficher sous le champ, `null`
+ *  si c'est fait (le champ se vide), `false` si une pop-in a été annulée (il garde son texte). */
+export async function addSynonym(chief: { id: number; name: string }, picked: { id: number | null; name: string; alias?: string; category?: number }): Promise<string | null | false> {
+  const name = picked.alias ?? picked.name;
+  let preview: GroupPreview;
+  try {
+    preview = await rulesApi.groupPreview(chief.name, [name]);
+  } catch (error) {
+    return String(error);
+  }
+  const head = preview.principal ?? chief.name;
+  if (name === chief.name || name === head) return `${q(name)} est le tag principal de ce groupe.`;
+  if (preview.added.length === 0) return `${q(name)} est déjà un synonyme de ${q(head)}.`;
+  const newTags = picked.id === null && picked.category !== undefined ? [{ name: picked.name, categoryId: picked.category }] : [];
+  // Le champ se vide dès la confirmation, comme les formulaires de l'onglet (la pop-in rend sa réponse avant la fin).
+  const done = await createGroup({ id: chief.id, name: head }, [name], preview.fullyMerged, preview, newTags, () => {}, true);
+  return done ? null : false;
 }
 
 /** Interrupteur de fusion d'un nom. */

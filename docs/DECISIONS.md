@@ -1173,3 +1173,12 @@ le média n'avait que par fusion n'y est pas à part ; à la restauration, les t
 fusionnés (`resolve`), dont la note reprend `had` ; la pop-in reçoit des `ShownTag` (`alias` : « kitty → cat »).
 Règles de parents : `ParentRow.childName` et `parentName` (lus avec la règle). Menu burger : `useOutsideClose`
 (options `rightButton`, `ignore`), comme la note des médias. « Tag principal » : `PillField single`.
+
+**Complément du 01/11 (lot R4-3).** Les lignes des noms d'un groupe sont un composant commun (`GroupNames.tsx`) :
+panneau déplié de l'onglet et petite liste de la colonne « Synonymes » du tableau des tags. Ajout depuis cette colonne :
+`addSynonym(chief, choisi)` (principal du groupe, ou le tag lui-même), par l'aperçu (`group_preview`) puis
+`createGroup(…, confirmJoin)` : une réunion de groupes passe par une seule pop-in (réunion, et fusion s'il y en a une) ;
+`createGroup` rend vrai si le groupe est créé ou la pop-in confirmée (la pop-in commune rend sa réponse avant la fin de
+l'opération : le champ se vide à la confirmation, comme les formulaires). Menu burger ouvert : classe `menu-ouvert`
+sur la page (`index.css` : `pointer-events: none` sur le contenu de la zone qui défile), sur le modèle du curseur
+d'attente (`attente`) ; les clics y tombent sur la zone elle-même, que `useOutsideClose` traite.

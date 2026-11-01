@@ -4,7 +4,7 @@
 // Dossiers : liste, « + Nouveau », menu ⋮ de chacun (FolderList, FOLD-01, FOLD-02). Entre les deux :
 // « Rechercher un fichier » (FileSearch, SRCH-26).
 
-import { useRef, type ComponentType } from "react";
+import { useEffect, useRef, type ComponentType } from "react";
 import { LibraryBig, Settings, Star, Tags, Upload, X } from "lucide-react";
 
 import { FolderList } from "@/components/folders/FolderList";
@@ -60,6 +60,10 @@ export function BurgerMenu() {
   // assombri ne couvre ni l'en-tête ni la zone fixe au-dessus de la grille (retour T3, point AUT.3). La barre de
   // titre (la fenêtre : déplacer, réduire, fermer) garde ses clics, le menu reste ouvert (réponse du 31/10).
   useOutsideClose(open, [panelRef], close, { rightButton: true, ignore: '[data-zone="barre-titre"]' });
+  // Ni main ni effet de survol sur la page dessous tant qu'il est ouvert (retouche d'AUT.3, index.css).
+  useEffect(() => {
+    document.documentElement.classList.toggle("menu-ouvert", open);
+  }, [open]);
 
   return (
     <>

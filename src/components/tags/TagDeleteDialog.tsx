@@ -50,7 +50,6 @@ function oneTagLines(tag: Props["tags"][number], data: DeletePreview, also: bool
   for (const fate of data.principals) lines.push(...principalLines(fate, data.merged, also));
   for (const l of data.linked)
     lines.push(l.dissolved ? `Il quittera le groupe de synonymes de ${q(l.principal)}, qui n'aura plus de synonyme.` : `Il quittera le groupe de synonymes de ${q(l.principal)}.`);
-  if (data.parents > 0) lines.push(`Partiront avec lui : ${formatNumber(data.parents)} ${plural(data.parents, "règle de parent", "règles de parents")}.`);
   return lines;
 }
 
@@ -63,7 +62,6 @@ function manyTagsLines(data: DeletePreview, also: boolean): string[] {
   const fused = data.fused.length;
   if (fused > 0) lines.push(`${fused > 1 ? `Les ${fused} tags fusionnés supprimés` : `${q(data.fused[0].name)}, fusionné,`} : leurs médias garderont leur tag principal.`);
   if (data.linked.length > 0) lines.push(`${data.linked.length > 1 ? `Les ${data.linked.length} tags reliés quitteront` : `${q(data.linked[0].name)} quittera`} leur groupe de synonymes.`);
-  if (data.parents > 0) lines.push(`Partiront avec eux : ${formatNumber(data.parents)} ${plural(data.parents, "règle de parent", "règles de parents")}.`);
   return lines;
 }
 
@@ -83,6 +81,8 @@ export function TagDeleteDialog({ tags, onCancel, onDone }: Props) {
   const [strip, setStrip] = useState(false);
   const one = tags.length === 1 ? tags[0] : null;
   const lines = !data ? [] : one ? oneTagLines(one, data, also) : manyTagsLines(data, also);
+  // Règles de parents, sous un trait (retour T3, point TAGM-16.8 ; nouveau texte avec les règles à plusieurs tags).
+  const rules = data && data.parents > 0 ? `Partiront avec ${one ? "lui" : "eux"} : ${formatNumber(data.parents)} ${plural(data.parents, "règle de parent", "règles de parents")}.` : null;
   // Médias qui n'ont reçu le principal que par un tag fusionné supprimé.
   const only = data?.fused.reduce((n, f) => n + f.only, 0) ?? 0;
   const fused = data?.fused[0];
@@ -97,10 +97,17 @@ export function TagDeleteDialog({ tags, onCancel, onDone }: Props) {
       danger
       title={one ? `Supprimer ${q(one.name)} ?` : `Supprimer ces ${formatNumber(tags.length)} tags ?`}
       message={
-        <div onCopy={copyPlain} className="space-y-1 [overflow-wrap:break-word]">
-          {lines.map((line) => (
-            <p key={line}>{line}</p>
-          ))}
+        <div onCopy={copyPlain} className="[overflow-wrap:break-word]">
+          <div className="space-y-1">
+            {lines.map((line) => (
+              <p key={line}>{line}</p>
+            ))}
+          </div>
+          {rules && (
+            <p data-zone="tag-suppression.regles" className="mt-3 border-t border-border pt-3">
+              {rules}
+            </p>
+          )}
         </div>
       }
       onCancel={onCancel}

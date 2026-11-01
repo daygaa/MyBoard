@@ -1,86 +1,24 @@
 // Ligne d'un groupe de synonymes (refonte, décisions D2, D2.1, D3 ; propositions 3, 4 et 7 du lot R3) :
 // « ▸ » pour déplier (en douceur), ★ principal en doré, long tiret, les autres noms entiers tant qu'ils tiennent
 // puis « … + N » (couleur de leur catégorie s'ils sont reliés, gris s'ils sont fusionnés), interrupteur du groupe (« à moitié » s'il est en partie fusionné), nombre de médias, corbeille.
-// Dépliée : une ligne par nom (étoile pour en faire le principal, interrupteur de fusion, croix « Retirer du
-// groupe »). Clic droit (CTX-16) sur le groupe et sur chaque nom ; « Annuler » rend le menu (CTX-02).
+// Dépliée : une ligne par nom (GroupNames.tsx : étoile pour en faire le principal, interrupteur de fusion, croix
+// « Retirer du groupe »). Clic droit (CTX-16) sur le groupe et sur chaque nom ; « Annuler » rend le menu (CTX-02).
 
 import { useLayoutEffect, useRef, useState, type TransitionEvent } from "react";
-import { ChevronRight, Star, Trash2, X } from "lucide-react";
+import { ChevronRight, Star, Trash2 } from "lucide-react";
 
 import { Switch } from "@/components/ui/switch";
 import { openContextMenu, type MenuEntry } from "@/lib/contextMenu";
 import { formatNumber, plural } from "@/lib/format";
-import { groupDeletion, groupState, makePrincipal, nameRemoval, toggleGroup, toggleName, unmergeGroup } from "@/lib/groupRules";
-import type { GroupRow, NameRow } from "@/lib/rulesApi";
+import { groupDeletion, groupState, toggleGroup, unmergeGroup } from "@/lib/groupRules";
+import type { GroupRow } from "@/lib/rulesApi";
 import { ask } from "@/lib/tagRules";
 import { displayTag } from "@/lib/tags";
-import { cn, titleIfCut } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 import { FitLine } from "./FitLine";
-import { TagName, type TagOf } from "./RuleLines";
+import { byName, GroupNames, ICON, LINE, menuConfirm, Name } from "./GroupNames";
+import type { TagOf } from "./RuleLines";
 import { useRulesStore } from "./rulesTabState";
-
-const LINE = "flex h-8 items-center gap-2 rounded-md px-1.5 text-sm hover:bg-secondary/40";
-const ICON = "grid h-6 w-6 shrink-0 place-items-center rounded text-muted-foreground transition hover:bg-secondary";
-
-/** Confirmation d'une entrée rouge du menu (CTX-02) : le texte sur une seule ligne. */
-const menuConfirm = ({ title, message, run }: { title: string; message: string; run: () => unknown }) => ({
-  danger: true,
-  confirm: { title, message: message.replace(/\n/g, " "), danger: true },
-  run: () => void run(),
-});
-
-/** Nom d'un groupe : un tag relié à la couleur de sa catégorie, un tag fusionné en gris. */
-function Name({ name, tagOf }: { name: NameRow; tagOf: TagOf }) {
-  if (!name.merged) return <TagName tag={tagOf(name.tagId)} fallback={name.name} />;
-  return (
-    <span onMouseEnter={(e) => titleIfCut(e.currentTarget)} className="min-w-0 truncate font-mono text-muted-foreground">
-      {displayTag(name.name)}
-    </span>
-  );
-}
-
-function NameLine({ group, name, principal, tagOf }: { group: GroupRow; name: NameRow; principal: string; tagOf: TagOf }) {
-  const removal = nameRemoval(name, principal);
-  return (
-    <div
-      data-zone="regles.groupe.nom"
-      onContextMenu={(e) =>
-        openContextMenu(e, () => [
-          { label: "Devenir le tag principal", run: () => void makePrincipal(group, name, principal) },
-          { label: name.merged ? "Défusionner" : "Fusionner", run: () => void toggleName(name, principal) },
-          "separator",
-          { label: "Retirer du groupe…", ...menuConfirm(removal) },
-        ])
-      }
-      className={LINE}
-    >
-      <button type="button" data-zone="regles.groupe.etoile" onClick={() => void makePrincipal(group, name, principal)} title="En faire le tag principal" className={cn(ICON, "hover:text-[#d9a94e]")}>
-        <Star className="h-3.5 w-3.5" />
-      </button>
-      <Name name={name} tagOf={tagOf} />
-      <span className="ml-auto shrink-0 pl-1 text-xs text-muted-foreground tabular-nums" title={name.merged ? "Médias fusionnés dans le tag principal" : undefined}>
-        {name.media > 0 ? formatNumber(name.media) : ""}
-      </span>
-      <Switch
-        on={name.merged}
-        onToggle={() => void toggleName(name, principal)}
-        zone="regles.groupe.nom.fusion"
-        label={`Fusion de « ${displayTag(name.name)} »`}
-        title={name.merged ? `Fusionné dans « ${displayTag(principal)} ».` : "Activer la fusion"}
-      />
-      <button type="button" data-zone="regles.groupe.retirer" onClick={() => void ask({ ...removal, confirmLabel: "Oui" })} title="Retirer du groupe" className={cn(ICON, "hover:text-rose-400")}>
-        <X className="h-3.5 w-3.5" />
-      </button>
-    </div>
-  );
-}
-
-/** Noms par ordre alphabétique (sans les « _ »). */
-const byName = (a: { name: string }, b: { name: string }) => displayTag(a.name).localeCompare(displayTag(b.name));
-
-/** Place de l'interrupteur et de l'icône de fin de ligne, pour aligner les colonnes de droite. */
-const SPACER = <span aria-hidden className="w-7 shrink-0" />;
-const ICON_SPACER = <span aria-hidden className="w-6 shrink-0" />;
 
 /** Dépliage en douceur (retouches de R3) : le panneau passe de 0 à sa hauteur en 200 ms ; replié, il quitte la
  *  page à la fin du mouvement. Un groupe déplié le reste au retour sur l'onglet (point TAGM-15.20). */
@@ -109,12 +47,8 @@ function useUnfold(id: number) {
 
 export function GroupLine({ group, tagOf }: { group: GroupRow; tagOf: TagOf }) {
   const { open, mounted, expanded, ref, toggle, onEnd } = useUnfold(group.id);
-  const principalTag = tagOf(group.principalId);
   const principal = group.principalName;
-  // Ordre alphabétique, le tag principal rangé avec les autres dans le panneau : changer de principal ne
-  // déplace aucun nom (point TAGM-15.17).
   const names = [...group.names].sort(byName);
-  const rows = [...names.map((n) => ({ key: n.id, name: n.name, row: n as NameRow | null })), { key: -1, name: principal, row: null }].sort(byName);
   const state = groupState(group);
   const deletion = groupDeletion(group, principal);
   const menu = (): MenuEntry[] => [
@@ -175,23 +109,7 @@ export function GroupLine({ group, tagOf }: { group: GroupRow; tagOf: TagOf }) {
           <div className="min-h-0 overflow-hidden">
             <div data-trait className="h-px bg-[#3a3d47]" />
             {/* Étoiles sous la flèche de dépliage (point TAGM-15.17). */}
-            <div data-zone="regles.groupe.panneau" className="py-1">
-              {rows.map(({ key, row }) =>
-                row ? (
-                  <NameLine key={key} group={group} name={row} principal={principal} tagOf={tagOf} />
-                ) : (
-                  <div key={key} className={LINE}>
-                    <span className={ICON} title="Tag principal">
-                      <Star className="h-3.5 w-3.5 fill-[#d9a94e] text-[#d9a94e]" />
-                    </span>
-                    {principalTag ? <TagName tag={principalTag} /> : <span className="min-w-0 truncate font-mono">{displayTag(principal)}</span>}
-                    <span className="ml-auto shrink-0 pl-1 text-xs text-muted-foreground tabular-nums">{principalTag ? formatNumber(principalTag.mediaCount) : ""}</span>
-                    {SPACER}
-                    {ICON_SPACER}
-                  </div>
-                ),
-              )}
-            </div>
+            <GroupNames group={group} tagOf={tagOf} zone="regles.groupe.panneau" />
           </div>
         </div>
       )}

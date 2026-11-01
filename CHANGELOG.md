@@ -3,6 +3,28 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Refonte des synonymes et des parents, lot R4-3 : colonne « Synonymes » modifiable, menu burger, séparateur (01/11/2026) — Backup v81
+
+SPEC : livrés `[~]` : TAGM-15 (retour T3, point TAGM-15.30), NAV-02 (point AUT.3, retouche), TAGM-16 (point TAGM-16.8, en
+partie : le séparateur).
+
+- **Colonne « Synonymes » du tableau des tags** : la petite liste reprend le panneau déplié de l'onglet (étoile,
+  interrupteur de fusion, croix, mêmes confirmations) et a un champ « Ajouter un synonyme… » : un tag sans groupe
+  devient principal ; le nom ajouté est relié, ou fusionné d'office si tout le groupe l'est ; un tag d'un autre groupe
+  réunit les deux (« Réunir les groupes ? », avec le groupe obtenu) ; un nom nouveau passe par « Créer un nouveau
+  tag » et n'est créé qu'avec le groupe.
+- **Menu burger ouvert** : la page dessous ne réagit plus à la souris (ni main, ni effet de survol).
+- **Pop-in de suppression d'un tag** : un trait sépare le texte sur les règles de parents du reste.
+
+Vérifié dans la version compilée, sur des copies de la base d'essai `refonte` : « essai chat » sans groupe + « essai
+chien » : groupe créé, chat principal ; + « essai r4c nouveau » : pop-in de création, tag créé avec le groupe ; refus
+(principal, déjà synonyme) sous le champ ; groupe d'essai bateau entièrement fusionné + « essai ciel » : pop-in de
+fusion, ciel fusionné ; « essai voiture » + « essai maison » : « Réunir les groupes ? », groupes réunis ; étoile, croix
+et interrupteur de la petite liste ; champ vidé après un ajout direct et après une pop-in confirmée, gardé après une
+pop-in annulée ; panneau déplié de l'onglet inchangé ; menu ouvert : sur « Importer » et le filtre « Images », ni
+survol ni main, dans le menu oui, un clic ferme sans rien activer, le survol revient ensuite ; trait de 1 px au-dessus
+de « Partiront avec lui… » (capture) ; zéro erreur `tsc` et `clippy`.
+
 ## Refonte des synonymes et des parents, lot R4-2 : suppression d'un tag d'un groupe, réserve, menu burger, « Tag principal » (31/10/2026) — Backup v80
 
 SPEC : livrés `[~]` : TAGM-15 (retour T3, points TAGM-15.28 et TAGM-15.29), TAGM-16 (point TAGM-16.7, nouveau), DEL-05

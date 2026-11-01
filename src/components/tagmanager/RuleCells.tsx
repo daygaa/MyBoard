@@ -1,23 +1,26 @@
 // Colonnes « Synonymes » et « Parents » du tableau du gestionnaire (TAGM-15, TAGM-16, Q3-A) : un
-// bouton avec le nombre ouvre une petite liste, comme la description. Synonymes : le groupe du tag, en
-// lecture seule jusqu'au lot R4 (proposition 2 A du lot R3), avec un lien vers l'onglet « Synonymes et
-// parents ». Parents : les parents du tag (modifiables) puis ses enfants, en lecture seule (ils se
-// modifient depuis leur propre ligne ou l'onglet).
+// bouton avec le nombre ouvre une petite liste, comme la description. Synonymes : le groupe du tag, modifiable
+// comme le panneau déplié de l'onglet (GroupNames : étoile, interrupteur, croix), un champ « Ajouter un
+// synonyme… » (réponse 3 A du lot R4, `addSynonym`) et le lien vers l'onglet « Synonymes et parents ». Parents :
+// les parents du tag (modifiables) puis ses enfants, en lecture seule (ils se modifient depuis leur propre ligne
+// ou l'onglet).
 
 import { useState } from "react";
 import { createPortal } from "react-dom";
-import { Equal, ListTree, Star } from "lucide-react";
+import { Equal, ListTree } from "lucide-react";
 
 import { TagInput } from "@/components/tags/TagInput";
 import { usePopover } from "@/hooks/usePopover";
 import type { ManagedTag } from "@/lib/api";
 import { formatNumber, plural } from "@/lib/format";
+import { addSynonym } from "@/lib/groupRules";
 import type { GroupRow, ParentRow } from "@/lib/rulesApi";
 import { addParent } from "@/lib/tagRules";
 import { displayTag, normalizeTag } from "@/lib/tags";
 import { cn } from "@/lib/utils";
+import { GroupNames } from "./GroupNames";
 import { useTagResolver } from "./RuleForm";
-import { ParentLine, TagName, type TagOf } from "./RuleLines";
+import { ParentLine, type TagOf } from "./RuleLines";
 import { openRulesFiltered } from "./rulesTabState";
 
 const WIDTH = 320;
@@ -88,7 +91,10 @@ const Empty = ({ text }: { text: string }) => <p className="px-1.5 py-1 text-xs 
 
 export function SynonymsCell({ tag, group, tagOf }: { tag: ManagedTag; group: GroupRow | null; tagOf: TagOf }) {
   const popover = usePopover(WIDTH);
+  const { resolveLater, dialog } = useTagResolver();
   const label = displayTag(tag.name);
+  // Principal du groupe du tag, ou le tag lui-même : il devient principal du groupe créé par le premier ajout.
+  const chief = group ? { id: group.principalId, name: group.principalName } : { id: tag.id, name: tag.name };
   const others = group ? group.names.length : 0;
   const manage = () => {
     popover.toggle();
@@ -99,25 +105,24 @@ export function SynonymsCell({ tag, group, tagOf }: { tag: ManagedTag; group: Gr
       <CellButton zone="gestionnaire-tags.synonymes" icon={Equal} count={others} title={`Synonymes de « ${label} »`} popover={popover} />
       {popover.open && (
         <Panel popover={popover} zone="gestionnaire-tags.synonymes.liste" title={group ? `Groupe de synonymes de « ${label} » :` : `« ${label} » n'a pas de synonyme.`}>
-          {group && (
-            <div className="space-y-0.5">
-              <div className="flex h-7 items-center gap-1.5 px-1.5 text-sm">
-                <Star className="h-3.5 w-3.5 shrink-0 fill-[#d9a94e] text-[#d9a94e]" />
-                <TagName tag={tagOf(group.principalId)} />
-              </div>
-              {group.names.map((n) => (
-                <div key={n.id} className="flex h-7 items-center gap-1.5 px-1.5 pl-6 text-sm">
-                  {!n.merged ? <TagName tag={tagOf(n.tagId)} /> : <span className="min-w-0 truncate font-mono text-muted-foreground">{displayTag(n.name)}</span>}
-                  <span className="ml-auto shrink-0 text-[11px] text-muted-foreground">{n.merged ? "fusionné" : "relié"}</span>
-                </div>
-              ))}
-            </div>
-          )}
+          {group && <GroupNames group={group} tagOf={tagOf} zone="gestionnaire-tags.synonymes.groupe" />}
+          <AddField
+            zone="gestionnaire-tags.synonymes.ajout"
+            placeholder="Ajouter un synonyme…"
+            self={chief.name}
+            listed={group ? group.names.map((n) => n.name) : []}
+            onAdd={async (text) => {
+              // Un nom qui n'est pas un tag : pop-in « Créer un nouveau tag », tag créé avec le groupe (TAGM-15.24).
+              const picked = await resolveLater(text);
+              return picked ? addSynonym(chief, picked) : false;
+            }}
+          />
           <button type="button" data-zone="gestionnaire-tags.synonymes.gerer" onClick={manage} className="mt-2 w-full rounded-md px-1.5 py-1 text-left text-xs text-[#d9a94e] transition hover:bg-secondary">
             Gérer dans « Synonymes et parents »
           </button>
         </Panel>
       )}
+      {dialog}
     </>
   );
 }
