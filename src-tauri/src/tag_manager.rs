@@ -179,13 +179,14 @@ pub async fn set_tags_hidden(state: State<'_, AppState>, ids: Vec<i64>, hidden: 
 }
 
 /// Supprime des tags (retirés de leurs médias) ; renvoie le nombre supprimé. Groupes de synonymes : `tag_delete.rs`
-/// (`with_merged` : case « Supprimer aussi » ; `strip` : case « Supprimer « principal » de ces médias »).
+/// (`with_merged` : case « Supprimer aussi » ; `strip` : case « Supprimer « principal » de ces médias » ; `remove_posed` :
+/// case « Retirer … aux médias les ayant obtenus par ces règles »).
 #[tauri::command]
-pub async fn delete_tags(state: State<'_, AppState>, ids: Vec<i64>, with_merged: bool, strip: bool) -> Result<usize, String> {
+pub async fn delete_tags(state: State<'_, AppState>, ids: Vec<i64>, with_merged: bool, strip: bool, remove_posed: bool) -> Result<usize, String> {
     let mut conn = state.db.lock().unwrap();
     (|| -> anyhow::Result<usize> {
         let tx = conn.transaction()?;
-        let deleted = tag_delete::delete(&tx, &ids, with_merged, strip)?;
+        let deleted = tag_delete::delete(&tx, &ids, with_merged, strip, remove_posed)?;
         tx.commit()?;
         Ok(deleted)
     })()

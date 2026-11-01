@@ -1188,3 +1188,10 @@ avoir plusieurs parents par plusieurs liens) ; les mots restent dans le sens d'H
 pose le parent, plus large). Raison : une règle à plusieurs tags n'aurait changé que l'affichage et la création (les
 données auraient gardé des liens un à un), pour beaucoup de travail. Seul le texte des règles dans la pop-in de
 suppression d'un tag est revu (TAGM-16.8).
+
+**Complément du 02/11 (TAGM-16.8).** Pop-in de suppression d'un tag : `DeletePreview` donne les règles qui partent
+(enfant, parent), les parents directs gardés, `further` (des tags posés plus haut dans la chaîne), le nombre de médias
+où elles ont posé des tags gardés, et pour un seul tag ses chaînes (`parents::tag_chains`, `at` = place du tag).
+`delete_tags(…, remove_posed)` lit les tags posés par ces règles (`tag_parent_media`) avant la suppression, puis les
+retire (`remove_cascade`) et remet ceux qu'une autre règle justifie (`restore_justified`), comme `delete_parent`.
+`ChainStrip` a une variante `deleted` : le tag rayé, ses deux règles sur le gris clair.

@@ -31,7 +31,8 @@ pub struct DeleteCheck {
     pub chains: Vec<Chain>,
 }
 
-/// Une chaîne, du tag le plus bas au plus haut (noms) ; `at` : place de l'enfant de la règle (son parent suit).
+/// Une chaîne, du tag le plus bas au plus haut (noms) ; `at` : place de l'enfant de la règle (son parent suit), ou du
+/// tag supprimé (`tag_chains`).
 #[derive(Debug, Serialize)]
 pub struct Chain {
     pub tags: Vec<String>,
@@ -164,6 +165,27 @@ pub fn delete_check(db: &Connection, id: i64) -> rusqlite::Result<DeleteCheck> {
         }
     }
     Ok(DeleteCheck { media, chains })
+}
+
+/// Chaînes qui passent par un tag (pop-in de suppression d'un tag, retour T3, point TAGM-16.8) : du plus bas au plus
+/// haut, `at` étant la place du tag ; seulement celles où il a au moins une règle.
+pub fn tag_chains(db: &Connection, tag: i64) -> rusqlite::Result<Vec<Chain>> {
+    let mut chains = Vec::new();
+    'all: for mut below in paths(db, tag, false)? {
+        below.reverse();
+        let at = below.len() - 1;
+        for above in paths(db, tag, true)? {
+            let ids = [below.clone(), above[1..].to_vec()].concat();
+            if ids.len() > 1 {
+                let tags = ids.iter().map(|&t| db.query_row("SELECT name FROM tags WHERE id = ?1", [t], |r| r.get(0))).collect::<rusqlite::Result<Vec<String>>>()?;
+                chains.push(Chain { tags, at });
+            }
+            if chains.len() >= MAX_CHAINS {
+                break 'all;
+            }
+        }
+    }
+    Ok(chains)
 }
 
 /// Corbeille : la règle est oubliée ; avec `remove`, les tags qu'elle a posés sont retirés de ces médias, avec

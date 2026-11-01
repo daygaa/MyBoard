@@ -3,6 +3,21 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Règles de parents dans la pop-in de suppression d'un tag (02/11/2026) — Backup v82
+
+SPEC : livré `[~]` : TAGM-16 (retour T3, point TAGM-16.8). Refonte des règles annulée le 01/11 (TAGM-16.9, TAGM-16.10).
+
+- **Supprimer un tag qui a des règles de parents** : sous le trait, une ligne par règle qui part (« La règle « chaton
+  → chat » sera supprimée. ») ; pour un seul tag, ses chaînes en colonnes comme dans la pop-in de suppression d'une
+  règle, le tag rayé ; une case, décochée, « Retirer « animal » ainsi que les tags ultérieurs de la chaîne aux médias
+  les ayant obtenus par ces règles (N médias) » (la suite de la chaîne devient rouge pâle quand elle est cochée).
+
+Vérifié dans la version compilée, sur une copie de la base d'essai `refonte` : pop-ins de « essai être vivant » (pas de
+case : rien d'autre à retirer), « essai x » (plusieurs chaînes), « essai chien », de deux tags cochés ; « essai chat »
+supprimé avec la case : le média où ses règles avaient posé « animal » et « être vivant » les perd, celui où « chien »
+justifie « animal » le garde, celui qui avait « animal » avant le garde ; « essai chien » supprimé sans la case : rien
+n'est retiré ; zéro erreur `tsc` et `clippy`.
+
 ## Refonte des synonymes et des parents, lot R4-3 : colonne « Synonymes » modifiable, menu burger, séparateur (01/11/2026) — Backup v81
 
 SPEC : livrés `[~]` : TAGM-15 (retour T3, point TAGM-15.30), NAV-02 (point AUT.3, retouche), TAGM-16 (point TAGM-16.8, en

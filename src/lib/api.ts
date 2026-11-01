@@ -95,7 +95,13 @@ export type DeletePreview = {
   /** Tag fusionné supprimé : ses médias notés, et ceux qui n'ont son principal que par lui. */
   fused: { name: string; principal: string; media: number; only: number }[];
   linked: { name: string; principal: string; dissolved: boolean }[];
-  parents: number;
+  /** Règles de parents qui partent avec les tags ; leurs parents directs gardés ; tags posés plus haut dans la chaîne ;
+   *  médias où elles ont posé des tags gardés ; chaînes du tag (un seul tag) (retour T3, point TAGM-16.8). */
+  rules: { child: string; parent: string }[];
+  parents: string[];
+  further: boolean;
+  posed: number;
+  chains: { tags: string[]; at: number }[];
 };
 
 /** Autre nom relié du groupe d'un tag ; les tags fusionnés n'y sont pas (ils n'ont aucun média). */
@@ -269,7 +275,7 @@ export const api = {
   setTagsCategory: (ids: number[], categoryId: number) => invoke<number>("set_tags_category", { ids, categoryId }),
   setTagsHidden: (ids: number[], hidden: boolean) => invoke<number>("set_tags_hidden", { ids, hidden }),
   /** `withMerged`, `strip` : les cases de la pop-in de suppression (retour T3, point TAGM-15.28). */
-  deleteTags: (ids: number[], withMerged = false, strip = false) => invoke<number>("delete_tags", { ids, withMerged, strip }),
+  deleteTags: (ids: number[], withMerged = false, strip = false, removePosed = false) => invoke<number>("delete_tags", { ids, withMerged, strip, removePosed }),
   deletePreview: (ids: number[]) => invoke<DeletePreview>("delete_preview", { ids }),
   setTagDescription: (id: number, text: string) => invoke<void>("set_tag_description", { id, text }),
   ignoreSimilar: (ids: number[]) => invoke<void>("ignore_similar", { ids }),

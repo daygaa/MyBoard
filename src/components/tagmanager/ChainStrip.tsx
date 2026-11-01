@@ -5,6 +5,9 @@
 // défilent vers la droite (molette comprise) et un bout de la suivante dépasse. Toutes les colonnes prennent la
 // hauteur de la plus haute, limitée : une longue chaîne défile dans sa colonne, ouverte sur la règle, et la
 // pop-in ne change pas de taille quand on passe d'une chaîne à l'autre.
+// Pop-in de suppression d'un tag (`deleted`, retour T3, point TAGM-16.8) : la même présentation, `at` étant le tag
+// supprimé, rayé ; ses règles (le tag au-dessous, lui, le tag au-dessus) sur le gris plus clair, la suite au-dessus
+// en rouge pâle quand la case est cochée.
 
 import { Fragment, useEffect, useLayoutEffect, useRef } from "react";
 import { ArrowDown } from "lucide-react";
@@ -16,26 +19,32 @@ import { cn } from "@/lib/utils";
 /** Écart entre deux colonnes (0,75 rem), repris dans le calcul de leur largeur. */
 const GAP = "0.75rem";
 
-/** Nom entier, centré ; un nom plus large que la colonne passe à la ligne. */
-function Tag({ name }: { name: string }) {
-  return <span className="block px-1 text-center font-mono text-xs text-foreground [overflow-wrap:break-word]">{displayTag(name)}</span>;
+/** Nom entier, centré ; un nom plus large que la colonne passe à la ligne ; `struck` : le tag supprimé. */
+function Tag({ name, struck }: { name: string; struck?: boolean }) {
+  return (
+    <span className={cn("block px-1 text-center font-mono text-xs text-foreground [overflow-wrap:break-word]", struck && "text-muted-foreground line-through")}>
+      {displayTag(name)}
+    </span>
+  );
 }
 
 const Arrow = () => <ArrowDown className="mx-auto my-0.5 h-3 w-3 text-muted-foreground" />;
 
-/** Tags à la suite, une flèche entre deux (et une avant le premier si `arrowFirst`). */
-function Tags({ names, arrowFirst = false }: { names: string[]; arrowFirst?: boolean }) {
+/** Tags à la suite, une flèche entre deux (et une avant le premier si `arrowFirst`) ; `struck` : place du tag rayé. */
+function Tags({ names, arrowFirst = false, struck = -1 }: { names: string[]; arrowFirst?: boolean; struck?: number }) {
   return names.map((name, i) => (
     <Fragment key={name}>
       {(i > 0 || arrowFirst) && <Arrow />}
-      <Tag name={name} />
+      <Tag name={name} struck={i === struck} />
     </Fragment>
   ));
 }
 
-function Column({ chain, removing, width }: { chain: Chain; removing: boolean; width: string }) {
-  const below = chain.tags.slice(0, chain.at);
-  const rule = chain.tags.slice(chain.at, chain.at + 2);
+function Column({ chain, removing, deleted, width }: { chain: Chain; removing: boolean; deleted: boolean; width: string }) {
+  // Règle supprimée : son enfant et son parent ; tag supprimé : lui, et les tags juste au-dessous et au-dessus.
+  const start = deleted ? Math.max(0, chain.at - 1) : chain.at;
+  const below = chain.tags.slice(0, start);
+  const rule = chain.tags.slice(start, chain.at + 2);
   const above = chain.tags.slice(chain.at + 2);
   const ref = useRef<HTMLDivElement>(null);
   const ruleRef = useRef<HTMLDivElement>(null);
@@ -59,7 +68,7 @@ function Column({ chain, removing, width }: { chain: Chain; removing: boolean; w
         </div>
       )}
       <div ref={ruleRef} data-zone="regle-suppression.chaine.regle" className="rounded-md bg-white/[0.08] py-1">
-        <Tags names={rule} />
+        <Tags names={rule} struck={deleted ? chain.at - start : -1} />
       </div>
       {above.length > 0 && (
         <div data-zone="regle-suppression.chaine.suite" className={cn("mt-0.5 rounded-md py-1 transition-colors", removing && "bg-rose-500/[0.12]")}>
@@ -70,7 +79,7 @@ function Column({ chain, removing, width }: { chain: Chain; removing: boolean; w
   );
 }
 
-export function ChainStrip({ chains, removing }: { chains: Chain[]; removing: boolean }) {
+export function ChainStrip({ chains, removing, deleted = false }: { chains: Chain[]; removing: boolean; deleted?: boolean }) {
   const strip = useRef<HTMLDivElement>(null);
   // Plus de deux chaînes : la 3e dépasse d'environ 12 % de sa largeur (deux colonnes, deux écarts, 0,12 colonne) ;
   // une ou deux : moitié de la place.
@@ -98,7 +107,7 @@ export function ChainStrip({ chains, removing }: { chains: Chain[]; removing: bo
       className={cn("flex snap-x snap-mandatory overflow-x-auto overscroll-contain pb-1.5", chains.length === 1 && "justify-center")}
     >
       {chains.map((chain, i) => (
-        <Column key={i} chain={chain} removing={removing} width={width} />
+        <Column key={i} chain={chain} removing={removing} deleted={deleted} width={width} />
       ))}
     </div>
   );

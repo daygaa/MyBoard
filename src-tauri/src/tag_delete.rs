@@ -3,7 +3,8 @@
 //! qui gardent le principal (une case, `strip`, le leur retire là où il n'est venu que par lui). Supprimer un
 //! principal défait d'abord les fusions des tags qu'on garde (case « Supprimer aussi » décochée, `with_merged`) ;
 //! les noms qui restent forment un groupe sans fusion, avec le plus utilisé comme principal (s'il en reste au moins
-//! deux). Un tag relié quitte son groupe. Les règles de parents des tags supprimés partent avec eux.
+//! deux). Un tag relié quitte son groupe. Les règles de parents des tags supprimés partent avec eux ; une case
+//! (`remove_posed`) retire les tags qu'elles ont posés, comme à la suppression d'une règle (retour T3, point TAGM-16.8).
 
 use std::collections::HashSet;
 
@@ -11,6 +12,7 @@ use rusqlite::{Connection, OptionalExtension, params};
 use serde::Serialize;
 
 use crate::groups::{principal, unmerge};
+use crate::parents::{Chain, tag_chains};
 use crate::tag_manager::marks;
 use crate::tagging::{remove_cascade, restore_justified};
 
@@ -88,8 +90,46 @@ pub struct DeletePreview {
     pub principals: Vec<PrincipalFate>,
     pub fused: Vec<FusedFate>,
     pub linked: Vec<LinkedFate>,
-    /// Règles de parents qui partent avec les tags supprimés.
-    pub parents: i64,
+    /// Règles de parents qui partent avec les tags supprimés (retour T3, point TAGM-16.8).
+    pub rules: Vec<RuleName>,
+    /// Parents directs des tags supprimés (eux-mêmes gardés) : la case « Retirer… » les nomme.
+    pub parents: Vec<String>,
+    /// Ces règles ont aussi posé des tags plus haut dans la chaîne (« ainsi que les tags ultérieurs de la chaîne »).
+    pub further: bool,
+    /// Médias où ces règles ont posé des tags gardés : la case les leur retire.
+    pub posed: i64,
+    /// Chaînes qui passent par le tag supprimé (un seul tag).
+    pub chains: Vec<Chain>,
+}
+
+/// Une règle « enfant → parent » qui part avec les tags supprimés.
+#[derive(Debug, Serialize)]
+pub struct RuleName {
+    pub child: String,
+    pub parent: String,
+}
+
+/// Règles qui touchent ces tags (enfant ou parent) : identifiant, enfant, parent.
+fn rules_of(db: &Connection, ids: &[i64]) -> rusqlite::Result<Vec<(i64, String, String)>> {
+    let marks = marks(ids.len());
+    db.prepare(&format!(
+        "SELECT r.id, c.name, p.name FROM tag_parents r JOIN tags c ON c.id = r.child_id JOIN tags p ON p.id = r.parent_id
+          WHERE r.child_id IN ({marks}) OR r.parent_id IN ({marks}) ORDER BY c.name, p.name"
+    ))?
+    .query_map(rusqlite::params_from_iter(ids.iter().chain(ids.iter())), |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?
+    .collect()
+}
+
+/// Tags gardés que ces règles ont posés, média par média (notés à la pose, chaîne comprise).
+fn posed_by(db: &Connection, rules: &[i64], doomed: &HashSet<i64>) -> rusqlite::Result<Vec<(i64, i64)>> {
+    if rules.is_empty() {
+        return Ok(Vec::new());
+    }
+    let pairs = db
+        .prepare(&format!("SELECT DISTINCT media_id, tag_id FROM tag_parent_media WHERE rule_id IN ({})", marks(rules.len())))?
+        .query_map(rusqlite::params_from_iter(rules), |r| Ok((r.get::<_, i64>(0)?, r.get::<_, i64>(1)?)))?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+    Ok(pairs.into_iter().filter(|(_, tag)| !doomed.contains(tag)).collect())
 }
 
 /// Principal supprimé : les noms qui restent et leur nouveau principal, case « Supprimer aussi » décochée puis cochée.
@@ -158,19 +198,31 @@ pub fn preview(db: &Connection, ids: &[i64]) -> rusqlite::Result<DeletePreview> 
             }
         }
     }
+    let rules = rules_of(db, ids)?;
+    let pairs = posed_by(db, &rules.iter().map(|r| r.0).collect::<Vec<_>>(), &doomed)?;
+    out.posed = pairs.iter().map(|p| p.0).collect::<HashSet<_>>().len() as i64;
     let marks = marks(ids.len());
-    out.parents = db.query_row(
-        &format!("SELECT COUNT(*) FROM tag_parents WHERE child_id IN ({marks}) OR parent_id IN ({marks})"),
-        rusqlite::params_from_iter(ids.iter().chain(ids.iter())),
-        |r| r.get(0),
-    )?;
+    let parents: Vec<(i64, String)> = db
+        .prepare(&format!(
+            "SELECT DISTINCT t.id, t.name FROM tag_parents r JOIN tags t ON t.id = r.parent_id
+              WHERE r.child_id IN ({marks}) AND r.parent_id NOT IN ({marks}) ORDER BY t.name"
+        ))?
+        .query_map(rusqlite::params_from_iter(ids.iter().chain(ids.iter())), |r| Ok((r.get(0)?, r.get(1)?)))?
+        .collect::<rusqlite::Result<_>>()?;
+    out.further = pairs.iter().any(|(_, tag)| !parents.iter().any(|(id, _)| id == tag));
+    out.parents = parents.into_iter().map(|p| p.1).collect();
+    out.rules = rules.into_iter().map(|(_, child, parent)| RuleName { child, parent }).collect();
+    if let [tag] = ids {
+        out.chains = tag_chains(db, *tag)?;
+    }
     Ok(out)
 }
 
 /// Supprime les tags (transaction de l'appelant) ; renvoie le nombre supprimé. `with_merged` : les tags fusionnés
 /// dans un principal supprimé partent avec lui ; `strip` : un tag fusionné supprimé retire son principal des médias
-/// qui ne l'ont reçu que par lui.
-pub fn delete(db: &Connection, ids: &[i64], with_merged: bool, strip: bool) -> anyhow::Result<usize> {
+/// qui ne l'ont reçu que par lui ; `remove_posed` : les tags posés par les règles qui partent sont retirés des médias où
+/// elles les ont posés (avec la suite de la chaîne), puis ceux qu'une autre règle justifie encore sont remis.
+pub fn delete(db: &Connection, ids: &[i64], with_merged: bool, strip: bool, remove_posed: bool) -> anyhow::Result<usize> {
     if ids.is_empty() {
         return Ok(0);
     }
@@ -183,6 +235,9 @@ pub fn delete(db: &Connection, ids: &[i64], with_merged: bool, strip: bool) -> a
             }
         }
     }
+    let ids: Vec<i64> = doomed.iter().copied().collect();
+    // Lus avant la suppression : les règles et leurs listes partent avec les tags.
+    let posed = if remove_posed { posed_by(db, &rules_of(db, &ids)?.iter().map(|r| r.0).collect::<Vec<_>>(), &doomed)? } else { Vec::new() };
     let mut removed = Vec::new();
     for &group in &groups {
         let p = principal(db, group)?;
@@ -215,7 +270,11 @@ pub fn delete(db: &Connection, ids: &[i64], with_merged: bool, strip: bool) -> a
             }
         }
     }
+    let deleted = db.execute(&format!("DELETE FROM tags WHERE id IN ({})", marks(ids.len())), rusqlite::params_from_iter(&ids))?;
+    removed.extend(posed.iter().copied());
+    for &(media, tag) in &posed {
+        removed.extend(remove_cascade(db, media, tag)?);
+    }
     restore_justified(db, &removed)?;
-    let ids: Vec<i64> = doomed.into_iter().collect();
-    Ok(db.execute(&format!("DELETE FROM tags WHERE id IN ({})", marks(ids.len())), rusqlite::params_from_iter(&ids))?)
+    Ok(deleted)
 }
