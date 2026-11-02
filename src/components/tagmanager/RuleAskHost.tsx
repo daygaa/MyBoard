@@ -8,7 +8,27 @@ import { useState } from "react";
 
 import { Checkbox } from "@/components/ui/checkbox";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { formatNumber } from "@/lib/format";
 import { copyPlain, useRuleAsk, type RuleAsk } from "@/lib/tagRules";
+
+/** Lignes de règles montrées au plus ; les suivantes sont comptées. */
+const MAX_RULES = 10;
+
+/** Règles de parents touchées par une fusion (réponse 3 du lot R5), sous un trait comme dans la pop-in de
+ *  suppression d'un tag. */
+function RulesBlock({ rules }: { rules: NonNullable<RuleAsk["rules"]> }) {
+  const more = rules.lines.length - MAX_RULES;
+  return (
+    <div data-zone="regle-confirmation.regles" onCopy={copyPlain} className="select-text space-y-1 border-t border-border pt-3 text-sm text-muted-foreground [overflow-wrap:break-word]">
+      <p>Règles de parents :</p>
+      {rules.lines.slice(0, MAX_RULES).map((line) => (
+        <p key={line}>{line}</p>
+      ))}
+      {more > 0 && <p>… et {formatNumber(more)} autres règles.</p>}
+      {rules.end && <p className="pt-2">{rules.end}</p>}
+    </div>
+  );
+}
 
 function Ask({ ask }: { ask: RuleAsk }) {
   const [option, setOption] = useState(true);
@@ -33,6 +53,7 @@ function Ask({ ask }: { ask: RuleAsk }) {
       onCancel={() => answer(false)}
       onConfirm={() => answer(true)}
     >
+      {ask.rules && ask.rules.lines.length > 0 && <RulesBlock rules={ask.rules} />}
       {ask.option && (
         <label data-zone="regle-confirmation.option" onCopy={copyPlain} className="flex cursor-pointer items-center gap-2 text-sm text-foreground [overflow-wrap:break-word]">
           <Checkbox data-principale checked={option} onCheckedChange={(c) => setOption(c === true)} />

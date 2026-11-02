@@ -138,7 +138,7 @@ export function ParentsCell({ tag, parents, childRules, tagOf }: { tag: ManagedT
       <CellButton zone="gestionnaire-tags.parents" icon={ListTree} count={parents.length} title={title} popover={popover} />
       {popover.open && (
         <Panel popover={popover} zone="gestionnaire-tags.parents.liste" title={`Poser « ${label} » pose aussi :`}>
-          {parents.length ? parents.map((row) => <ParentLine key={row.id} row={row} tagOf={tagOf} showChild={false} />) : <Empty text="Aucun parent." />}
+          {parents.length ? parents.map((row) => <ParentLine key={row.id} row={row} tagOf={tagOf} showChild={false} origin={false} />) : <Empty text="Aucun parent." />}
           <AddField
             zone="gestionnaire-tags.parents.ajout"
             placeholder="Ajouter un parent…"

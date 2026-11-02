@@ -12,8 +12,39 @@ export type NameRow = { id: number; tagId: number; name: string; merged: boolean
 /** Groupe de synonymes ; `media` : médias que trouve la recherche d'un de ses noms. */
 export type GroupRow = { id: number; principalId: number; principalName: string; media: number; names: NameRow[]; createdAt: number };
 /** Règle « enfant → parent » ; `enabled` = son interrupteur (D-047) ; `media` : médias qui ont reçu le
- *  parent par elle. */
-export type ParentRow = { id: number; childId: number; parentId: number; enabled: boolean; media: number; createdAt: number; childName: string; parentName: string };
+ *  parent par elle. Lot R5 : `childFrom` / `parentFrom`, tag d'origine d'une règle déplacée par une fusion (repère
+ *  « = ») ; `aside` : règle mise de côté, le tag fusionné qu'elle cite et son principal. */
+export type ParentRow = {
+  id: number;
+  childId: number;
+  parentId: number;
+  enabled: boolean;
+  media: number;
+  createdAt: number;
+  childName: string;
+  parentName: string;
+  childFrom: string | null;
+  parentFrom: string | null;
+  aside: { name: string; principal: string } | null;
+};
+/** Une règle par ses noms (règles restées sur le principal à une défusion). */
+export type RuleName = { child: string; parent: string };
+/** Ce qu'une fusion ou un changement de principal fait à une règle (pop-ins, lot R5) : réécrite (`newChild` →
+ *  `newParent`), mise de côté (`reason` ; doublon : la règle qui existe déjà), ou plus mise de côté. */
+export type RuleChange = {
+  kind: "moved" | "aside" | "back";
+  child: string;
+  parent: string;
+  newChild: string | null;
+  newParent: string | null;
+  reason: "duplicate" | "loop" | null;
+};
+/** Action dont la pop-in montre l'effet sur les règles. */
+export type PlannedChange =
+  | { kind: "name"; id: number }
+  | { kind: "group"; id: number }
+  | { kind: "create"; principal: number; names: string[]; newTags: NewTag[] }
+  | { kind: "principal"; group: number; name: number };
 export type TagRules = { groups: GroupRow[]; parents: ParentRow[] };
 
 export type PreviewName = { name: string; merged: boolean; media: number };
@@ -55,10 +86,13 @@ export const rulesApi = {
   /** `merge` : l'interrupteur « Fusionner » du formulaire ; renvoie le groupe. */
   /** `newTags` : noms tapés qui ne sont pas encore des tags, créés avec le groupe (retour T3, point TAGM-15.24). */
   createGroup: (principal: number, names: string[], merge: boolean, newTags: NewTag[] = []) => invoke<number>("create_group", { principal, names, merge, newTags }),
-  setNameMerged: (id: number, merged: boolean) => invoke<void>("set_name_merged", { id, merged }),
-  setGroupMerged: (id: number, merged: boolean) => invoke<void>("set_group_merged", { id, merged }),
-  removeGroupName: (id: number) => invoke<void>("remove_group_name", { id }),
-  deleteGroup: (id: number) => invoke<void>("delete_group", { id }),
+  /** Ces quatre appels renvoient les règles restées sur le principal à la défusion (elles feraient une boucle). */
+  setNameMerged: (id: number, merged: boolean) => invoke<RuleName[]>("set_name_merged", { id, merged }),
+  setGroupMerged: (id: number, merged: boolean) => invoke<RuleName[]>("set_group_merged", { id, merged }),
+  removeGroupName: (id: number) => invoke<RuleName[]>("remove_group_name", { id }),
+  deleteGroup: (id: number) => invoke<RuleName[]>("delete_group", { id }),
+  /** L'action jouée sans rien garder : ce qu'elle change aux règles de parents. */
+  rulesPreview: (planned: PlannedChange) => invoke<RuleChange[]>("rules_preview", { planned }),
   /** Médias qui passeront au nouveau principal (D3.1). */
   principalCheck: (group: number, name: number) => invoke<number>("principal_check", { group, name }),
   setGroupPrincipal: (group: number, name: number) => invoke<void>("set_group_principal", { group, name }),

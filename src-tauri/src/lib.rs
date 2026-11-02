@@ -19,6 +19,7 @@ pub mod media;
 pub mod parents;
 pub mod paths;
 pub mod reserve;
+pub mod rule_moves;
 pub mod scope;
 pub mod search;
 pub mod selection;
@@ -162,6 +163,7 @@ pub fn run() {
             tag_rules::set_group_merged,
             tag_rules::remove_group_name,
             tag_rules::delete_group,
+            tag_rules::rules_preview,
             tag_rules::principal_check,
             tag_rules::set_group_principal,
             tag_rules::parent_check,

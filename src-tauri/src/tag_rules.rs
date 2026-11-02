@@ -3,12 +3,14 @@
 //! transaction (D-005).
 
 use rusqlite::{Connection, TransactionBehavior};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use tauri::State;
 
 use crate::group_list::{self, GroupRow, Preview};
-use crate::{group_create, groups};
+use crate::{group_create, groups, rule_moves};
 use crate::parents::{self, DeleteCheck, RuleCheck};
+use crate::rule_moves::RuleChange;
+use crate::tag_delete::RuleName;
 use crate::tagging::resolve_or_create;
 use crate::tags::NewTag;
 use crate::{AppState, db};
@@ -28,6 +30,17 @@ pub struct ParentRow {
     /// parent tout juste créé s'affichait « ? » un instant, retour T3, point TAGM-16.7).
     pub child_name: String,
     pub parent_name: String,
+    /// Règle déplacée par une fusion (lot R5) : le tag d'origine de l'enfant ou du parent (repère « = »).
+    pub child_from: Option<String>,
+    pub parent_from: Option<String>,
+    /// Règle mise de côté : le tag fusionné qu'elle cite et son principal.
+    pub aside: Option<Aside>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct Aside {
+    pub name: String,
+    pub principal: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -37,14 +50,35 @@ pub struct TagRules {
 }
 
 fn list(db: &Connection) -> rusqlite::Result<TagRules> {
+    // Une note passée au principal par une fusion compte encore pour la règle (lot R5).
     let mut stmt = db.prepare(
         "SELECT p.id, p.child_id, p.parent_id, p.enabled,
-                (SELECT COUNT(*) FROM tag_parent_media m WHERE m.rule_id = p.id AND m.tag_id = p.parent_id), p.created_at, c.name, t.name
-         FROM tag_parents p JOIN tags c ON c.id = p.child_id JOIN tags t ON t.id = p.parent_id",
+                (SELECT COUNT(*) FROM tag_parent_media m WHERE m.rule_id = p.id AND (m.tag_id = p.parent_id OR m.moved_from = p.parent_id)),
+                p.created_at, c.name, t.name, cf.name, pf.name, a.name, ap.name
+         FROM tag_parents p JOIN tags c ON c.id = p.child_id JOIN tags t ON t.id = p.parent_id
+         LEFT JOIN tags cf ON cf.id = p.child_from LEFT JOIN tags pf ON pf.id = p.parent_from
+         LEFT JOIN tag_group_names n ON n.merged = 1 AND n.id = (SELECT id FROM tag_group_names WHERE merged = 1 AND tag_id IN (p.child_id, p.parent_id) LIMIT 1)
+         LEFT JOIN tags a ON a.id = n.tag_id LEFT JOIN tag_groups g ON g.id = n.group_id LEFT JOIN tags ap ON ap.id = g.principal_id",
     )?;
     let parents = stmt
         .query_map([], |r| {
-            Ok(ParentRow { id: r.get(0)?, child_id: r.get(1)?, parent_id: r.get(2)?, enabled: r.get(3)?, media: r.get(4)?, created_at: r.get(5)?, child_name: r.get(6)?, parent_name: r.get(7)? })
+            let aside = match (r.get::<_, Option<String>>(10)?, r.get::<_, Option<String>>(11)?) {
+                (Some(name), Some(principal)) => Some(Aside { name, principal }),
+                _ => None,
+            };
+            Ok(ParentRow {
+                id: r.get(0)?,
+                child_id: r.get(1)?,
+                parent_id: r.get(2)?,
+                enabled: r.get(3)?,
+                media: r.get(4)?,
+                created_at: r.get(5)?,
+                child_name: r.get(6)?,
+                parent_name: r.get(7)?,
+                child_from: r.get(8)?,
+                parent_from: r.get(9)?,
+                aside,
+            })
         })?
         .collect::<rusqlite::Result<_>>()?;
     Ok(TagRules { groups: group_list::list(db)?, parents })
@@ -72,6 +106,12 @@ pub async fn list_tag_rules(state: State<'_, AppState>) -> Result<TagRules, Stri
     read(&state, list)
 }
 
+/// Noms des règles restées sur le principal à une défusion (elles feraient une boucle) : badge (réponse 5d du lot R5).
+fn names(db: &Connection, rules: Vec<i64>) -> anyhow::Result<Vec<RuleName>> {
+    let mut stmt = db.prepare("SELECT c.name, t.name FROM tag_parents p JOIN tags c ON c.id = p.child_id JOIN tags t ON t.id = p.parent_id WHERE p.id = ?1")?;
+    Ok(rules.into_iter().map(|id| stmt.query_row([id], |r| Ok(RuleName { child: r.get(0)?, parent: r.get(1)? }))).collect::<rusqlite::Result<_>>()?)
+}
+
 // --- Groupes de synonymes
 
 /// Aperçu du formulaire de création : groupe obtenu, groupes réunis, état d'office de l'interrupteur.
@@ -86,24 +126,58 @@ pub async fn create_group(state: State<'_, AppState>, principal: i64, names: Vec
     write(&state, |db, now| group_create::create(db, principal, &names, merge, &new_tags, now))
 }
 
+/// Les quatre commandes suivantes renvoient les règles restées sur le principal (défusion).
 #[tauri::command]
-pub async fn set_name_merged(state: State<'_, AppState>, id: i64, merged: bool) -> Result<(), String> {
-    write(&state, |db, _| groups::set_merged(db, id, merged))
+pub async fn set_name_merged(state: State<'_, AppState>, id: i64, merged: bool) -> Result<Vec<RuleName>, String> {
+    write(&state, |db, _| names(db, groups::set_merged(db, id, merged)?))
 }
 
 #[tauri::command]
-pub async fn set_group_merged(state: State<'_, AppState>, id: i64, merged: bool) -> Result<(), String> {
-    write(&state, |db, _| groups::set_group_merged(db, id, merged))
+pub async fn set_group_merged(state: State<'_, AppState>, id: i64, merged: bool) -> Result<Vec<RuleName>, String> {
+    write(&state, |db, _| names(db, groups::set_group_merged(db, id, merged)?))
 }
 
 #[tauri::command]
-pub async fn remove_group_name(state: State<'_, AppState>, id: i64) -> Result<(), String> {
-    write(&state, |db, _| groups::remove_name(db, id))
+pub async fn remove_group_name(state: State<'_, AppState>, id: i64) -> Result<Vec<RuleName>, String> {
+    write(&state, |db, _| names(db, groups::remove_name(db, id)?))
 }
 
 #[tauri::command]
-pub async fn delete_group(state: State<'_, AppState>, id: i64) -> Result<(), String> {
-    write(&state, |db, _| groups::delete_group(db, id))
+pub async fn delete_group(state: State<'_, AppState>, id: i64) -> Result<Vec<RuleName>, String> {
+    write(&state, |db, _| names(db, groups::delete_group(db, id)?))
+}
+
+/// Action dont la pop-in montre ce qu'elle change aux règles de parents (réponses 3 et 5b du lot R5).
+#[derive(Debug, Deserialize)]
+#[serde(tag = "kind", rename_all = "camelCase")]
+pub enum Planned {
+    /// Interrupteur de fusion d'un nom.
+    Name { id: i64 },
+    /// Interrupteur du groupe (tout fusionner).
+    Group { id: i64 },
+    /// Création avec « Fusionner » allumé.
+    Create {
+        principal: i64,
+        names: Vec<String>,
+        #[serde(rename = "newTags")]
+        new_tags: Vec<NewTag>,
+    },
+    /// Changement de principal (étoile).
+    Principal { group: i64, name: i64 },
+}
+
+/// Joue l'action sans rien garder (transaction annulée) et renvoie ce qu'elle change aux règles.
+#[tauri::command]
+pub async fn rules_preview(state: State<'_, AppState>, planned: Planned) -> Result<Vec<RuleChange>, String> {
+    let mut conn = state.db.lock().unwrap();
+    let now = db::now_ms();
+    rule_moves::preview(&mut conn, |db| match &planned {
+        Planned::Name { id } => groups::merge(db, *id),
+        Planned::Group { id } => groups::set_group_merged(db, *id, true).map(|_| ()),
+        Planned::Create { principal, names, new_tags } => group_create::create(db, *principal, names, true, new_tags, now).map(|_| ()),
+        Planned::Principal { group, name } => groups::set_principal(db, *group, *name),
+    })
+    .map_err(|e| format!("{e:#}"))
 }
 
 /// Médias qui passeront à `name` s'il devient le principal (confirmation, D3.1).

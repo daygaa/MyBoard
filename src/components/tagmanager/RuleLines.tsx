@@ -1,11 +1,13 @@
 // Lignes des règles de parents (TAGM-16), communes à la page « Synonymes et parents » et aux petites listes
 // du tableau du gestionnaire : interrupteur (éteinte = en gris, refonte D10), « enfant → parent », nombre de
-// médias où le parent a été posé, corbeille. Clic droit (CTX-16) : les mêmes actions. Les groupes de
-// synonymes : GroupLine.tsx.
+// médias où le parent a été posé, corbeille. Clic droit (CTX-16) : les mêmes actions. Fusion (lot R5) : une
+// règle mise de côté est grise, son interrupteur grisé, avec une bulle ; une règle déplacée a le repère « = »,
+// sa règle d'origine au survol. Les groupes de synonymes : GroupLine.tsx.
 
-import { useState } from "react";
-import { ArrowRight, Trash2 } from "lucide-react";
+import { useState, type MouseEvent, type ReactNode } from "react";
+import { ArrowRight, Equal, Trash2 } from "lucide-react";
 
+import { HoverCard } from "@/components/ui/hover-card";
 import { Switch } from "@/components/ui/switch";
 import { useCategories } from "@/hooks/useCategories";
 import type { ManagedTag } from "@/lib/api";
@@ -57,37 +59,82 @@ function Trash({ label, onClick }: { label: string; onClick: () => void }) {
   );
 }
 
-export function ParentLine({ row, tagOf, showChild = true }: { row: ParentRow; tagOf: TagOf; showChild?: boolean }) {
+/** Bulle de MyBoard sous la ligne, au survol de `children`. */
+function Hint({ text, zone, children }: { text: string | null; zone: string; children: ReactNode }) {
+  const [anchor, setAnchor] = useState<DOMRect | null>(null);
+  const enter = (e: MouseEvent<HTMLElement>) => text && setAnchor(e.currentTarget.closest('[data-zone="regles.parent"]')?.getBoundingClientRect() ?? null);
+  return (
+    <span onMouseEnter={enter} onMouseLeave={() => setAnchor(null)} className="flex min-w-0 items-center gap-2">
+      {children}
+      {anchor && text && (
+        <HoverCard anchor={anchor} place="below" zone={zone}>
+          {text}
+        </HoverCard>
+      )}
+    </span>
+  );
+}
+
+/** Repère « = » d'une règle déplacée par une fusion (réponse 4 du lot R5, refonte D11.2). */
+function OriginMark({ text }: { text: string }) {
+  return (
+    <Hint text={text} zone="regles.parent.origine">
+      <span data-zone="regles.parent.egal" className="grid shrink-0 place-items-center text-muted-foreground">
+        <Equal className="h-3.5 w-3.5" />
+      </span>
+    </Hint>
+  );
+}
+
+/** `origin` : repère « = » des règles déplacées (seulement dans l'onglet « Synonymes et parents », réponse 4 du lot R5). */
+export function ParentLine({ row, tagOf, showChild = true, origin = true }: { row: ParentRow; tagOf: TagOf; showChild?: boolean; origin?: boolean }) {
   // Noms lus avec la règle tant que la liste des tags ne connaît pas un tag tout juste créé (retour T3, point TAGM-16.7).
   const names = (id: number) => tagOf(id)?.name ?? (id === row.childId ? row.childName : id === row.parentId ? row.parentName : "?");
   const [deleting, setDeleting] = useState(false);
   const [child, parent] = [displayTag(names(row.childId)), displayTag(names(row.parentId))];
+  // Mise de côté : elle ne pose rien pendant la fusion, son interrupteur est grisé (réponse 2 du lot R5).
+  const aside = row.aside ? `Mise de côté : « ${displayTag(row.aside.name)} » est fusionné dans « ${displayTag(row.aside.principal)} ». Elle reviendra à la défusion.` : null;
+  const from = (tag: string | null, now: string) => (tag ? `« ${displayTag(tag)} » est fusionné dans « ${now} »` : "");
+  const moved =
+    origin && (row.childFrom || row.parentFrom)
+      ? `Règle d'origine : « ${row.childFrom ? displayTag(row.childFrom) : child} » → « ${row.parentFrom ? displayTag(row.parentFrom) : parent} » (${[from(row.childFrom, child), from(row.parentFrom, parent)].filter(Boolean).join(", ")})`
+      : null;
+  // Le tag déplacé montre aussi la règle d'origine au survol.
+  const name = (id: number, fallback: string, wasMoved: boolean) => (
+    <Hint text={wasMoved && !aside ? moved : null} zone="regles.parent.origine">
+      <TagName tag={tagOf(id)} fallback={fallback} />
+    </Hint>
+  );
   return (
     <div
       data-zone="regles.parent"
       onContextMenu={(e) =>
         openContextMenu(e, () => [
-          { label: row.enabled ? "Désactiver la règle" : "Activer la règle", run: () => void toggleParent(row, names) },
+          { label: row.enabled ? "Désactiver la règle" : "Activer la règle", run: () => void toggleParent(row, names), disabled: aside !== null },
           "separator",
           { label: "Supprimer la règle…", danger: true, dialog: ({ onCancel, onDone }) => <ParentDeleteDialog row={row} nameOf={names} onCancel={onCancel} onDone={onDone} /> },
         ])
       }
-      className={cn(LINE, !row.enabled && "opacity-55")}
+      className={cn(LINE, (!row.enabled || aside) && "opacity-55")}
     >
-      <Switch
-        on={row.enabled}
-        onToggle={() => void toggleParent(row, names)}
-        zone="regles.interrupteur"
-        label={`Règle « ${child} » → « ${parent} »`}
-        title={row.enabled ? `Activée : chaque nouvel ajout de « ${child} » pose « ${parent} ».` : `Désactivée : les nouveaux ajouts de « ${child} » ne posent plus « ${parent} » ; rien n'est retiré.`}
-      />
-      {showChild && (
-        <>
-          <TagName tag={tagOf(row.childId)} fallback={row.childName} />
-          <ArrowRight className={ARROW} />
-        </>
-      )}
-      <TagName tag={tagOf(row.parentId)} fallback={row.parentName} />
+      <Hint text={aside} zone="regles.parent.mise-de-cote">
+        <Switch
+          on={row.enabled}
+          onToggle={() => void toggleParent(row, names)}
+          zone="regles.interrupteur"
+          disabled={aside !== null}
+          label={`Règle « ${child} » → « ${parent} »`}
+          title={aside ? undefined : row.enabled ? `Activée : chaque nouvel ajout de « ${child} » pose « ${parent} ».` : `Désactivée : les nouveaux ajouts de « ${child} » ne posent plus « ${parent} » ; rien n'est retiré.`}
+        />
+        {showChild && (
+          <>
+            {name(row.childId, row.childName, row.childFrom !== null)}
+            <ArrowRight className={ARROW} />
+          </>
+        )}
+        {name(row.parentId, row.parentName, row.parentFrom !== null)}
+      </Hint>
+      {moved && <OriginMark text={moved} />}
       <Count n={row.media} title={`« ${parent} » posé sur ${formatNumber(row.media)} ${plural(row.media, "média")} par cette règle`} />
       <Trash label="Supprimer la règle" onClick={() => setDeleting(true)} />
       {deleting && <ParentDeleteDialog row={row} nameOf={names} onCancel={() => setDeleting(false)} onDone={() => setDeleting(false)} />}

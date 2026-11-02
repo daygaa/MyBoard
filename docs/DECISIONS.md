@@ -1200,3 +1200,25 @@ retire (`remove_cascade`) et remet ceux qu'une autre règle justifie (`restore_j
 `browserKeys.ts` : Échap dans un champ (input, textarea, zone éditable) retire le focus, seulement si la pile d'Échap
 (`lib/escape.ts`) est vide et que rien n'a déjà traité la touche ; un appui multiple (`detail` ≥ 2) dans un `<label>`
 qui contient une case à cocher ne déclenche pas la sélection du texte (le clic, lui, coche toujours la case).
+
+**Complément du 02/11 (lot R5-1, schéma 11 ; retour T3, point TAGM-16.4).** Règles de parents et fusion
+(`rule_moves.rs`). Données : `tag_parents.child_from` / `parent_from` (tag d'origine d'une règle déplacée ; tag
+supprimé : NULL, la règle reste ordinaire) ; `tag_parent_media.moved_from` (note passée au principal par la fusion de ce
+tag). Fusion (`follow_merge`, appelée par `groups::merge_with` avant que les médias passent au principal) : une règle
+dont le tag est le parent est réécrite sur le principal sauf si elle deviendrait interne au groupe, un doublon ou une
+boucle ; celle dont il est l'enfant seulement si `extend` le dit (changement de principal pour l'ancien principal,
+réponse 5b ; case « Étendre » au lot R5-2) ; les autres restent telles quelles = **mises de côté** : aucune colonne, une
+règle qui cite un tag fusionné est ignorée par `Tagger` et `restore_justified` (`ASIDE`). Les notes des règles sur les
+médias où le principal vient de la fusion passent au principal (`moved_from`) ; là où le média l'avait déjà, elles
+restent sur le tag (Q.2) ; le déclencheur `parent_lists_tag_removed` ne joue plus pour un tag fusionné (il effaçait les
+notes des règles mises de côté) ; `remove_cascade` s'arrête sur un tag fusionné. Les médias reçoivent le principal par un
+`INSERT` simple (sans ses parents). Une règle déplacée qui pose le principal pendant la fusion note le média sous le nom
+fusionné (`Tagger::note_merged`, réponse 1). Défusion (`follow_unmerge`, avant que le tag soit rendu) : règles remises,
+sauf doublon ou boucle (restent sur le principal, ordinaires, renvoyées pour le badge, réponse 5d) ; notes remises sur le
+tag. `set_principal` défait toutes les fusions (même sans média), refait les noms avec leurs règles étendues, et
+l'ancien principal avec toutes ses règles (réponse 5b). Ancienne fusion de l'onglet « Tags » sans « Garder les anciens
+noms » : `adopt` passe pour de bon les règles restantes au principal avant la suppression (comme avant R5 ; revue au lot
+R6). Pop-ins : `rules_preview` joue l'action dans une transaction annulée et compare les règles (réécrite, mise de côté
+avec la raison doublon / boucle, plus mise de côté) ; `RuleAsk.rules` (bloc sous un trait, `RuleAskHost`). Lignes :
+`ParentRow.childFrom` / `parentFrom` / `aside` ; `ParentLine` (bulles `HoverCard`, `origin` : repère seulement dans
+l'onglet « Synonymes et parents »).

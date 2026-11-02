@@ -144,8 +144,9 @@ fn paths(db: &Connection, start: i64, up: bool) -> rusqlite::Result<Vec<Vec<i64>
 
 pub fn delete_check(db: &Connection, id: i64) -> rusqlite::Result<DeleteCheck> {
     let Some((child, parent)) = rule_of(db, id)? else { return Ok(DeleteCheck { media: 0, chains: Vec::new() }) };
+    // Une note passée au principal par une fusion compte encore pour la règle (lot R5).
     let media = db.query_row(
-        "SELECT COUNT(DISTINCT media_id) FROM tag_parent_media WHERE rule_id = ?1 AND tag_id = ?2",
+        "SELECT COUNT(DISTINCT media_id) FROM tag_parent_media WHERE rule_id = ?1 AND (tag_id = ?2 OR moved_from = ?2)",
         params![id, parent],
         |r| r.get(0),
     )?;
@@ -191,8 +192,12 @@ pub fn tag_chains(db: &Connection, tag: i64) -> rusqlite::Result<Vec<Chain>> {
 /// Corbeille : la règle est oubliée ; avec `remove`, les tags qu'elle a posés sont retirés de ces médias, avec
 /// ce qu'ils avaient apporté en chaîne, puis ceux qu'une autre règle allumée justifie encore sont remis.
 pub fn delete(db: &Connection, id: i64, remove: bool) -> anyhow::Result<()> {
+    // Une note restée sur un tag fusionné (le média avait déjà le principal) : rien à retirer pendant la fusion.
     let pairs = if remove {
-        db.prepare_cached("SELECT media_id, tag_id FROM tag_parent_media WHERE rule_id = ?1")?
+        db.prepare_cached(
+            "SELECT media_id, tag_id FROM tag_parent_media WHERE rule_id = ?1
+              AND NOT EXISTS (SELECT 1 FROM tag_group_names n WHERE n.tag_id = tag_parent_media.tag_id AND n.merged = 1)",
+        )?
             .query_map([id], |r| Ok((r.get(0)?, r.get(1)?)))?
             .collect::<rusqlite::Result<Vec<(i64, i64)>>>()?
     } else {
@@ -204,23 +209,5 @@ pub fn delete(db: &Connection, id: i64, remove: bool) -> anyhow::Result<()> {
         removed.extend(remove_cascade(db, media, tag)?);
     }
     restore_justified(db, &removed)?;
-    Ok(())
-}
-
-/// Fusion du tag `source` dans `target` (TAGM-04, TAGM-15) : ses règles passent à `target`, sauf
-/// celles qui deviendraient inutiles (règle déjà présente, tag parent de lui-même) ou feraient une
-/// boucle : elles disparaissent avec `source`.
-pub fn move_rules(db: &Connection, source: i64, target: i64) -> rusqlite::Result<()> {
-    let mut stmt = db.prepare("SELECT id, child_id, parent_id FROM tag_parents WHERE child_id = ?1 OR parent_id = ?1")?;
-    let rules = stmt.query_map([source], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, i64>(1)?, r.get::<_, i64>(2)?)))?.collect::<rusqlite::Result<Vec<_>>>()?;
-    for (id, child, parent) in rules {
-        let (child, parent) = (if child == source { target } else { child }, if parent == source { target } else { parent });
-        let exists: bool = db.query_row("SELECT EXISTS(SELECT 1 FROM tag_parents WHERE child_id = ?1 AND parent_id = ?2)", params![child, parent], |r| r.get(0))?;
-        if child == parent || exists || reaches(db, parent, child)? {
-            continue;
-        }
-        db.execute("UPDATE tag_parents SET child_id = ?1, parent_id = ?2 WHERE id = ?3", params![child, parent, id])?;
-    }
-    db.execute("UPDATE OR IGNORE tag_parent_media SET tag_id = ?2 WHERE tag_id = ?1", params![source, target])?;
     Ok(())
 }

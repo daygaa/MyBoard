@@ -17,6 +17,7 @@ const MIGRATIONS: &[&str] = &[
     include_str!("schema_v8.sql"),
     include_str!("schema_v9.sql"),
     include_str!("schema_v10.sql"),
+    include_str!("schema_v11.sql"),
 ];
 
 /// Ouvre une connexion avec les réglages communs à toute l'application.

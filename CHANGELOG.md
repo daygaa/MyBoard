@@ -3,6 +3,40 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Règles de parents et fusion des synonymes, lot R5-1 (02/11/2026) — Backup v84
+
+SPEC : livré `[~]` : TAGM-16 (retour T3, point TAGM-16.4 ; refonte TAGM-20, lot R5-1). Schéma 11.
+
+- **Fusion d'un synonyme** (exemple : ★« chat » = « kitty ») : une règle dont « kitty » est le parent (« chaton » →
+  « kitty ») devient « chaton » → « chat » le temps de la fusion, et revient à la défusion. Les autres règles qui citent
+  « kitty » sont **mises de côté** : elles restent telles quelles et ne posent rien pendant la fusion (« kitty » →
+  « mignon », « kitty » → « chat », un doublon, une boucle), puis remarchent à la défusion.
+- **Pop-in de fusion** : sous le texte des médias, « Règles de parents : » et une ligne par règle touchée
+  (« … deviendra … », « … sera mise de côté pendant la fusion », avec « (… existe déjà) » ou « (elle ferait une
+  boucle) »), puis « Désactiver la fusion ramènera ces règles. » ; elle s'ouvre aussi pour un tag sans média s'il a des
+  règles. Mêmes lignes pour l'interrupteur du groupe et la création avec « Fusionner ».
+- **Médias** : à la fusion, les médias de « kitty » reçoivent « chat » sans les parents de « chat » (case « Étendre »
+  décochée ; la case viendra au lot R5-2). Un média où une règle déplacée a posé « chat » pendant la fusion retrouve
+  « kitty » à la défusion (et perd « chat » s'il ne l'avait pas par ailleurs).
+- **Liste des règles** : une règle déplacée a un « = » gris après elle ; au survol de l'icône ou du tag déplacé, « Règle
+  d'origine : … ». Une règle mise de côté est grise, son interrupteur grisé (aussi dans le menu du clic droit), avec la
+  bulle « Mise de côté : « kitty » est fusionné dans « chat ». Elle reviendra à la défusion. ».
+- **Changer de principal** : la pop-in liste les règles réécrites ; les règles de l'ancien principal passent au nouveau.
+- **Supprimer un tag fusionné** : les règles déplacées restent sur le principal, ordinaires ; les règles mises de côté
+  partent avec lui. **Défusion impossible pour une règle** (elle ferait une boucle avec une règle créée pendant la
+  fusion) : elle reste sur le principal, un badge le dit.
+
+Vérifié dans la version compilée, sur des copies de la base d'essai `refonte` (cas d'essai `r5_…`) : pop-ins de fusion
+(nom, groupe entier, tag sans média) et de changement de principal, textes et résultat en base ; FP-01 (règle déplacée
+puis revenue), FP-03 (médias du tag sans les parents du principal), FP-04 (doublon mis de côté), FP-05 (boucle mise de
+côté), FP-06 (règle éteinte : déplacée et revenue éteinte), FP-08 (fusion puis défusion : base identique à avant) ;
+pendant la fusion, une règle déplacée pose « chat » et le média retrouve « kitty » à la défusion, une règle mise de côté
+ne pose rien ; réponses 5a, 5b, 5c, 5d ; lignes, bulles et menu du clic droit ; aperçus sans effet sur la base ;
+ancienne fusion de l'onglet « Tags » sans « Garder les anciens noms » (règle passée au principal comme avant) ; zéro
+erreur `tsc` et `clippy`. Un défaut trouvé pendant la vérification (défusion refusée : comparaison SQL avec une valeur
+vide) a été corrigé avant la livraison. **Non vérifié par l'interface** : la création d'un groupe avec « Fusionner »
+(aperçu vérifié par appel direct) et la colonne « Synonymes » du tableau des tags (même code que l'onglet).
+
 ## Échap dans les champs, double clic sur le texte des cases, « des chaînes » (02/11/2026) — Backup v83
 
 SPEC : livrés `[~]` : GEN-27 (nouveau ; retour T3, point AUT.27), GEN-17 (point AUT.28), TAGM-16 (point TAGM-16.11).

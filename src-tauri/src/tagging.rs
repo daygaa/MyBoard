@@ -46,29 +46,44 @@ pub fn resolve_or_create(db: &Connection, tag: &NewTag, now: i64) -> anyhow::Res
     Ok(Some(Target { tag_id: db.last_insert_rowid(), name_id: None }))
 }
 
-/// Une règle « enfant → parent ». `active` : allumée (D-047).
+/// Une règle « enfant → parent ». `active` : allumée (D-047) et pas mise de côté par une fusion (lot R5) ; `merged` :
+/// nom fusionné d'où vient son parent (règle déplacée) : un média où elle pose le principal est noté sous ce nom,
+/// comme si on l'avait tapé (la défusion le lui rendra, réponse 1 du lot R5).
 #[derive(Clone, Copy)]
 struct Rule {
     id: i64,
     parent: i64,
     active: bool,
+    merged: Option<i64>,
 }
+
+/// Une règle qui cite un tag fusionné est mise de côté : elle ne pose rien pendant la fusion (lot R5).
+const ASIDE: &str = "EXISTS (SELECT 1 FROM tag_group_names n WHERE n.merged = 1 AND n.tag_id IN (p.child_id, p.parent_id))";
 
 /// Règles de parents lues une fois, pour une série d'ajouts dans la même transaction.
 pub struct Tagger {
     by_child: HashMap<i64, Vec<Rule>>,
+    merged: HashMap<i64, i64>,
 }
 
 impl Tagger {
     pub fn load(db: &Connection) -> rusqlite::Result<Self> {
         let mut by_child: HashMap<i64, Vec<Rule>> = HashMap::new();
-        let mut stmt = db.prepare("SELECT id, child_id, parent_id, enabled = 1 FROM tag_parents")?;
-        let rows = stmt.query_map([], |r| Ok((r.get::<_, i64>(1)?, Rule { id: r.get(0)?, parent: r.get(2)?, active: r.get(3)? })))?;
+        let mut merged = HashMap::new();
+        let mut stmt = db.prepare(&format!(
+            "SELECT p.id, p.child_id, p.parent_id, p.enabled = 1 AND NOT {ASIDE},
+                    (SELECT n.id FROM tag_group_names n WHERE n.tag_id = p.parent_from AND n.merged = 1)
+               FROM tag_parents p"
+        ))?;
+        let rows = stmt.query_map([], |r| Ok((r.get::<_, i64>(1)?, Rule { id: r.get(0)?, parent: r.get(2)?, active: r.get(3)?, merged: r.get(4)? })))?;
         for row in rows {
             let (child, rule) = row?;
+            if let Some(name) = rule.merged {
+                merged.insert(rule.id, name);
+            }
             by_child.entry(child).or_default().push(rule);
         }
-        Ok(Self { by_child })
+        Ok(Self { by_child, merged })
     }
 
     /// Le tag a-t-il des règles de parents (allumées ou non) ? Sans règle ni synonyme, un ajout groupé
@@ -91,7 +106,18 @@ impl Tagger {
     /// Applique une règle à un média qui porte son enfant (création avec sa case, parent remis par
     /// `restore_justified`).
     pub fn apply_rule(&self, db: &Connection, rule: i64, parent: i64, media: i64) -> rusqlite::Result<bool> {
-        self.put(db, media, parent, &mut vec![rule])
+        let added = self.put(db, media, parent, &mut vec![rule])?;
+        self.note_merged(db, rule, media, added)?;
+        Ok(added)
+    }
+
+    /// Règle déplacée qui vient de poser (ou trouver) le principal : le média est noté sous le nom fusionné.
+    fn note_merged(&self, db: &Connection, rule: i64, media: i64, added: bool) -> rusqlite::Result<()> {
+        if let Some(name) = self.merged.get(&rule) {
+            db.prepare_cached("INSERT OR IGNORE INTO tag_group_media (name_id, media_id, had_principal) VALUES (?1, ?2, ?3)")?
+                .execute(params![name, media, !added])?;
+        }
+        Ok(())
     }
 
     /// Pose `tag` ; s'il est nouveau, le note sous les règles `via` qui y ont conduit, puis suit ses
@@ -115,8 +141,9 @@ impl Tagger {
             // Règle éteinte : rien n'est posé, et rien ne sera rattrapé en la rallumant (D-047).
             if rule.active {
                 via.push(rule.id);
-                self.put(db, media, rule.parent, via)?;
+                let added = self.put(db, media, rule.parent, via)?;
                 via.pop();
+                self.note_merged(db, rule.id, media, added)?;
             }
         }
         Ok(true)
@@ -132,7 +159,8 @@ pub fn remove_cascade(db: &Connection, media: i64, tag: i64) -> rusqlite::Result
     let mut seen = HashSet::new();
     let mut todo = vec![tag];
     while let Some(t) = todo.pop() {
-        if !seen.insert(t) {
+        // Un tag fusionné n'est sur aucun média : ses notes attendent la défusion (lot R5).
+        if !seen.insert(t) || is_merged(db, t)? {
             continue;
         }
         let mut stmt = db.prepare_cached(
@@ -147,6 +175,10 @@ pub fn remove_cascade(db: &Connection, media: i64, tag: i64) -> rusqlite::Result
         todo.extend(given);
     }
     Ok(removed)
+}
+
+fn is_merged(db: &Connection, tag: i64) -> rusqlite::Result<bool> {
+    db.prepare_cached("SELECT EXISTS(SELECT 1 FROM tag_group_names WHERE tag_id = ?1 AND merged = 1)")?.query_row([tag], |r| r.get(0))
 }
 
 /// Après le retrait de tags posés par une règle (supprimée avec sa case de retrait, fusion défaite) :
@@ -164,8 +196,10 @@ pub fn restore_justified(db: &Connection, removed: &[(i64, i64)]) -> rusqlite::R
             }
             let rule: Option<i64> = db
                 .prepare_cached(
-                    "SELECT r.id FROM tag_parents r JOIN media_tags c ON c.media_id = ?1 AND c.tag_id = r.child_id
-                     WHERE r.parent_id = ?2 AND r.enabled = 1 LIMIT 1",
+                    &format!(
+                        "SELECT p.id FROM tag_parents p JOIN media_tags c ON c.media_id = ?1 AND c.tag_id = p.child_id
+                          WHERE p.parent_id = ?2 AND p.enabled = 1 AND NOT {ASIDE} LIMIT 1"
+                    ),
                 )?
                 .query_row(params![media, tag], |r| r.get(0))
                 .optional()?;

@@ -5,6 +5,7 @@
 use rusqlite::{Connection, OptionalExtension, params};
 
 use crate::groups::{add_linked, group_of_tag, ids, merge, principal, tag_named, unmerge};
+use crate::rule_moves::adopt;
 use crate::tagging::resolve_or_create;
 use crate::tags::{NewTag, normalize};
 
@@ -95,6 +96,8 @@ pub fn merge_tag(db: &Connection, source: i64, target: i64, keep: bool, now: i64
         merge(db, row)?;
     }
     if !keep {
+        let chief = group_of_tag(db, target)?.map(|g| principal(db, g)).transpose()?.unwrap_or(target);
+        adopt(db, source, chief)?;
         db.execute("DELETE FROM tags WHERE id = ?1", [source])?;
     }
     Ok(())

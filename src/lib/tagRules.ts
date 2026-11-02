@@ -15,11 +15,13 @@ import { runTagAction as runAction } from "./tagManager";
 import { displayTag } from "./tags";
 
 /** Pop-in de confirmation en attente ; `lead` : première ligne mise en avant ; `option` : case à cocher (cochée
- *  par défaut) passée à `run` ; `done` : réponse de l'utilisateur (confirmé ou annulé). */
+ *  par défaut) passée à `run` ; `rules` : lignes « Règles de parents » sous un trait (fusion, lot R5) ; `done` :
+ *  réponse de l'utilisateur (confirmé ou annulé). */
 export type RuleAsk = {
   title: string;
   lead?: string;
   message: string;
+  rules?: { lines: string[]; end?: string };
   confirmLabel: string;
   danger?: boolean;
   option?: string;
