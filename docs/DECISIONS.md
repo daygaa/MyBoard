@@ -1241,4 +1241,4 @@ les lignes de règles, toujours. `mergeRules.askAgain` : une pop-in avec une cas
 case, elle ne s'ouvre pas si tous les tags fusionnés ont déjà eu la leur, confirmée, pendant la visite (`shown`, remis à
 zéro au changement d'onglet du gestionnaire ; une réunion de groupes s'ouvre toujours). Plus de choix retenus : les
 cases sont décochées à chaque ouverture. Bulles Windows (`title` du `<label>` de la case). Réglage « toujours afficher
-les pop-ins » : FUT-12.
+les pop-ins » : SET-16.

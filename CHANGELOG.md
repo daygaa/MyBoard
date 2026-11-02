@@ -5,7 +5,7 @@ La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
 ## Bulles des cases « Étendre », pop-in de fusion complète (02/11/2026) — Backup v86
 
-SPEC : livré `[~]` : TAGM-16 (retour T3, point TAGM-16.4, retouche de R5-2) ; nouvel ID FUT-12 (réglage futur).
+SPEC : livré `[~]` : TAGM-16 (retour T3, point TAGM-16.4, retouche de R5-2) ; nouvel ID SET-16 (réglage futur).
 
 - **Bulles Windows** au survol des cases « Étendre » (case et texte) : « « kitty » sera fusionné dans « chat », donc
   vous pouvez décider que la règle parent « chat » → « animal » s'y applique rétroactivement, cela sera annulé si vous
