@@ -64,6 +64,8 @@ const ASIDE: &str = "EXISTS (SELECT 1 FROM tag_group_names n WHERE n.merged = 1 
 pub struct Tagger {
     by_child: HashMap<i64, Vec<Rule>>,
     merged: HashMap<i64, i64>,
+    /// Règles étendues à tout le groupe pendant une fusion (D11.3) : le tag fusionné, marqué sur leurs notes.
+    extended: HashMap<i64, i64>,
 }
 
 impl Tagger {
@@ -72,18 +74,23 @@ impl Tagger {
         let mut merged = HashMap::new();
         let mut stmt = db.prepare(&format!(
             "SELECT p.id, p.child_id, p.parent_id, p.enabled = 1 AND NOT {ASIDE},
-                    (SELECT n.id FROM tag_group_names n WHERE n.tag_id = p.parent_from AND n.merged = 1)
+                    (SELECT n.id FROM tag_group_names n WHERE n.tag_id = p.parent_from AND n.merged = 1),
+                    (SELECT n.tag_id FROM tag_group_names n WHERE n.tag_id = p.child_from AND n.merged = 1)
                FROM tag_parents p"
         ))?;
-        let rows = stmt.query_map([], |r| Ok((r.get::<_, i64>(1)?, Rule { id: r.get(0)?, parent: r.get(2)?, active: r.get(3)?, merged: r.get(4)? })))?;
+        let mut extended = HashMap::new();
+        let rows = stmt.query_map([], |r| Ok((r.get::<_, i64>(1)?, Rule { id: r.get(0)?, parent: r.get(2)?, active: r.get(3)?, merged: r.get(4)? }, r.get::<_, Option<i64>>(5)?)))?;
         for row in rows {
-            let (child, rule) = row?;
+            let (child, rule, from) = row?;
             if let Some(name) = rule.merged {
                 merged.insert(rule.id, name);
             }
+            if let Some(tag) = from {
+                extended.insert(rule.id, tag);
+            }
             by_child.entry(child).or_default().push(rule);
         }
-        Ok(Self { by_child, merged })
+        Ok(Self { by_child, merged, extended })
     }
 
     /// Le tag a-t-il des règles de parents (allumées ou non) ? Sans règle ni synonyme, un ajout groupé
@@ -129,8 +136,8 @@ impl Tagger {
             return Ok(false);
         }
         for rule in via.iter() {
-            db.prepare_cached("INSERT OR IGNORE INTO tag_parent_media (rule_id, media_id, tag_id) VALUES (?1, ?2, ?3)")?
-                .execute(params![rule, media, tag])?;
+            db.prepare_cached("INSERT OR IGNORE INTO tag_parent_media (rule_id, media_id, tag_id, extended) VALUES (?1, ?2, ?3, ?4)")?
+                .execute(params![rule, media, tag, self.extended.get(rule)])?;
         }
         let Some(rules) = self.by_child.get(&tag) else { return Ok(true) };
         for rule in rules {

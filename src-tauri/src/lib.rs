@@ -20,6 +20,7 @@ pub mod parents;
 pub mod paths;
 pub mod reserve;
 pub mod rule_moves;
+pub mod rule_preview;
 pub mod scope;
 pub mod search;
 pub mod selection;

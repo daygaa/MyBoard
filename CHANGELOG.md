@@ -3,6 +3,32 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Case « Étendre » et pop-in une fois par visite, lot R5-2 (02/11/2026) — Backup v85
+
+SPEC : livrés `[~]` : TAGM-16 (retour T3, points TAGM-16.4 et TAGM-16.12, nouveau ; refonte TAGM-20, lot R5-2). Schéma 12.
+
+- **Case « Étendre »** dans la pop-in de fusion, décochée, sous chaque règle qui peut s'étendre (exemple : ★« chat » =
+  « kitty ») : sous « « kitty » → « mignon » sera mise de côté pendant la fusion. », « Étendre à tout le groupe
+  (+N médias) » : cochée, la ligne devient « … deviendra « chat » → « mignon ». », « mignon » est posé aux médias de
+  « chat » qui ne l'ont pas, puis à chaque nouvel ajout de « chat » ; sous « « chat » → « animal » », « Étendre aux
+  médias de « kitty » (+N médias) » : les médias de « kitty » reçoivent aussi « animal ». À la défusion, tout ce que
+  l'extension a posé est retiré.
+- **Une fois par visite** : une règle déjà montrée dans une pop-in de fusion pendant la visite de l'onglet n'y revient
+  pas ; son dernier choix « Étendre » s'applique ; un tag sans média dont toutes les règles ont été montrées se
+  fusionne sans pop-in. Passer sur l'autre onglet du gestionnaire ou le quitter commence une nouvelle visite.
+- **Liste des règles** : l'icône de suppression d'une règle mise de côté n'est plus grisée.
+
+Vérifié dans la version compilée, sur une copie de la base d'essai `refonte` (cas `r5_…`) : FP-02 et FP-03 cases
+cochées (règle étendue, « mignon » posé sur les 2 médias annoncés, puis sur un média qui reçoit « chat » pendant la
+fusion ; « animal » posé sur le média annoncé), défusion (tout ce que l'extension a posé est retiré, les médias
+retrouvent leurs tags d'origine), refusion dans la même visite (pas de lignes de règles, choix retenu, coché ou non),
+nouvelle visite après un passage par l'onglet « Tags » (les lignes reviennent), tag sans média (2e fusion sans pop-in),
+deux changements de principal avec une règle étendue puis défusion (médias identiques au départ) ; icône de suppression
+mesurée (règle mise de côté : nette ; règle éteinte : grisée comme avant) ; zéro erreur `tsc` et `clippy`. Un point de
+logique corrigé avant la livraison : la défusion gardait les tags de l'extension sur les médias qui retrouvent
+« kitty ». **Non vérifié par l'interface** : les cases dans la pop-in de création avec « Fusionner » et dans la colonne
+« Synonymes » du tableau des tags (même pop-in, même code).
+
 ## Règles de parents et fusion des synonymes, lot R5-1 (02/11/2026) — Backup v84
 
 SPEC : livré `[~]` : TAGM-16 (retour T3, point TAGM-16.4 ; refonte TAGM-20, lot R5-1). Schéma 11.

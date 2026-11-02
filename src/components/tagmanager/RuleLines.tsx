@@ -36,15 +36,15 @@ export function TagName({ tag, fallback }: { tag: ManagedTag | undefined; fallba
   );
 }
 
-function Count({ n, title }: { n: number; title: string }) {
+function Count({ n, title, dim }: { n: number; title: string; dim: boolean }) {
   return (
-    <span className="ml-auto shrink-0 pl-1 text-xs text-muted-foreground tabular-nums" title={n > 0 ? title : undefined}>
+    <span className={cn("ml-auto shrink-0 pl-1 text-xs text-muted-foreground tabular-nums", dim && "opacity-55")} title={n > 0 ? title : undefined}>
       {n > 0 ? formatNumber(n) : ""}
     </span>
   );
 }
 
-function Trash({ label, onClick }: { label: string; onClick: () => void }) {
+function Trash({ label, onClick, dim }: { label: string; onClick: () => void; dim: boolean }) {
   return (
     <button
       type="button"
@@ -52,7 +52,7 @@ function Trash({ label, onClick }: { label: string; onClick: () => void }) {
       onClick={onClick}
       aria-label={label}
       title={label}
-      className="grid h-6 w-6 shrink-0 place-items-center rounded text-muted-foreground transition hover:bg-secondary hover:text-rose-400"
+      className={cn("grid h-6 w-6 shrink-0 place-items-center rounded text-muted-foreground transition hover:bg-secondary hover:text-rose-400", dim && "opacity-55")}
     >
       <Trash2 className="h-3.5 w-3.5" />
     </button>
@@ -60,11 +60,11 @@ function Trash({ label, onClick }: { label: string; onClick: () => void }) {
 }
 
 /** Bulle de MyBoard sous la ligne, au survol de `children`. */
-function Hint({ text, zone, children }: { text: string | null; zone: string; children: ReactNode }) {
+function Hint({ text, zone, dim = false, children }: { text: string | null; zone: string; dim?: boolean; children: ReactNode }) {
   const [anchor, setAnchor] = useState<DOMRect | null>(null);
   const enter = (e: MouseEvent<HTMLElement>) => text && setAnchor(e.currentTarget.closest('[data-zone="regles.parent"]')?.getBoundingClientRect() ?? null);
   return (
-    <span onMouseEnter={enter} onMouseLeave={() => setAnchor(null)} className="flex min-w-0 items-center gap-2">
+    <span onMouseEnter={enter} onMouseLeave={() => setAnchor(null)} className={cn("flex min-w-0 items-center gap-2", dim && "opacity-55")}>
       {children}
       {anchor && text && (
         <HoverCard anchor={anchor} place="below" zone={zone}>
@@ -76,9 +76,9 @@ function Hint({ text, zone, children }: { text: string | null; zone: string; chi
 }
 
 /** Repère « = » d'une règle déplacée par une fusion (réponse 4 du lot R5, refonte D11.2). */
-function OriginMark({ text }: { text: string }) {
+function OriginMark({ text, dim }: { text: string; dim: boolean }) {
   return (
-    <Hint text={text} zone="regles.parent.origine">
+    <Hint text={text} zone="regles.parent.origine" dim={dim}>
       <span data-zone="regles.parent.egal" className="grid shrink-0 place-items-center text-muted-foreground">
         <Equal className="h-3.5 w-3.5" />
       </span>
@@ -93,6 +93,9 @@ export function ParentLine({ row, tagOf, showChild = true, origin = true }: { ro
   const [deleting, setDeleting] = useState(false);
   const [child, parent] = [displayTag(names(row.childId)), displayTag(names(row.parentId))];
   // Mise de côté : elle ne pose rien pendant la fusion, son interrupteur est grisé (réponse 2 du lot R5).
+  // Éteinte ou mise de côté : la ligne en gris ; l'icône de suppression d'une règle mise de côté reste nette, la
+  // suppression restant possible (retour du 02/11 sur le lot R5-1).
+  const dim = !row.enabled || row.aside !== null;
   const aside = row.aside ? `Mise de côté : « ${displayTag(row.aside.name)} » est fusionné dans « ${displayTag(row.aside.principal)} ». Elle reviendra à la défusion.` : null;
   const from = (tag: string | null, now: string) => (tag ? `« ${displayTag(tag)} » est fusionné dans « ${now} »` : "");
   const moved =
@@ -115,9 +118,9 @@ export function ParentLine({ row, tagOf, showChild = true, origin = true }: { ro
           { label: "Supprimer la règle…", danger: true, dialog: ({ onCancel, onDone }) => <ParentDeleteDialog row={row} nameOf={names} onCancel={onCancel} onDone={onDone} /> },
         ])
       }
-      className={cn(LINE, (!row.enabled || aside) && "opacity-55")}
+      className={LINE}
     >
-      <Hint text={aside} zone="regles.parent.mise-de-cote">
+      <Hint text={aside} zone="regles.parent.mise-de-cote" dim={dim}>
         <Switch
           on={row.enabled}
           onToggle={() => void toggleParent(row, names)}
@@ -134,9 +137,9 @@ export function ParentLine({ row, tagOf, showChild = true, origin = true }: { ro
         )}
         {name(row.parentId, row.parentName, row.parentFrom !== null)}
       </Hint>
-      {moved && <OriginMark text={moved} />}
-      <Count n={row.media} title={`« ${parent} » posé sur ${formatNumber(row.media)} ${plural(row.media, "média")} par cette règle`} />
-      <Trash label="Supprimer la règle" onClick={() => setDeleting(true)} />
+      {moved && <OriginMark text={moved} dim={dim} />}
+      <Count dim={dim} n={row.media} title={`« ${parent} » posé sur ${formatNumber(row.media)} ${plural(row.media, "média")} par cette règle`} />
+      <Trash label="Supprimer la règle" onClick={() => setDeleting(true)} dim={!row.enabled && !aside} />
       {deleting && <ParentDeleteDialog row={row} nameOf={names} onCancel={() => setDeleting(false)} onDone={() => setDeleting(false)} />}
     </div>
   );

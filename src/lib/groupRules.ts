@@ -1,45 +1,15 @@
 // Actions des groupes de synonymes (TAGM-15, refonte TAGM-20, D-047), communes à la page « Synonymes et
 // parents » : création, interrupteurs de fusion (par nom et pour le groupe), changement de principal, retrait
 // d'un nom, suppression du groupe. Pop-in de confirmation quand des médias ou des règles de parents vont changer
-// (texte du point TAGM-15.7 du retour T3 ; règles : réponse 3 du lot R5), puis relecture des tags et badge bref.
+// (texte du point TAGM-15.7 du retour T3 ; règles : `mergeRules.ts`), puis relecture des tags et badge bref.
 // Défaire une fusion n'a pas de confirmation : la refaire la rétablit (GEN-21).
 
 import { showGridBadge } from "@/stores/badge";
 import type { NewTag } from "./api";
-import { whileBusy } from "./busy";
-import { formatNumber, plural } from "./format";
-import { rulesApi, type GroupPreview, type GroupRow, type NameRow, type PlannedChange, type RuleChange, type RuleName } from "./rulesApi";
+import { plural } from "./format";
+import { chosen, mergeRules, unmergedBadge } from "./mergeRules";
+import { rulesApi, type GroupPreview, type GroupRow, type NameRow } from "./rulesApi";
 import { ask, media, q, runTagAction } from "./tagRules";
-
-/** Dernière ligne des règles d'une pop-in de fusion. */
-const BACK = "Désactiver la fusion ramènera ces règles.";
-
-/** Une ligne « Règles de parents » (réponse 3 du lot R5) : règle réécrite, mise de côté (doublon ou boucle
- *  expliqués ; une règle interne au groupe, ou dont le tag fusionné est l'enfant, se comprend seule), ou qui ne
- *  l'est plus (changement de principal). */
-function ruleLine(c: RuleChange): string {
-  const rule = `${q(c.child)} → ${q(c.parent)}`;
-  const other = `${q(c.newChild ?? "")} → ${q(c.newParent ?? "")}`;
-  if (c.kind === "moved") return `${rule} deviendra ${other}.`;
-  if (c.kind === "back") return `${rule} ne sera plus mise de côté.`;
-  const why = c.reason === "duplicate" ? ` (${other} existe déjà)` : c.reason === "loop" ? " (elle ferait une boucle)" : "";
-  return `${rule} sera mise de côté pendant la fusion${why}.`;
-}
-
-/** Ce que l'action changera aux règles, d'après le cœur Rust (l'action jouée sans rien garder). */
-async function ruleLines(planned: PlannedChange, end?: string) {
-  const changes = await whileBusy(() => rulesApi.rulesPreview(planned)).catch(() => [] as RuleChange[]);
-  return { lines: changes.map(ruleLine), end };
-}
-
-/** Badge d'une défusion : une règle qui ne peut pas revenir (elle ferait une boucle) reste sur le principal
- *  (réponse 5d du lot R5) ; sinon `otherwise`. Rien si l'action a échoué (le message d'erreur est déjà là). */
-function unmergedBadge(stayed: RuleName[] | undefined, otherwise?: string) {
-  if (stayed === undefined) return;
-  if (stayed.length === 1) showGridBadge(`La règle ${q(stayed[0].child)} → ${q(stayed[0].parent)} reste ainsi : la ramener ferait une boucle.`);
-  else if (stayed.length > 1) showGridBadge(`${formatNumber(stayed.length)} règles restent sur le tag principal : les ramener ferait une boucle.`);
-  else if (otherwise) showGridBadge(otherwise);
-}
 
 /** Noms qui seront fusionnés : un bloc pour chacun de ceux qui ont des médias (retour T3, point TAGM-15.7), puis
  *  une ligne pour ceux qui n'en ont pas, fusionnés eux aussi (retouches de R3). */
@@ -72,26 +42,26 @@ function joinText(joined: string[], principal: string, preview: GroupPreview): s
 export async function createGroup(principal: { id: number; name: string }, names: string[], merge: boolean, preview: GroupPreview | undefined, newTags: NewTag[], onCreated: () => void, confirmJoin = false) {
   // Le badge compte les noms vraiment ajoutés (un nom déjà dans le groupe est ignoré).
   const count = preview ? preview.added.length : names.length;
-  const run = async () => {
+  const run = async (extend: number[]) => {
     const done = await runTagAction("Créer les synonymes", async () => {
-      const id = await rulesApi.createGroup(principal.id, names, merge, newTags);
+      const id = await rulesApi.createGroup(principal.id, names, merge, newTags, extend);
       onCreated();
       return id;
     });
     if (done !== undefined) showGridBadge(`${q(principal.name)} : ${count} ${plural(count, "synonyme")}`);
     return done !== undefined;
   };
-  const rules = merge && names.length > 0 ? await ruleLines({ kind: "create", principal: principal.id, names, newTags }, BACK) : undefined;
+  const plan = merge && names.length > 0 ? await mergeRules({ kind: "create", principal: principal.id, names, newTags }) : undefined;
   // Des règles changent : la pop-in s'ouvre, même si aucun nom fusionné n'a de média.
-  const merging = (merge ? (preview?.added ?? []) : []).some((n) => n.media > 0) || (rules?.lines.length ?? 0) > 0;
+  const merging = (merge ? (preview?.added ?? []) : []).some((n) => n.media > 0) || (plan?.rules.lines.length ?? 0) > 0;
   const joined = confirmJoin && preview ? preview.joined : [];
-  if (!merging && joined.length === 0) return run();
+  if (!merging && joined.length === 0) return run(plan?.remembered ?? []);
   const message = [
     joined.length > 0 && preview ? joinText(joined, principal.name, preview) : "",
     merging && preview ? mergeText(preview.added, principal.name) : "",
   ].filter(Boolean).join("\n\n");
   const title = joined.length > 0 ? "Réunir les groupes ?" : count > 1 ? "Créer les synonymes ?" : "Créer le synonyme ?";
-  return ask({ title, message, rules, confirmLabel: joined.length > 0 ? "Réunir" : "Créer", run });
+  return ask({ title, message, rules: plan?.rules, confirmLabel: joined.length > 0 ? "Réunir" : "Créer", run: (_, checked) => run(plan ? chosen(plan, checked) : []) });
 }
 
 /** Ajout d'un synonyme dans la colonne « Synonymes » du tableau des tags (réponse 3 A du lot R4) : `chief` est le
@@ -123,10 +93,10 @@ export async function toggleName(name: NameRow, principal: string) {
     unmergedBadge(stayed, name.media > 0 ? `${q(name.name)} remis sur ${media(name.media)}` : `${q(name.name)} défusionné`);
     return;
   }
-  const run = () => runTagAction("Fusionner", () => rulesApi.setNameMerged(name.id, true));
-  const rules = await ruleLines({ kind: "name", id: name.id }, BACK);
-  if (name.media === 0 && rules.lines.length === 0) return void (await run());
-  await ask({ title: `Fusionner ${q(name.name)} ?`, message: mergeText([name], principal), rules, confirmLabel: "Fusionner", run });
+  const run = (extend: number[]) => runTagAction("Fusionner", () => rulesApi.setNameMerged(name.id, true, extend));
+  const plan = await mergeRules({ kind: "name", id: name.id });
+  if (name.media === 0 && plan.rules.lines.length === 0) return void (await run(plan.remembered));
+  await ask({ title: `Fusionner ${q(name.name)} ?`, message: mergeText([name], principal), rules: plan.rules, confirmLabel: "Fusionner", run: (_, checked) => run(chosen(plan, checked)) });
 }
 
 /** État de l'interrupteur du groupe (D2.1) : tout fusionné, rien, ou « à moitié ». */
@@ -141,11 +111,11 @@ export const unmergeGroup = async (group: GroupRow) => unmergedBadge(await runTa
 /** Interrupteur du groupe : tout fusionné → tout défaire ; sinon (rien, ou « à moitié ») → tout fusionner. */
 export async function toggleGroup(group: GroupRow, principal: string) {
   if (groupState(group) === true) return void (await unmergeGroup(group));
-  const run = () => runTagAction("Tout fusionner", () => rulesApi.setGroupMerged(group.id, true));
+  const run = (extend: number[]) => runTagAction("Tout fusionner", () => rulesApi.setGroupMerged(group.id, true, extend));
   const merging = group.names.filter((n) => !n.merged);
-  const rules = await ruleLines({ kind: "group", id: group.id }, BACK);
-  if (!merging.some((n) => n.media > 0) && rules.lines.length === 0) return void (await run());
-  await ask({ title: "Fusionner tout le groupe ?", message: mergeText(merging, principal), rules, confirmLabel: "Fusionner", run });
+  const plan = await mergeRules({ kind: "group", id: group.id });
+  if (!merging.some((n) => n.media > 0) && plan.rules.lines.length === 0) return void (await run(plan.remembered));
+  await ask({ title: "Fusionner tout le groupe ?", message: mergeText(merging, principal), rules: plan.rules, confirmLabel: "Fusionner", run: (_, checked) => run(chosen(plan, checked)) });
 }
 
 /** Retirer un nom (texte de l'utilisateur, refonte D2) ; aussi pour le menu du clic droit (CTX-02). */
@@ -172,7 +142,7 @@ export function groupDeletion(group: GroupRow, principal: string) {
  *  (réponse 5b du lot R5). */
 export async function makePrincipal(group: GroupRow, name: NameRow, principal: string) {
   const n = await rulesApi.principalCheck(group.id, name.id).catch(() => 0);
-  const rules = await ruleLines({ kind: "principal", group: group.id, name: name.id });
+  const { rules } = await mergeRules({ kind: "principal", group: group.id, name: name.id }, false);
   await ask({
     title: "Changer de tag principal ?",
     lead: `${q(name.name)} devient le tag principal`,

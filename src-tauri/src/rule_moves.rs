@@ -2,15 +2,16 @@
 //! D-047). Pendant la fusion d'un tag dans le principal, aucun média ne peut avoir ce tag : une règle qui le cite est
 //! soit **déplacée** (réécrite avec le principal, elle note d'où elle vient et revient à la défusion), soit **mise de
 //! côté** (laissée telle quelle : elle ne pose rien tant que le tag est fusionné, puis remarche). Une règle dont le tag
-//! est l'enfant n'est déplacée que si elle est étendue à tout le groupe (D11.3 ; la case viendra au lot R5-2).
-//! L'aperçu des pop-ins joue l'action dans une transaction annulée et compare les règles avant et après.
+//! est l'enfant n'est déplacée que si elle est étendue à tout le groupe (case « Étendre », D11.3, lot R5-2) : son
+//! parent est alors posé aux médias du groupe, et retiré à la défusion là où le tag ne revient pas. Aperçu des
+//! pop-ins : `rule_preview.rs`.
 
-use std::collections::HashMap;
+use std::collections::HashSet;
 
 use rusqlite::{Connection, params};
-use serde::Serialize;
 
 use crate::parents::reaches;
+use crate::tagging::{Tagger, remove_cascade};
 
 fn exists(db: &Connection, child: i64, parent: i64) -> rusqlite::Result<bool> {
     db.query_row("SELECT EXISTS(SELECT 1 FROM tag_parents WHERE child_id = ?1 AND parent_id = ?2)", params![child, parent], |r| r.get(0))
@@ -26,7 +27,7 @@ fn in_group(db: &Connection, group: i64, tag: i64) -> rusqlite::Result<bool> {
 }
 
 /// Pourquoi une règle d'un tag fusionné ne peut pas être déplacée : `None` si elle peut l'être.
-enum Blocked {
+pub(crate) enum Blocked {
     /// Les deux tags seraient du groupe (« kitty » → « chat » donnerait « chat » → « chat »).
     Internal,
     /// La règle réécrite existe déjà.
@@ -34,7 +35,7 @@ enum Blocked {
     Loop,
 }
 
-fn blocked(db: &Connection, group: i64, child: i64, parent: i64) -> rusqlite::Result<Option<Blocked>> {
+pub(crate) fn blocked(db: &Connection, group: i64, child: i64, parent: i64) -> rusqlite::Result<Option<Blocked>> {
     Ok(if in_group(db, group, child)? && in_group(db, group, parent)? {
         Some(Blocked::Internal)
     } else if exists(db, child, parent)? {
@@ -126,87 +127,64 @@ pub fn adopt(db: &Connection, tag: i64, p: i64) -> rusqlite::Result<()> {
     Ok(())
 }
 
-// --- Aperçu des pop-ins (fusion, changement de principal)
-
-/// Une règle et son état : tags, et le tag fusionné qu'elle cite (mise de côté) avec son principal et son groupe.
-struct State {
-    child: i64,
-    parent: i64,
-    aside: Option<(i64, i64, i64)>,
+/// Médias d'une requête dont `?1` est le tag ou le nom fusionné, et `?2` le parent qu'ils n'ont pas encore.
+fn media_without(db: &Connection, sql: &str, of: i64, parent: i64) -> rusqlite::Result<Vec<i64>> {
+    db.prepare(sql)?.query_map(params![of, parent], |r| r.get(0))?.collect()
 }
 
-fn snapshot(db: &Connection) -> rusqlite::Result<HashMap<i64, State>> {
-    db.prepare(
-        "SELECT p.id, p.child_id, p.parent_id, n.tag_id, g.principal_id, g.id
-           FROM tag_parents p
-           LEFT JOIN tag_group_names n ON n.merged = 1 AND n.tag_id IN (p.child_id, p.parent_id)
-           LEFT JOIN tag_groups g ON g.id = n.group_id",
-    )?
-    .query_map([], |r| {
-        let aside = match (r.get::<_, Option<i64>>(3)?, r.get::<_, Option<i64>>(4)?, r.get::<_, Option<i64>>(5)?) {
-            (Some(t), Some(p), Some(g)) => Some((t, p, g)),
-            _ => None,
+/// Case « Étendre » cochée (D11.3, lot R5-2), une fois les médias du tag passés au principal : une règle du tag
+/// déplacée sur le principal pose son parent aux médias du groupe qui ne l'ont pas (marqués : la défusion les
+/// reprend) ; une règle choisie du principal pose le sien aux médias que le principal vient de recevoir par la fusion.
+pub fn extend_merge(db: &Connection, name: i64, tag: i64, p: i64, extend: &dyn Fn(i64) -> bool) -> rusqlite::Result<()> {
+    let tagger = Tagger::load(db)?;
+    let rules = db
+        .prepare(
+            "SELECT r.id, r.parent_id FROM tag_parents r WHERE r.child_id = ?1 AND r.enabled = 1
+               AND NOT EXISTS (SELECT 1 FROM tag_group_names n WHERE n.tag_id = r.parent_id AND n.merged = 1)",
+        )?
+        .query_map([p], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, i64>(1)?)))?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+    let moved: HashSet<i64> = db.prepare("SELECT id FROM tag_parents WHERE child_from = ?1")?.query_map([tag], |r| r.get(0))?.collect::<rusqlite::Result<_>>()?;
+    for (rule, parent) in rules {
+        let media = if moved.contains(&rule) {
+            media_without(
+                db,
+                "SELECT m.media_id FROM media_tags m WHERE m.tag_id = ?1
+                   AND NOT EXISTS (SELECT 1 FROM media_tags y WHERE y.media_id = m.media_id AND y.tag_id = ?2)",
+                p,
+                parent,
+            )?
+        } else if extend(rule) {
+            media_without(
+                db,
+                "SELECT m.media_id FROM tag_group_media m WHERE m.name_id = ?1 AND m.had_principal = 0
+                   AND NOT EXISTS (SELECT 1 FROM media_tags y WHERE y.media_id = m.media_id AND y.tag_id = ?2)",
+                name,
+                parent,
+            )?
+        } else {
+            continue;
         };
-        Ok((r.get(0)?, State { child: r.get(1)?, parent: r.get(2)?, aside }))
-    })?
-    .collect()
-}
-
-/// Ce que l'action change à une règle (lignes « Règles de parents » des pop-ins, réponse 3 du lot R5).
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct RuleChange {
-    /// « moved » (réécrite), « aside » (mise de côté), « back » (plus mise de côté).
-    pub kind: &'static str,
-    pub child: String,
-    pub parent: String,
-    /// Réécrite : la nouvelle règle ; mise de côté parce qu'elle existe déjà : cette règle.
-    pub new_child: Option<String>,
-    pub new_parent: Option<String>,
-    /// Mise de côté : « duplicate », « loop », ou rien.
-    pub reason: Option<&'static str>,
-}
-
-/// Joue `action` dans une transaction annulée et renvoie ce qu'elle change aux règles.
-pub fn preview(db: &mut Connection, action: impl FnOnce(&Connection) -> anyhow::Result<()>) -> anyhow::Result<Vec<RuleChange>> {
-    let tx = db.transaction()?;
-    let before = snapshot(&tx)?;
-    action(&tx)?;
-    let after = snapshot(&tx)?;
-    let name = |id: i64| tx.query_row("SELECT name FROM tags WHERE id = ?1", [id], |r| r.get::<_, String>(0));
-    let mut changes = Vec::new();
-    let mut ids: Vec<&i64> = after.keys().collect();
-    ids.sort();
-    for &id in ids {
-        let (Some(old), new) = (before.get(&id), &after[&id]) else { continue };
-        let line = |kind, new_pair: Option<(i64, i64)>, reason| -> rusqlite::Result<RuleChange> {
-            Ok(RuleChange {
-                kind,
-                child: name(old.child)?,
-                parent: name(old.parent)?,
-                new_child: new_pair.map(|(c, _)| name(c)).transpose()?,
-                new_parent: new_pair.map(|(_, p)| name(p)).transpose()?,
-                reason,
-            })
-        };
-        if (old.child, old.parent) != (new.child, new.parent) {
-            changes.push(line("moved", Some((new.child, new.parent)), None)?);
-        } else if let (None, Some((tag, p, group))) = (&old.aside, new.aside) {
-            // Côté parent : le doublon ou la boucle est expliqué ; une règle interne au groupe, ou dont le tag
-            // fusionné est l'enfant, se comprend seule.
-            let (c, par) = (if new.child == tag { p } else { new.child }, if new.parent == tag { p } else { new.parent });
-            let reason = if new.child == tag { None } else {
-                match blocked(&tx, group, c, par)? {
-                    Some(Blocked::Duplicate) => Some("duplicate"),
-                    Some(Blocked::Loop) => Some("loop"),
-                    _ => None,
-                }
-            };
-            changes.push(line("aside", (reason == Some("duplicate")).then_some((c, par)), reason)?);
-        } else if old.aside.is_some() && new.aside.is_none() {
-            changes.push(line("back", None, None)?);
+        for m in media {
+            tagger.apply_rule(db, rule, parent, m)?;
         }
     }
-    changes.sort_by_key(|c| ["moved", "aside", "back"].iter().position(|k| *k == c.kind));
-    Ok(changes)
+    Ok(())
+}
+
+/// Défusion de `tag` : les tags posés par l'extension de ses règles sont retirés partout où elle les a posés (D11.3),
+/// avec leur chaîne, même sur un média qui retrouve le tag (sa règle revenue ne pose rien sans nouvel ajout, D10.2).
+/// Renvoie les tags retirés en chaîne, que `restore_justified` remet si une autre règle les justifie ; ceux de
+/// l'extension, non (la règle revenue les « justifierait »).
+pub fn undo_extension(db: &Connection, tag: i64) -> rusqlite::Result<Vec<(i64, i64)>> {
+    let pairs = db
+        .prepare("SELECT DISTINCT media_id, tag_id FROM tag_parent_media WHERE extended = ?1")?
+        .query_map([tag], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, i64>(1)?)))?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+    db.execute("UPDATE tag_parent_media SET extended = NULL WHERE extended = ?1", [tag])?;
+    let mut removed = Vec::new();
+    for (media, t) in pairs {
+        removed.extend(remove_cascade(db, media, t)?);
+    }
+    Ok(removed)
 }

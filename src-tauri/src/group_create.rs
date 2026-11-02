@@ -41,8 +41,9 @@ fn absorb(db: &Connection, group: i64, other: i64, now: i64) -> anyhow::Result<V
 /// Crée ou complète le groupe de `principal` avec ces noms (formulaire « Tag principal » + « Synonymes »). Un
 /// principal tapé qui est déjà dans un groupe y ajoute les noms ; un nom d'un autre groupe réunit les deux (D14) ;
 /// un nom qui n'est pas encore un tag devient un tag (catégorie par défaut ; le formulaire le crée d'abord par la
-/// pop-in « Créer un nouveau tag ») ; avec `merge`, les noms ajoutés sont fusionnés.
-pub fn create(db: &Connection, principal_tag: i64, names: &[String], merge_new: bool, new_tags: &[NewTag], now: i64) -> anyhow::Result<i64> {
+/// pop-in « Créer un nouveau tag ») ; avec `merge`, les noms ajoutés sont fusionnés (`extend` : règles cochées
+/// « Étendre », D11.3).
+pub fn create(db: &Connection, principal_tag: i64, names: &[String], merge_new: bool, new_tags: &[NewTag], extend: &[i64], now: i64) -> anyhow::Result<i64> {
     // Principal tapé qui est un nom relié d'un groupe : les noms rejoignent ce groupe, son principal ne
     // change pas (retouches de R3, 29/10 ; changer de principal se fait avec l'étoile, D3).
     let group = match group_of_tag(db, principal_tag)? {
@@ -73,7 +74,7 @@ pub fn create(db: &Connection, principal_tag: i64, names: &[String], merge_new: 
     }
     if merge_new {
         for id in added {
-            merge(db, id)?;
+            merge(db, id, extend)?;
         }
     }
     // Aucun nom ajouté à un groupe tout neuf : il ne reste pas vide.
@@ -89,11 +90,11 @@ pub fn merge_tag(db: &Connection, source: i64, target: i64, keep: bool, now: i64
         return Ok(());
     }
     let name: String = db.query_row("SELECT name FROM tags WHERE id = ?1", [source], |r| r.get(0))?;
-    create(db, target, std::slice::from_ref(&name), true, &[], now)?;
+    create(db, target, std::slice::from_ref(&name), true, &[], &[], now)?;
     // Déjà relié au groupe : `create` le laisse tel quel, la fusion demandée le fusionne.
     let row: Option<i64> = db.query_row("SELECT id FROM tag_group_names WHERE tag_id = ?1", [source], |r| r.get(0)).optional()?;
     if let Some(row) = row {
-        merge(db, row)?;
+        merge(db, row, &[])?;
     }
     if !keep {
         let chief = group_of_tag(db, target)?.map(|g| principal(db, g)).transpose()?.unwrap_or(target);

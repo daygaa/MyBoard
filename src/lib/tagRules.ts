@@ -14,18 +14,23 @@ import { rulesApi, type ParentRow } from "./rulesApi";
 import { runTagAction as runAction } from "./tagManager";
 import { displayTag } from "./tags";
 
+/** Une ligne « Règles de parents » d'une pop-in de fusion (lot R5) ; `option` : sa case « Étendre », décochée, et
+ *  le texte de la ligne quand elle est cochée. */
+export type RuleLine = { id: number; text: string; option?: { label: string; text?: string } };
+export type AskRules = { lines: RuleLine[]; end?: string };
+
 /** Pop-in de confirmation en attente ; `lead` : première ligne mise en avant ; `option` : case à cocher (cochée
- *  par défaut) passée à `run` ; `rules` : lignes « Règles de parents » sous un trait (fusion, lot R5) ; `done` :
- *  réponse de l'utilisateur (confirmé ou annulé). */
+ *  par défaut) passée à `run` ; `rules` : lignes « Règles de parents » sous un trait, les règles cochées
+ *  « Étendre » passées à `run` ; `done` : réponse de l'utilisateur (confirmé ou annulé). */
 export type RuleAsk = {
   title: string;
   lead?: string;
   message: string;
-  rules?: { lines: string[]; end?: string };
+  rules?: AskRules;
   confirmLabel: string;
   danger?: boolean;
   option?: string;
-  run: (option: boolean) => Promise<unknown>;
+  run: (option: boolean, extend: number[]) => Promise<unknown>;
   done?: (confirmed: boolean) => void;
 };
 

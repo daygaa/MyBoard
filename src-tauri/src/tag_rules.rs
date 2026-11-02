@@ -7,9 +7,9 @@ use serde::{Deserialize, Serialize};
 use tauri::State;
 
 use crate::group_list::{self, GroupRow, Preview};
-use crate::{group_create, groups, rule_moves};
+use crate::{group_create, groups};
 use crate::parents::{self, DeleteCheck, RuleCheck};
-use crate::rule_moves::RuleChange;
+use crate::rule_preview::{self, RuleChange};
 use crate::tag_delete::RuleName;
 use crate::tagging::resolve_or_create;
 use crate::tags::NewTag;
@@ -120,21 +120,22 @@ pub async fn group_preview(state: State<'_, AppState>, principal: String, names:
     read(&state, |db| group_list::preview(db, &principal, &names))
 }
 
-/// Crée ou complète le groupe de `principal` ; `merge` : l'interrupteur « Fusionner » du formulaire.
+/// Crée ou complète le groupe de `principal` ; `merge` : l'interrupteur « Fusionner » du formulaire ; `extend` : les
+/// règles cochées « Étendre » dans la pop-in (D11.3).
 #[tauri::command]
-pub async fn create_group(state: State<'_, AppState>, principal: i64, names: Vec<String>, merge: bool, new_tags: Vec<NewTag>) -> Result<i64, String> {
-    write(&state, |db, now| group_create::create(db, principal, &names, merge, &new_tags, now))
+pub async fn create_group(state: State<'_, AppState>, principal: i64, names: Vec<String>, merge: bool, new_tags: Vec<NewTag>, extend: Vec<i64>) -> Result<i64, String> {
+    write(&state, |db, now| group_create::create(db, principal, &names, merge, &new_tags, &extend, now))
 }
 
 /// Les quatre commandes suivantes renvoient les règles restées sur le principal (défusion).
 #[tauri::command]
-pub async fn set_name_merged(state: State<'_, AppState>, id: i64, merged: bool) -> Result<Vec<RuleName>, String> {
-    write(&state, |db, _| names(db, groups::set_merged(db, id, merged)?))
+pub async fn set_name_merged(state: State<'_, AppState>, id: i64, merged: bool, extend: Vec<i64>) -> Result<Vec<RuleName>, String> {
+    write(&state, |db, _| names(db, groups::set_merged(db, id, merged, &extend)?))
 }
 
 #[tauri::command]
-pub async fn set_group_merged(state: State<'_, AppState>, id: i64, merged: bool) -> Result<Vec<RuleName>, String> {
-    write(&state, |db, _| names(db, groups::set_group_merged(db, id, merged)?))
+pub async fn set_group_merged(state: State<'_, AppState>, id: i64, merged: bool, extend: Vec<i64>) -> Result<Vec<RuleName>, String> {
+    write(&state, |db, _| names(db, groups::set_group_merged(db, id, merged, &extend)?))
 }
 
 #[tauri::command]
@@ -171,10 +172,12 @@ pub enum Planned {
 pub async fn rules_preview(state: State<'_, AppState>, planned: Planned) -> Result<Vec<RuleChange>, String> {
     let mut conn = state.db.lock().unwrap();
     let now = db::now_ms();
-    rule_moves::preview(&mut conn, |db| match &planned {
-        Planned::Name { id } => groups::merge(db, *id),
-        Planned::Group { id } => groups::set_group_merged(db, *id, true).map(|_| ()),
-        Planned::Create { principal, names, new_tags } => group_create::create(db, *principal, names, true, new_tags, now).map(|_| ()),
+    // Une fusion est jouée sans rien étendre : les cases « Étendre » disent ce qu'elles ajouteraient.
+    let extendable = !matches!(planned, Planned::Principal { .. });
+    rule_preview::preview(&mut conn, extendable, |db| match &planned {
+        Planned::Name { id } => groups::merge(db, *id, &[]),
+        Planned::Group { id } => groups::set_group_merged(db, *id, true, &[]).map(|_| ()),
+        Planned::Create { principal, names, new_tags } => group_create::create(db, *principal, names, true, new_tags, &[], now).map(|_| ()),
         Planned::Principal { group, name } => groups::set_principal(db, *group, *name),
     })
     .map_err(|e| format!("{e:#}"))

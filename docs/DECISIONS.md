@@ -1222,3 +1222,16 @@ R6). Pop-ins : `rules_preview` joue l'action dans une transaction annulée et co
 avec la raison doublon / boucle, plus mise de côté) ; `RuleAsk.rules` (bloc sous un trait, `RuleAskHost`). Lignes :
 `ParentRow.childFrom` / `parentFrom` / `aside` ; `ParentLine` (bulles `HoverCard`, `origin` : repère seulement dans
 l'onglet « Synonymes et parents »).
+
+**Complément du 02/11 (lot R5-2, schéma 12 ; décisions D11.1 et D11.3).** `tag_parent_media.extended` : note d'une
+règle étendue pendant la fusion de ce tag (posée par `Tagger` pour une règle dont `child_from` est un tag fusionné).
+Fusion : `groups::merge(db, nom, extend)` ; les règles cochées dont le tag est l'enfant sont déplacées (`follow_merge`),
+puis `rule_moves::extend_merge` pose leur parent aux médias du principal qui ne l'ont pas, et, pour une règle cochée du
+principal, aux médias que la fusion vient de lui donner (`had_principal = 0`). Défusion : `undo_extension` retire les
+tags marqués partout (chaîne comprise ; seuls les tags retirés en chaîne passent par `restore_justified`, sinon la
+règle revenue remettrait ce que l'extension avait posé). Changement de principal (`unmerge_with(…, regroup)`,
+`merge_with(…, apply = false)`) : rien n'est reposé ni retiré (le principal seul quitte les médias le temps de
+l'échange), les marques restent, une règle étendue le reste. Aperçu : `rule_preview.rs` (découpé de `rule_moves.rs`) :
+`RuleChange.id`, `extend` (médias qui recevraient le parent), `of`, ligne « principal ». Interface :
+`lib/mergeRules.ts` (lignes, cases, règles déjà montrées pendant la visite de l'onglet, remise à zéro au
+changement d'onglet du gestionnaire par `hashchange`, badge des défusions) ; `RuleAsk.run(option, extend)`.

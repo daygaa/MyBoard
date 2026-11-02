@@ -9,21 +9,32 @@ import { useState } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { formatNumber } from "@/lib/format";
-import { copyPlain, useRuleAsk, type RuleAsk } from "@/lib/tagRules";
+import { copyPlain, useRuleAsk, type AskRules, type RuleAsk } from "@/lib/tagRules";
 
 /** Lignes de règles montrées au plus ; les suivantes sont comptées. */
 const MAX_RULES = 10;
 
 /** Règles de parents touchées par une fusion (réponse 3 du lot R5), sous un trait comme dans la pop-in de
- *  suppression d'un tag. */
-function RulesBlock({ rules }: { rules: NonNullable<RuleAsk["rules"]> }) {
+ *  suppression d'un tag ; sous une ligne, sa case « Étendre » (D11.3), décochée. */
+function RulesBlock({ rules, checked, onCheck }: { rules: AskRules; checked: number[]; onCheck: (id: number, on: boolean) => void }) {
   const more = rules.lines.length - MAX_RULES;
   return (
     <div data-zone="regle-confirmation.regles" onCopy={copyPlain} className="select-text space-y-1 border-t border-border pt-3 text-sm text-muted-foreground [overflow-wrap:break-word]">
       <p>Règles de parents :</p>
-      {rules.lines.slice(0, MAX_RULES).map((line) => (
-        <p key={line}>{line}</p>
-      ))}
+      {rules.lines.slice(0, MAX_RULES).map((line) => {
+        const on = checked.includes(line.id);
+        return (
+          <div key={line.id}>
+            <p>{on && line.option?.text ? line.option.text : line.text}</p>
+            {line.option && (
+              <label data-zone="regle-confirmation.etendre" className="mt-1 mb-1.5 ml-4 flex cursor-pointer items-center gap-2 text-foreground">
+                <Checkbox checked={on} onCheckedChange={(c) => onCheck(line.id, c === true)} />
+                <span className="min-w-0">{line.option.label}</span>
+              </label>
+            )}
+          </div>
+        );
+      })}
       {more > 0 && <p>… et {formatNumber(more)} autres règles.</p>}
       {rules.end && <p className="pt-2">{rules.end}</p>}
     </div>
@@ -32,9 +43,10 @@ function RulesBlock({ rules }: { rules: NonNullable<RuleAsk["rules"]> }) {
 
 function Ask({ ask }: { ask: RuleAsk }) {
   const [option, setOption] = useState(true);
+  const [extend, setExtend] = useState<number[]>([]);
   const answer = (confirmed: boolean) => {
     useRuleAsk.setState({ ask: null });
-    if (confirmed) void ask.run(option);
+    if (confirmed) void ask.run(option, extend);
     ask.done?.(confirmed);
   };
   return (
@@ -53,7 +65,9 @@ function Ask({ ask }: { ask: RuleAsk }) {
       onCancel={() => answer(false)}
       onConfirm={() => answer(true)}
     >
-      {ask.rules && ask.rules.lines.length > 0 && <RulesBlock rules={ask.rules} />}
+      {ask.rules && ask.rules.lines.length > 0 && (
+        <RulesBlock rules={ask.rules} checked={extend} onCheck={(id, on) => setExtend((ids) => (on ? [...ids, id] : ids.filter((i) => i !== id)))} />
+      )}
       {ask.option && (
         <label data-zone="regle-confirmation.option" onCopy={copyPlain} className="flex cursor-pointer items-center gap-2 text-sm text-foreground [overflow-wrap:break-word]">
           <Checkbox data-principale checked={option} onCheckedChange={(c) => setOption(c === true)} />

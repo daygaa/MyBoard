@@ -30,14 +30,19 @@ export type ParentRow = {
 /** Une règle par ses noms (règles restées sur le principal à une défusion). */
 export type RuleName = { child: string; parent: string };
 /** Ce qu'une fusion ou un changement de principal fait à une règle (pop-ins, lot R5) : réécrite (`newChild` →
- *  `newParent`), mise de côté (`reason` ; doublon : la règle qui existe déjà), ou plus mise de côté. */
+ *  `newParent`), mise de côté (`reason` ; doublon ou case « Étendre » : la règle réécrite), plus mise de côté, ou
+ *  règle du principal qui peut s'étendre aux médias des tags fusionnés (`of`). `extend` : la case « Étendre » et le
+ *  nombre de médias qui recevraient le parent (D11.3) ; vide : pas de case. */
 export type RuleChange = {
-  kind: "moved" | "aside" | "back";
+  id: number;
+  kind: "moved" | "aside" | "back" | "principal";
   child: string;
   parent: string;
   newChild: string | null;
   newParent: string | null;
   reason: "duplicate" | "loop" | null;
+  extend: number | null;
+  of: string[];
 };
 /** Action dont la pop-in montre l'effet sur les règles. */
 export type PlannedChange =
@@ -85,10 +90,11 @@ export const rulesApi = {
   groupPreview: (principal: string, names: string[]) => invoke<GroupPreview>("group_preview", { principal, names }),
   /** `merge` : l'interrupteur « Fusionner » du formulaire ; renvoie le groupe. */
   /** `newTags` : noms tapés qui ne sont pas encore des tags, créés avec le groupe (retour T3, point TAGM-15.24). */
-  createGroup: (principal: number, names: string[], merge: boolean, newTags: NewTag[] = []) => invoke<number>("create_group", { principal, names, merge, newTags }),
+  /** `extend` : les règles cochées « Étendre » dans la pop-in (D11.3). */
+  createGroup: (principal: number, names: string[], merge: boolean, newTags: NewTag[] = [], extend: number[] = []) => invoke<number>("create_group", { principal, names, merge, newTags, extend }),
   /** Ces quatre appels renvoient les règles restées sur le principal à la défusion (elles feraient une boucle). */
-  setNameMerged: (id: number, merged: boolean) => invoke<RuleName[]>("set_name_merged", { id, merged }),
-  setGroupMerged: (id: number, merged: boolean) => invoke<RuleName[]>("set_group_merged", { id, merged }),
+  setNameMerged: (id: number, merged: boolean, extend: number[] = []) => invoke<RuleName[]>("set_name_merged", { id, merged, extend }),
+  setGroupMerged: (id: number, merged: boolean, extend: number[] = []) => invoke<RuleName[]>("set_group_merged", { id, merged, extend }),
   removeGroupName: (id: number) => invoke<RuleName[]>("remove_group_name", { id }),
   deleteGroup: (id: number) => invoke<RuleName[]>("delete_group", { id }),
   /** L'action jouée sans rien garder : ce qu'elle change aux règles de parents. */
