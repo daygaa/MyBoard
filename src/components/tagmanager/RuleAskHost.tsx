@@ -15,7 +15,8 @@ import { copyPlain, useRuleAsk, type AskRules, type RuleAsk } from "@/lib/tagRul
 const MAX_RULES = 10;
 
 /** Règles de parents touchées par une fusion (réponse 3 du lot R5), sous un trait comme dans la pop-in de
- *  suppression d'un tag ; sous une ligne, sa case « Étendre » (D11.3), décochée. */
+ *  suppression d'un tag ; sous une ligne, sa case « Étendre » (D11.3), toujours décochée à l'ouverture, avec sa bulle
+ *  Windows (case et texte). */
 function RulesBlock({ rules, checked, onCheck }: { rules: AskRules; checked: number[]; onCheck: (id: number, on: boolean) => void }) {
   const more = rules.lines.length - MAX_RULES;
   return (
@@ -27,7 +28,7 @@ function RulesBlock({ rules, checked, onCheck }: { rules: AskRules; checked: num
           <div key={line.id}>
             <p>{on && line.option?.text ? line.option.text : line.text}</p>
             {line.option && (
-              <label data-zone="regle-confirmation.etendre" className="mt-1 mb-1.5 ml-4 flex cursor-pointer items-center gap-2 text-foreground">
+              <label data-zone="regle-confirmation.etendre" title={line.option.title} className="mt-1 mb-1.5 ml-4 flex cursor-pointer items-center gap-2 text-foreground">
                 <Checkbox checked={on} onCheckedChange={(c) => onCheck(line.id, c === true)} />
                 <span className="min-w-0">{line.option.label}</span>
               </label>

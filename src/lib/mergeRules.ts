@@ -1,7 +1,7 @@
 // Règles de parents dans les pop-ins de fusion et de changement de principal (retour T3, point TAGM-16.4 ; refonte,
 // décisions D11 à D11.3 ; lot R5) : lignes « Règles de parents » d'après l'aperçu du cœur Rust (l'action jouée sans
-// rien garder), cases « Étendre », une règle montrée une seule fois par visite de l'onglet, badge des règles restées
-// sur le principal à une défusion.
+// rien garder), cases « Étendre » et leurs bulles, pop-in de fusion sans case montrée une seule fois par visite de
+// l'onglet, badge des règles restées sur le principal à une défusion.
 
 import { showGridBadge } from "@/stores/badge";
 import { whileBusy } from "./busy";
@@ -12,11 +12,13 @@ import { media, q, type AskRules, type RuleLine } from "./tagRules";
 
 /** Dernière ligne des règles d'une pop-in de fusion. */
 const BACK = "Désactiver la fusion ramènera ces règles.";
+/** Fin des bulles des cases « Étendre ». */
+const UNDO = "cela sera annulé si vous désactivez la fusion";
 
-/** Règles déjà montrées dans une pop-in de fusion pendant cette visite de l'onglet, avec leur choix « Étendre »
- *  (D11.1) : elles ne le sont plus, leur dernier choix s'applique. Passer sur l'autre onglet du gestionnaire ou le
- *  quitter remet à zéro. */
-const shown = new Map<number, boolean>();
+/** Tags dont la pop-in de fusion (sans case) a été confirmée pendant cette visite de l'onglet : elle ne se rouvre pas
+ *  (demande du 02/11, retour T3, point TAGM-16.4 ; un réglage pour toujours l'afficher viendra plus tard, FUT-12).
+ *  Passer sur l'autre onglet du gestionnaire ou le quitter remet à zéro. */
+const shown = new Set<string>();
 let shownTab = tagTabOf(window.location.hash);
 window.addEventListener("hashchange", () => {
   const tab = tagTabOf(window.location.hash);
@@ -26,33 +28,41 @@ window.addEventListener("hashchange", () => {
 
 /** Une ligne (réponse 3 du lot R5) : règle réécrite, mise de côté (doublon ou boucle expliqués ; une règle interne au
  *  groupe se comprend seule), qui ne l'est plus (changement de principal), ou règle du principal. Case « Étendre »
- *  (D11.3) : une règle dont le tag fusionné est l'enfant devient alors une règle du principal ; une règle du
- *  principal pose son parent aux médias des tags fusionnés. */
+ *  (D11.3), avec sa bulle Windows (textes du 02/11) : une règle dont le tag fusionné est l'enfant devient une règle du
+ *  principal ; une règle du principal pose son parent aux médias des tags fusionnés. */
 function line(c: RuleChange): RuleLine {
   const rule = `${q(c.child)} → ${q(c.parent)}`;
   const other = `${q(c.newChild ?? "")} → ${q(c.newParent ?? "")}`;
   const plus = c.extend ? ` (+${media(c.extend)})` : "";
   if (c.kind === "moved") return { id: c.id, text: `${rule} deviendra ${other}.` };
   if (c.kind === "back") return { id: c.id, text: `${rule} ne sera plus mise de côté.` };
-  if (c.kind === "principal") return { id: c.id, text: rule, option: { label: `Étendre aux médias de ${c.of.map(q).join(", ")}${plus}` } };
+  if (c.kind === "principal") {
+    const fused = `${c.of.map(q).join(", ")} ${c.of.length > 1 ? "seront fusionnés" : "sera fusionné"} dans ${q(c.child)}`;
+    const title = `${fused}, donc vous pouvez décider que la règle parent ${rule} s'y applique rétroactivement, ${UNDO}`;
+    return { id: c.id, text: rule, option: { label: `Étendre aux médias de ${c.of.map(q).join(", ")}${plus}`, title } };
+  }
   const why = c.reason === "duplicate" ? ` (${other} existe déjà)` : c.reason === "loop" ? " (elle ferait une boucle)" : "";
   const text = `${rule} sera mise de côté pendant la fusion${why}.`;
-  return c.extend === null ? { id: c.id, text } : { id: c.id, text, option: { label: `Étendre à tout le groupe${plus}`, text: `${rule} deviendra ${other}.` } };
+  if (c.extend === null) return { id: c.id, text };
+  const principal = q(c.newChild ?? "");
+  const title = `${q(c.child)} sera fusionné dans ${principal}, donc vous pouvez décider que la règle parent ${rule} s'applique à tout le groupe : elle deviendra ${other} et ${q(c.parent)} sera ajouté aux médias de ${principal}, ${UNDO}`;
+  return { id: c.id, text, option: { label: `Étendre à tout le groupe${plus}`, text: `${rule} deviendra ${other}.`, title } };
 }
 
-/** Ce que l'action changera aux règles : les lignes de la pop-in et les règles à étendre sans demander (déjà montrées
- *  pendant la visite, cochées). Changement de principal (`fusion` faux) : toutes les règles réécrites, sans case. */
-export async function mergeRules(planned: PlannedChange, fusion = true) {
+/** Ce que l'action changera aux règles : les lignes de la pop-in, toutes ; changement de principal (`fusion` faux) :
+ *  sans dernière ligne. */
+export async function mergeRules(planned: PlannedChange, fusion = true): Promise<AskRules> {
   const changes = await whileBusy(() => rulesApi.rulesPreview(planned)).catch(() => [] as RuleChange[]);
-  const fresh = fusion ? changes.filter((c) => !shown.has(c.id)) : changes;
-  const rules: AskRules = { lines: fresh.map(line), end: fusion ? BACK : undefined };
-  return { rules, remembered: changes.filter((c) => shown.get(c.id)).map((c) => c.id) };
+  return { lines: changes.map(line), end: fusion ? BACK : undefined };
 }
 
-/** Pop-in confirmée : ses règles sont montrées pour la visite, avec leur choix ; renvoie toutes les règles à étendre. */
-export function chosen(plan: Awaited<ReturnType<typeof mergeRules>>, checked: number[]) {
-  for (const l of plan.rules.lines) shown.set(l.id, checked.includes(l.id));
-  return [...plan.remembered, ...checked];
+/** La pop-in de fusion de ces tags s'ouvre-t-elle ? Avec une case « Étendre », toujours (annuler puis rouvrir permet
+ *  de revenir sur son choix) ; sans case, seulement si l'un d'eux n'a pas encore eu la sienne pendant la visite. */
+export const askAgain = (names: string[], rules: AskRules | undefined) => (rules?.lines.some((l) => l.option) ?? false) || names.some((n) => !shown.has(n));
+
+/** Pop-in de fusion confirmée pour ces tags. */
+export function markShown(names: string[]) {
+  for (const n of names) shown.add(n);
 }
 
 /** Badge d'une défusion : une règle qui ne peut pas revenir (elle ferait une boucle) reste sur le principal

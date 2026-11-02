@@ -1235,3 +1235,10 @@ l'échange), les marques restent, une règle étendue le reste. Aperçu : `rule_
 `RuleChange.id`, `extend` (médias qui recevraient le parent), `of`, ligne « principal ». Interface :
 `lib/mergeRules.ts` (lignes, cases, règles déjà montrées pendant la visite de l'onglet, remise à zéro au
 changement d'onglet du gestionnaire par `hashchange`, badge des défusions) ; `RuleAsk.run(option, extend)`.
+
+**Complément du 02/11 (retouche de R5-2, D11.1 révisée).** La pop-in de fusion n'a plus de contenu adaptatif : toutes
+les lignes de règles, toujours. `mergeRules.askAgain` : une pop-in avec une case « Étendre » s'ouvre toujours ; sans
+case, elle ne s'ouvre pas si tous les tags fusionnés ont déjà eu la leur, confirmée, pendant la visite (`shown`, remis à
+zéro au changement d'onglet du gestionnaire ; une réunion de groupes s'ouvre toujours). Plus de choix retenus : les
+cases sont décochées à chaque ouverture. Bulles Windows (`title` du `<label>` de la case). Réglage « toujours afficher
+les pop-ins » : FUT-12.

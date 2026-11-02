@@ -14,9 +14,9 @@ import { rulesApi, type ParentRow } from "./rulesApi";
 import { runTagAction as runAction } from "./tagManager";
 import { displayTag } from "./tags";
 
-/** Une ligne « Règles de parents » d'une pop-in de fusion (lot R5) ; `option` : sa case « Étendre », décochée, et
- *  le texte de la ligne quand elle est cochée. */
-export type RuleLine = { id: number; text: string; option?: { label: string; text?: string } };
+/** Une ligne « Règles de parents » d'une pop-in de fusion (lot R5) ; `option` : sa case « Étendre », décochée, le
+ *  texte de la ligne quand elle est cochée et la bulle Windows de la case. */
+export type RuleLine = { id: number; text: string; option?: { label: string; text?: string; title?: string } };
 export type AskRules = { lines: RuleLine[]; end?: string };
 
 /** Pop-in de confirmation en attente ; `lead` : première ligne mise en avant ; `option` : case à cocher (cochée

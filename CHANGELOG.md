@@ -3,6 +3,25 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Bulles des cases « Étendre », pop-in de fusion complète (02/11/2026) — Backup v86
+
+SPEC : livré `[~]` : TAGM-16 (retour T3, point TAGM-16.4, retouche de R5-2) ; nouvel ID FUT-12 (réglage futur).
+
+- **Bulles Windows** au survol des cases « Étendre » (case et texte) : « « kitty » sera fusionné dans « chat », donc
+  vous pouvez décider que la règle parent « chat » → « animal » s'y applique rétroactivement, cela sera annulé si vous
+  désactivez la fusion » ; pour « Étendre à tout le groupe » : « … que la règle parent « kitty » → « mignon » s'applique
+  à tout le groupe : elle deviendra « chat » → « mignon » et « mignon » sera ajouté aux médias de « chat », cela sera
+  annulé si vous désactivez la fusion ».
+- **Pop-in de fusion** : toujours complète. Sans case, elle ne se rouvre pas pendant la visite de l'onglet pour un même
+  tag ; avec une case, elle s'ouvre toujours (annuler puis rouvrir permet de changer d'avis). Les cases sont toujours
+  décochées à l'ouverture. « Changer de tag principal ? » ne change pas.
+
+Vérifié dans la version compilée, sur une copie de la base d'essai `refonte` : textes des deux bulles (attribut de la
+case) ; « kitty » (avec cases) : pop-in rouverte après Annuler, cases décochées, rouverte aussi après une défusion dans
+la même visite ; « essai auto » (médias, sans case) : 1re fusion avec pop-in, 2e fusion de la visite sans pop-in,
+pop-in revenue après un passage par l'onglet « Tags » ; zéro erreur `tsc`. **Non vérifié** : l'affichage de la bulle
+Windows elle-même (dessinée par Windows, les clics simulés ne la font pas apparaître) : à voir à la souris.
+
 ## Case « Étendre » et pop-in une fois par visite, lot R5-2 (02/11/2026) — Backup v85
 
 SPEC : livrés `[~]` : TAGM-16 (retour T3, points TAGM-16.4 et TAGM-16.12, nouveau ; refonte TAGM-20, lot R5-2). Schéma 12.

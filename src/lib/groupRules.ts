@@ -7,7 +7,7 @@
 import { showGridBadge } from "@/stores/badge";
 import type { NewTag } from "./api";
 import { plural } from "./format";
-import { chosen, mergeRules, unmergedBadge } from "./mergeRules";
+import { askAgain, markShown, mergeRules, unmergedBadge } from "./mergeRules";
 import { rulesApi, type GroupPreview, type GroupRow, type NameRow } from "./rulesApi";
 import { ask, media, q, runTagAction } from "./tagRules";
 
@@ -51,17 +51,28 @@ export async function createGroup(principal: { id: number; name: string }, names
     if (done !== undefined) showGridBadge(`${q(principal.name)} : ${count} ${plural(count, "synonyme")}`);
     return done !== undefined;
   };
-  const plan = merge && names.length > 0 ? await mergeRules({ kind: "create", principal: principal.id, names, newTags }) : undefined;
-  // Des règles changent : la pop-in s'ouvre, même si aucun nom fusionné n'a de média.
-  const merging = (merge ? (preview?.added ?? []) : []).some((n) => n.media > 0) || (plan?.rules.lines.length ?? 0) > 0;
+  const rules = merge && names.length > 0 ? await mergeRules({ kind: "create", principal: principal.id, names, newTags }) : undefined;
+  // Des règles changent : la pop-in s'ouvre, même si aucun nom fusionné n'a de média ; une réunion de groupes la
+  // montre toujours ; sans case, la fusion des mêmes tags ne la rouvre pas pendant la visite.
+  const fused = merge ? (preview?.added ?? []).map((n) => n.name) : [];
+  const merging = (merge ? (preview?.added ?? []) : []).some((n) => n.media > 0) || (rules?.lines.length ?? 0) > 0;
   const joined = confirmJoin && preview ? preview.joined : [];
-  if (!merging && joined.length === 0) return run(plan?.remembered ?? []);
+  if (!(merging && askAgain(fused, rules)) && joined.length === 0) return run([]);
   const message = [
     joined.length > 0 && preview ? joinText(joined, principal.name, preview) : "",
     merging && preview ? mergeText(preview.added, principal.name) : "",
   ].filter(Boolean).join("\n\n");
   const title = joined.length > 0 ? "Réunir les groupes ?" : count > 1 ? "Créer les synonymes ?" : "Créer le synonyme ?";
-  return ask({ title, message, rules: plan?.rules, confirmLabel: joined.length > 0 ? "Réunir" : "Créer", run: (_, checked) => run(plan ? chosen(plan, checked) : []) });
+  return ask({
+    title,
+    message,
+    rules,
+    confirmLabel: joined.length > 0 ? "Réunir" : "Créer",
+    run: (_, extend) => {
+      markShown(fused);
+      return run(extend);
+    },
+  });
 }
 
 /** Ajout d'un synonyme dans la colonne « Synonymes » du tableau des tags (réponse 3 A du lot R4) : `chief` est le
@@ -94,9 +105,18 @@ export async function toggleName(name: NameRow, principal: string) {
     return;
   }
   const run = (extend: number[]) => runTagAction("Fusionner", () => rulesApi.setNameMerged(name.id, true, extend));
-  const plan = await mergeRules({ kind: "name", id: name.id });
-  if (name.media === 0 && plan.rules.lines.length === 0) return void (await run(plan.remembered));
-  await ask({ title: `Fusionner ${q(name.name)} ?`, message: mergeText([name], principal), rules: plan.rules, confirmLabel: "Fusionner", run: (_, checked) => run(chosen(plan, checked)) });
+  const rules = await mergeRules({ kind: "name", id: name.id });
+  if ((name.media === 0 && rules.lines.length === 0) || !askAgain([name.name], rules)) return void (await run([]));
+  await ask({
+    title: `Fusionner ${q(name.name)} ?`,
+    message: mergeText([name], principal),
+    rules,
+    confirmLabel: "Fusionner",
+    run: (_, extend) => {
+      markShown([name.name]);
+      return run(extend);
+    },
+  });
 }
 
 /** État de l'interrupteur du groupe (D2.1) : tout fusionné, rien, ou « à moitié ». */
@@ -113,9 +133,19 @@ export async function toggleGroup(group: GroupRow, principal: string) {
   if (groupState(group) === true) return void (await unmergeGroup(group));
   const run = (extend: number[]) => runTagAction("Tout fusionner", () => rulesApi.setGroupMerged(group.id, true, extend));
   const merging = group.names.filter((n) => !n.merged);
-  const plan = await mergeRules({ kind: "group", id: group.id });
-  if (!merging.some((n) => n.media > 0) && plan.rules.lines.length === 0) return void (await run(plan.remembered));
-  await ask({ title: "Fusionner tout le groupe ?", message: mergeText(merging, principal), rules: plan.rules, confirmLabel: "Fusionner", run: (_, checked) => run(chosen(plan, checked)) });
+  const rules = await mergeRules({ kind: "group", id: group.id });
+  const names = merging.map((n) => n.name);
+  if ((!merging.some((n) => n.media > 0) && rules.lines.length === 0) || !askAgain(names, rules)) return void (await run([]));
+  await ask({
+    title: "Fusionner tout le groupe ?",
+    message: mergeText(merging, principal),
+    rules,
+    confirmLabel: "Fusionner",
+    run: (_, extend) => {
+      markShown(names);
+      return run(extend);
+    },
+  });
 }
 
 /** Retirer un nom (texte de l'utilisateur, refonte D2) ; aussi pour le menu du clic droit (CTX-02). */
@@ -142,7 +172,7 @@ export function groupDeletion(group: GroupRow, principal: string) {
  *  (réponse 5b du lot R5). */
 export async function makePrincipal(group: GroupRow, name: NameRow, principal: string) {
   const n = await rulesApi.principalCheck(group.id, name.id).catch(() => 0);
-  const { rules } = await mergeRules({ kind: "principal", group: group.id, name: name.id }, false);
+  const rules = await mergeRules({ kind: "principal", group: group.id, name: name.id }, false);
   await ask({
     title: "Changer de tag principal ?",
     lead: `${q(name.name)} devient le tag principal`,
