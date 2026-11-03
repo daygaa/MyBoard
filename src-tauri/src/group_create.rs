@@ -5,7 +5,6 @@
 use rusqlite::{Connection, OptionalExtension, params};
 
 use crate::groups::{add_linked, group_of_tag, ids, merge, principal, tag_named, unmerge};
-use crate::rule_moves::adopt;
 use crate::tagging::resolve_or_create;
 use crate::tags::{NewTag, normalize};
 
@@ -82,10 +81,9 @@ pub fn create(db: &Connection, principal_tag: i64, names: &[String], merge_new: 
     Ok(group)
 }
 
-/// Fusion du gestionnaire (TAGM-04, TAGM-11, TAGM-13 ; revue au lot R6) : `source` rejoint le groupe de
-/// `target`, fusionné ; sans `keep` (case « Garder les anciens noms » décochée), le tag est ensuite supprimé (ses
-/// médias gardent le principal).
-pub fn merge_tag(db: &Connection, source: i64, target: i64, keep: bool, now: i64) -> anyhow::Result<()> {
+/// Fusion des tags proches (TAGM-13, revue au lot R6-2) : `source` rejoint le groupe de `target`, fusionné. Plus de
+/// fusion définitive (refonte, décision D7) : le tag reste, fusionné, la fusion se défait.
+pub fn merge_tag(db: &Connection, source: i64, target: i64, now: i64) -> anyhow::Result<()> {
     if source == target {
         return Ok(());
     }
@@ -95,11 +93,6 @@ pub fn merge_tag(db: &Connection, source: i64, target: i64, keep: bool, now: i64
     let row: Option<i64> = db.query_row("SELECT id FROM tag_group_names WHERE tag_id = ?1", [source], |r| r.get(0)).optional()?;
     if let Some(row) = row {
         merge(db, row, &[])?;
-    }
-    if !keep {
-        let chief = group_of_tag(db, target)?.map(|g| principal(db, g)).transpose()?.unwrap_or(target);
-        adopt(db, source, chief)?;
-        db.execute("DELETE FROM tags WHERE id = ?1", [source])?;
     }
     Ok(())
 }

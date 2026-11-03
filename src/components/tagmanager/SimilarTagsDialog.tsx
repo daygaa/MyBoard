@@ -3,11 +3,11 @@
 // tag lance sa recherche (retour T3, point TAGM-13.1) : la pop-in est notée dans l'étape (position dans la
 // liste, noms gardés, case), le retour arrière la rouvre telle quelle ; « Tout fusionner », à droite de
 // « Fermer », fusionne tous les groupes après une confirmation simple (retour T3, point TAGM-13.3). En haut,
-// « Détection : Strict | Large » (retour T3, point TAGM-13.5), retenu ; le compteur du bouton le suit.
+// « Détection : Strict | Large » (retour T3, point TAGM-13.5), retenu ; le compteur du bouton le suit. Plus de case
+// « Garder les anciens noms » (lot R6-1 : une fusion se défait toujours) ; le reste est revu au lot R6-2.
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
-import { KeepAliasesBox } from "@/components/tags/KeepAliasesBox";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Modal } from "@/components/ui/modal";
@@ -49,9 +49,9 @@ function LevelChoice() {
   );
 }
 
-type GroupProps = { group: ManagedTag[]; aliases: boolean; keep: number; onKeep: (id: number) => void; onSearch: (tag: ManagedTag) => void };
+type GroupProps = { group: ManagedTag[]; keep: number; onKeep: (id: number) => void; onSearch: (tag: ManagedTag) => void };
 
-function SimilarGroup({ group, aliases, keep, onKeep, onSearch }: GroupProps) {
+function SimilarGroup({ group, keep, onKeep, onSearch }: GroupProps) {
   return (
     <div data-zone="tags-proches.groupe" className="rounded-lg border border-border p-2">
       <KeepChoice tags={group} value={keep} onChange={onKeep} onSearch={onSearch} />
@@ -65,7 +65,7 @@ function SimilarGroup({ group, aliases, keep, onKeep, onSearch }: GroupProps) {
         >
           Ignorer
         </Button>
-        <Button size="sm" onClick={() => void mergeTags(group, kept(group, keep), aliases)} className={GOLD}>
+        <Button size="sm" onClick={() => void mergeTags(group, kept(group, keep))} className={GOLD}>
           Fusionner
         </Button>
       </div>
@@ -74,18 +74,17 @@ function SimilarGroup({ group, aliases, keep, onKeep, onSearch }: GroupProps) {
 }
 
 /** Pop-in « Tags proches » telle qu'on l'a quittée par une loupe (retour T3, point TAGM-13.1). */
-export type SimilarSnapshot = { scroll: number; keep: Record<string, number>; aliases: boolean };
+export type SimilarSnapshot = { scroll: number; keep: Record<string, number> };
 
 type SimilarProps = {
   groups: ManagedTag[][];
-  /** Pop-in rouverte par le retour arrière : position dans la liste, noms gardés, case. */
+  /** Pop-in rouverte par le retour arrière : position dans la liste, noms gardés. */
   initial?: SimilarSnapshot;
   onSearch: (tag: ManagedTag, snapshot: SimilarSnapshot) => void;
   onClose: () => void;
 };
 
 export function SimilarTagsDialog({ groups, initial, onSearch, onClose }: SimilarProps) {
-  const [aliases, setAliases] = useState(initial?.aliases ?? true);
   // Nom gardé de chaque groupe choisi à la main (sinon : le plus utilisé).
   const [keep, setKeep] = useState<Record<string, number>>(initial?.keep ?? {});
   const listRef = useRef<HTMLDivElement>(null);
@@ -96,7 +95,7 @@ export function SimilarTagsDialog({ groups, initial, onSearch, onClose }: Simila
     restored.current = true;
     listRef.current.scrollTop = initial.scroll;
   }, [initial, groups.length]);
-  const search = (tag: ManagedTag) => onSearch(tag, { scroll: listRef.current?.scrollTop ?? 0, keep, aliases });
+  const search = (tag: ManagedTag) => onSearch(tag, { scroll: listRef.current?.scrollTop ?? 0, keep });
   // Autre niveau de détection : la nouvelle liste repart du haut.
   const level = useUI((s) => s.similarLevel);
   const shownLevel = useRef(level);
@@ -108,10 +107,7 @@ export function SimilarTagsDialog({ groups, initial, onSearch, onClose }: Simila
   const [confirming, setConfirming] = useState(false);
   const mergeAll = () => {
     setConfirming(false);
-    void mergeGroups(
-      groups.map((g) => ({ sources: g, target: kept(g, keep[groupKey(g)] ?? mostUsed(g)) })),
-      aliases,
-    );
+    void mergeGroups(groups.map((g) => ({ sources: g, target: kept(g, keep[groupKey(g)] ?? mostUsed(g)) })));
   };
   return (
     <>
@@ -145,7 +141,6 @@ export function SimilarTagsDialog({ groups, initial, onSearch, onClose }: Simila
                   <SimilarGroup
                     key={key}
                     group={g}
-                    aliases={aliases}
                     keep={keep[key] ?? mostUsed(g)}
                     onKeep={(id) => setKeep((k) => ({ ...k, [key]: id }))}
                     onSearch={search}
@@ -153,14 +148,9 @@ export function SimilarTagsDialog({ groups, initial, onSearch, onClose }: Simila
                 );
               })}
             </div>
-            <div className="mt-3">
-              <KeepAliasesBox checked={aliases} onChange={setAliases} />
-            </div>
           </>
         )}
       </Modal>
-      {/* Même texte quelle que soit la case « Garder les anciens noms » : elle sera revue avec la refonte des
-          synonymes (TAGM-15.12, TAGM-15.13, choix de l'utilisateur). */}
       {confirming && (
         <ConfirmDialog
           zone="tags-proches.confirmation"

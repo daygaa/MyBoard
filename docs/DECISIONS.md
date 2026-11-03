@@ -1242,3 +1242,12 @@ case, elle ne s'ouvre pas si tous les tags fusionnés ont déjà eu la leur, con
 zéro au changement d'onglet du gestionnaire ; une réunion de groupes s'ouvre toujours). Plus de choix retenus : les
 cases sont décochées à chaque ouverture. Bulles Windows (`title` du `<label>` de la case). Réglage « toujours afficher
 les pop-ins » : SET-16.
+
+**Complément du 03/11 (lot R6-1).** Plus de fusion définitive (D7) : `group_create::merge_tag` sans `keep`,
+`rule_moves::adopt` supprimé, `merge_tags` / `merge_tag_groups` sans `keep_aliases` (ils ne servent plus qu'aux tags
+proches, revus au lot R6-2) ; `KeepAliasesBox` supprimé, remplacé par `tags/MergeSwitch.tsx`. Tags cochés :
+`CreateSynonymsDialog` (CleanupDialogs.tsx) ; renommage vers un tag existant : `SynonymTagDialog` (RenameTagDialog.tsx) ;
+tous deux lisent l'aperçu (`group_preview`) puis passent par `groupRules.createGroup` (pop-in de fusion de R5, réunion
+de groupes). `RuleAskHost` est monté dans `App.tsx` (et non plus dans le gestionnaire) : « Renommer… » d'un menu du
+clic droit, hors du gestionnaire, ouvre aussi la pop-in de fusion. Base d'essai (réponse 8) : modèle `refonte` au format
+actuel avec les cas `r5_…`, journal vidé avant la copie (`wal_checkpoint`, `journal_mode = DELETE`).

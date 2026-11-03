@@ -17,7 +17,7 @@ import { ArrowLeft, ChevronDown, Tags } from "lucide-react";
 import { createStore, type StoreApi } from "zustand";
 
 import { GridBadge } from "@/components/library/GridBadge";
-import { MergeTagDialog, renameTag } from "@/components/tags/RenameTagDialog";
+import { SynonymTagDialog, renameTag } from "@/components/tags/RenameTagDialog";
 import { TagDeleteDialog } from "@/components/tags/TagDeleteDialog";
 import { tagMenu } from "@/components/tags/tagMenu";
 import { Button } from "@/components/ui/button";
@@ -38,12 +38,11 @@ import { searchInLibrary } from "@/stores/search";
 import { inField } from "@/stores/selection";
 import { useUI } from "@/stores/ui";
 import { BulkBar } from "./BulkBar";
-import { MergeTagsDialog, UnusedTagsDialog } from "./CleanupDialogs";
+import { CreateSynonymsDialog, UnusedTagsDialog } from "./CleanupDialogs";
 import { SimilarTagsDialog, type SimilarSnapshot } from "./SimilarTagsDialog";
 import { openExportMenu } from "./exportMenu";
 import { ImportTagsDialog } from "./ImportTagsDialog";
 import { NewTagButton } from "./NewTagButton";
-import { RuleAskHost } from "./RuleAskHost";
 import { RulesTab } from "./RulesTab";
 import { TagFilters } from "./TagFilters";
 import { Tabs } from "./TagManagerTabs";
@@ -247,9 +246,8 @@ function ManagerPage({ tab, store }: { tab: TagTab; store: StoreApi<TagsTabState
           </>
         )}
         <GridBadge />
-        <RuleAskHost />
 
-        {merging && <MergeTagDialog source={merging.source} existing={merging.existing} onCancel={() => setMerging(null)} onDone={() => setMerging(null)} />}
+        {merging && <SynonymTagDialog source={merging.source} existing={merging.existing} onCancel={() => setMerging(null)} onDone={() => setMerging(null)} />}
         {deleting && <TagDeleteDialog tags={deleting} onCancel={() => setDeleting(null)} onDone={() => setDeleting(null)} />}
         {dialog === "similar" && (
           <SimilarTagsDialog
@@ -270,7 +268,7 @@ function ManagerPage({ tab, store }: { tab: TagTab; store: StoreApi<TagsTabState
         )}
         {dialog === "import" && <ImportTagsDialog onClose={() => setDialog(null)} />}
         {dialog === "unused" && <UnusedTagsDialog tags={unused} onClose={() => setDialog(null)} />}
-        {dialog === "merge" && <MergeTagsDialog tags={checkedTags} onClose={() => setDialog(null)} onDone={() => setDialog(null)} />}
+        {dialog === "merge" && <CreateSynonymsDialog tags={checkedTags} onClose={() => setDialog(null)} />}
       </main>
     </>
   );

@@ -41,17 +41,16 @@ export function followRename(from: string, to: string) {
 
 type Named = { id: number; name: string };
 
-/** Fusionne `sources` dans `target` ; `keep` : leurs noms deviennent des synonymes du tag gardé
- *  (TAGM-17). */
-export async function mergeTags(sources: Named[], target: Named, keep: boolean) {
-  const done = await runTagAction("Fusionner les tags", () => api.mergeTags(sources.map((s) => s.id), target.id, keep));
+/** Fusionne `sources` dans `target` (tags proches, revus au lot R6-2) : ils deviennent ses synonymes, fusionnés. */
+export async function mergeTags(sources: Named[], target: Named) {
+  const done = await runTagAction("Fusionner les tags", () => api.mergeTags(sources.map((s) => s.id), target.id));
   if (done !== undefined) for (const s of sources) if (s.id !== target.id) followRename(s.name, target.name);
   return done;
 }
 /** « Tout fusionner » des tags proches (TAGM-13.3) : chaque groupe dans son tag gardé, en une fois. */
-export async function mergeGroups(groups: { sources: Named[]; target: Named }[], keep: boolean) {
+export async function mergeGroups(groups: { sources: Named[]; target: Named }[]) {
   const ids = groups.map((g) => ({ sources: g.sources.map((s) => s.id), target: g.target.id }));
-  const done = await runTagAction("Fusionner les tags", () => api.mergeTagGroups(ids, keep));
+  const done = await runTagAction("Fusionner les tags", () => api.mergeTagGroups(ids));
   if (done !== undefined) for (const g of groups) for (const s of g.sources) if (s.id !== g.target.id) followRename(s.name, g.target.name);
   return done;
 }

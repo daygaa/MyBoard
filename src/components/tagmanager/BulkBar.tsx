@@ -1,6 +1,6 @@
 // Actions groupées du gestionnaire de tags (TAGM-11), comme la barre du bas de la sélection des
 // médias (SEL-07) : « K cochés · Sélectionner les N tags (ceux du filtre, TAGM-04.5) · Modifier la
-// catégorie · Masquer · Ne plus masquer · Fusionner… · Supprimer… · Décocher », collée en bas de l'écran
+// catégorie · Masquer · Ne plus masquer · Créer un / des synonymes… · Supprimer… · Décocher », collée en bas de l'écran
 // pendant le défilement. Changer la catégorie de 2 tags ou plus demande confirmation (retour T3, point
 // TAGM-04.9, GEN-21) ; d'un seul, non (comme la liste de sa ligne).
 
@@ -65,8 +65,17 @@ export function BulkBar({ tags, matching, onSelectAll, allSelected, onMerge, onD
       <Button variant="outline" size="sm" onClick={() => void setTagsHidden(ids, false)} className={ACTION}>
         Ne plus masquer
       </Button>
-      <Button variant="outline" size="sm" disabled={tags.length < 2} onClick={onMerge} className={ACTION} title="Réunir ces tags en un seul">
-        Fusionner…
+      {/* Lot R6-1 (retour T3, point TAGM-11.4) : un groupe de synonymes, fusionné ou non, à la place de « Fusionner… ». */}
+      <Button
+        data-zone="gestionnaire-tags.groupe.synonymes"
+        variant="outline"
+        size="sm"
+        disabled={tags.length < 2}
+        onClick={onMerge}
+        className={ACTION}
+        title="Relier ces tags dans un groupe de synonymes"
+      >
+        {tags.length > 2 ? "Créer des synonymes…" : "Créer un synonyme…"}
       </Button>
       <Button variant="outline" size="sm" onClick={onDelete} className={`${ACTION} text-rose-300 hover:text-rose-200`}>
         Supprimer…

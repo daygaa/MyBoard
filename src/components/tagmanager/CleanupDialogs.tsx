@@ -1,20 +1,24 @@
 // Pop-ins de nettoyage du gestionnaire de tags :
 // - « Supprimer les N tags non utilisés ? » (TAGM-08) : case « Sélection manuelle » qui déplie la liste
 //   des tags concernés, tous cochés ; décocher un tag le garde (N baisse de 1) ;
-// - fusion de tags cochés (TAGM-11) : choix du nom gardé.
-// Tags proches (TAGM-13) : SimilarTagsDialog.tsx. Les deux fusions ont la case « Garder les anciens noms
-// comme synonymes » (TAGM-17).
+// - « Créer un synonyme » / « Créer des synonymes » des tags cochés (retour T3, point TAGM-11.4 ; refonte, D8,
+//   D8.1, lot R6-1) : tag principal au choix, aperçu du groupe obtenu, interrupteur « Fusionner ».
+// Tags proches (TAGM-13) : SimilarTagsDialog.tsx.
 
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 
-import { KeepAliasesBox } from "@/components/tags/KeepAliasesBox";
+import { MergeSwitch } from "@/components/tags/MergeSwitch";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Modal } from "@/components/ui/modal";
 import type { ManagedTag } from "@/lib/api";
-import { formatNumber, plural } from "@/lib/format";
-import { deleteTags, mergeTags } from "@/lib/tagManager";
-import { CANCEL, KeepChoice, kept, mostUsed, RED, TagName } from "./TagChoice";
+import { formatNumber } from "@/lib/format";
+import { createGroup } from "@/lib/groupRules";
+import { rulesApi } from "@/lib/rulesApi";
+import { deleteTags } from "@/lib/tagManager";
+import { displayTag } from "@/lib/tags";
+import { CANCEL, GOLD, KeepChoice, kept, mostUsed, RED, TagName } from "./TagChoice";
 
 export function UnusedTagsDialog({ tags, onClose }: { tags: ManagedTag[]; onClose: () => void }) {
   const [manual, setManual] = useState(false);
@@ -72,36 +76,63 @@ export function UnusedTagsDialog({ tags, onClose }: { tags: ManagedTag[]; onClos
   );
 }
 
-export function MergeTagsDialog({ tags, onClose, onDone }: { tags: ManagedTag[]; onClose: () => void; onDone: () => void }) {
-  const [keep, setKeep] = useState(() => mostUsed(tags));
-  const [aliases, setAliases] = useState(true);
-  const merge = () => void mergeTags(tags, kept(tags, keep), aliases).then(onDone);
+/** Tags cochés → un groupe de synonymes autour du tag principal choisi (le plus utilisé d'office). « Créer » ferme la
+ *  pop-in ; la pop-in de fusion (médias, règles, « Étendre ») ou de réunion de groupes suit si besoin (réponse 1 du
+ *  lot R6). */
+export function CreateSynonymsDialog({ tags, onClose }: { tags: ManagedTag[]; onClose: () => void }) {
+  const [keep, setKeepId] = useState(() => mostUsed(tags));
+  // Interrupteur touché à la main ; sinon, allumé si le groupe obtenu est entièrement fusionné (D2.2, D8.1).
+  const [merge, setMerge] = useState<boolean | null>(null);
+  const chief = kept(tags, keep);
+  const others = tags.filter((t) => t.id !== chief.id).map((t) => t.name);
+  const { data: preview } = useQuery({ queryKey: ["group-preview", chief.name, others], queryFn: () => rulesApi.groupPreview(chief.name, others) });
+  const on = merge ?? preview?.fullyMerged ?? false;
+  const head = preview?.principal ?? chief.name;
+  const nothing = preview !== undefined && preview.added.length === 0;
+  const create = () => {
+    if (!preview || nothing) return;
+    onClose();
+    void createGroup({ id: chief.id, name: head }, others, on, preview, [], () => {}, true);
+  };
+  const names = preview ? [...preview.existing, ...preview.added].map((n) => displayTag(n.name)) : [];
   return (
     <Modal
       open
       even
-      onEnter={merge}
+      onEnter={create}
       onClose={onClose}
-      zone="tags-fusionner"
-      title={`Fusionner ${formatNumber(tags.length)} ${plural(tags.length, "tag")}`}
-      description="Choisis le nom gardé : ses médias reçoivent ceux des autres tags, qui disparaissent."
+      zone="tags-synonymes"
+      title={tags.length > 2 ? "Créer des synonymes" : "Créer un synonyme"}
+      description="Choisis le tag principal ; les autres deviennent ses synonymes."
       footer={
         <>
           <Button variant="ghost" onClick={onClose} className={CANCEL}>
             Annuler
           </Button>
-          <Button data-zone="tags-fusionner.oui" onClick={merge} className={RED}>
-            Fusionner
+          <Button data-zone="tags-synonymes.creer" disabled={!preview || nothing} onClick={create} className={GOLD}>
+            Créer
           </Button>
         </>
       }
     >
       <div className="max-h-64 overflow-y-auto rounded-lg border border-border p-1.5">
-        <KeepChoice tags={tags} value={keep} onChange={setKeep} />
+        <KeepChoice
+          tags={tags}
+          value={keep}
+          onChange={(id) => {
+            setKeepId(id);
+            setMerge(null);
+          }}
+        />
       </div>
-      <div className="mt-4">
-        <KeepAliasesBox checked={aliases} onChange={setAliases} />
-      </div>
+      <p data-zone="tags-synonymes.resultat" className="mt-3 text-sm text-muted-foreground select-text [overflow-wrap:anywhere]">
+        {nothing ? `Ces tags sont déjà des synonymes de « ${displayTag(head)} ».` : preview ? `Résultat : ★ ${[displayTag(head), ...names].join(" = ")}` : " "}
+      </p>
+      {!nothing && (
+        <div className="mt-3">
+          <MergeSwitch on={on} onChange={setMerge} zone="tags-synonymes.fusion" />
+        </div>
+      )}
     </Modal>
   );
 }

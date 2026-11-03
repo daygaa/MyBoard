@@ -268,10 +268,10 @@ export const api = {
   // Gestionnaire de tags (TAGM-04 et suivants) et menus des tags (CTX-04, CTX-12).
   listManagedTags: () => invoke<TagManagerData>("list_managed_tags"),
   renameTag: (id: number, name: string) => invoke<Renamed>("rename_tag", { id, name }),
-  /** `keepAliases` : les noms fusionnés deviennent des synonymes du tag gardé (TAGM-17). */
-  mergeTags: (sources: number[], target: number, keepAliases: boolean) => invoke<void>("merge_tags", { sources, target, keepAliases }),
+  /** Tags proches (revus au lot R6-2) : les tags deviennent des synonymes fusionnés du tag gardé. */
+  mergeTags: (sources: number[], target: number) => invoke<void>("merge_tags", { sources, target }),
   /** « Tout fusionner » des tags proches (TAGM-13.3) : chaque groupe dans son tag gardé, en une fois. */
-  mergeTagGroups: (groups: { sources: number[]; target: number }[], keepAliases: boolean) => invoke<void>("merge_tag_groups", { groups, keepAliases }),
+  mergeTagGroups: (groups: { sources: number[]; target: number }[]) => invoke<void>("merge_tag_groups", { groups }),
   setTagsCategory: (ids: number[], categoryId: number) => invoke<number>("set_tags_category", { ids, categoryId }),
   setTagsHidden: (ids: number[], hidden: boolean) => invoke<number>("set_tags_hidden", { ids, hidden }),
   /** `withMerged`, `strip` : les cases de la pop-in de suppression (retour T3, point TAGM-15.28). */

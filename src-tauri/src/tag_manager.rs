@@ -113,14 +113,14 @@ pub struct MergeGroup {
 }
 
 /// Fusionne chaque groupe dans son tag gardé, tous en une transaction : chaque tag rejoint le groupe de
-/// synonymes du tag gardé, fusionné (ses médias passent au tag gardé, avec ses parents) ; sans `keep`, son nom
-/// est ensuite oublié (TAGM-17, GEN-21 ; ces pop-ins sont revues au lot R6).
-fn merge(conn: &mut Connection, groups: &[MergeGroup], keep: bool) -> anyhow::Result<()> {
+/// synonymes du tag gardé, fusionné (ses médias passent au tag gardé). Tags proches (revus au lot R6-2) ; la case
+/// « Garder les anciens noms » (TAGM-17) a disparu au lot R6-1 : une fusion se défait toujours (D7).
+fn merge(conn: &mut Connection, groups: &[MergeGroup]) -> anyhow::Result<()> {
     let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
     let now = db::now_ms();
     for group in groups {
         for &source in &group.sources {
-            merge_tag(&tx, source, group.target, keep, now)?;
+            merge_tag(&tx, source, group.target, now)?;
         }
     }
     tx.commit()?;
@@ -158,14 +158,14 @@ pub async fn rename_tag(state: State<'_, AppState>, id: i64, name: String) -> Re
 }
 
 #[tauri::command]
-pub async fn merge_tags(state: State<'_, AppState>, sources: Vec<i64>, target: i64, keep_aliases: bool) -> Result<(), String> {
-    merge(&mut state.db.lock().unwrap(), &[MergeGroup { sources, target }], keep_aliases).map_err(|e| format!("{e:#}"))
+pub async fn merge_tags(state: State<'_, AppState>, sources: Vec<i64>, target: i64) -> Result<(), String> {
+    merge(&mut state.db.lock().unwrap(), &[MergeGroup { sources, target }]).map_err(|e| format!("{e:#}"))
 }
 
 /// « Tout fusionner » des tags proches (retour T3, point TAGM-13.3) : tous les groupes d'un coup.
 #[tauri::command]
-pub async fn merge_tag_groups(state: State<'_, AppState>, groups: Vec<MergeGroup>, keep_aliases: bool) -> Result<(), String> {
-    merge(&mut state.db.lock().unwrap(), &groups, keep_aliases).map_err(|e| format!("{e:#}"))
+pub async fn merge_tag_groups(state: State<'_, AppState>, groups: Vec<MergeGroup>) -> Result<(), String> {
+    merge(&mut state.db.lock().unwrap(), &groups).map_err(|e| format!("{e:#}"))
 }
 
 #[tauri::command]

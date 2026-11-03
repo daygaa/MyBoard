@@ -1,58 +1,69 @@
-// Renommer un tag (CTX-04) : pop-in du style de « Créer un nouveau tag ». Si le nom est déjà porté
-// par un autre tag, pop-in « [tag] existe déjà et X médias y sont attachés, voulez-vous les
-// fusionner ? » (« Oui » rouge) : les médias passent au tag existant, l'ancien disparaît (son nom
-// peut rester comme synonyme, TAGM-17). Nom d'un synonyme actif : fusion proposée avec son tag
-// principal (TAGM-15). La même confirmation sert au renommage dans la ligne du gestionnaire
-// (TAGM-04). Un tag renommé dans la recherche en cours y prend son nouveau nom (SRCH-27).
+// Renommer un tag (CTX-04) : pop-in du style de « Créer un nouveau tag ». Si le nom est déjà porté par un autre
+// tag (ou par un tag fusionné : c'est son principal qui compte), rien n'est renommé : pop-in « Créer un synonyme ? »
+// (retour T3, point TAGM-15.8 ; refonte, D7, D8, lot R6-1) : les deux tags seront reliés, interrupteur « Fusionner »
+// éteint d'office (allumé si le groupe est entièrement fusionné, D2.2) ; la pop-in de fusion ou de réunion de groupes
+// suit si besoin. La même pop-in sert au renommage dans la ligne du gestionnaire (TAGM-04). Un tag renommé dans la
+// recherche en cours y prend son nouveau nom (SRCH-27).
 
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
 import { api, type Renamed, type TagInfo } from "@/lib/api";
-import { formatNumber, plural } from "@/lib/format";
+import { createGroup } from "@/lib/groupRules";
+import { rulesApi } from "@/lib/rulesApi";
+import { media } from "@/lib/tagRules";
 import { displayTag, normalizeTag } from "@/lib/tags";
-import { followRename, mergeTags, runTagAction } from "@/lib/tagManager";
+import { followRename, runTagAction } from "@/lib/tagManager";
 import { useViewer } from "@/stores/viewer";
-import { KeepAliasesBox } from "./KeepAliasesBox";
+import { MergeSwitch } from "./MergeSwitch";
 
 const CANCEL = "text-foreground hover:bg-secondary hover:text-foreground";
+const GOLD = "bg-[#d9a94e] text-[#1a1408] hover:bg-[#e3b75f] disabled:hover:bg-[#d9a94e]";
 
 type Existing = Extract<Renamed, { kind: "exists" }>;
 
 type Source = Pick<TagInfo, "id" | "name">;
 
-/** « X existe déjà… voulez-vous les fusionner ? » ; « Oui » fusionne `source` dans le tag existant. */
-export function MergeTagDialog({ source, existing, onCancel, onDone }: { source: Source; existing: Existing; onCancel: () => void; onDone: () => void }) {
-  const [keep, setKeep] = useState(true);
-  const count = existing.mediaCount;
-  const attached = `${formatNumber(count)} ${plural(count, "média")} y ${count > 1 ? "sont attachés" : "est attaché"}`;
-  const merge = () => void mergeTags([source], existing, keep).then(onDone);
+/** « Créer un synonyme ? » : `source` rejoint le groupe du tag existant (relié, ou fusionné avec l'interrupteur). */
+export function SynonymTagDialog({ source, existing, onCancel, onDone }: { source: Source; existing: Existing; onCancel: () => void; onDone: () => void }) {
+  const { data: preview } = useQuery({ queryKey: ["group-preview", existing.name, [source.name]], queryFn: () => rulesApi.groupPreview(existing.name, [source.name]) });
+  const [merge, setMerge] = useState<boolean | null>(null);
+  const on = merge ?? preview?.fullyMerged ?? false;
+  const nothing = preview !== undefined && preview.added.length === 0;
+  const [from, to] = [displayTag(source.name), displayTag(existing.name)];
+  const create = () => {
+    if (!preview || nothing) return;
+    onDone();
+    void createGroup({ id: existing.id, name: preview.principal ?? existing.name }, [source.name], on, preview, [], () => {}, true);
+  };
+  const where = existing.alias ? `« ${displayTag(existing.alias)} » est fusionné dans « ${to} »` : `« ${to} » existe déjà`;
   return (
     <Modal
       open
       even
-      onEnter={merge}
+      onEnter={create}
       onClose={onCancel}
-      zone="tag-fusion"
-      title="Nom déjà utilisé"
+      zone="tag-synonyme"
+      title="Créer un synonyme ?"
       description={
-        existing.alias
-          ? `« ${displayTag(existing.alias)} » est un synonyme de « ${displayTag(existing.name)} », et ${attached}, voulez-vous les fusionner ?`
-          : `« ${displayTag(existing.name)} » existe déjà et ${attached}, voulez-vous les fusionner ?`
+        nothing
+          ? `« ${from} » est déjà un synonyme de « ${displayTag(preview.principal ?? existing.name)} ».`
+          : `${where} (${media(existing.mediaCount)}). « ${from} » et « ${to} » seront reliés : chercher l'un trouvera aussi l'autre. Rien n'est renommé.`
       }
       footer={
         <>
           <Button variant="ghost" onClick={onCancel} className={CANCEL}>
-            Non
+            Annuler
           </Button>
-          <Button data-zone="tag-fusion.oui" onClick={merge} className="bg-destructive text-white hover:bg-destructive/90">
-            Oui
+          <Button data-zone="tag-synonyme.creer" disabled={!preview || nothing} onClick={create} className={GOLD}>
+            Créer
           </Button>
         </>
       }
     >
-      <KeepAliasesBox checked={keep} onChange={setKeep} />
+      {!nothing && <MergeSwitch on={on} onChange={setMerge} zone="tag-synonyme.fusion" />}
     </Modal>
   );
 }
@@ -86,7 +97,7 @@ export function RenameTagDialog({ tag, onCancel, onDone }: { tag: TagInfo; onCan
     else if (result) setExisting(result);
   };
 
-  if (existing) return <MergeTagDialog source={tag} existing={existing} onCancel={() => setExisting(null)} onDone={onDone} />;
+  if (existing) return <SynonymTagDialog source={tag} existing={existing} onCancel={() => setExisting(null)} onDone={onDone} />;
   return (
     <Modal
       open
@@ -103,7 +114,7 @@ export function RenameTagDialog({ tag, onCancel, onDone }: { tag: TagInfo; onCan
             data-zone="tag-renommer.valider"
             disabled={!name.trim() || busy}
             onClick={() => void submit()}
-            className="bg-[#d9a94e] text-[#1a1408] hover:bg-[#e3b75f] disabled:hover:bg-[#d9a94e]"
+            className={GOLD}
           >
             Renommer
           </Button>

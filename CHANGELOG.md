@@ -3,6 +3,33 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Tags cochés et renommage : « Créer un synonyme », lot R6-1 (03/11/2026) — Backup v87
+
+SPEC : livrés : TAGM-11 (retour T3, point TAGM-11.4), TAGM-17 (point TAGM-15.8), TAGM-11.2 en partie ; refonte
+TAGM-20, lot R6-1 ; DEV-07 (base d'essai).
+
+- **Tags cochés** : « Fusionner… » devient « Créer un synonyme… » (2 tags) ou « Créer des synonymes… » (3 et plus).
+  Pop-in : « Choisis le tag principal ; les autres deviennent ses synonymes. », le tag principal au choix (le plus
+  utilisé d'office), « Résultat : ★ … », l'interrupteur « Fusionner » (éteint ; allumé si le groupe obtenu est
+  entièrement fusionné). « Créer » ; s'il le faut, la pop-in de fusion (médias, règles, « Étendre ») ou « Réunir les
+  groupes ? » suit.
+- **Renommer vers un tag existant** (ou vers un tag fusionné : son principal) : rien n'est renommé ; pop-in « Créer un
+  synonyme ? » : « « chat » existe déjà (12 médias). « chaton » et « chat » seront reliés : chercher l'un trouvera aussi
+  l'autre. Rien n'est renommé. », avec l'interrupteur « Fusionner ». Aussi depuis un menu du clic droit hors du
+  gestionnaire (visionneuse, barre latérale).
+- **La case « Garder les anciens noms » disparaît** partout (tags cochés, renommage, tags proches) : une fusion se
+  défait toujours.
+- **Base d'essai** : le modèle de `refonte` est au format actuel avec les cas `r5_…` (leur description dit quoi
+  tester). « Remettre les bases refonte à zéro » les met dans la base `refonte`.
+
+Vérifié dans la version compilée, sur une copie de la base d'essai : M-01 (2 puis 3 tags cochés, libellés, pop-in,
+choix du principal et aperçu, groupe créé sans fusion, badge), M-02 (tags de deux groupes : « Réunir les groupes ? »,
+annulée sans rien changer), interrupteur allumé d'office pour un groupe entièrement fusionné, M-03 (renommer « r5
+lion » en « r5 fauve » : rien n'est renommé, groupes réunis), M-04 / réponse 2 B (renommer vers « essai bagnole »,
+fusionné : relié à « essai voiture »), renommage depuis la visionneuse avec la fusion allumée (pop-in de fusion de R5
+par-dessus la visionneuse), tags proches sans la case (« Fusionner » d'un groupe), modèle de la base (intégrité,
+version 12, cas présents) ; zéro erreur `tsc` et `clippy`.
+
 ## Bulles des cases « Étendre », pop-in de fusion complète (02/11/2026) — Backup v86
 
 SPEC : livré `[~]` : TAGM-16 (retour T3, point TAGM-16.4, retouche de R5-2) ; nouvel ID SET-16 (réglage futur).

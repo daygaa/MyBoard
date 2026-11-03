@@ -13,6 +13,7 @@ import { Header } from "@/components/layout/Header";
 import { TitleBar } from "@/components/layout/TitleBar";
 import { DeleteFailedDialog } from "@/components/library/DeleteFailedDialog";
 import { LibraryPage } from "@/components/library/LibraryPage";
+import { RuleAskHost } from "@/components/tagmanager/RuleAskHost";
 import { TagManagerPage } from "@/components/tagmanager/TagManagerPage";
 import { ContextMenuHost } from "@/components/ui/context-menu";
 import { ErrorDialog } from "@/components/viewer/ErrorDialog";
@@ -53,6 +54,8 @@ export function App() {
       <Viewer />
       <ContextMenuHost />
       <ErrorDialog />
+      {/* Pop-ins des synonymes et des règles : aussi pour « Renommer… » depuis un menu du clic droit (lot R6-1). */}
+      <RuleAskHost />
       <DeleteFailedDialog />
       <RestoreDialog />
     </div>

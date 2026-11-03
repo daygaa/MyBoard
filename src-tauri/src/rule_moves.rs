@@ -110,23 +110,6 @@ pub fn follow_unmerge(db: &Connection, tag: i64, p: i64) -> rusqlite::Result<Vec
     Ok(stayed)
 }
 
-/// Tag fusionné qui va être supprimé (fusion de l'onglet « Tags » sans « Garder les anciens noms », revue au lot R6) :
-/// ses règles restantes passent pour de bon au principal, comme avant le lot R5, sauf celles qui deviendraient
-/// inutiles (règle déjà présente, tag parent de lui-même) ou feraient une boucle : elles partent avec lui.
-pub fn adopt(db: &Connection, tag: i64, p: i64) -> rusqlite::Result<()> {
-    let rules = db
-        .prepare("SELECT id, child_id, parent_id FROM tag_parents WHERE child_id = ?1 OR parent_id = ?1")?
-        .query_map([tag], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, i64>(1)?, r.get::<_, i64>(2)?)))?
-        .collect::<rusqlite::Result<Vec<_>>>()?;
-    for (id, child, parent) in rules {
-        let (c, par) = (if child == tag { p } else { child }, if parent == tag { p } else { parent });
-        if c != par && !exists(db, c, par)? && !reaches(db, par, c)? {
-            db.execute("UPDATE tag_parents SET child_id = ?2, parent_id = ?3 WHERE id = ?1", params![id, c, par])?;
-        }
-    }
-    Ok(())
-}
-
 /// Médias d'une requête dont `?1` est le tag ou le nom fusionné, et `?2` le parent qu'ils n'ont pas encore.
 fn media_without(db: &Connection, sql: &str, of: i64, parent: i64) -> rusqlite::Result<Vec<i64>> {
     db.prepare(sql)?.query_map(params![of, parent], |r| r.get(0))?.collect()
