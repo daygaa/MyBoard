@@ -1276,3 +1276,11 @@ fusions qu'elle refait n'ont pas de case ; une règle de l'ancien principal ré�
 des tags fusionnés par la création n'a qu'une ligne (« moved ») qui porte la case. Ses notes d'extension sont marquées
 du tag d'origine de la règle (l'ancien principal), comme pour l'étoile : défusionner celui-ci ramène la règle et retire
 l'extension.
+
+**Complément du 03/11 (lot R7, réponses).** Onglet « Synonymes et parents » : une ligne de titres triables par liste,
+comme le tableau des tags (titre du tri en cours en doré avec sa flèche ; « Tag principal » en doré léger sinon) ; tri
+rangé dans l'état de la page d'historique ; l'ordre est figé jusqu'au prochain clic sur un titre ou au prochain
+passage sur l'onglet (une ligne dont l'interrupteur change ne bouge pas, comme TAGM-15.19), un nouvel élément prend
+sa place dans le tri. Filtre : « Chercher un tag… » partout. GEN-22 : retour à la ligne entre les mots seulement
+(plus de `break-all` dans les pop-ins et le bandeau d'erreur), tags cités par `q()` (espaces insécables). Compteurs
+de l'export et de l'import : lot R8.
