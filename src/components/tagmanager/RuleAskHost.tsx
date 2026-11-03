@@ -9,7 +9,8 @@ import { useState } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { formatNumber } from "@/lib/format";
-import { copyPlain, useRuleAsk, type AskRules, type RuleAsk } from "@/lib/tagRules";
+import { copyPlain, keepQuoted } from "@/lib/keepWords";
+import { useRuleAsk, type AskRules, type RuleAsk } from "@/lib/tagRules";
 
 /** Lignes de règles montrées au plus ; les suivantes sont comptées. */
 const MAX_RULES = 10;
@@ -55,10 +56,10 @@ function Ask({ ask }: { ask: RuleAsk }) {
       zone="regle-confirmation"
       title={ask.title}
       // La règle « X → Y » reste en place sous le titre quand le texte défile (pop-in limitée en hauteur).
-      subtitle={ask.lead && <p onCopy={copyPlain} className="text-[15px] text-foreground [overflow-wrap:break-word]">{ask.lead}</p>}
+      subtitle={ask.lead && <p onCopy={copyPlain} className="text-[15px] text-foreground [overflow-wrap:break-word]">{keepQuoted(ask.lead)}</p>}
       message={
         <p onCopy={copyPlain} className="whitespace-pre-line [overflow-wrap:break-word]">
-          {ask.message}
+          {keepQuoted(ask.message)}
         </p>
       }
       danger={ask.danger}

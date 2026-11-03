@@ -4,6 +4,7 @@
 
 import { AlertTriangle, X } from "lucide-react";
 
+import { copyPlain, keepQuoted } from "@/lib/keepWords";
 import { explainWindowsError } from "@/lib/windowsErrors";
 import { useViewer } from "@/stores/viewer";
 
@@ -24,7 +25,10 @@ export function ErrorBanner() {
           {error.action} : échec
           {error.code !== null && <span className="ml-2 font-mono text-xs text-rose-300/80">Erreur Windows {error.code}</span>}
         </p>
-        <p className="break-all whitespace-pre-line text-rose-200/90">{error.message}</p>
+        {/* Retour à la ligne entre les mots seulement, comme la pop-in d'erreur (GEN-22). */}
+        <p onCopy={copyPlain} className="whitespace-pre-line text-rose-200/90 [overflow-wrap:break-word]">
+          {keepQuoted(error.message)}
+        </p>
         {explanation && <p className="mt-0.5 text-rose-200/70">{explanation}</p>}
       </div>
       <button

@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
 import { api, type Folder } from "@/lib/api";
 import { refreshFolders, type NameError } from "@/lib/folders";
+import { keepQuoted } from "@/lib/keepWords";
 
 type Props = {
   /** Dossier à renommer ; absent : création. */
@@ -118,7 +119,7 @@ export function FolderNameDialog({ folder, mediaIds = [], onCancel, onDone, onCr
         placeholder="Nom du dossier"
         className="h-9 w-full rounded-md border border-border bg-card/60 px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground/60 focus:border-[#d9a94e]/60"
       />
-      {error && <p className="mt-2 text-xs break-all text-rose-300">{error}</p>}
+      {error && <p className="mt-2 text-xs text-rose-300 [overflow-wrap:break-word]">{keepQuoted(error)}</p>}
     </Modal>
   );
 }

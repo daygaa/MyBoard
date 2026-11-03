@@ -162,7 +162,7 @@ export function RuleForm({ zone, placeholders, onAdd, tags, tagOf, className, sa
           Créer
         </Button>
       </div>
-      {/* Ligne toujours réservée, de la hauteur de l'aperçu des synonymes : les barres « Filtrer par nom »
+      {/* Ligne toujours réservée, de la hauteur de l'aperçu des synonymes : les barres « Chercher un tag »
           des deux tableaux restent alignées, refus ou pas (retouches de R3). */}
       <p data-zone={`${zone}.refus`} title={error ?? undefined} className="mt-1.5 h-5 truncate text-xs leading-5 text-rose-300">
         {error}

@@ -2,13 +2,14 @@
 // rien ne reste dans la page une fois fermé, donc aucun calque invisible ne peut bloquer
 // l'interface (bogue critique de la v5, VIEW-07). Échap et le bouton 4 de la souris ferment. Le
 // clavier y entre et y reste (GEN-20.1) ; Espace coche la case principale et Entrée confirme, sans
-// avoir à leur donner le focus (GEN-20.2).
+// avoir à leur donner le focus (GEN-20.2). Titre et texte : aucun mot coupé, un nom cité reste d'un bloc (GEN-22).
 
 import { useEffect, useMemo, useRef, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 
 import { useEscape } from "@/lib/escape";
+import { copyPlain, keepQuoted } from "@/lib/keepWords";
 import { cn } from "@/lib/utils";
 
 /** Commandes atteignables au clavier dans une pop-in (cases à cocher comprises : ce sont des boutons). */
@@ -147,12 +148,18 @@ export function Modal(props: Props) {
             <X className="h-4 w-4" />
           </button>
         )}
-        <h2 className="shrink-0 pr-6 text-lg font-semibold text-foreground select-text">{title}</h2>
+        <h2 onCopy={copyPlain} className="shrink-0 pr-6 text-lg font-semibold text-foreground select-text [overflow-wrap:break-word]">
+          {keepQuoted(title)}
+        </h2>
         {subtitle && <div className={cn("shrink-0 select-text", even ? "mt-4" : "mt-1.5")}>{subtitle}</div>}
         {(description || children) && (
           // La barre de défilement longe le bord de la pop-in ; la molette ne passe pas à la page (GEN-24).
           <div className={cn("-mx-6 min-h-0 overflow-y-auto overscroll-contain px-6", subtitle ? "mt-1.5" : even ? "mt-4" : description ? "mt-1.5" : "mt-5")}>
-            {description && <div className="text-sm text-muted-foreground select-text">{description}</div>}
+            {description && (
+              <div onCopy={copyPlain} className="text-sm text-muted-foreground select-text [overflow-wrap:break-word]">
+                {typeof description === "string" ? keepQuoted(description) : description}
+              </div>
+            )}
             {children && <div className={cn("select-text", description && (even ? "mt-4" : "mt-5"))}>{children}</div>}
           </div>
         )}

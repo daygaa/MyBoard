@@ -80,16 +80,19 @@ export function DeleteDialog({ count, name, onCancel, onConfirm }: Props) {
           <p>
             {one && name ? (
               <>
-                Supprimer «{" "}
+                Supprimer{" "}
                 <span
                   onMouseEnter={(e) => titleIfCut(e.currentTarget)}
                   className="max-w-full overflow-hidden align-top font-semibold text-foreground [overflow-wrap:anywhere]"
                   // Boîte dans la ligne, coupée à 2 lignes par « … » (comme la pop-in de création de tag).
                   style={{ display: "-webkit-inline-box", WebkitBoxOrient: "vertical", WebkitLineClamp: 2 }}
                 >
+                  {/* Guillemets dans la boîte : jamais séparés du nom (GEN-22). */}
+                  <span className="font-normal text-muted-foreground">«&nbsp;</span>
                   {name}
+                  <span className="font-normal text-muted-foreground">&nbsp;»</span>
                 </span>{" "}
-                » de la bibliothèque ?
+                de la bibliothèque&nbsp;?
               </>
             ) : one ? (
               "Supprimer ce média de la bibliothèque ?"

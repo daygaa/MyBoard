@@ -14,9 +14,11 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Modal } from "@/components/ui/modal";
 import type { ManagedTag } from "@/lib/api";
 import { formatNumber } from "@/lib/format";
+import { whole } from "@/lib/keepWords";
 import { createGroup } from "@/lib/groupRules";
 import { rulesApi, type GroupRow } from "@/lib/rulesApi";
 import { deleteTags } from "@/lib/tagManager";
+import { q } from "@/lib/tagRules";
 import { displayTag } from "@/lib/tags";
 import { CANCEL, GOLD, KeepChoice, kept, mostUsed, RED, TagName } from "./TagChoice";
 
@@ -111,7 +113,8 @@ export function CreateSynonymsDialog({ checked, onClose, groupOf, tagOf }: { che
     onClose();
     void createGroup({ id: chief.id, name: head }, others, on, preview, [], () => {}, true);
   };
-  const names = preview ? [...preview.existing, ...preview.added].map((n) => displayTag(n.name)) : [];
+  // Chaque nom d'un bloc (GEN-22).
+  const names = preview ? [...preview.existing, ...preview.added].map((n) => whole(displayTag(n.name))) : [];
   return (
     <Modal
       open
@@ -144,7 +147,7 @@ export function CreateSynonymsDialog({ checked, onClose, groupOf, tagOf }: { che
         />
       </div>
       <p data-zone="tags-synonymes.resultat" className="mt-3 text-sm text-muted-foreground select-text [overflow-wrap:anywhere]">
-        {nothing ? `Ces tags sont déjà des synonymes de « ${displayTag(current)} ».` : preview ? `Résultat : ★ ${[displayTag(head), ...names].join(" = ")}` : " "}
+        {nothing ? `Ces tags sont déjà des synonymes de ${q(current)}.` : preview ? `Résultat : ★ ${[whole(displayTag(head)), ...names].join(" = ")}` : " "}
       </p>
       {!nothing && (
         <div className="mt-3">

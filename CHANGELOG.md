@@ -3,6 +3,31 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Finitions de l'onglet « Synonymes et parents », lot R7 (03/11/2026) — Backup v90
+
+SPEC : livrés `[~]` : TAGM-15 (retour T3, points TAGM-15.9, TAGM-15.10, TAGM-15.11), GEN-22, TAGM-20 (lot R7, textes
+de D9 ; retour T3, point TAGM-11.2) ; DEV-07 (base d'essai). TAGM-11.4 validé.
+
+- **Titres des colonnes** : chaque liste de l'onglet a une ligne de titres, fixe pendant le défilement : « Tag principal
+  et synonymes » (« Tag principal » en doré léger), « Médias », « Fusion » ; « On/Off », « Enfant → parent », « Médias ».
+- **Tris** : clic sur un titre (2e clic : l'inverse), titre du tri en cours doré avec sa flèche : ordre alphabétique
+  (par défaut), médias, fusion (fusionnés, puis à moitié, puis non fusionnés), On/Off ; à égalité, de A à Z. Une ligne
+  dont l'interrupteur change reste à sa place jusqu'au prochain clic sur un titre ; un nouveau tri repart du haut.
+- **Filtre** : « Chercher un tag… » à la place de « Filtrer par nom… », dans les deux onglets du gestionnaire.
+- **Aucun mot coupé** (GEN-22) : la pop-in et le bandeau d'erreur ne coupent plus les mots n'importe où ; dans toutes
+  les pop-ins, un nom cité entre « » reste d'un bloc avec ses guillemets, et « ? », « : »… ne partent plus seuls à la
+  ligne ; un nom dans un cadre (suppression d'un média, création d'un tag) a ses guillemets dans le cadre.
+- **Renommer un tag en son propre synonyme fusionné** : nouveau texte du refus (« … pour en faire le tag principal,
+  utilisez l'étoile de son groupe dans Gestionnaire de tags › Synonymes et parents. »).
+- **Base d'essai** : descriptions de test ajoutées au modèle de `refonte` (« essai soleil », « essai bateau »).
+
+Vérifié dans la version compilée, sur des copies de la base d'essai : titres alignés au pixel sur les colonnes, tous
+les tris des deux listes (ordre lu ligne par ligne), « Tag principal » doré léger / doré, retour en haut de la liste
+après un tri, lignes qui restent en place après un interrupteur (groupe et règle), suggestions du formulaire, menu du
+clic droit, groupe déplié et menu burger au-dessus ou en dessous des titres comme il faut, « Chercher un tag… » dans les
+deux onglets, tris du tableau des tags inchangés, refus du renommage (texte, insécables), pop-ins de suppression d'un
+média (ouverte puis annulée) et de création d'un tag au nom très long ; zéro erreur `tsc`.
+
 ## Tags cochés : un synonyme choisi devient le tag principal (03/11/2026) — Backup v89
 
 SPEC : livré `[~]` : TAGM-11 (2e retouche du point TAGM-11.4) ; refonte TAGM-20 ; DEV-07 (base d'essai).

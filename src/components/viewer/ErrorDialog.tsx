@@ -10,6 +10,7 @@ import { Check, Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
 import { api } from "@/lib/api";
+import { copyPlain, keepQuoted } from "@/lib/keepWords";
 import { explainWindowsError } from "@/lib/windowsErrors";
 import { useViewer } from "@/stores/viewer";
 
@@ -40,7 +41,10 @@ export function ErrorDialog() {
       description={
         <div className="space-y-1">
           {code && <p className="font-mono text-xs text-rose-300/80">{code}</p>}
-          <p className="break-all whitespace-pre-line text-rose-200/90">{error.message}</p>
+          {/* Retour à la ligne entre les mots seulement (GEN-22 ; retour T3, point TAGM-15.9 : « ce » était coupé). */}
+          <p onCopy={copyPlain} className="whitespace-pre-line text-rose-200/90 [overflow-wrap:break-word]">
+            {keepQuoted(error.message)}
+          </p>
           {explanation && <p>{explanation}</p>}
         </div>
       }

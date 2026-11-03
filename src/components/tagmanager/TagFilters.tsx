@@ -36,7 +36,7 @@ export function TagFilters({ filters, setFilters, shown, total }: Props) {
           data-zone="gestionnaire-tags.filtre-nom"
           value={filters.text}
           onChange={(e) => setFilters((f) => ({ ...f, text: e.target.value }))}
-          placeholder="Filtrer par nom…"
+          placeholder="Chercher un tag…"
           spellCheck={false}
           className="h-8 w-full rounded-lg border border-border bg-card/60 pr-8 pl-8 text-sm text-foreground outline-none placeholder:text-muted-foreground/60 focus:border-[#d9a94e]/60"
         />

@@ -23,6 +23,9 @@ export type TagOf = (id: number) => ManagedTag | undefined;
 
 const LINE = "flex h-8 items-center gap-2 rounded-md px-1.5 text-sm hover:bg-secondary/40";
 const ARROW = "h-3 w-3 shrink-0 text-muted-foreground";
+/** Colonne de l'interrupteur dans l'onglet « Synonymes et parents » : la largeur de son titre « On/Off » et de la
+ *  flèche du tri (RulesTitles.tsx, retour T3, point TAGM-15.10). */
+export const SWITCH_COLUMN = "w-[58px] shrink-0";
 
 /** Nom d'un tag à la couleur de sa catégorie ; `fallback` : son nom tant que la liste des tags ne le connaît pas
  *  encore (tag tout juste créé avec son groupe : la ligne affichait « ? », retour T3, point TAGM-15.25). */
@@ -86,8 +89,9 @@ function OriginMark({ text, dim }: { text: string; dim: boolean }) {
   );
 }
 
-/** `origin` : repère « = » des règles déplacées (seulement dans l'onglet « Synonymes et parents », réponse 4 du lot R5). */
-export function ParentLine({ row, tagOf, showChild = true, origin = true }: { row: ParentRow; tagOf: TagOf; showChild?: boolean; origin?: boolean }) {
+/** `origin` : repère « = » des règles déplacées (seulement dans l'onglet « Synonymes et parents », réponse 4 du lot R5) ;
+ *  `column` : interrupteur dans la colonne de son titre (même onglet). */
+export function ParentLine({ row, tagOf, showChild = true, origin = true, column = false }: { row: ParentRow; tagOf: TagOf; showChild?: boolean; origin?: boolean; column?: boolean }) {
   // Noms lus avec la règle tant que la liste des tags ne connaît pas un tag tout juste créé (retour T3, point TAGM-16.7).
   const names = (id: number) => tagOf(id)?.name ?? (id === row.childId ? row.childName : id === row.parentId ? row.parentName : "?");
   const [deleting, setDeleting] = useState(false);
@@ -121,14 +125,16 @@ export function ParentLine({ row, tagOf, showChild = true, origin = true }: { ro
       className={LINE}
     >
       <Hint text={aside} zone="regles.parent.mise-de-cote" dim={dim}>
-        <Switch
-          on={row.enabled}
-          onToggle={() => void toggleParent(row, names)}
-          zone="regles.interrupteur"
-          disabled={aside !== null}
-          label={`Règle « ${child} » → « ${parent} »`}
-          title={aside ? undefined : row.enabled ? `Activée : chaque nouvel ajout de « ${child} » pose « ${parent} ».` : `Désactivée : les nouveaux ajouts de « ${child} » ne posent plus « ${parent} » ; rien n'est retiré.`}
-        />
+        <span className={cn("flex", column && SWITCH_COLUMN)}>
+          <Switch
+            on={row.enabled}
+            onToggle={() => void toggleParent(row, names)}
+            zone="regles.interrupteur"
+            disabled={aside !== null}
+            label={`Règle « ${child} » → « ${parent} »`}
+            title={aside ? undefined : row.enabled ? `Activée : chaque nouvel ajout de « ${child} » pose « ${parent} ».` : `Désactivée : les nouveaux ajouts de « ${child} » ne posent plus « ${parent} » ; rien n'est retiré.`}
+          />
+        </span>
         {showChild && (
           <>
             {name(row.childId, row.childName, row.childFrom !== null)}

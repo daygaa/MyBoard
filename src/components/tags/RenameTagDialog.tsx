@@ -13,7 +13,7 @@ import { Modal } from "@/components/ui/modal";
 import { api, type Renamed, type TagInfo } from "@/lib/api";
 import { createGroup } from "@/lib/groupRules";
 import { rulesApi } from "@/lib/rulesApi";
-import { media } from "@/lib/tagRules";
+import { media, q } from "@/lib/tagRules";
 import { displayTag, normalizeTag } from "@/lib/tags";
 import { followRename, runTagAction } from "@/lib/tagManager";
 import { useViewer } from "@/stores/viewer";
@@ -74,7 +74,8 @@ export async function renameTag(tag: Source, name: string): Promise<true | Exist
   const result = await runTagAction("Renommer le tag", () => api.renameTag(tag.id, name));
   if (result?.kind === "exists") return result;
   if (result?.kind === "ownAlias") {
-    const message = `« ${displayTag(normalizeTag(name))} » est déjà un synonyme de ce tag : supprimez d'abord ce synonyme (Gestionnaire de tags › Synonymes et parents).`;
+    // Texte de l'utilisateur (réponse 6 du lot R7 ; retour T3, point TAGM-11.2).
+    const message = `${q(normalizeTag(name))} est un tag existant et est déjà un synonyme de ${q(tag.name)} : pour en faire le tag principal, utilisez l'étoile de son groupe dans Gestionnaire de tags › Synonymes et parents.`;
     useViewer.getState().setError({ action: "Renommer le tag", code: null, message });
     return null;
   }

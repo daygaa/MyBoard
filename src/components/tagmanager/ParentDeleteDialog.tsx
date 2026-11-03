@@ -10,7 +10,8 @@ import { useQuery } from "@tanstack/react-query";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { rulesApi, type ParentRow } from "@/lib/rulesApi";
-import { copyPlain, deleteParent, media, q, type NameOf } from "@/lib/tagRules";
+import { copyPlain } from "@/lib/keepWords";
+import { deleteParent, media, q, type NameOf } from "@/lib/tagRules";
 import { ChainStrip } from "./ChainStrip";
 
 type Props = { row: ParentRow; nameOf: NameOf; onCancel: () => void; onDone: () => void };

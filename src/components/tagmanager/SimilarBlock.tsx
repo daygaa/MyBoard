@@ -10,8 +10,10 @@ import { MergeSwitch } from "@/components/tags/MergeSwitch";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import type { ManagedTag } from "@/lib/api";
+import { whole } from "@/lib/keepWords";
 import { createBlock, ignoreBlock, type BlockPlan, type BlockState } from "@/lib/similarActions";
 import type { SimilarBlock as Block } from "@/lib/similarTags";
+import { q } from "@/lib/tagRules";
 import { displayTag } from "@/lib/tags";
 import { cn } from "@/lib/utils";
 import { CANCEL, GOLD, PrincipalStar, TagName } from "./TagChoice";
@@ -55,10 +57,10 @@ export function SimilarBlock({ block, state, plan, onChange, onSearch }: Props) 
             <p key={g.id} data-zone="tags-proches.groupe.existant" className="flex flex-wrap items-center gap-x-1.5">
               <span>Groupe existant :</span>
               <PrincipalStar />
-              <span>{[g.principalName, ...g.names.map((n) => n.name)].map(displayTag).join(" = ")}</span>
+              <span>{[g.principalName, ...g.names.map((n) => n.name)].map((n) => whole(displayTag(n))).join(" = ")}</span>
             </p>
           ))}
-          {block.groups.length > 1 && <p>Les groupes seront réunis ; tag principal : « {displayTag(plan.principal.name)} ».</p>}
+          {block.groups.length > 1 && <p>Les groupes seront réunis ; tag principal : {q(plan.principal.name)}.</p>}
         </div>
       )}
       <div className="space-y-0.5">

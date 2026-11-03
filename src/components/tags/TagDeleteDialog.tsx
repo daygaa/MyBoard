@@ -16,7 +16,8 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { api, type DeletePreview, type TagInfo } from "@/lib/api";
 import { formatNumber } from "@/lib/format";
 import { deleteTags } from "@/lib/tagManager";
-import { copyPlain, media, q } from "@/lib/tagRules";
+import { copyPlain } from "@/lib/keepWords";
+import { media, q } from "@/lib/tagRules";
 
 type Props = { tags: Pick<TagInfo, "id" | "name" | "mediaCount">[]; onCancel: () => void; onDone: () => void };
 

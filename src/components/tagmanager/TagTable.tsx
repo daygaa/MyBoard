@@ -8,7 +8,6 @@
 
 import { useLayoutEffect, useRef, useState } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { ArrowDown, ArrowUp } from "lucide-react";
 
 import { Checkbox } from "@/components/ui/checkbox";
 import { useCategories } from "@/hooks/useCategories";
@@ -19,6 +18,7 @@ import { scroller } from "@/lib/scroller";
 import type { ParentRow } from "@/lib/rulesApi";
 import { cn } from "@/lib/utils";
 import type { TagOf } from "./RuleLines";
+import { SortHeader } from "./SortHeader";
 import { CheckCell, COLUMNS, TagRow } from "./TagRow";
 import type { Sort, SortKey } from "./useTagList";
 
@@ -45,22 +45,6 @@ type Props = RowHandlers & {
   more: number;
   onMore: () => void;
 };
-
-function SortHeader({ label, sortKey, sort, onSort, className }: { label: string; sortKey: SortKey; sort: Sort; onSort: Props["onSort"]; className?: string }) {
-  const on = sort.key === sortKey;
-  const Arrow = sort.desc ? ArrowDown : ArrowUp;
-  return (
-    <button
-      type="button"
-      onClick={() => onSort(sortKey)}
-      title="Trier"
-      className={cn("flex items-center gap-1 hover:text-foreground", on && "text-[#d9a94e]", className)}
-    >
-      {label}
-      {on && <Arrow className="h-3 w-3" />}
-    </button>
-  );
-}
 
 export function TagTable({ tags, checked, editing, sort, onSort, onCheckAll, rules, tagOf, total, more, onMore, ...row }: Props) {
   const { color } = useCategories();

@@ -31,7 +31,7 @@ function FileLine({ file, withReason }: { file: FailedFile; withReason: boolean 
         data-zone="suppression-echec.chemin"
         onClick={() => void api.revealMedia(file.id).catch(() => {})}
         title="Afficher dans l'explorateur de fichiers"
-        className="block max-w-full text-left font-mono text-xs break-all text-[#d9a94e] underline-offset-2 hover:underline"
+        className="block max-w-full text-left font-mono text-xs text-[#d9a94e] underline-offset-2 [overflow-wrap:break-word] hover:underline"
       >
         {file.path}
       </button>

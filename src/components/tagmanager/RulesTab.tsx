@@ -1,8 +1,9 @@
 // Onglet « Synonymes et parents » du gestionnaire de tags (TAGM-15, TAGM-16, refonte TAGM-20) : tout en un
 // seul endroit, en deux colonnes côte à côte. Synonymes : le formulaire de création (GroupForm), un filtre
 // par nom, puis les groupes (GroupLine) ; parents : deux champs, un filtre, les règles (interrupteur, D10 ;
-// corbeille). La page ne défile pas : les tableaux s'arrêtent au bas de la fenêtre et chaque liste a sa
-// barre de défilement (demande du 26/10), qui garde la molette (GEN-24).
+// corbeille). Chaque liste a sa ligne de titres triables (RulesTitles.tsx, retour T3, point TAGM-15.10). La page
+// ne défile pas : les tableaux s'arrêtent au bas de la fenêtre et chaque liste a sa barre de défilement (demande du
+// 26/10), qui garde la molette (GEN-24).
 
 import { useEffect, useLayoutEffect, useMemo, useRef, type ReactNode } from "react";
 import { Search } from "lucide-react";
@@ -16,9 +17,13 @@ import { GroupForm } from "./GroupForm";
 import { GroupLine } from "./GroupLine";
 import { RuleForm } from "./RuleForm";
 import { ParentLine, type TagOf } from "./RuleLines";
-import { frozenOrder, RulesTabProvider, useRulesEntry, useRulesStore, useRulesTab } from "./rulesTabState";
+import { useGroupOrder, useParentOrder } from "./rulesSort";
+import { RulesTabProvider, useRulesEntry, useRulesStore, useRulesTab } from "./rulesTabState";
+import { GroupTitles, ParentTitles } from "./RulesTitles";
 
-function Panel({ zone, title, count, help, form, filter, onFilter, children, empty }: {
+/** `titles` : ligne de titres en haut de la liste ; `sorted` : son tri (un nouveau tri repart du haut de la liste,
+ *  comme le tableau des tags, retour T3, point TAGM-04.13). */
+function Panel({ zone, title, count, help, form, filter, onFilter, titles, sorted, children, empty }: {
   zone: string;
   title: string;
   count: number;
@@ -26,6 +31,8 @@ function Panel({ zone, title, count, help, form, filter, onFilter, children, emp
   form: ReactNode;
   filter: string;
   onFilter: (text: string) => void;
+  titles: ReactNode;
+  sorted: string;
   children: ReactNode[];
   empty: string;
 }) {
@@ -35,6 +42,12 @@ function Panel({ zone, title, count, help, form, filter, onFilter, children, emp
   useLayoutEffect(() => {
     if (listRef.current) listRef.current.scrollTop = store.getState().scroll[zone] ?? 0;
   }, [store, zone]);
+  const lastSort = useRef(sorted);
+  useEffect(() => {
+    if (lastSort.current === sorted) return;
+    lastSort.current = sorted;
+    listRef.current?.scrollTo({ top: 0 });
+  }, [sorted]);
   return (
     // Côte à côte, les deux tableaux partagent seulement les rangées du titre et du texte d'explication : les
     // formulaires commencent à la même hauteur ; le reste de chaque tableau est indépendant (un champ qui grandit
@@ -53,7 +66,7 @@ function Panel({ zone, title, count, help, form, filter, onFilter, children, emp
             data-zone={`${zone}.filtre`}
             value={filter}
             onChange={(e) => onFilter(e.target.value)}
-            placeholder="Filtrer par nom…"
+            placeholder="Chercher un tag…"
             spellCheck={false}
             className="h-8 w-full rounded-lg border border-border bg-card/60 pr-3 pl-8 text-sm text-foreground outline-none placeholder:text-muted-foreground/60 focus:border-[#d9a94e]/60"
           />
@@ -67,12 +80,16 @@ function Panel({ zone, title, count, help, form, filter, onFilter, children, emp
           }}
           className="min-h-24 flex-1 space-y-0.5 overflow-y-auto overscroll-contain"
         >
+          {titles}
           {children.length ? children : <p className="px-1.5 py-2 text-xs text-muted-foreground">{empty}</p>}
         </div>
       </div>
     </section>
   );
 }
+
+/** Place de chaque identifiant dans l'ordre. */
+const rankOf = (order: number[]) => new Map(order.map((id, i) => [id, i]));
 
 /** Texte cherché dans un des noms (sans tenir compte des « _ » ni des majuscules). */
 const matches = (needle: string, ...names: string[]) => !needle || names.some((n) => n.includes(needle));
@@ -100,23 +117,19 @@ function RulesTabPage({ tags, rules }: Props) {
   const g = normalizeTag(groupFilter);
   const p = normalizeTag(parentFilter);
 
-  // Ordre des groupes figé pour cette page de l'onglet : changer de principal ne déplace pas la ligne (point
-  // TAGM-15.19) ; un nouveau groupe prend sa place alphabétique (rulesTabState.ts). Le nom du principal vient
-  // avec le groupe : l'ordre ne dépend pas de la relecture de la liste des tags.
-  const frozen = useRulesTab((s) => s.order);
-  const alphabetical = useMemo(() => [...rules.groups].sort((x, y) => x.principalName.localeCompare(y.principalName)).map((r) => r.id), [rules.groups]);
-  const order = useMemo(() => frozenOrder(alphabetical, frozen), [alphabetical, frozen]);
-  useEffect(() => {
-    if (!frozen || order.length !== frozen.length || order.some((id, i) => id !== frozen[i])) store.setState({ order });
-  }, [store, order, frozen]);
-  const rank = new Map(order.map((id, i) => [id, i]));
+  // Ordre des listes figé pour cette page de l'onglet : changer de principal ou basculer un interrupteur ne déplace
+  // pas la ligne (point TAGM-15.19) ; un nouvel élément prend sa place dans le tri (rulesSort.ts).
+  const groupRank = rankOf(useGroupOrder(rules.groups));
+  const parentRank = rankOf(useParentOrder(rules.parents, name));
+  const groupSort = useRulesTab((s) => s.groupSort);
+  const parentSort = useRulesTab((s) => s.parentSort);
   // Un groupe passe le filtre si un de ses noms (principal, relié ou fusionné) le contient.
   const groups = rules.groups
     .filter((r) => matches(g, r.principalName, ...r.names.map((n) => n.name)))
-    .sort((x, y) => (rank.get(x.id) ?? 0) - (rank.get(y.id) ?? 0));
+    .sort((x, y) => (groupRank.get(x.id) ?? 0) - (groupRank.get(y.id) ?? 0));
   const parents = rules.parents
     .filter((r) => matches(p, name(r.childId), name(r.parentId)))
-    .sort((x, y) => name(x.childId).localeCompare(name(y.childId)) || name(x.parentId).localeCompare(name(y.parentId)));
+    .sort((x, y) => (parentRank.get(x.id) ?? 0) - (parentRank.get(y.id) ?? 0));
 
   return (
     <div data-zone="regles" className="grid min-h-0 flex-1 grid-cols-1 grid-rows-2 gap-4 lg:grid-cols-2 lg:grid-rows-[auto_auto_minmax(0,1fr)] lg:gap-y-0">
@@ -128,6 +141,8 @@ function RulesTabPage({ tags, rules }: Props) {
         form={<GroupForm tags={tags} tagOf={tagOf} />}
         filter={groupFilter}
         onFilter={(text) => store.setState({ groupFilter: text })}
+        titles={<GroupTitles />}
+        sorted={`${groupSort.key}${groupSort.desc}`}
         empty={rules.groups.length ? "Aucun groupe ne correspond au filtre." : "Aucun synonyme pour le moment."}
       >
         {groups.map((row) => (
@@ -152,10 +167,12 @@ function RulesTabPage({ tags, rules }: Props) {
         }
         filter={parentFilter}
         onFilter={(text) => store.setState({ parentFilter: text })}
+        titles={<ParentTitles />}
+        sorted={`${parentSort.key}${parentSort.desc}`}
         empty={rules.parents.length ? "Aucune règle ne correspond au filtre." : "Aucune règle pour le moment."}
       >
         {parents.map((row) => (
-          <ParentLine key={row.id} row={row} tagOf={tagOf} />
+          <ParentLine key={row.id} row={row} tagOf={tagOf} column />
         ))}
       </Panel>
     </div>

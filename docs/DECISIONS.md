@@ -1284,3 +1284,13 @@ passage sur l'onglet (une ligne dont l'interrupteur change ne bouge pas, comme T
 sa place dans le tri. Filtre : « Chercher un tag… » partout. GEN-22 : retour à la ligne entre les mots seulement
 (plus de `break-all` dans les pop-ins et le bandeau d'erreur), tags cités par `q()` (espaces insécables). Compteurs
 de l'export et de l'import : lot R8.
+
+**Complément du 03/11 (lot R7, réalisation).** `SortHeader` (titre triable) sort de `TagTable` pour être partagé
+(`tagmanager/SortHeader.tsx`, générique). Onglet : `RulesTitles.tsx` (lignes de titres, `sticky` en haut de chaque
+liste, fond opaque, `z-[1]` : suggestions, menus, bulles et menu burger restent au-dessus), `rulesSort.ts` (tris,
+ordre figé `order` / `parentOrder` dans l'état de la page, vidé par un clic sur un titre), `rulesTabState.ts`
+(`groupSort`, `parentSort`, `frozenOrder` générique). Colonne de l'interrupteur des règles à la largeur de « On/Off »
+et de sa flèche (`SWITCH_COLUMN`, seulement dans l'onglet : prop `column` de `ParentLine`). GEN-22 :
+`lib/keepWords.ts` (`whole`, `quote`, `keepQuoted`, `copyPlain` déplacé de `tagRules.ts` ; `q` = `quote(displayTag)`) ;
+`Modal` passe son titre et un texte en chaîne par `keepQuoted` (copie en caractères ordinaires) ; pop-in et bandeau
+d'erreur : `overflow-wrap: break-word` au lieu de `break-all`.

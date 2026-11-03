@@ -2,7 +2,7 @@
 // TAGM-15.20, 30/10) : chaque ouverture de l'onglet par un clic est une nouvelle page, avec un état neuf (ordre
 // des groupes alphabétique) ; un retour arrière / avant sur une page de l'onglet, même après être allé ailleurs
 // par un clic, retrouve son état : champs, interrupteur « Fusionner », groupes dépliés, filtres, ordre des
-// groupes, défilement des listes. Les données, elles, sont communes : un groupe créé ou une fusion faite dans
+// groupes, tris et ordre des listes (retour T3, point TAGM-15.10), défilement des listes. Les données, elles, sont communes : un groupe créé ou une fusion faite dans
 // une autre page de l'onglet s'y voit. Le numéro de la page est noté dans l'état de l'historique (`regles`,
 // lib/pageStates.ts).
 
@@ -13,10 +13,15 @@ import { historyPageStates } from "@/lib/pageStates";
 import type { PillDoc } from "@/lib/pillText";
 import { openTagTab, tagTabOf } from "@/lib/router";
 import type { RuleDocs } from "./RuleForm";
+import type { ColumnSort } from "./SortHeader";
 
 /** Pastille du formulaire des groupes : un tag (`id`), un tag fusionné tapé par son nom (`id` vide), ou un tag à
  *  créer avec le groupe (`id` vide, `category` choisie dans la pop-in, retour T3, point TAGM-15.24). */
 export type Chip = { name: string; id: number | null; category?: number };
+
+/** Colonnes triables : groupes (nom du principal, médias, fusion) ; règles (enfant puis parent, médias, On/Off). */
+export type GroupSortKey = "name" | "media" | "merged";
+export type ParentSortKey = "name" | "media" | "enabled";
 
 export type RulesTabState = {
   principal: PillDoc<Chip> | null;
@@ -28,8 +33,12 @@ export type RulesTabState = {
   parentDocs: RuleDocs;
   /** Groupes dépliés. */
   open: number[];
-  /** Ordre des groupes, figé pour cette page. */
+  /** Tri de chaque liste (clic sur un titre). */
+  groupSort: ColumnSort<GroupSortKey>;
+  parentSort: ColumnSort<ParentSortKey>;
+  /** Ordre des groupes et des règles, figé pour cette page jusqu'au prochain clic sur un titre (vide : à refaire). */
   order: number[] | null;
+  parentOrder: number[] | null;
   groupFilter: string;
   parentFilter: string;
   /** Défilement de chaque liste, par zone. */
@@ -42,7 +51,10 @@ const FRESH: RulesTabState = {
   merge: { on: false, auto: null },
   parentDocs: [null, null],
   open: [],
+  groupSort: { key: "name", desc: false },
+  parentSort: { key: "name", desc: false },
   order: null,
+  parentOrder: null,
   groupFilter: "",
   parentFilter: "",
   scroll: {},
@@ -83,16 +95,16 @@ export function useRulesTab<U>(selector: (s: RulesTabState) => U): U {
   return useStore(useRulesStore(), selector);
 }
 
-/** Ordre figé : celui déjà affiché ; un nouveau groupe se place avant le premier groupe déjà affiché qui le
- *  suit dans l'ordre alphabétique ; un groupe disparu est retiré. */
-export function frozenOrder(alphabetical: number[], frozen: number[] | null): number[] {
-  if (!frozen) return alphabetical;
-  const present = new Set(alphabetical);
+/** Ordre figé : celui déjà affiché ; un nouvel élément se place avant le premier élément déjà affiché qui le
+ *  suit dans l'ordre du tri ; un élément disparu est retiré. */
+export function frozenOrder(sorted: number[], frozen: number[] | null): number[] {
+  if (!frozen) return sorted;
+  const present = new Set(sorted);
   const out = frozen.filter((id) => present.has(id));
   const known = new Set(out);
-  alphabetical.forEach((id, i) => {
+  sorted.forEach((id, i) => {
     if (known.has(id)) return;
-    const next = alphabetical.slice(i + 1).find((x) => known.has(x));
+    const next = sorted.slice(i + 1).find((x) => known.has(x));
     out.splice(next === undefined ? out.length : out.indexOf(next), 0, id);
     known.add(id);
   });

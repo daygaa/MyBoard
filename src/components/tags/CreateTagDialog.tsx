@@ -14,6 +14,9 @@ import { normalizeTag } from "@/lib/tags";
 import { titleIfCut } from "@/lib/utils";
 import { CategorySelect, useDefaultCategory } from "./CategorySelect";
 
+/** Guillemets autour du nom, dans la police du texte. */
+const QUOTE = "font-sans font-normal text-muted-foreground";
+
 type Props = {
   /** Nom du tag à créer ; `null` = pop-in fermée. */
   name: string | null;
@@ -65,16 +68,19 @@ export function CreateTagDialog({ name, onCancel, onCreate, refusal }: Props) {
           <p ref={descriptionRef}>Choisis son nom et sa catégorie.</p>
         ) : (
           <p ref={descriptionRef}>
-            Le tag «{" "}
+            Le tag{" "}
             <code
               onMouseEnter={(e) => titleIfCut(e.currentTarget)}
               className="max-w-full overflow-hidden align-top font-mono font-semibold text-foreground [overflow-wrap:anywhere]"
               // Boîte dans la ligne, coupée à 2 lignes par « … » (propriétés sans équivalent Tailwind).
               style={{ display: "-webkit-inline-box", WebkitBoxOrient: "vertical", WebkitLineClamp: 2 }}
             >
+              {/* Guillemets dans la boîte : jamais séparés du nom (GEN-22). */}
+              <span className={QUOTE}>«&nbsp;</span>
               {name}
+              <span className={QUOTE}>&nbsp;»</span>
             </code>{" "}
-            » n'existe pas encore. Choisis une catégorie avant de le créer.
+            n'existe pas encore. Choisis une catégorie avant de le créer.
           </p>
         )
       }

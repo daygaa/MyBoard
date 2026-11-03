@@ -12,6 +12,7 @@ import { whileBusy } from "./busy";
 import { formatNumber, plural } from "./format";
 import { rulesApi, type ParentRow } from "./rulesApi";
 import { runTagAction as runAction } from "./tagManager";
+import { quote } from "./keepWords";
 import { displayTag } from "./tags";
 
 /** Une ligne « Règles de parents » d'une pop-in de fusion (lot R5) ; `option` : sa case « Étendre », décochée, le
@@ -45,20 +46,10 @@ export type NameOf = (id: number) => string;
  *  curseur d'attente pendant ce temps (GEN-13). */
 export const runTagAction = <T>(label: string, call: () => Promise<T>) => runAction(label, () => whileBusy(call));
 
-/** Tag cité, jamais coupé en fin de ligne (retour T3, point TAGM-16.3) : espaces insécables autour et dedans,
- *  traits d'union insécables ; un tag plus long qu'une ligne se coupe quand même (`overflow-wrap`, dans la
- *  pop-in). `copyPlain` rend les caractères ordinaires à la copie. */
-export const q = (name: string) => `« ${displayTag(name).replace(/ /g, " ").replace(/-/g, "‑")} »`;
+/** Tag cité, jamais coupé en fin de ligne (retour T3, point TAGM-16.3 ; GEN-22, keepWords.ts). */
+export const q = (name: string) => quote(displayTag(name));
 /** « 3 médias », jamais coupé entre le nombre et le mot. */
 export const media = (n: number) => `${formatNumber(n)} ${plural(n, "média")}`;
-
-/** Copie d'un texte de pop-in : traits d'union et espaces ordinaires, pour coller un tag dans un champ. */
-export function copyPlain(e: React.ClipboardEvent) {
-  const text = window.getSelection()?.toString();
-  if (!text) return;
-  e.preventDefault();
-  e.clipboardData.setData("text/plain", text.replace(/‑/g, "-").replace(/ /g, " "));
-}
 
 // --- Règles de parents (refonte, décisions D10 à D10.5)
 

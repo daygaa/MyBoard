@@ -15,6 +15,7 @@ import type { ManagedTag } from "@/lib/api";
 import { formatNumber, plural } from "@/lib/format";
 import { addSynonym } from "@/lib/groupRules";
 import type { GroupRow, ParentRow } from "@/lib/rulesApi";
+import { keepQuoted, quote } from "@/lib/keepWords";
 import { addParent } from "@/lib/tagRules";
 import { displayTag, normalizeTag } from "@/lib/tags";
 import { cn } from "@/lib/utils";
@@ -80,7 +81,7 @@ function AddField({ zone, placeholder, self, listed, onAdd }: { zone: string; pl
 function Panel({ popover, zone, title, children }: { popover: ReturnType<typeof usePopover>; zone: string; title: string; children: React.ReactNode }) {
   return createPortal(
     <div ref={popover.panelRef} data-zone={zone} className="fixed z-[90] rounded-lg border border-border bg-card p-2.5 shadow-xl" style={popover.style}>
-      <p className="mb-1.5 px-1.5 text-[11px] text-muted-foreground [overflow-wrap:anywhere]">{title}</p>
+      <p className="mb-1.5 px-1.5 text-[11px] text-muted-foreground [overflow-wrap:anywhere]">{keepQuoted(title)}</p>
       {children}
     </div>,
     document.body,
@@ -151,7 +152,7 @@ export function ParentsCell({ tag, parents, childRules, tagOf }: { tag: ManagedT
           />
           {childNames.length > 0 && (
             <div data-zone="gestionnaire-tags.parents.enfants" className="mt-2.5 border-t border-border pt-2">
-              <p className="mb-1 px-1.5 text-[11px] text-muted-foreground">Enfants (ils posent « {label} »)</p>
+              <p className="mb-1 px-1.5 text-[11px] text-muted-foreground [overflow-wrap:anywhere]">Enfants (ils posent {quote(label)})</p>
               <p className="px-1.5 font-mono text-xs leading-relaxed text-foreground [overflow-wrap:anywhere]">
                 {childNames.map((c, i) => (
                   <span key={c.id} className={cn(!c.enabled && "text-muted-foreground")} title={c.enabled ? undefined : "Règle éteinte"}>
