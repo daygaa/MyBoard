@@ -3,6 +3,34 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Tags proches refaits, lot R6-2 (03/11/2026) — Backup v88
+
+SPEC : livrés `[~]` : TAGM-13 (retour T3, points TAGM-13.3, TAGM-13.7, TAGM-13.8), TAGM-11 (retouches du point
+TAGM-11.4), TAGM-11.2 en partie ; refonte TAGM-20, lot R6-2 (fin du lot R6) ; DEV-07. Schéma 13.
+
+- **Tags proches** : des blocs qui tiennent compte des groupes de synonymes. Sans groupe : une case et un bouton radio
+  par tag (« Créer un synonyme » / « Créer des synonymes ») ; près d'un groupe : « Groupe existant : ★ … » en gris, les
+  nouveaux tags à cocher, « Ajouter au groupe » ; près de deux groupes : « Les groupes seront réunis ; tag principal :
+  … », « Réunir les groupes ». Deux tags du même groupe ne sont plus proposés ensemble.
+- **Écarter** : un tag décoché, ou un bloc « Ignorer », n'est plus proposé avec ces tags (paires « pas synonymes »),
+  même si le groupe détecté change ; « Ignorés (N) » liste ces choix, avec « Ne plus ignorer ». Les anciens groupes
+  ignorés sont repris.
+- **Fusion** : un interrupteur « Fusionner » par bloc (allumé d'office si le groupe rejoint est entièrement fusionné)
+  et « Fusionner tous » en haut ; « Créer des synonymes pour tous » remplace « Tout fusionner » (confirmation avec les
+  médias et les règles, cases « Étendre »).
+- **Tags cochés** (retouches du point TAGM-11.4) : plus de saut de la pop-in au choix du principal ; le tag principal du
+  groupe d'un tag coché est proposé aussi ; étoile sur les tags déjà principaux.
+- **Base d'essai** : cas des tags proches ajoutés au modèle de `refonte`, avec leurs descriptions.
+
+Vérifié dans la version compilée, sur des copies de la base d'essai : blocs sans groupe, « Ajouter au groupe »
+(« sidebraid »), « Réunir les groupes » (« hand up » / « hands up »), décochage et étape 3 de l'exemple (« knees
+apart feet together » écarté, puis « knee apart feet together » : bloc à part, le groupe n'est pas reproposé), deux
+groupes écartés l'un de l'autre non reproposés, « Ignorer » / « Ignorés (N) » / « Ne plus ignorer », conversion d'un
+ancien groupe ignoré, « Fusionner tous » (« à moitié »), « Créer des synonymes pour tous » (19 blocs en Strict, 28 en
+Large : groupes créés, une fusion, un tag écarté enregistré), retour arrière après une loupe (réglages retrouvés), tags
+cochés (« essai bateau » proposé, étoiles, hauteur de la pop-in stable image par image, fusion allumée) ; zéro erreur
+`tsc` et `clippy`. Deux cas limites de la détection trouvés pendant les essais ont été corrigés avant la livraison.
+
 ## Tags cochés et renommage : « Créer un synonyme », lot R6-1 (03/11/2026) — Backup v87
 
 SPEC : livrés : TAGM-11 (retour T3, point TAGM-11.4), TAGM-17 (point TAGM-15.8), TAGM-11.2 en partie ; refonte

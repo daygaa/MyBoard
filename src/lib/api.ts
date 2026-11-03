@@ -110,12 +110,15 @@ export type Synonym = { name: string; categoryId: number; mediaCount: number; pr
 /** Tag du gestionnaire (TAGM-04) : avec sa date de création (TAGM-12). */
 export type ManagedTag = TagInfo & { createdAt: number };
 
+/** Tags proches écartés (TAGM-13, lot R6-2) : « Ignorer » un bloc (`group` : toutes les paires entre `apart`) ou des
+ *  tags décochés (`apart` : paires entre eux et `kept`). */
+export type SimilarIgnore = { id: number; kind: "group" | "apart"; apart: number[]; kept: number[] };
+
 export type TagManagerData = {
   tags: ManagedTag[];
   /** Médias qui portent au moins un tag. */
   taggedMedia: number;
-  /** Groupes de tags proches ignorés (TAGM-13) : identifiants triés, « 12,40,77 ». */
-  ignored: string[];
+  ignores: SimilarIgnore[];
 };
 
 /** Renommage : fait, vide, nom pris par un tag ou un synonyme actif (fusion proposée, CTX-04, TAGM-15), ou synonyme du tag lui-même. */
@@ -268,17 +271,18 @@ export const api = {
   // Gestionnaire de tags (TAGM-04 et suivants) et menus des tags (CTX-04, CTX-12).
   listManagedTags: () => invoke<TagManagerData>("list_managed_tags"),
   renameTag: (id: number, name: string) => invoke<Renamed>("rename_tag", { id, name }),
-  /** Tags proches (revus au lot R6-2) : les tags deviennent des synonymes fusionnés du tag gardé. */
-  mergeTags: (sources: number[], target: number) => invoke<void>("merge_tags", { sources, target }),
-  /** « Tout fusionner » des tags proches (TAGM-13.3) : chaque groupe dans son tag gardé, en une fois. */
-  mergeTagGroups: (groups: { sources: number[]; target: number }[]) => invoke<void>("merge_tag_groups", { groups }),
   setTagsCategory: (ids: number[], categoryId: number) => invoke<number>("set_tags_category", { ids, categoryId }),
   setTagsHidden: (ids: number[], hidden: boolean) => invoke<number>("set_tags_hidden", { ids, hidden }),
   /** `withMerged`, `strip` : les cases de la pop-in de suppression (retour T3, point TAGM-15.28). */
   deleteTags: (ids: number[], withMerged = false, strip = false, removePosed = false) => invoke<number>("delete_tags", { ids, withMerged, strip, removePosed }),
   deletePreview: (ids: number[]) => invoke<DeletePreview>("delete_preview", { ids }),
   setTagDescription: (id: number, text: string) => invoke<void>("set_tag_description", { id, text }),
-  ignoreSimilar: (ids: number[]) => invoke<void>("ignore_similar", { ids }),
+  /** Tags proches (lot R6-2) : écarter `apart` de `kept` (vide : « Ignorer » le bloc `apart`). */
+  ignoreSimilar: (apart: number[], kept: number[]) => invoke<void>("ignore_similar", { apart, kept }),
+  unignoreSimilar: (id: number) => invoke<void>("unignore_similar", { id }),
+  /** « Créer des synonymes pour tous » ; `extend` : règles cochées « Étendre ». */
+  createSimilarGroups: (items: { principal: number; names: string[]; merge: boolean; apart: number[]; kept: number[] }[], extend: number[]) =>
+    invoke<void>("create_similar_groups", { items, extend }),
 };
 
 /** Ce que contient une sélection : favoris, et nombre de ses médias dans chaque dossier (SEL-08). */

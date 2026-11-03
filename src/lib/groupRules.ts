@@ -12,8 +12,9 @@ import { rulesApi, type GroupPreview, type GroupRow, type NameRow } from "./rule
 import { ask, media, q, runTagAction } from "./tagRules";
 
 /** Noms qui seront fusionnés : un bloc pour chacun de ceux qui ont des médias (retour T3, point TAGM-15.7), puis
- *  une ligne pour ceux qui n'en ont pas, fusionnés eux aussi (retouches de R3). */
-export function mergeText(names: { name: string; media: number }[], principal: string): string {
+ *  une ligne pour ceux qui n'en ont pas, fusionnés eux aussi (retouches de R3) ; sans la dernière phrase (plusieurs
+ *  groupes : « Créer des synonymes pour tous »). */
+export function mergeBlocks(names: { name: string; media: number }[], principal: string): string {
   // Virgule après le nombre, singulier pour un seul média (retour T3, point TAGM-15.21).
   const blocks = names
     .filter((n) => n.media > 0)
@@ -24,7 +25,11 @@ export function mergeText(names: { name: string; media: number }[], principal: s
   const empty = names
     .filter((n) => n.media === 0)
     .map((n) => `${q(n.name)} n'est lié à aucun média pour le moment mais sera tout de même fusionné avec ${q(principal)}.`);
-  return [...blocks, ...(empty.length ? [empty.join("\n")] : []), "Désactiver la fusion l'annulera."].join("\n\n");
+  return [...blocks, ...(empty.length ? [empty.join("\n")] : [])].join("\n\n");
+}
+
+export function mergeText(names: { name: string; media: number }[], principal: string): string {
+  return [mergeBlocks(names, principal), "Désactiver la fusion l'annulera."].filter(Boolean).join("\n\n");
 }
 
 /** Le groupe obtenu, pour la pop-in d'une réunion de groupes (D14) : « P » (tag principal), « a » et « b ». */
@@ -39,13 +44,13 @@ function joinText(joined: string[], principal: string, preview: GroupPreview): s
  *  annonçait un instant « déjà des synonymes » (retour T3, point TAGM-15.25). `confirmJoin` : une réunion de groupes
  *  passe par la pop-in (colonne « Synonymes », sans ligne d'aperçu), avec la fusion s'il y en a une. Renvoie vrai si
  *  le groupe est créé, ou si la pop-in est confirmée (la création suit). */
-export async function createGroup(principal: { id: number; name: string }, names: string[], merge: boolean, preview: GroupPreview | undefined, newTags: NewTag[], onCreated: () => void, confirmJoin = false) {
+export async function createGroup(principal: { id: number; name: string }, names: string[], merge: boolean, preview: GroupPreview | undefined, newTags: NewTag[], onCreated: () => unknown, confirmJoin = false) {
   // Le badge compte les noms vraiment ajoutés (un nom déjà dans le groupe est ignoré).
   const count = preview ? preview.added.length : names.length;
   const run = async (extend: number[]) => {
     const done = await runTagAction("Créer les synonymes", async () => {
       const id = await rulesApi.createGroup(principal.id, names, merge, newTags, extend);
-      onCreated();
+      await onCreated();
       return id;
     });
     if (done !== undefined) showGridBadge(`${q(principal.name)} : ${count} ${plural(count, "synonyme")}`);

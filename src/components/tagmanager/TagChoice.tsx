@@ -2,7 +2,7 @@
 // avec son nombre de médias, choix du nom gardé (radio, loupe de recherche en option, TAGM-13.1), classes
 // des boutons.
 
-import { Search } from "lucide-react";
+import { Search, Star } from "lucide-react";
 
 import { useCategories } from "@/hooks/useCategories";
 import type { ManagedTag } from "@/lib/api";
@@ -27,14 +27,38 @@ export function TagName({ tag }: { tag: ManagedTag }) {
   );
 }
 
-/** Liste de noms à choisir (radio) : le nom gardé d'une fusion. Avec `onSearch`, une loupe au bout de
- *  chaque ligne lance la recherche du tag (la ligne, elle, choisit toujours le nom gardé). */
-export function KeepChoice({ tags, value, onChange, onSearch }: { tags: ManagedTag[]; value: number; onChange: (id: number) => void; onSearch?: (tag: ManagedTag) => void }) {
+/** Étoile d'un tag principal de son groupe de synonymes (retouche du point TAGM-11.4, 03/11). */
+export function PrincipalStar() {
+  return <Star aria-label="Tag principal de son groupe" className="h-3 w-3 shrink-0 fill-[#d9a94e] text-[#d9a94e]" />;
+}
+
+/** Liste de noms à choisir (radio) : le tag principal d'un groupe à créer. Avec `onSearch`, une loupe au bout de
+ *  chaque ligne lance la recherche du tag (la ligne, elle, choisit toujours le nom gardé) ; `principals` : tags déjà
+ *  principaux de leur groupe, marqués d'une étoile (bulle Windows). */
+export function KeepChoice({
+  tags,
+  value,
+  onChange,
+  onSearch,
+  principals,
+}: {
+  tags: ManagedTag[];
+  value: number;
+  onChange: (id: number) => void;
+  onSearch?: (tag: ManagedTag) => void;
+  principals?: Set<number>;
+}) {
+  const stars = principals !== undefined && tags.some((t) => principals.has(t.id));
   return (
     <div className="space-y-0.5">
       {tags.map((t) => (
-        <label key={t.id} className={cn("flex cursor-pointer items-center gap-2 rounded px-1.5 py-1 text-sm hover:bg-secondary/50", value === t.id && "bg-secondary/60")}>
+        <label
+          key={t.id}
+          title={principals?.has(t.id) ? `« ${displayTag(t.name)} » est déjà le tag principal de son groupe de synonymes` : undefined}
+          className={cn("flex cursor-pointer items-center gap-2 rounded px-1.5 py-1 text-sm hover:bg-secondary/50", value === t.id && "bg-secondary/60")}
+        >
           <input type="radio" checked={value === t.id} onChange={() => onChange(t.id)} className="accent-[#d9a94e]" />
+          {stars && (principals?.has(t.id) ? <PrincipalStar /> : <span className="w-3 shrink-0" />)}
           <TagName tag={t} />
           {onSearch && (
             <button

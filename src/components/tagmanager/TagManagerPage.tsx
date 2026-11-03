@@ -31,7 +31,7 @@ import { navigate, useTagTab, type TagTab } from "@/lib/router";
 import { displayTag } from "@/lib/tags";
 import { hasEscapeLayer } from "@/lib/escape";
 import { SIMILAR } from "@/lib/historySteps";
-import { similarGroups } from "@/lib/tagManager";
+import { similarBlocks } from "@/lib/similarTags";
 import { cn } from "@/lib/utils";
 import { showGridBadge } from "@/stores/badge";
 import { searchInLibrary } from "@/stores/search";
@@ -87,7 +87,8 @@ function ManagerPage({ tab, store }: { tab: TagTab; store: StoreApi<TagsTabState
   const [similar, setSimilar] = useState(() => (window.history.state?.[SIMILAR] as SimilarSnapshot | undefined) ?? undefined);
   const [dialog, setDialog] = useState<Dialog>(similar ? "similar" : null);
   const similarLevel = useUI((s) => s.similarLevel);
-  const groups = useMemo(() => similarGroups(all, data?.ignored ?? [], similarLevel), [all, data, similarLevel]);
+  // Tags proches : ils tiennent compte des groupes de synonymes et des paires écartées (lot R6-2).
+  const blocks = useMemo(() => similarBlocks(all, data?.ignores ?? [], rules.groupOf, similarLevel), [all, data, rules, similarLevel]);
   // « Non utilisé » : sans média, et ni dans un groupe de synonymes (fusionné ou non) ni dans une règle de parents
   // (enfant ou parent) : ceux-là servent, ils ne sont même pas proposés (retour T3, point TAGM-08.2).
   const unused = useMemo(
@@ -132,7 +133,7 @@ function ManagerPage({ tab, store }: { tab: TagTab; store: StoreApi<TagsTabState
 
   const similarButton = (
     <Button data-zone="gestionnaire-tags.proches" variant="outline" size="sm" onClick={() => setDialog("similar")} className={TOOL}>
-      Tags proches ({formatNumber(groups.length)})
+      Tags proches ({formatNumber(blocks.length)})
     </Button>
   );
 
@@ -251,7 +252,9 @@ function ManagerPage({ tab, store }: { tab: TagTab; store: StoreApi<TagsTabState
         {deleting && <TagDeleteDialog tags={deleting} onCancel={() => setDeleting(null)} onDone={() => setDeleting(null)} />}
         {dialog === "similar" && (
           <SimilarTagsDialog
-            groups={groups}
+            blocks={blocks}
+            ignores={data?.ignores ?? []}
+            tagOf={tagOf}
             initial={similar}
             onSearch={(tag, snapshot) => {
               window.history.replaceState({ ...window.history.state, [SIMILAR]: snapshot }, "");
@@ -268,7 +271,7 @@ function ManagerPage({ tab, store }: { tab: TagTab; store: StoreApi<TagsTabState
         )}
         {dialog === "import" && <ImportTagsDialog onClose={() => setDialog(null)} />}
         {dialog === "unused" && <UnusedTagsDialog tags={unused} onClose={() => setDialog(null)} />}
-        {dialog === "merge" && <CreateSynonymsDialog tags={checkedTags} onClose={() => setDialog(null)} />}
+        {dialog === "merge" && <CreateSynonymsDialog checked={checkedTags} groupOf={rules.groupOf} tagOf={tagOf} onClose={() => setDialog(null)} />}
       </main>
     </>
   );

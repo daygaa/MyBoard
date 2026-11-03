@@ -1,21 +1,23 @@
-// Pop-in « Tags proches » du gestionnaire (TAGM-13) : groupes de noms presque identiques ; pour chacun, nom
-// gardé puis « Fusionner », ou « Ignorer » (plus proposé, pour ce groupe exact) ; une loupe au bout de chaque
-// tag lance sa recherche (retour T3, point TAGM-13.1) : la pop-in est notée dans l'étape (position dans la
-// liste, noms gardés, case), le retour arrière la rouvre telle quelle ; « Tout fusionner », à droite de
-// « Fermer », fusionne tous les groupes après une confirmation simple (retour T3, point TAGM-13.3). En haut,
-// « Détection : Strict | Large » (retour T3, point TAGM-13.5), retenu ; le compteur du bouton le suit. Plus de case
-// « Garder les anciens noms » (lot R6-1 : une fusion se défait toujours) ; le reste est revu au lot R6-2.
+// Pop-in « Tags proches » du gestionnaire (TAGM-13 ; refonte, décisions D8 à D8.3 ; lot R6-2) : des blocs de noms
+// presque identiques (SimilarBlock.tsx), qui tiennent compte des groupes de synonymes ; en haut, « Détection : Strict
+// | Large » (retour T3, point TAGM-13.5), retenu, et l'interrupteur « Fusionner tous » (« à moitié » quand les blocs
+// diffèrent, D8.2) ; en bas, « Ignorés (N) » (D8.3), « Fermer » et « Créer des synonymes pour tous » (retour T3, point
+// TAGM-13.3). Une loupe lance la recherche d'un tag : la pop-in est notée dans l'étape (position, réglages des blocs),
+// le retour arrière la rouvre telle quelle (retour T3, point TAGM-13.1).
 
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
-import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Modal } from "@/components/ui/modal";
-import { api, type ManagedTag } from "@/lib/api";
+import { Switch } from "@/components/ui/switch";
+import type { ManagedTag, SimilarIgnore } from "@/lib/api";
 import { formatNumber } from "@/lib/format";
-import { groupKey, mergeGroups, mergeTags, refreshTags, type SimilarLevel } from "@/lib/tagManager";
+import { createAll, planOf, type BlockState } from "@/lib/similarActions";
+import type { SimilarBlock as Block, SimilarLevel } from "@/lib/similarTags";
 import { useUI } from "@/stores/ui";
-import { CANCEL, GOLD, KeepChoice, kept, mostUsed } from "./TagChoice";
+import { IgnoredDialog } from "./IgnoredDialog";
+import { SimilarBlock } from "./SimilarBlock";
+import { CANCEL, GOLD } from "./TagChoice";
 import { segment } from "./TagFilters";
 
 const LEVELS: { level: SimilarLevel; label: string; help: string }[] = [
@@ -28,7 +30,7 @@ function LevelChoice() {
   const level = useUI((s) => s.similarLevel);
   const setLevel = useUI((s) => s.setSimilarLevel);
   return (
-    <div data-zone="tags-proches.detection" className="mb-3 flex items-center gap-2 text-xs text-muted-foreground">
+    <div data-zone="tags-proches.detection" className="flex items-center gap-2 text-xs text-muted-foreground">
       <span>Détection :</span>
       <div className="flex items-center gap-0.5 rounded-lg border border-border bg-card/60 p-0.5">
         {LEVELS.map((l) => (
@@ -49,53 +51,32 @@ function LevelChoice() {
   );
 }
 
-type GroupProps = { group: ManagedTag[]; keep: number; onKeep: (id: number) => void; onSearch: (tag: ManagedTag) => void };
-
-function SimilarGroup({ group, keep, onKeep, onSearch }: GroupProps) {
-  return (
-    <div data-zone="tags-proches.groupe" className="rounded-lg border border-border p-2">
-      <KeepChoice tags={group} value={keep} onChange={onKeep} onSearch={onSearch} />
-      <div className="mt-2 flex justify-end gap-2">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => void api.ignoreSimilar(group.map((t) => t.id)).then(refreshTags)}
-          className={CANCEL}
-          title="Ne plus proposer ce groupe"
-        >
-          Ignorer
-        </Button>
-        <Button size="sm" onClick={() => void mergeTags(group, kept(group, keep))} className={GOLD}>
-          Fusionner
-        </Button>
-      </div>
-    </div>
-  );
-}
-
-/** Pop-in « Tags proches » telle qu'on l'a quittée par une loupe (retour T3, point TAGM-13.1). */
-export type SimilarSnapshot = { scroll: number; keep: Record<string, number> };
+/** Pop-in telle qu'on l'a quittée par une loupe : position dans la liste, réglages des blocs. */
+export type SimilarSnapshot = { scroll: number; states: Record<string, BlockState> };
 
 type SimilarProps = {
-  groups: ManagedTag[][];
-  /** Pop-in rouverte par le retour arrière : position dans la liste, noms gardés. */
+  blocks: Block[];
+  ignores: SimilarIgnore[];
+  tagOf: (id: number) => ManagedTag | undefined;
+  /** Pop-in rouverte par le retour arrière. */
   initial?: SimilarSnapshot;
   onSearch: (tag: ManagedTag, snapshot: SimilarSnapshot) => void;
   onClose: () => void;
 };
 
-export function SimilarTagsDialog({ groups, initial, onSearch, onClose }: SimilarProps) {
-  // Nom gardé de chaque groupe choisi à la main (sinon : le plus utilisé).
-  const [keep, setKeep] = useState<Record<string, number>>(initial?.keep ?? {});
+const NONE: BlockState = { off: [] };
+
+export function SimilarTagsDialog({ blocks, ignores, tagOf, initial, onSearch, onClose }: SimilarProps) {
+  const [states, setStates] = useState<Record<string, BlockState>>(initial?.states ?? {});
+  const [ignoredOpen, setIgnoredOpen] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
   const restored = useRef(false);
-  // Retour arrière : la liste revient à sa position, une fois ses groupes affichés.
+  // Retour arrière : la liste revient à sa position, une fois ses blocs affichés.
   useLayoutEffect(() => {
-    if (restored.current || !initial || !listRef.current || groups.length === 0) return;
+    if (restored.current || !initial || !listRef.current || blocks.length === 0) return;
     restored.current = true;
     listRef.current.scrollTop = initial.scroll;
-  }, [initial, groups.length]);
-  const search = (tag: ManagedTag) => onSearch(tag, { scroll: listRef.current?.scrollTop ?? 0, keep });
+  }, [initial, blocks.length]);
   // Autre niveau de détection : la nouvelle liste repart du haut.
   const level = useUI((s) => s.similarLevel);
   const shownLevel = useRef(level);
@@ -104,11 +85,14 @@ export function SimilarTagsDialog({ groups, initial, onSearch, onClose }: Simila
     shownLevel.current = level;
     if (listRef.current) listRef.current.scrollTop = 0;
   }, [level]);
-  const [confirming, setConfirming] = useState(false);
-  const mergeAll = () => {
-    setConfirming(false);
-    void mergeGroups(groups.map((g) => ({ sources: g, target: kept(g, keep[groupKey(g)] ?? mostUsed(g)) })));
-  };
+  const plans = useMemo(() => blocks.map((b) => planOf(b, states[b.key] ?? NONE, tagOf)), [blocks, states, tagOf]);
+  const ready = plans.filter((p) => p.ready);
+  // « Fusionner tous » : allumé si tous les blocs le sont, éteint si aucun, « à moitié » sinon ; un clic allume tout, ou
+  // éteint tout s'ils l'étaient tous (D2.1).
+  const merged = ready.filter((p) => p.merge).length;
+  const all = ready.length > 0 && merged === ready.length ? true : merged === 0 ? false : "mixed";
+  const setAll = (merge: boolean) => setStates((s) => Object.fromEntries(blocks.map((b) => [b.key, { ...(s[b.key] ?? NONE), merge }])));
+  const search = (tag: ManagedTag) => onSearch(tag, { scroll: listRef.current?.scrollTop ?? 0, states });
   return (
     <>
       <Modal
@@ -117,50 +101,41 @@ export function SimilarTagsDialog({ groups, initial, onSearch, onClose }: Simila
         onClose={onClose}
         zone="tags-proches"
         title="Tags proches"
-        description={groups.length ? "Noms presque identiques : choisis le nom gardé, ses médias reçoivent ceux des autres." : "Aucun tag proche à fusionner."}
+        description={blocks.length ? "Noms presque identiques : coche les tags à relier et choisis le tag principal." : "Aucun tag proche."}
         footer={
           <>
+            <button type="button" data-zone="tags-proches.ignores.lien" onClick={() => setIgnoredOpen(true)} className="mr-auto text-sm text-muted-foreground underline-offset-2 hover:text-foreground hover:underline">
+              Ignorés ({formatNumber(ignores.length)})
+            </button>
             <Button variant="ghost" onClick={onClose} className={CANCEL}>
               Fermer
             </Button>
-            {groups.length > 0 && (
-              <Button data-zone="tags-proches.tout" onClick={() => setConfirming(true)} className={GOLD}>
-                Tout fusionner
+            {ready.length > 0 && (
+              <Button data-zone="tags-proches.tout" onClick={() => void createAll(plans)} className={GOLD}>
+                Créer des synonymes pour tous
               </Button>
             )}
           </>
         }
       >
-        <LevelChoice />
-        {groups.length > 0 && (
-          <>
-            <div ref={listRef} className="max-h-[55vh] space-y-2 overflow-y-auto pr-1">
-              {groups.map((g) => {
-                const key = groupKey(g);
-                return (
-                  <SimilarGroup
-                    key={key}
-                    group={g}
-                    keep={keep[key] ?? mostUsed(g)}
-                    onKeep={(id) => setKeep((k) => ({ ...k, [key]: id }))}
-                    onSearch={search}
-                  />
-                );
-              })}
-            </div>
-          </>
+        <div className="mb-3 flex items-center gap-3">
+          <LevelChoice />
+          {ready.length > 0 && (
+            <label data-zone="tags-proches.fusion" className="ml-auto flex cursor-pointer items-center gap-2 text-xs text-muted-foreground">
+              Fusionner tous
+              <Switch on={all} onToggle={() => setAll(all !== true)} zone="tags-proches.fusion.interrupteur" label="Fusionner tous" />
+            </label>
+          )}
+        </div>
+        {blocks.length > 0 && (
+          <div ref={listRef} className="max-h-[55vh] space-y-2 overflow-y-auto overscroll-contain pr-1">
+            {blocks.map((b, i) => (
+              <SimilarBlock key={b.key} block={b} state={states[b.key] ?? NONE} plan={plans[i]} onChange={(st) => setStates((s) => ({ ...s, [b.key]: st }))} onSearch={search} />
+            ))}
+          </div>
         )}
       </Modal>
-      {confirming && (
-        <ConfirmDialog
-          zone="tags-proches.confirmation"
-          title={groups.length === 1 ? "Fusionner le groupe ?" : `Fusionner les ${formatNumber(groups.length)} groupes ?`}
-          message="Dans chaque groupe, le nom gardé reçoit les médias des autres tags."
-          confirmLabel="Tout fusionner"
-          onCancel={() => setConfirming(false)}
-          onConfirm={mergeAll}
-        />
-      )}
+      {ignoredOpen && <IgnoredDialog ignores={ignores} tagOf={tagOf} onClose={() => setIgnoredOpen(false)} />}
     </>
   );
 }

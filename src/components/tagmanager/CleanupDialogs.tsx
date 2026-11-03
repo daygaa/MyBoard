@@ -5,8 +5,8 @@
 //   D8.1, lot R6-1) : tag principal au choix, aperçu du groupe obtenu, interrupteur « Fusionner ».
 // Tags proches (TAGM-13) : SimilarTagsDialog.tsx.
 
-import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMemo, useState } from "react";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 
 import { MergeSwitch } from "@/components/tags/MergeSwitch";
 import { Button } from "@/components/ui/button";
@@ -15,7 +15,7 @@ import { Modal } from "@/components/ui/modal";
 import type { ManagedTag } from "@/lib/api";
 import { formatNumber } from "@/lib/format";
 import { createGroup } from "@/lib/groupRules";
-import { rulesApi } from "@/lib/rulesApi";
+import { rulesApi, type GroupRow } from "@/lib/rulesApi";
 import { deleteTags } from "@/lib/tagManager";
 import { displayTag } from "@/lib/tags";
 import { CANCEL, GOLD, KeepChoice, kept, mostUsed, RED, TagName } from "./TagChoice";
@@ -78,14 +78,28 @@ export function UnusedTagsDialog({ tags, onClose }: { tags: ManagedTag[]; onClos
 
 /** Tags cochés → un groupe de synonymes autour du tag principal choisi (le plus utilisé d'office). « Créer » ferme la
  *  pop-in ; la pop-in de fusion (médias, règles, « Étendre ») ou de réunion de groupes suit si besoin (réponse 1 du
- *  lot R6). */
-export function CreateSynonymsDialog({ tags, onClose }: { tags: ManagedTag[]; onClose: () => void }) {
+ *  lot R6). Retouche du 03/11 (point TAGM-11.4) : le principal du groupe d'un tag coché est proposé aussi, et les
+ *  principaux de groupe ont une étoile. */
+export function CreateSynonymsDialog({ checked, onClose, groupOf, tagOf }: { checked: ManagedTag[]; onClose: () => void; groupOf: Map<number, GroupRow>; tagOf: (id: number) => ManagedTag | undefined }) {
+  const { tags, principals } = useMemo(() => {
+    const list = [...checked];
+    const principals = new Set<number>();
+    for (const t of checked) {
+      const group = groupOf.get(t.id);
+      if (!group) continue;
+      principals.add(group.principalId);
+      const chief = tagOf(group.principalId);
+      if (chief && !list.some((x) => x.id === chief.id)) list.push(chief);
+    }
+    return { tags: list, principals };
+  }, [checked, groupOf, tagOf]);
   const [keep, setKeepId] = useState(() => mostUsed(tags));
   // Interrupteur touché à la main ; sinon, allumé si le groupe obtenu est entièrement fusionné (D2.2, D8.1).
   const [merge, setMerge] = useState<boolean | null>(null);
   const chief = kept(tags, keep);
   const others = tags.filter((t) => t.id !== chief.id).map((t) => t.name);
-  const { data: preview } = useQuery({ queryKey: ["group-preview", chief.name, others], queryFn: () => rulesApi.groupPreview(chief.name, others) });
+  // L'aperçu précédent reste affiché pendant que le nouveau arrive : la pop-in ne change pas de taille (retouche du 03/11).
+  const { data: preview } = useQuery({ queryKey: ["group-preview", chief.name, others], queryFn: () => rulesApi.groupPreview(chief.name, others), placeholderData: keepPreviousData });
   const on = merge ?? preview?.fullyMerged ?? false;
   const head = preview?.principal ?? chief.name;
   const nothing = preview !== undefined && preview.added.length === 0;
@@ -102,7 +116,7 @@ export function CreateSynonymsDialog({ tags, onClose }: { tags: ManagedTag[]; on
       onEnter={create}
       onClose={onClose}
       zone="tags-synonymes"
-      title={tags.length > 2 ? "Créer des synonymes" : "Créer un synonyme"}
+      title={checked.length > 2 ? "Créer des synonymes" : "Créer un synonyme"}
       description="Choisis le tag principal ; les autres deviennent ses synonymes."
       footer={
         <>
@@ -118,6 +132,7 @@ export function CreateSynonymsDialog({ tags, onClose }: { tags: ManagedTag[]; on
       <div className="max-h-64 overflow-y-auto rounded-lg border border-border p-1.5">
         <KeepChoice
           tags={tags}
+          principals={principals}
           value={keep}
           onChange={(id) => {
             setKeepId(id);

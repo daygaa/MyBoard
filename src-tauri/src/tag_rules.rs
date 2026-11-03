@@ -165,6 +165,15 @@ pub enum Planned {
     },
     /// Changement de principal (étoile).
     Principal { group: i64, name: i64 },
+    /// « Créer des synonymes pour tous » des tags proches (lot R6-2).
+    Batch { items: Vec<BatchItem> },
+}
+
+#[derive(Debug, Deserialize)]
+pub struct BatchItem {
+    principal: i64,
+    names: Vec<String>,
+    merge: bool,
 }
 
 /// Joue l'action sans rien garder (transaction annulée) et renvoie ce qu'elle change aux règles.
@@ -179,6 +188,7 @@ pub async fn rules_preview(state: State<'_, AppState>, planned: Planned) -> Resu
         Planned::Group { id } => groups::set_group_merged(db, *id, true, &[]).map(|_| ()),
         Planned::Create { principal, names, new_tags } => group_create::create(db, *principal, names, true, new_tags, &[], now).map(|_| ()),
         Planned::Principal { group, name } => groups::set_principal(db, *group, *name),
+        Planned::Batch { items } => items.iter().try_for_each(|i| group_create::create(db, i.principal, &i.names, i.merge, &[], &[], now).map(|_| ())),
     })
     .map_err(|e| format!("{e:#}"))
 }

@@ -2,7 +2,7 @@
 //! « Synonymes » (D2.2, D3, D4, D14) et fusions du gestionnaire (revues au lot R6). Les opérations de base
 //! (fusion, défusion, principal) : `groups.rs`. Dans la transaction de l'appelant.
 
-use rusqlite::{Connection, OptionalExtension, params};
+use rusqlite::{Connection, params};
 
 use crate::groups::{add_linked, group_of_tag, ids, merge, principal, tag_named, unmerge};
 use crate::tagging::resolve_or_create;
@@ -79,20 +79,4 @@ pub fn create(db: &Connection, principal_tag: i64, names: &[String], merge_new: 
     // Aucun nom ajouté à un groupe tout neuf : il ne reste pas vide.
     db.execute("DELETE FROM tag_groups WHERE id = ?1 AND NOT EXISTS (SELECT 1 FROM tag_group_names WHERE group_id = ?1)", [group])?;
     Ok(group)
-}
-
-/// Fusion des tags proches (TAGM-13, revue au lot R6-2) : `source` rejoint le groupe de `target`, fusionné. Plus de
-/// fusion définitive (refonte, décision D7) : le tag reste, fusionné, la fusion se défait.
-pub fn merge_tag(db: &Connection, source: i64, target: i64, now: i64) -> anyhow::Result<()> {
-    if source == target {
-        return Ok(());
-    }
-    let name: String = db.query_row("SELECT name FROM tags WHERE id = ?1", [source], |r| r.get(0))?;
-    create(db, target, std::slice::from_ref(&name), true, &[], &[], now)?;
-    // Déjà relié au groupe : `create` le laisse tel quel, la fusion demandée le fusionne.
-    let row: Option<i64> = db.query_row("SELECT id FROM tag_group_names WHERE tag_id = ?1", [source], |r| r.get(0)).optional()?;
-    if let Some(row) = row {
-        merge(db, row, &[])?;
-    }
-    Ok(())
 }

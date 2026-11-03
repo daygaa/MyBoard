@@ -4,7 +4,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
-import type { SimilarLevel } from "@/lib/tagManager";
+import type { SimilarLevel } from "@/lib/similarTags";
 
 type UIState = {
   burgerOpen: boolean;

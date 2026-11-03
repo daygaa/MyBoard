@@ -7,14 +7,13 @@
 //! `media.tag_count`) et l'index de recherche suivent par les déclencheurs de la base (D-005, D-027).
 //! Fusion : `group_create::merge_tag` (groupes de synonymes, règles de parents, TAGM-15 à TAGM-17, D-047).
 
-use rusqlite::{Connection, OptionalExtension, TransactionBehavior, params};
-use serde::{Deserialize, Serialize};
+use rusqlite::{Connection, OptionalExtension, params};
+use serde::Serialize;
 use tauri::State;
 
-use crate::group_create::merge_tag;
 use crate::tag_delete::{self, DeletePreview};
 use crate::tags::normalize;
-use crate::{AppState, db};
+use crate::{AppState, similar};
 
 /// Un tag tel que le montre le gestionnaire.
 #[derive(Debug, Serialize)]
@@ -36,8 +35,8 @@ pub struct TagManagerData {
     pub tags: Vec<ManagedTag>,
     /// Médias qui portent au moins un tag (en-tête du gestionnaire).
     pub tagged_media: i64,
-    /// Groupes de tags proches ignorés (TAGM-13) : identifiants triés, « 12,40,77 ».
-    pub ignored: Vec<String>,
+    /// Tags proches écartés (TAGM-13, lot R6-2) : actions « Ignorer » et décochages, par paires.
+    pub ignores: Vec<similar::Ignore>,
 }
 
 /// Résultat d'un renommage : fait, ou nom déjà porté par un autre tag (fusion proposée, CTX-04) ou
@@ -73,9 +72,7 @@ fn list(db: &Connection) -> rusqlite::Result<TagManagerData> {
         })?
         .collect::<rusqlite::Result<_>>()?;
     let tagged_media = db.query_row("SELECT COUNT(*) FROM media WHERE tag_count > 0 AND pending_delete = 0", [], |r| r.get(0))?;
-    let mut stmt = db.prepare("SELECT tag_ids FROM tag_similar_ignored")?;
-    let ignored = stmt.query_map([], |r| r.get(0))?.collect::<rusqlite::Result<_>>()?;
-    Ok(TagManagerData { tags, tagged_media, ignored })
+    Ok(TagManagerData { tags, tagged_media, ignores: similar::ignores(db)? })
 }
 
 fn rename(db: &Connection, id: i64, raw: &str) -> rusqlite::Result<Renamed> {
@@ -103,28 +100,6 @@ fn rename(db: &Connection, id: i64, raw: &str) -> rusqlite::Result<Renamed> {
     }
     db.execute("UPDATE tags SET name = ?1 WHERE id = ?2", params![name, id])?;
     Ok(Renamed::Done)
-}
-
-/// Un groupe à fusionner : ses tags, et celui qui est gardé.
-#[derive(Debug, Deserialize)]
-pub struct MergeGroup {
-    pub sources: Vec<i64>,
-    pub target: i64,
-}
-
-/// Fusionne chaque groupe dans son tag gardé, tous en une transaction : chaque tag rejoint le groupe de
-/// synonymes du tag gardé, fusionné (ses médias passent au tag gardé). Tags proches (revus au lot R6-2) ; la case
-/// « Garder les anciens noms » (TAGM-17) a disparu au lot R6-1 : une fusion se défait toujours (D7).
-fn merge(conn: &mut Connection, groups: &[MergeGroup]) -> anyhow::Result<()> {
-    let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
-    let now = db::now_ms();
-    for group in groups {
-        for &source in &group.sources {
-            merge_tag(&tx, source, group.target, now)?;
-        }
-    }
-    tx.commit()?;
-    Ok(())
 }
 
 /// Même mise à jour pour plusieurs tags, en une transaction.
@@ -155,17 +130,6 @@ pub async fn list_managed_tags(state: State<'_, AppState>) -> Result<TagManagerD
 #[tauri::command]
 pub async fn rename_tag(state: State<'_, AppState>, id: i64, name: String) -> Result<Renamed, String> {
     rename(&state.db.lock().unwrap(), id, &name).map_err(err)
-}
-
-#[tauri::command]
-pub async fn merge_tags(state: State<'_, AppState>, sources: Vec<i64>, target: i64) -> Result<(), String> {
-    merge(&mut state.db.lock().unwrap(), &[MergeGroup { sources, target }]).map_err(|e| format!("{e:#}"))
-}
-
-/// « Tout fusionner » des tags proches (retour T3, point TAGM-13.3) : tous les groupes d'un coup.
-#[tauri::command]
-pub async fn merge_tag_groups(state: State<'_, AppState>, groups: Vec<MergeGroup>) -> Result<(), String> {
-    merge(&mut state.db.lock().unwrap(), &groups).map_err(|e| format!("{e:#}"))
 }
 
 #[tauri::command]
@@ -205,13 +169,4 @@ pub async fn set_tag_description(state: State<'_, AppState>, id: i64, text: Stri
     let text = text.trim();
     let value = (!text.is_empty()).then_some(text);
     state.db.lock().unwrap().execute("UPDATE tags SET description = ?1 WHERE id = ?2", params![value, id]).map(|_| ()).map_err(err)
-}
-
-/// « Ignorer » un groupe de tags proches (TAGM-13) : il n'est plus proposé.
-#[tauri::command]
-pub async fn ignore_similar(state: State<'_, AppState>, ids: Vec<i64>) -> Result<(), String> {
-    let mut ids = ids;
-    ids.sort_unstable();
-    let key = ids.iter().map(i64::to_string).collect::<Vec<_>>().join(",");
-    state.db.lock().unwrap().execute("INSERT OR IGNORE INTO tag_similar_ignored (tag_ids) VALUES (?1)", [key]).map(|_| ()).map_err(err)
 }

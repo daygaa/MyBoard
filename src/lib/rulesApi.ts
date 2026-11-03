@@ -49,7 +49,8 @@ export type PlannedChange =
   | { kind: "name"; id: number }
   | { kind: "group"; id: number }
   | { kind: "create"; principal: number; names: string[]; newTags: NewTag[] }
-  | { kind: "principal"; group: number; name: number };
+  | { kind: "principal"; group: number; name: number }
+  | { kind: "batch"; items: { principal: number; names: string[]; merge: boolean }[] };
 export type TagRules = { groups: GroupRow[]; parents: ParentRow[] };
 
 export type PreviewName = { name: string; merged: boolean; media: number };

@@ -1251,3 +1251,17 @@ tous deux lisent l'aperçu (`group_preview`) puis passent par `groupRules.create
 de groupes). `RuleAskHost` est monté dans `App.tsx` (et non plus dans le gestionnaire) : « Renommer… » d'un menu du
 clic droit, hors du gestionnaire, ouvre aussi la pop-in de fusion. Base d'essai (réponse 8) : modèle `refonte` au format
 actuel avec les cas `r5_…`, journal vidé avant la copie (`wal_checkpoint`, `journal_mode = DELETE`).
+
+**Complément du 03/11 (lot R6-2, schéma 13).** Tags proches : `tag_similar_ignored` (groupes exacts) remplacée par
+`tag_similar_ignores` (une action : `group` = « Ignorer », `apart` = décochage) et `tag_similar_ignore_tags` (tags de
+l'action, `apart` = écarté) ; les paires « pas synonymes » se calculent depuis les actions (`similar.rs` : `ignores`,
+`ignore`, `create_all` ; commandes `ignore_similar`, `unignore_similar`, `create_similar_groups`). Conversion : chaque
+groupe ignoré devient une action `group`. Détection (`lib/similarTags.ts`, dans l'interface) : deux tags sont liés
+s'ils partagent une clé du niveau et que leur paire n'est pas écartée ; un bloc réunit les tags liés de proche en
+proche ; il touche 0, 1 ou plusieurs groupes (`rules.groupOf`) ; un tag écarté d'un groupe, et les tags hors groupe qu'il
+relie, forment un bloc à part (de même pour un groupe dont des tags ont été écartés de ceux du groupe principal du bloc,
+le plus grand). Actions (`lib/similarActions.ts`) : `planOf` (principal, noms, fusion, tags écartés), `createBlock`
+(aperçu puis `groupRules.createGroup`, les tags décochés écartés une fois le groupe créé), `ignoreBlock`, `createAll`
+(`rules_preview` `batch`, puis `create_similar_groups`). Pop-in : `SimilarTagsDialog`, `SimilarBlock`, `IgnoredDialog`.
+`merge_tag`, `merge_tags`, `merge_tag_groups` supprimés. Tags cochés : la requête d'aperçu garde l'ancien aperçu
+pendant le chargement (`keepPreviousData`).

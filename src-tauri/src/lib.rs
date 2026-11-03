@@ -24,6 +24,7 @@ pub mod rule_preview;
 pub mod scope;
 pub mod search;
 pub mod selection;
+pub mod similar;
 pub mod system_menu;
 pub mod tag_delete;
 pub mod tag_import;
@@ -146,8 +147,6 @@ pub fn run() {
             selection::edit_selection_tags,
             tag_manager::list_managed_tags,
             tag_manager::rename_tag,
-            tag_manager::merge_tags,
-            tag_manager::merge_tag_groups,
             tag_manager::set_tags_category,
             tag_manager::set_tags_hidden,
             tag_manager::delete_tags,
@@ -156,7 +155,9 @@ pub fn run() {
             tag_import::preview_tag_import,
             tag_import::import_tags,
             tag_import::undo_tag_import,
-            tag_manager::ignore_similar,
+            similar::ignore_similar,
+            similar::unignore_similar,
+            similar::create_similar_groups,
             tag_rules::list_tag_rules,
             tag_rules::group_preview,
             tag_rules::create_group,
