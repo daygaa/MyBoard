@@ -1294,3 +1294,10 @@ et de sa flèche (`SWITCH_COLUMN`, seulement dans l'onglet : prop `column` de `P
 `lib/keepWords.ts` (`whole`, `quote`, `keepQuoted`, `copyPlain` déplacé de `tagRules.ts` ; `q` = `quote(displayTag)`) ;
 `Modal` passe son titre et un texte en chaîne par `keepQuoted` (copie en caractères ordinaires) ; pop-in et bandeau
 d'erreur : `overflow-wrap: break-word` au lieu de `break-all`.
+
+**Complément du 03/11 (lot R8, réponses).** Code de partage : tags rangés par catégorie, JSON compressé puis en base
+64 (≈ 115 Ko au lieu de 636 Ko pour 13 144 tags, mesuré) ; un ancien code n'est pas reconnu (message habituel). Import :
+deux cases (groupes de synonymes, règles de parents) et une case « Fusionner les tags pré-existants s'ils le sont dans
+l'import » (décochée : un tag déjà présent est seulement relié à son groupe). Export : pop-in avec le choix d'inclure
+les groupes et les règles (en cours de décision). Suivi : après la phase 3, `docs/SPEC.md` est le seul fichier de
+suivi (règle de l'utilisateur).
