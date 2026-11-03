@@ -1301,3 +1301,7 @@ deux cases (groupes de synonymes, règles de parents) et une case « Fusionner l
 l'import » (décochée : un tag déjà présent est seulement relié à son groupe). Export : pop-in avec le choix d'inclure
 les groupes et les règles (en cours de décision). Suivi : après la phase 3, `docs/SPEC.md` est le seul fichier de
 suivi (règle de l'utilisateur).
+
+**Complément du 04/11 (lot R8, export).** Pop-in d'export à la place du menu. Groupes : un lien de synonymes part
+quand au moins 2 tags du groupe sont exportés (option : groupe complet) ; règles de parents : quand l'enfant et le
+parent le sont (option : chaîne entière). Les états de fusion voyagent avec le groupe et sont rétablis à l'import.
