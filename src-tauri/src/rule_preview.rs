@@ -60,7 +60,7 @@ pub struct RuleChange {
     pub reason: Option<&'static str>,
     /// Case « Étendre » : médias qui recevraient le parent ; vide : pas de case.
     pub extend: Option<i64>,
-    /// Règle du principal : les tags fusionnés dont les médias la recevraient.
+    /// Règle du principal (ou de l'ancien principal, réécrite) : les tags fusionnés dont les médias la recevraient.
     pub of: Vec<String>,
 }
 
@@ -73,11 +73,19 @@ fn missing(db: &Connection, tag: i64, parent: i64) -> rusqlite::Result<i64> {
     )
 }
 
-/// Joue `action` dans une transaction annulée et renvoie ce qu'elle change aux règles ; `extendable` : une fusion
-/// (cases « Étendre »), pas un changement de principal.
-pub fn preview(db: &mut Connection, extendable: bool, action: impl FnOnce(&Connection) -> anyhow::Result<()>) -> anyhow::Result<Vec<RuleChange>> {
+/// Joue `setup` puis `action` dans une transaction annulée et renvoie ce qu'ils changent aux règles ; `extendable` : une
+/// fusion (cases « Étendre »), pas un changement de principal ; `setup` : changement de principal fait avant (tags
+/// cochés, point TAGM-11.4), dont les fusions refaites n'ont pas de case.
+pub fn preview(
+    db: &mut Connection,
+    extendable: bool,
+    setup: impl FnOnce(&Connection) -> anyhow::Result<()>,
+    action: impl FnOnce(&Connection) -> anyhow::Result<()>,
+) -> anyhow::Result<Vec<RuleChange>> {
     let tx = db.transaction()?;
-    let (before, merged_before) = (snapshot(&tx)?, merged(&tx)?);
+    let before = snapshot(&tx)?;
+    setup(&tx)?;
+    let merged_before = merged(&tx)?;
     action(&tx)?;
     let after = snapshot(&tx)?;
     let name = |id: i64| tx.query_row("SELECT name FROM tags WHERE id = ?1", [id], |r| r.get::<_, String>(0));
@@ -119,7 +127,16 @@ pub fn preview(db: &mut Connection, extendable: bool, action: impl FnOnce(&Conne
         }
     }
     if extendable {
-        changes.extend(principal_rules(&tx, &merged_before)?);
+        for rule in principal_rules(&tx, &merged_before)? {
+            // Règle de l'ancien principal passée au nouveau par `setup` : une seule ligne, réécrite, avec sa case.
+            match changes.iter_mut().find(|c| c.id == rule.id) {
+                Some(line) => {
+                    line.extend = rule.extend;
+                    line.of = rule.of;
+                }
+                None => changes.push(rule),
+            }
+        }
     }
     changes.sort_by_key(|c| ["moved", "aside", "principal", "back"].iter().position(|k| *k == c.kind));
     Ok(changes)

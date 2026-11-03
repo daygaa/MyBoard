@@ -2,9 +2,9 @@
 //! « Synonymes » (D2.2, D3, D4, D14) et fusions du gestionnaire (revues au lot R6). Les opérations de base
 //! (fusion, défusion, principal) : `groups.rs`. Dans la transaction de l'appelant.
 
-use rusqlite::{Connection, params};
+use rusqlite::{Connection, OptionalExtension, params};
 
-use crate::groups::{add_linked, group_of_tag, ids, merge, principal, tag_named, unmerge};
+use crate::groups::{add_linked, group_of_tag, ids, merge, principal, set_principal, tag_named, unmerge};
 use crate::tagging::resolve_or_create;
 use crate::tags::{NewTag, normalize};
 
@@ -37,6 +37,17 @@ fn absorb(db: &Connection, group: i64, other: i64, now: i64) -> anyhow::Result<V
     Ok(added)
 }
 
+/// Tags cochés du gestionnaire (retour T3, point TAGM-11.4, retouche du 03/11) : le tag choisi qui est un nom d'un
+/// groupe en devient d'abord le principal, comme avec l'étoile (D3.1 : fusions refaites vers lui, l'ancien principal
+/// prend son état) ; `create` y ajoute ensuite les autres.
+pub fn promote(db: &Connection, tag: i64) -> anyhow::Result<()> {
+    let row: Option<(i64, i64)> = db.query_row("SELECT id, group_id FROM tag_group_names WHERE tag_id = ?1", [tag], |r| Ok((r.get(0)?, r.get(1)?))).optional()?;
+    match row {
+        Some((name, group)) => set_principal(db, group, name),
+        None => Ok(()),
+    }
+}
+
 /// Crée ou complète le groupe de `principal` avec ces noms (formulaire « Tag principal » + « Synonymes »). Un
 /// principal tapé qui est déjà dans un groupe y ajoute les noms ; un nom d'un autre groupe réunit les deux (D14) ;
 /// un nom qui n'est pas encore un tag devient un tag (catégorie par défaut ; le formulaire le crée d'abord par la
@@ -44,7 +55,7 @@ fn absorb(db: &Connection, group: i64, other: i64, now: i64) -> anyhow::Result<V
 /// « Étendre », D11.3).
 pub fn create(db: &Connection, principal_tag: i64, names: &[String], merge_new: bool, new_tags: &[NewTag], extend: &[i64], now: i64) -> anyhow::Result<i64> {
     // Principal tapé qui est un nom relié d'un groupe : les noms rejoignent ce groupe, son principal ne
-    // change pas (retouches de R3, 29/10 ; changer de principal se fait avec l'étoile, D3).
+    // change pas (retouches de R3, 29/10 ; changer de principal se fait avec l'étoile, D3, ou `promote` d'abord).
     let group = match group_of_tag(db, principal_tag)? {
         Some(g) => g,
         None => {

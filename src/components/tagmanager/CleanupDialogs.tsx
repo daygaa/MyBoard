@@ -78,8 +78,9 @@ export function UnusedTagsDialog({ tags, onClose }: { tags: ManagedTag[]; onClos
 
 /** Tags cochés → un groupe de synonymes autour du tag principal choisi (le plus utilisé d'office). « Créer » ferme la
  *  pop-in ; la pop-in de fusion (médias, règles, « Étendre ») ou de réunion de groupes suit si besoin (réponse 1 du
- *  lot R6). Retouche du 03/11 (point TAGM-11.4) : le principal du groupe d'un tag coché est proposé aussi, et les
- *  principaux de groupe ont une étoile. */
+ *  lot R6). Retouches du 03/11 (point TAGM-11.4) : le principal du groupe d'un tag coché est proposé aussi, et les
+ *  principaux de groupe ont une étoile ; un nom d'un groupe choisi en devient le principal, comme avec l'étoile (la
+ *  pop-in qui suit le dit), sauf si tous les tags sont déjà de ce groupe (« déjà des synonymes », réponse du 03/11). */
 export function CreateSynonymsDialog({ checked, onClose, groupOf, tagOf }: { checked: ManagedTag[]; onClose: () => void; groupOf: Map<number, GroupRow>; tagOf: (id: number) => ManagedTag | undefined }) {
   const { tags, principals } = useMemo(() => {
     const list = [...checked];
@@ -99,10 +100,12 @@ export function CreateSynonymsDialog({ checked, onClose, groupOf, tagOf }: { che
   const chief = kept(tags, keep);
   const others = tags.filter((t) => t.id !== chief.id).map((t) => t.name);
   // L'aperçu précédent reste affiché pendant que le nouveau arrive : la pop-in ne change pas de taille (retouche du 03/11).
-  const { data: preview } = useQuery({ queryKey: ["group-preview", chief.name, others], queryFn: () => rulesApi.groupPreview(chief.name, others), placeholderData: keepPreviousData });
+  const { data: preview } = useQuery({ queryKey: ["group-preview", chief.name, others, "promote"], queryFn: () => rulesApi.groupPreview(chief.name, others, true), placeholderData: keepPreviousData });
   const on = merge ?? preview?.fullyMerged ?? false;
   const head = preview?.principal ?? chief.name;
   const nothing = preview !== undefined && preview.added.length === 0;
+  // Rien à ajouter : le principal ne change pas (il se change avec l'étoile).
+  const current = preview?.replaced ?? head;
   const create = () => {
     if (!preview || nothing) return;
     onClose();
@@ -141,7 +144,7 @@ export function CreateSynonymsDialog({ checked, onClose, groupOf, tagOf }: { che
         />
       </div>
       <p data-zone="tags-synonymes.resultat" className="mt-3 text-sm text-muted-foreground select-text [overflow-wrap:anywhere]">
-        {nothing ? `Ces tags sont déjà des synonymes de « ${displayTag(head)} ».` : preview ? `Résultat : ★ ${[displayTag(head), ...names].join(" = ")}` : " "}
+        {nothing ? `Ces tags sont déjà des synonymes de « ${displayTag(current)} ».` : preview ? `Résultat : ★ ${[displayTag(head), ...names].join(" = ")}` : " "}
       </p>
       {!nothing && (
         <div className="mt-3">

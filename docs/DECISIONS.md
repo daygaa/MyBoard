@@ -1265,3 +1265,14 @@ le plus grand). Actions (`lib/similarActions.ts`) : `planOf` (principal, noms, f
 (`rules_preview` `batch`, puis `create_similar_groups`). Pop-in : `SimilarTagsDialog`, `SimilarBlock`, `IgnoredDialog`.
 `merge_tag`, `merge_tags`, `merge_tag_groups` supprimés. Tags cochés : la requête d'aperçu garde l'ancien aperçu
 pendant le chargement (`keepPreviousData`).
+
+**Complément du 03/11 (2e retouche du point TAGM-11.4).** Tags cochés : un nom d'un groupe choisi comme principal en
+devient le principal (`group_create::promote`, qui appelle `groups::set_principal`) AVANT `group_create::create`, dans
+la même transaction (`create_group` et `group_preview` ont un paramètre `promote` ; seule `CreateSynonymsDialog` le met
+à vrai : le formulaire de l'onglet garde la règle du 29/10). Aperçu : l'ancien principal remplace le tag choisi dans
+`existing`, avec son état et ses propres médias (`own_media`) ; `replaced` / `replaced_media` donnent la phrase de la
+pop-in. Règles : `rule_preview::preview` reçoit une étape `setup` (le changement de principal) jouée avant l'action ; les
+fusions qu'elle refait n'ont pas de case ; une règle de l'ancien principal réécrite qui peut aussi s'étendre aux médias
+des tags fusionnés par la création n'a qu'une ligne (« moved ») qui porte la case. Ses notes d'extension sont marquées
+du tag d'origine de la règle (l'ancien principal), comme pour l'étoile : défusionner celui-ci ramène la règle et retire
+l'extension.

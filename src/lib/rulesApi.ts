@@ -48,7 +48,7 @@ export type RuleChange = {
 export type PlannedChange =
   | { kind: "name"; id: number }
   | { kind: "group"; id: number }
-  | { kind: "create"; principal: number; names: string[]; newTags: NewTag[] }
+  | { kind: "create"; principal: number; names: string[]; newTags: NewTag[]; merge: boolean; promote: boolean }
   | { kind: "principal"; group: number; name: number }
   | { kind: "batch"; items: { principal: number; names: string[]; merge: boolean }[] };
 export type TagRules = { groups: GroupRow[]; parents: ParentRow[] };
@@ -64,6 +64,9 @@ export type GroupPreview = {
   added: PreviewName[];
   joined: string[];
   fullyMerged: boolean;
+  /** Aperçu demandé avec `promote` : principal que remplace le tag choisi, et médias qui passeront de l'un à l'autre. */
+  replaced: string | null;
+  replacedMedia: number;
 };
 /** Refus expliqué, ou médias qui ont déjà l'enfant sans le parent (case de la confirmation). */
 export type RuleCheck = { error: string | null; media: number };
@@ -88,11 +91,13 @@ export type ImportReport = {
 
 export const rulesApi = {
   list: () => invoke<TagRules>("list_tag_rules"),
-  groupPreview: (principal: string, names: string[]) => invoke<GroupPreview>("group_preview", { principal, names }),
+  /** `promote` : le tag choisi, s'il est un nom d'un groupe, en devient le principal (tags cochés, point TAGM-11.4). */
+  groupPreview: (principal: string, names: string[], promote = false) => invoke<GroupPreview>("group_preview", { principal, names, promote }),
   /** `merge` : l'interrupteur « Fusionner » du formulaire ; renvoie le groupe. */
   /** `newTags` : noms tapés qui ne sont pas encore des tags, créés avec le groupe (retour T3, point TAGM-15.24). */
-  /** `extend` : les règles cochées « Étendre » dans la pop-in (D11.3). */
-  createGroup: (principal: number, names: string[], merge: boolean, newTags: NewTag[] = [], extend: number[] = []) => invoke<number>("create_group", { principal, names, merge, newTags, extend }),
+  /** `extend` : les règles cochées « Étendre » dans la pop-in (D11.3) ; `promote` : comme pour l'aperçu. */
+  createGroup: (principal: number, names: string[], merge: boolean, newTags: NewTag[] = [], extend: number[] = [], promote = false) =>
+    invoke<number>("create_group", { principal, names, merge, newTags, extend, promote }),
   /** Ces quatre appels renvoient les règles restées sur le principal à la défusion (elles feraient une boucle). */
   setNameMerged: (id: number, merged: boolean, extend: number[] = []) => invoke<RuleName[]>("set_name_merged", { id, merged, extend }),
   setGroupMerged: (id: number, merged: boolean, extend: number[] = []) => invoke<RuleName[]>("set_group_merged", { id, merged, extend }),

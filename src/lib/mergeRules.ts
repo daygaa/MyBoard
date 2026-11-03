@@ -34,13 +34,17 @@ function line(c: RuleChange): RuleLine {
   const rule = `${q(c.child)} → ${q(c.parent)}`;
   const other = `${q(c.newChild ?? "")} → ${q(c.newParent ?? "")}`;
   const plus = c.extend ? ` (+${media(c.extend)})` : "";
-  if (c.kind === "moved") return { id: c.id, text: `${rule} deviendra ${other}.` };
+  /** Case d'une règle du principal `chief` (`text`) : poser son parent aux médias des tags fusionnés dans `chief`. */
+  const spread = (text: string, chief: string) => {
+    const fused = `${c.of.map(q).join(", ")} ${c.of.length > 1 ? "seront fusionnés" : "sera fusionné"} dans ${q(chief)}`;
+    const title = `${fused}, donc vous pouvez décider que la règle parent ${text} s'y applique rétroactivement, ${UNDO}`;
+    return { label: `Étendre aux médias de ${c.of.map(q).join(", ")}${plus}`, title };
+  };
+  // Règle de l'ancien principal réécrite vers le nouveau, qui reçoit aussi des tags fusionnés (tags cochés, point
+  // TAGM-11.4) : la case de la règle du principal, sous la ligne réécrite.
+  if (c.kind === "moved") return { id: c.id, text: `${rule} deviendra ${other}.`, option: c.of.length > 0 ? spread(other, c.newChild ?? "") : undefined };
   if (c.kind === "back") return { id: c.id, text: `${rule} ne sera plus mise de côté.` };
-  if (c.kind === "principal") {
-    const fused = `${c.of.map(q).join(", ")} ${c.of.length > 1 ? "seront fusionnés" : "sera fusionné"} dans ${q(c.child)}`;
-    const title = `${fused}, donc vous pouvez décider que la règle parent ${rule} s'y applique rétroactivement, ${UNDO}`;
-    return { id: c.id, text: rule, option: { label: `Étendre aux médias de ${c.of.map(q).join(", ")}${plus}`, title } };
-  }
+  if (c.kind === "principal") return { id: c.id, text: rule, option: spread(rule, c.child) };
   const why = c.reason === "duplicate" ? ` (${other} existe déjà)` : c.reason === "loop" ? " (elle ferait une boucle)" : "";
   const text = `${rule} sera mise de côté pendant la fusion${why}.`;
   if (c.extend === null) return { id: c.id, text };

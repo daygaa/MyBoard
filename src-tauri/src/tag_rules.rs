@@ -114,17 +114,24 @@ fn names(db: &Connection, rules: Vec<i64>) -> anyhow::Result<Vec<RuleName>> {
 
 // --- Groupes de synonymes
 
-/// Aperçu du formulaire de création : groupe obtenu, groupes réunis, état d'office de l'interrupteur.
+/// Aperçu du formulaire de création : groupe obtenu, groupes réunis, état d'office de l'interrupteur ; `promote` : le
+/// tag choisi devient le principal de son groupe (tags cochés, point TAGM-11.4).
 #[tauri::command]
-pub async fn group_preview(state: State<'_, AppState>, principal: String, names: Vec<String>) -> Result<Preview, String> {
-    read(&state, |db| group_list::preview(db, &principal, &names))
+pub async fn group_preview(state: State<'_, AppState>, principal: String, names: Vec<String>, promote: bool) -> Result<Preview, String> {
+    read(&state, |db| group_list::preview(db, &principal, &names, promote))
 }
 
 /// Crée ou complète le groupe de `principal` ; `merge` : l'interrupteur « Fusionner » du formulaire ; `extend` : les
-/// règles cochées « Étendre » dans la pop-in (D11.3).
+/// règles cochées « Étendre » dans la pop-in (D11.3) ; `promote` : `principal` devient d'abord le principal de son
+/// groupe.
 #[tauri::command]
-pub async fn create_group(state: State<'_, AppState>, principal: i64, names: Vec<String>, merge: bool, new_tags: Vec<NewTag>, extend: Vec<i64>) -> Result<i64, String> {
-    write(&state, |db, now| group_create::create(db, principal, &names, merge, &new_tags, &extend, now))
+pub async fn create_group(state: State<'_, AppState>, principal: i64, names: Vec<String>, merge: bool, new_tags: Vec<NewTag>, extend: Vec<i64>, promote: bool) -> Result<i64, String> {
+    write(&state, |db, now| {
+        if promote {
+            group_create::promote(db, principal)?;
+        }
+        group_create::create(db, principal, &names, merge, &new_tags, &extend, now)
+    })
 }
 
 /// Les quatre commandes suivantes renvoient les règles restées sur le principal (défusion).
@@ -156,12 +163,14 @@ pub enum Planned {
     Name { id: i64 },
     /// Interrupteur du groupe (tout fusionner).
     Group { id: i64 },
-    /// Création avec « Fusionner » allumé.
+    /// Création : `merge`, l'interrupteur « Fusionner » ; `promote`, changement de principal d'abord (tags cochés).
     Create {
         principal: i64,
         names: Vec<String>,
         #[serde(rename = "newTags")]
         new_tags: Vec<NewTag>,
+        merge: bool,
+        promote: bool,
     },
     /// Changement de principal (étoile).
     Principal { group: i64, name: i64 },
@@ -183,10 +192,15 @@ pub async fn rules_preview(state: State<'_, AppState>, planned: Planned) -> Resu
     let now = db::now_ms();
     // Une fusion est jouée sans rien étendre : les cases « Étendre » disent ce qu'elles ajouteraient.
     let extendable = !matches!(planned, Planned::Principal { .. });
-    rule_preview::preview(&mut conn, extendable, |db| match &planned {
+    // Changement de principal préalable : ses règles sont listées, mais seules les fusions de la création ont des cases.
+    let setup = |db: &Connection| match &planned {
+        Planned::Create { principal, promote: true, .. } => group_create::promote(db, *principal),
+        _ => Ok(()),
+    };
+    rule_preview::preview(&mut conn, extendable, setup, |db| match &planned {
         Planned::Name { id } => groups::merge(db, *id, &[]),
         Planned::Group { id } => groups::set_group_merged(db, *id, true, &[]).map(|_| ()),
-        Planned::Create { principal, names, new_tags } => group_create::create(db, *principal, names, true, new_tags, &[], now).map(|_| ()),
+        Planned::Create { principal, names, new_tags, merge, .. } => group_create::create(db, *principal, names, *merge, new_tags, &[], now).map(|_| ()),
         Planned::Principal { group, name } => groups::set_principal(db, *group, *name),
         Planned::Batch { items } => items.iter().try_for_each(|i| group_create::create(db, i.principal, &i.names, i.merge, &[], &[], now).map(|_| ())),
     })

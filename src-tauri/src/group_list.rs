@@ -93,6 +93,10 @@ pub struct Preview {
     pub joined: Vec<String>,
     /// Groupe du principal entièrement fusionné : l'interrupteur est allumé d'office (D2.2, D8.1).
     pub fully_merged: bool,
+    /// Avec `promote` : principal que remplace le tag choisi (un nom de son groupe), et médias qui passeront de l'un à
+    /// l'autre (D3.1).
+    pub replaced: Option<String>,
+    pub replaced_media: i64,
 }
 
 fn tag_name(db: &Connection, tag: i64) -> rusqlite::Result<(String, i64)> {
@@ -110,7 +114,20 @@ fn members(db: &Connection, group: i64) -> rusqlite::Result<Vec<(i64, PreviewNam
     .collect()
 }
 
-pub fn preview(db: &Connection, principal_text: &str, names: &[String]) -> rusqlite::Result<Preview> {
+/// Médias que le principal du groupe porte par lui-même, pas seulement par une fusion : ceux qu'il garde quand toutes
+/// les fusions sont défaites.
+fn own_media(db: &Connection, group: i64, tag: i64) -> rusqlite::Result<i64> {
+    db.query_row(
+        "SELECT COUNT(*) FROM media_tags t WHERE t.tag_id = ?2 AND t.media_id NOT IN
+           (SELECT m.media_id FROM tag_group_media m JOIN tag_group_names n ON n.id = m.name_id WHERE n.group_id = ?1 AND m.had_principal = 0)",
+        params![group, tag],
+        |r| r.get(0),
+    )
+}
+
+/// `promote` : le tag choisi qui est un nom d'un groupe en devient le principal (tags cochés, point TAGM-11.4) ;
+/// sinon il le reste et les noms rejoignent ce groupe, dont le principal ne change pas (retouches de R3, 29/10).
+pub fn preview(db: &Connection, principal_text: &str, names: &[String], promote: bool) -> rusqlite::Result<Preview> {
     let mut out = Preview::default();
     let Some(typed) = normalize(principal_text) else { return Ok(out) };
     let p = tag_named(db, &typed)?;
@@ -124,14 +141,22 @@ pub fn preview(db: &Connection, principal_text: &str, names: &[String]) -> rusql
     });
     out.new_principal = p.is_none();
     if let (Some(tag), Some(g)) = (p, group) {
-        // Tag tapé qui est un nom relié d'un groupe : il le reste, et les noms rejoignent ce groupe, dont le
-        // principal ne change pas (retouches de R3, 29/10).
         let real = principal(db, g)?;
-        if real != tag {
+        let mut existing = members(db, g)?;
+        if real != tag && promote {
+            // L'ancien principal prend la place et l'état du tag choisi, avec ses propres médias (D3.1).
+            let (name, merged) = db.query_row("SELECT id, merged FROM tag_group_names WHERE tag_id = ?1", [tag], |r| Ok((r.get::<_, i64>(0)?, r.get(1)?)))?;
+            let (old, _) = tag_name(db, real)?;
+            existing.retain(|(t, _)| *t != tag);
+            existing.push((real, PreviewName { name: old.clone(), merged, media: own_media(db, g, real)? }));
+            existing.sort_by(|a, b| a.1.name.cmp(&b.1.name));
+            out.replaced_media = principal_check(db, g, name)?;
+            out.replaced = Some(old);
+        } else if real != tag {
             out.member = out.principal.take();
             out.principal = Some(tag_name(db, real)?.0);
         }
-        out.existing.extend(members(db, g)?.into_iter().map(|(_, name)| name));
+        out.existing.extend(existing.into_iter().map(|(_, name)| name));
         out.fully_merged = !out.existing.is_empty() && out.existing.iter().all(|n| n.merged);
     }
     let mut seen: Vec<String> = out.principal.iter().cloned().collect();

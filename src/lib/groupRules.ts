@@ -39,33 +39,46 @@ function joinText(joined: string[], principal: string, preview: GroupPreview): s
   return `${joined.length > 1 ? `Les groupes de ${groups} seront réunis` : `Le groupe de ${groups} sera réuni`} à celui de ${q(principal)}.\nGroupe obtenu : ${q(principal)} (tag principal), ${names.join(", ")}.`;
 }
 
+/** Le tag choisi remplace le principal de son groupe (tags cochés, point TAGM-11.4 ; réponse du 03/11 : en tête de
+ *  la pop-in qui suit « Créer »). */
+function promoteText(principal: string, preview: GroupPreview): string {
+  const old = q(preview.replaced ?? "");
+  const n = preview.replacedMedia;
+  const moved = n > 0 ? ` : ${media(n)} ${n > 1 ? "passeront" : "passera"} de ${old} à ${q(principal)}.` : " ; aucun média ne change.";
+  return `${q(principal)} deviendra le tag principal à la place de ${old}${moved}`;
+}
+
 /** Formulaire de création. `onCreated` est appelé dès que le groupe existe (les champs se vident alors,
  *  TAGM-15.6), avant la relecture des listes : sinon l'aperçu, relu avec les pastilles encore dans les champs,
  *  annonçait un instant « déjà des synonymes » (retour T3, point TAGM-15.25). `confirmJoin` : une réunion de groupes
- *  passe par la pop-in (colonne « Synonymes », sans ligne d'aperçu), avec la fusion s'il y en a une. Renvoie vrai si
- *  le groupe est créé, ou si la pop-in est confirmée (la création suit). */
+ *  passe par la pop-in (colonne « Synonymes », sans ligne d'aperçu), avec la fusion s'il y en a une. Aperçu demandé
+ *  avec `promote` (tags cochés) : le changement de principal se fait d'abord, et la pop-in s'ouvre toujours, comme
+ *  avec l'étoile. Renvoie vrai si le groupe est créé, ou si la pop-in est confirmée (la création suit). */
 export async function createGroup(principal: { id: number; name: string }, names: string[], merge: boolean, preview: GroupPreview | undefined, newTags: NewTag[], onCreated: () => unknown, confirmJoin = false) {
   // Le badge compte les noms vraiment ajoutés (un nom déjà dans le groupe est ignoré).
   const count = preview ? preview.added.length : names.length;
+  const promote = !!preview?.replaced;
   const run = async (extend: number[]) => {
     const done = await runTagAction("Créer les synonymes", async () => {
-      const id = await rulesApi.createGroup(principal.id, names, merge, newTags, extend);
+      const id = await rulesApi.createGroup(principal.id, names, merge, newTags, extend, promote);
       await onCreated();
       return id;
     });
     if (done !== undefined) showGridBadge(`${q(principal.name)} : ${count} ${plural(count, "synonyme")}`);
     return done !== undefined;
   };
-  const rules = merge && names.length > 0 ? await mergeRules({ kind: "create", principal: principal.id, names, newTags }) : undefined;
+  const planned = { kind: "create", principal: principal.id, names, newTags, merge, promote } as const;
+  const rules = (merge && names.length > 0) || promote ? await mergeRules(planned, merge) : undefined;
   // Des règles changent : la pop-in s'ouvre, même si aucun nom fusionné n'a de média ; une réunion de groupes la
   // montre toujours ; sans case, la fusion des mêmes tags ne la rouvre pas pendant la visite.
   const fused = merge ? (preview?.added ?? []).map((n) => n.name) : [];
   const merging = (merge ? (preview?.added ?? []) : []).some((n) => n.media > 0) || (rules?.lines.length ?? 0) > 0;
   const joined = confirmJoin && preview ? preview.joined : [];
-  if (!(merging && askAgain(fused, rules)) && joined.length === 0) return run([]);
+  if (!promote && !(merging && askAgain(fused, rules)) && joined.length === 0) return run([]);
   const message = [
+    promote && preview ? promoteText(principal.name, preview) : "",
     joined.length > 0 && preview ? joinText(joined, principal.name, preview) : "",
-    merging && preview ? mergeText(preview.added, principal.name) : "",
+    merge && merging && preview ? mergeText(preview.added, principal.name) : "",
   ].filter(Boolean).join("\n\n");
   const title = joined.length > 0 ? "Réunir les groupes ?" : count > 1 ? "Créer les synonymes ?" : "Créer le synonyme ?";
   return ask({

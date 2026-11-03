@@ -3,6 +3,28 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Tags cochés : un synonyme choisi devient le tag principal (03/11/2026) — Backup v89
+
+SPEC : livré `[~]` : TAGM-11 (2e retouche du point TAGM-11.4) ; refonte TAGM-20 ; DEV-07 (base d'essai).
+
+- **Tags cochés** : dans « Créer un synonyme », choisir comme principal un tag qui est déjà un synonyme d'un groupe
+  (ex. « essai navire », fusionné dans « essai bateau ») en fait le tag principal de ce groupe, comme l'étoile : les
+  fusions sont refaites vers lui et l'ancien principal prend sa place. L'aperçu l'affiche (« ★ essai navire = essai
+  bateau = … »).
+- **Pop-in qui suit « Créer »** : elle s'ouvre toujours dans ce cas et commence par « « essai navire » deviendra le tag
+  principal à la place de « essai bateau » : 2 médias passeront de « essai bateau » à « essai navire ». » ; les règles
+  de l'ancien principal sont listées réécrites, avec leur case « Étendre » quand d'autres tags sont fusionnés.
+- Inchangé : tags cochés déjà tous du même groupe (« déjà des synonymes de … », « Créer » grisé) ; formulaire de
+  l'onglet « Synonymes et parents ».
+- **Base d'essai** : règle « essai bateau » → « essai transport » et descriptions ajoutées au modèle de `refonte`.
+
+Vérifié dans la version compilée, sur des copies de la base d'essai : aperçu et pop-in (« essai navire » + « essai
+voiture », interrupteur allumé puis éteint), « Annuler » sans effet, « Réunir » avec la case « Étendre » cochée
+(★essai navire, 7 images avec « essai navire » et « essai transport »), « Tout défusionner » ensuite (images rendues à
+leurs tags ; une image garde « essai transport », comme avec l'étoile seule, vérifié), « essai navire » + « essai
+vaisseau » (« déjà des synonymes de « essai bateau » », « Créer » grisé), formulaire et aperçu de l'étoile inchangés ;
+zéro erreur `tsc` et `clippy`.
+
 ## Tags proches refaits, lot R6-2 (03/11/2026) — Backup v88
 
 SPEC : livrés `[~]` : TAGM-13 (retour T3, points TAGM-13.3, TAGM-13.7, TAGM-13.8), TAGM-11 (retouches du point
