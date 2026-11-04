@@ -1330,3 +1330,11 @@ appliquées aux tags créés, et aux tags déjà présents si la case est coché
 (défusionnés), `joined` (groupe recréé avec ses fusions, puis tags des médias et notes `tag_parent_media` remis à
 l'identique : défaire ses fusions avait retiré en chaîne des parents, qu'une nouvelle fusion ne repose pas). Aperçu :
 `group_lines` / `rule_lines` du rapport, affichés par `ImportRulesPreview.tsx`.
+
+**Complément du 04/11 (test complet des cas limites, cas C-09 ; retour T3, point TAGM-18.11, choix A de
+l'utilisateur).** À l'import, les tags d'une règle de parents sont repris tels quels (`tag_import.rs`, `as_is`), et non
+remplacés par leur tag principal comme à la saisie (`resolve`). Raison : un code ne contient une règle sur un nom
+fusionné que si elle était mise de côté chez celui qui a exporté (étendue, elle serait sur le principal) ; la reprendre
+telle quelle recopie son état, réimporter son propre code ne crée rien, et une règle entre deux noms d'un même groupe
+n'est plus lue « tag → lui-même ». Conséquence acceptée : une règle reçue sur un nom fusionné chez soi arrive mise de
+côté et ne pose rien tant qu'il l'est ; l'aperçu le dit (« (mise de côté) », `RuleLine.aside`).

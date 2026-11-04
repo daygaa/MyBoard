@@ -1,6 +1,7 @@
 // Aperçu des règles d'un import (retour T3, point TAGM-18.9 ; réponses du 04/11) : sous le cadre des tags, un cadre avec
 // « Groupes de synonymes » puis « Règles de parents », une ligne par règle créée ou modifiée, avec le mot qui dit ce qui
-// se passe (Nouveau, Complété, Réunis, Modifié ; Nouvelle). Un nom fusionné après l'import porte « (F) », en gris.
+// se passe (Nouveau, Complété, Réunis, Modifié ; Nouvelle). Un nom fusionné après l'import porte « (F) », en gris ; une
+// règle dont un tag est fusionné, « (mise de côté) » (retour T3, point TAGM-18.11).
 // Chaque nom reste d'un bloc (GEN-22).
 
 import { Fragment, type ReactNode } from "react";
@@ -99,6 +100,7 @@ export function ImportRulesPreview({ report }: { report: ImportReport }) {
                   {whole(displayTag(r.child))} → {whole(displayTag(r.parent))}
                 </span>
                 {!r.enabled && <span className="text-muted-foreground"> (éteinte)</span>}
+                {r.aside && <span className="text-muted-foreground"> (mise de côté)</span>}
               </Line>
             ))}
           </div>

@@ -63,6 +63,8 @@ pub struct RuleLine {
     pub child: String,
     pub parent: String,
     pub enabled: bool,
+    /// Un de ses tags est fusionné : la règle ne pose rien tant qu'il l'est (retour T3, point TAGM-18.11).
+    pub aside: bool,
 }
 
 #[derive(Debug, Deserialize)]
@@ -127,30 +129,39 @@ fn run(db: &Connection, list: &SharedList, options: &ImportOptions, now: i64) ->
     }
     let rules = if options.parents { list.parents.as_slice() } else { &[] };
     for rule in rules {
-        let (Some(child), Some(parent)) = (resolve(db, &rule.child)?, resolve(db, &rule.parent)?) else {
+        let (Some(child), Some(parent)) = (as_is(db, &rule.child)?, as_is(db, &rule.parent)?) else {
             report.skipped_parents += 1;
             continue;
         };
         // Déjà là, telle quelle : rien à faire, ce n'est pas un refus (réimporter sa propre liste ne signale rien).
-        let present: bool = db.query_row("SELECT EXISTS (SELECT 1 FROM tag_parents WHERE child_id = ?1 AND parent_id = ?2)", params![child.tag_id, parent.tag_id], |r| r.get(0))?;
+        let present: bool = db.query_row("SELECT EXISTS (SELECT 1 FROM tag_parents WHERE child_id = ?1 AND parent_id = ?2)", params![child, parent], |r| r.get(0))?;
         if present {
             continue;
         }
-        if parents::check(db, child.tag_id, parent.tag_id)?.error.is_some() {
+        if parents::check(db, child, parent)?.error.is_some() {
             report.skipped_parents += 1;
             continue;
         }
         // Allumée : posée aussi sur les médias qui ont déjà l'enfant (comme avant) ; éteinte : rien n'est posé.
         let on = rule.enabled;
-        report.tagged += parents::create(db, child.tag_id, parent.tag_id, on, now)?;
-        let id = db.query_row("SELECT id FROM tag_parents WHERE child_id = ?1 AND parent_id = ?2", params![child.tag_id, parent.tag_id], |r| r.get(0))?;
+        report.tagged += parents::create(db, child, parent, on, now)?;
+        let id = db.query_row("SELECT id FROM tag_parents WHERE child_id = ?1 AND parent_id = ?2", params![child, parent], |r| r.get(0))?;
         if !on {
             parents::set_enabled(db, id, false)?;
         }
         report.parents.push(id);
-        report.rule_lines.push(RuleLine { child: tag_name(db, child.tag_id)?, parent: tag_name(db, parent.tag_id)?, enabled: on });
+        let aside = db.query_row("SELECT EXISTS (SELECT 1 FROM tag_group_names WHERE merged = 1 AND tag_id IN (?1, ?2))", params![child, parent], |r| r.get(0))?;
+        report.rule_lines.push(RuleLine { child: tag_name(db, child)?, parent: tag_name(db, parent)?, enabled: on, aside });
     }
     Ok(report)
+}
+
+/// Tag d'une règle du code, tel quel, même s'il est fusionné ici (pas son tag principal, comme à la saisie) : la
+/// règle arrive alors mise de côté, comme chez celui qui a exporté ; réimporter son propre code ne crée rien
+/// (cas C-09 du test complet, choix A du 04/11, retour T3, point TAGM-18.11).
+fn as_is(db: &Connection, raw: &str) -> rusqlite::Result<Option<i64>> {
+    let Some(name) = normalize(raw) else { return Ok(None) };
+    crate::groups::tag_named(db, &name)
 }
 
 fn tag_name(db: &Connection, tag: i64) -> rusqlite::Result<String> {

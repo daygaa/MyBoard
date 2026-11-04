@@ -98,7 +98,8 @@ export type ImportReport = {
   groupLines: GroupLine[];
   skippedNames: number;
   parents: number[];
-  ruleLines: { child: string; parent: string; enabled: boolean }[];
+  /** `aside` : un de ses tags est fusionné, la règle ne pose rien tant qu'il l'est (retour T3, point TAGM-18.11). */
+  ruleLines: { child: string; parent: string; enabled: boolean; aside: boolean }[];
   skippedParents: number;
   tagged: number;
 };

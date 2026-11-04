@@ -3,6 +3,27 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Import : règles sur un nom fusionné, cas C-09 (04/11/2026) — Backup v93
+
+SPEC : livré `[~]` : TAGM-18 (retour T3, point TAGM-18.11 ; TAGM-18 reste `[x]`). Nouvelle demande `[>]` : TAGM-21
+(gestion des tags masqués). TAGM-20 : test complet des cas limites fait (121 cas bons sur 122).
+
+- **Import des règles de parents** : le tag du code est repris tel quel, même s'il est fusionné dans la base (avant, il
+  était remplacé par son tag principal, comme à la saisie). Une telle règle arrive mise de côté (elle ne pose rien tant
+  que le nom est fusionné), comme chez celui qui a exporté. Réimporter son propre code ne crée plus rien (cas C-09).
+- **Aperçu de l'import** : « (mise de côté) » après une telle règle.
+- Une règle entre deux noms d'un même groupe du code (kitty → cat) n'est plus refusée comme « un tag vers lui-même ».
+- **Base d'essai** : groupe ★c09 chat = c09 kitty (fusionné) avec la règle mise de côté « c09 kitty → c09 mignon ».
+  Descriptions d'essai_animal et essai_demeure retirées (étapes données dans la session).
+
+Vérifié dans la version compilée, sur des copies de la base d'essai : export de tous les tags puis réimport (0 tag,
+0 groupe, 0 règle à créer, 0 ignorée, pas de cadre des règles) ; code « c09 kitty → c09 jouet » (c09 kitty fusionné) :
+ligne « c09 kitty → c09 jouet (mise de côté) », règle créée sur c09 kitty, rien posé ; code d'un groupe avec la règle
+« c09b kitty → c09b chat » : 1 règle à créer, mise de côté, 0 ignorée ; série C du test complet refaite (C-02, C-07,
+C-08, C-11 à C-14 bons) ; aperçu du code d'essai du lot R8-2 inchangé ; presse-papiers remis ; zéro erreur `tsc` et
+`clippy`. Vu pendant l'essai : après défusion de c09 kitty, la règle importée agit de nouveau mais ne rattrape pas
+l'image qui retrouve c09 kitty (comme une règle rallumée, D10).
+
 ## Import : cases, réunion de groupes, aperçu des règles, lot R8-2 (04/11/2026) — Backup v92
 
 SPEC : livrés `[~]` : TAGM-18 (retour T3, points TAGM-18.4, TAGM-18.9), TAGM-10 (point TAGM-18.10), TAGM-20 (lot R8-2 :
