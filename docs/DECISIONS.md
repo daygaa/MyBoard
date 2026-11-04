@@ -1311,3 +1311,10 @@ des tags sélectionnés (option), plus toutes les chaînes qui passent par eux, 
 groupe part s'il a au moins 2 tags dans cet ensemble, une règle si ses deux tags y sont. Groupe partiel sans son
 principal : principal = le plus utilisé des tags exportés, sans fusion (une fusion dit « fusionné dans ce principal »).
 Import : un lien n'est recréé que si ses deux côtés sont dans le code.
+
+**Complément du 04/11 (lot R8-1, réalisation).** `lib/shareCode.ts` : `{ c: {clé: [nom | [nom, masqué, description]]},
+g: [[principal, [nom, fusionné]…]], p: [[enfant, parent, allumée]] }`, compressé par le navigateur
+(`CompressionStream("deflate-raw")`), en base 64, préfixe « MYBOARD-TAGS-2: » ; encodage et lecture asynchrones.
+`lib/exportSelection.ts` (ce qui part) ; `ExportTagsDialog.tsx` remplace `exportMenu.ts`. `tag_import.rs` : `groups` à
+la place de `aliases`, rapport `names` / `groups` / `skipped_names` ; un nom fusionné n'est fusionné que s'il vient
+d'être créé (la case des tags pré-existants : R8-2) ; une règle déjà présente est passée sans être comptée.

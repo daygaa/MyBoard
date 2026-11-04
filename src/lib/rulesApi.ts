@@ -75,15 +75,18 @@ export type Chain = { tags: string[]; at: number };
 /** Suppression d'une règle : médias où elle a posé le parent, chaînes qui passent par elle. */
 export type DeleteCheck = { media: number; chains: Chain[] };
 
-export type SharedAlias = { alias: string; tag: string; enabled: boolean };
+/** Groupe de synonymes d'un code de partage : son tag principal et ses autres noms, fusionnés ou non (lot R8). */
+export type SharedGroup = { principal: string; names: { name: string; merged: boolean }[] };
 export type SharedRule = { child: string; parent: string; enabled: boolean };
-export type SharedList = { tags: SharedTag[]; aliases: SharedAlias[]; parents: SharedRule[] };
-/** Ce que crée (ou créerait, pour l'aperçu) l'import d'une liste. */
+export type SharedList = { tags: SharedTag[]; groups: SharedGroup[]; parents: SharedRule[] };
+/** Ce que crée (ou créerait, pour l'aperçu) l'import d'une liste : `names`, les noms ajoutés aux groupes ; `groups`, le
+ *  nombre de groupes créés ou complétés. */
 export type ImportReport = {
   tags: number[];
   present: string[];
-  aliases: number[];
-  skippedAliases: number;
+  names: number[];
+  groups: number;
+  skippedNames: number;
   parents: number[];
   skippedParents: number;
   tagged: number;
@@ -121,5 +124,5 @@ export const rulesApi = {
   createTag: (name: string, categoryId: number) => invoke<number>("create_tag", { name, categoryId }),
   previewImport: (list: SharedList) => invoke<ImportReport>("preview_tag_import", { list }),
   importTags: (list: SharedList) => invoke<ImportReport>("import_tags", { list }),
-  undoImport: (report: ImportReport) => invoke<void>("undo_tag_import", { tags: report.tags, aliases: report.aliases, parents: report.parents }),
+  undoImport: (report: ImportReport) => invoke<void>("undo_tag_import", { tags: report.tags, names: report.names, parents: report.parents }),
 };

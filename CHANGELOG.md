@@ -3,6 +3,32 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Code de partage : nouveau format et pop-in d'export, lot R8-1 (04/11/2026) — Backup v91
+
+SPEC : livrés `[~]` : TAGM-18 (retour T3, points TAGM-18.1, 18.2, 18.6, 18.8), TAGM-10 (points TAGM-18.3, 18.5, 18.7),
+TAGM-20 (lot R8-1 ; point TAGM-11.2, compteurs) ; DEV-07 (base d'essai). TAGM-15 validé.
+
+- **Code plus petit** : tags rangés par catégorie et code compressé ; tous les tags de la base d'essai (13 144) font
+  115 Ko au lieu de 636 Ko. Nouveau format seul (« MYBOARD-TAGS-2 ») : groupes de synonymes (tag principal, état de
+  chaque nom) et règles de parents.
+- **Pop-in d'export** à la place du menu : « Tags du filtre », « Tous les tags », « Tags sélectionnés » (grisés sans
+  filtre ou sans sélection) ; « Recréer les synonymes » (un groupe part si au moins 2 de ses tags sont exportés ; option
+  « Exporter les groupes complets ») ; « Recréer les règles de parents » (une règle part si ses deux tags sont exportés ;
+  option « Exporter toute la chaîne d'un tag ») ; bulles des options ; « Le code contiendra N tags » ; « Copier le
+  code ». Groupe exporté sans son tag principal : le plus utilisé le devient, sans fusion.
+- **Import** : lit le nouveau format, recrée les groupes avec leurs fusions (pour les tags qu'il crée) et les règles ;
+  texte sans « (dans ce MyBoard ou un autre) » ; « Annuler » bordé de rouge après l'import ; une règle déjà présente
+  n'est plus comptée comme « ignorée ».
+- **Compteurs** : « … (avec 3 groupes de synonymes et 2 règles de parents) ».
+- **Base d'essai** : description de « essai animal » avec les étapes et un code prêt à importer.
+
+Vérifié dans la version compilée, sur des copies de la base d'essai : export de tous les tags (115 Ko, 9 groupes, 28
+règles, états de fusion), « essai voiture » seul puis avec « groupes complets » (4 tags), « essai auto » + « essai
+bagnole » (★essai auto = essai bagnole, sans fusion), « essai animal » avec « toute la chaîne » (5 tags, 4 règles),
+bulles, choix grisés, import du code d'essai (groupe, fusion et règle recréés), « Annuler » qui retire tout, ancien code
+refusé, aller-retour de tous les tags (rien à créer, rien de signalé), captures des trois pop-ins ; presse-papiers
+remis ; zéro erreur `tsc` et `clippy`.
+
 ## Finitions de l'onglet « Synonymes et parents », lot R7 (03/11/2026) — Backup v90
 
 SPEC : livrés `[~]` : TAGM-15 (retour T3, points TAGM-15.9, TAGM-15.10, TAGM-15.11), GEN-22, TAGM-20 (lot R7, textes

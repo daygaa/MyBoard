@@ -1,9 +1,9 @@
-// Importer une liste de tags (TAGM-10, TAGM-18) : champ où coller le code de partage, aperçu « N tags à
-// créer, M déjà présents » et leur liste, puis les synonymes et règles de parents à créer (aperçu exact :
-// le cœur Rust fait l'import puis l'annule). « Importer » crée les tags manquants avec leur catégorie et
-// leur description (sans média), les synonymes et les règles (qui posent leurs parents) ; ce qui est
-// déjà présent ne change pas. Ensuite « N tags importés », avec « Ok » et « Annuler » (par sécurité :
-// retire ce qui vient d'être créé).
+// Importer une liste de tags (TAGM-10, TAGM-18) : champ où coller le code de partage (nouveau format, lot R8-1 :
+// shareCode.ts), aperçu « N tags à créer, M déjà présents » et leur liste, puis les groupes de synonymes et les
+// règles de parents à créer (aperçu exact : le cœur Rust fait l'import puis l'annule). « Importer » crée les tags
+// manquants avec leur catégorie et leur description (sans média), les groupes et les règles (qui posent leurs
+// parents) ; ce qui est déjà présent ne change pas. Ensuite « N tags importés », avec « Ok » et « Annuler », bordé
+// de rouge (retour T3, point TAGM-18.5 ; par sécurité : retire ce qui vient d'être créé).
 
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -16,20 +16,21 @@ import { rulesApi, type ImportReport } from "@/lib/rulesApi";
 import { decodeTags } from "@/lib/shareCode";
 import { runTagAction } from "@/lib/tagManager";
 import { displayTag, normalizeTag } from "@/lib/tags";
+import { linksText } from "./ExportTagsDialog";
 
 const CANCEL = "text-foreground hover:bg-secondary hover:text-foreground";
 const GOLD = "bg-[#d9a94e] text-[#1a1408] hover:bg-[#e3b75f] disabled:hover:bg-[#d9a94e]";
 
 const count = (n: number, one: string, many?: string) => `${formatNumber(n)} ${plural(n, one, many)}`;
 
-/** Synonymes, règles et médias touchés, en une phrase (vide s'il n'y en a pas). */
+/** Groupes de synonymes, règles et médias touchés, en une phrase (vide s'il n'y en a pas ; mots de D9, réponse 7 du lot
+ *  R8). */
 function rulesLine(report: ImportReport, future: boolean): string {
-  const parts = [];
-  if (report.aliases.length) parts.push(count(report.aliases.length, "synonyme"));
-  if (report.parents.length) parts.push(count(report.parents.length, "règle de parent", "règles de parents"));
-  const skipped = report.skippedAliases + report.skippedParents;
-  let line = parts.length ? `${parts.join(" et ")} ${future ? "à créer" : report.aliases.length + report.parents.length > 1 ? "créés" : "créé"}` : "";
-  if (skipped) line += `${line ? " · " : ""}${count(skipped, "élément ignoré", "éléments ignorés")} (nom déjà pris, tag absent ou boucle)`;
+  const links = linksText(report.groups, report.parents.length);
+  const many = report.groups + report.parents.length > 1;
+  let line = links ? `${links} ${future ? "à créer" : report.groups > 0 ? (many ? "créés" : "créé") : many ? "créées" : "créée"}` : "";
+  const skipped = report.skippedNames + report.skippedParents;
+  if (skipped) line += `${line ? " · " : ""}${count(skipped, "élément ignoré", "éléments ignorés")} (déjà dans un autre groupe, ou boucle)`;
   if (report.tagged) line += `${line ? ". " : ""}Les règles ${future ? "poseront" : "ont posé"} ${count(report.tagged, "tag parent", "tags parents")} sur les médias`;
   return line ? `${line}.` : "";
 }
@@ -38,13 +39,14 @@ export function ImportTagsDialog({ onClose }: { onClose: () => void }) {
   const { list: categories } = useCategories();
   const [code, setCode] = useState("");
   const [done, setDone] = useState<ImportReport | null>(null);
-  const shared = useMemo(() => (code.trim() ? decodeTags(code) : null), [code]);
-  const { data: preview } = useQuery({ queryKey: ["import-preview", code], queryFn: () => rulesApi.previewImport(shared!), enabled: shared !== null });
+  // Lecture du code (décompression) : `undefined` le temps de la lire, `null` si ce n'est pas un code MyBoard.
+  const { data: shared } = useQuery({ queryKey: ["share-code", code], queryFn: () => decodeTags(code), enabled: code.trim() !== "" });
+  const { data: preview } = useQuery({ queryKey: ["import-preview", code], queryFn: () => rulesApi.previewImport(shared!), enabled: !!shared });
   const present = useMemo(() => new Set(preview?.present ?? []), [preview]);
   // Un nom en double dans le code ne compte qu'une fois.
   const rows = [...new Map((shared?.tags ?? []).map((t) => [normalizeTag(t.name), t])).entries()].map(([name, t]) => ({ ...t, name, present: present.has(name) }));
   const colorOf = (key: string) => categories.find((c) => c.key === key)?.color;
-  const creates = preview ? preview.tags.length + preview.aliases.length + preview.parents.length : 0;
+  const creates = preview ? preview.tags.length + preview.names.length + preview.parents.length : 0;
 
   if (done !== null) {
     const n = done.tags.length;
@@ -60,7 +62,13 @@ export function ImportTagsDialog({ onClose }: { onClose: () => void }) {
         description={rulesLine(done, false) || undefined}
         footer={
           <>
-            <Button variant="ghost" onClick={() => void runTagAction("Annuler l'import", () => rulesApi.undoImport(done)).then(onClose)} className={CANCEL} title="Retirer ce qui vient d'être créé">
+            <Button
+              variant="ghost"
+              data-zone="import-tags.annuler"
+              onClick={() => void runTagAction("Annuler l'import", () => rulesApi.undoImport(done)).then(onClose)}
+              className={`border border-destructive ${CANCEL}`}
+              title="Retirer ce qui vient d'être créé"
+            >
               Annuler
             </Button>
             <Button data-zone="import-tags.ok" onClick={onClose} className={GOLD}>
@@ -86,7 +94,7 @@ export function ImportTagsDialog({ onClose }: { onClose: () => void }) {
       onClose={onClose}
       zone="import-tags"
       title="Importer une liste de tags"
-      description="Colle ici le code de partage copié par « Exporter » (dans ce MyBoard ou un autre)."
+      description="Colle ici le code de partage copié par « Exporter »."
       footer={
         <>
           <Button variant="ghost" onClick={onClose} className={CANCEL}>
@@ -103,7 +111,7 @@ export function ImportTagsDialog({ onClose }: { onClose: () => void }) {
         autoFocus
         value={code}
         onChange={(e) => setCode(e.target.value)}
-        placeholder="MYBOARD-TAGS-1:…"
+        placeholder="MYBOARD-TAGS-2:…"
         spellCheck={false}
         className="h-20 w-full resize-none rounded-md border border-border bg-background p-2 font-mono text-xs text-foreground placeholder:text-muted-foreground/60 focus:border-[#d9a94e]/60 focus:outline-none"
       />

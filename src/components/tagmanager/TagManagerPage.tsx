@@ -2,7 +2,7 @@
 // « Synonymes et parents » sur toute la largeur de la fenêtre, juste sous l'en-tête (TAGM-04.1, TAGM-15.2) ;
 // en-tête de la page (retour à la bibliothèque, titre, « N tags · M médias taggés »). Largeur : 72 % de la
 // fenêtre (TAGM-04.2 : +10 % de chaque côté sur l'écran 1080p), toute la fenêtre si elle est étroite.
-// Onglet « Tags » : boutons Créer un tag (TAGM-04.8) · Tags proches (TAGM-13) · Exporter ▾ · Importer
+// Onglet « Tags » : boutons Créer un tag (TAGM-04.8) · Tags proches (TAGM-13) · Exporter (pop-in) · Importer
 // (TAGM-10) · Supprimer les tags non utilisés (TAGM-08) ; filtres (TagFilters : nom, catégorie, Masqués, Rares) ; tableau
 // trié et virtualisé, 100 tags affichés puis « Afficher 100 de plus » (TAGM-04.5 ; un nouveau filtre ou tri
 // repart des 100 premiers) ; barre des actions groupées quand des tags sont cochés (TAGM-11 ; Échap décoche
@@ -13,7 +13,7 @@
 // rangé par page d'historique (tagsTabState.ts, retour T3, point TAGM-04.14).
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, ChevronDown, Tags } from "lucide-react";
+import { ArrowLeft, Tags } from "lucide-react";
 import { createStore, type StoreApi } from "zustand";
 
 import { GridBadge } from "@/components/library/GridBadge";
@@ -40,7 +40,7 @@ import { useUI } from "@/stores/ui";
 import { BulkBar } from "./BulkBar";
 import { CreateSynonymsDialog, UnusedTagsDialog } from "./CleanupDialogs";
 import { SimilarTagsDialog, type SimilarSnapshot } from "./SimilarTagsDialog";
-import { openExportMenu } from "./exportMenu";
+import { ExportTagsDialog } from "./ExportTagsDialog";
 import { ImportTagsDialog } from "./ImportTagsDialog";
 import { NewTagButton } from "./NewTagButton";
 import { RulesTab } from "./RulesTab";
@@ -54,7 +54,7 @@ const TOOL = "h-8 gap-1.5 border-border bg-card/60 text-xs hover:bg-secondary ho
 /** Largeur de la page : 72 % de la fenêtre (TAGM-04.2), toute la fenêtre si elle est étroite. */
 const PAGE = "mx-auto w-full max-w-[max(72rem,72vw)] px-4 lg:px-6";
 
-type Dialog = "similar" | "import" | "unused" | "merge" | null;
+type Dialog = "similar" | "import" | "export" | "unused" | "merge" | null;
 
 export function TagManagerPage() {
   return useTagTab() === "tags" ? <TagsTabEntry /> : <ManagerPage tab="rules" store={null} />;
@@ -172,9 +172,9 @@ function ManagerPage({ tab, store }: { tab: TagTab; store: StoreApi<TagsTabState
                 }}
               />
               {tab === "tags" && similarButton}
-              <Button data-zone="gestionnaire-tags.exporter" variant="outline" size="sm" onClick={(e) => openExportMenu(e, { visible, filtered, all, checked: checkedTags }, categories, rules)} className={TOOL}>
+              {/* Pop-in d'export à la place du petit menu (retour T3, point TAGM-18.8, lot R8-1). */}
+              <Button data-zone="gestionnaire-tags.exporter" variant="outline" size="sm" onClick={() => setDialog("export")} className={TOOL}>
                 Exporter
-                <ChevronDown className="h-3.5 w-3.5" />
               </Button>
               <Button data-zone="gestionnaire-tags.importer" variant="outline" size="sm" onClick={() => setDialog("import")} className={TOOL}>
                 Importer
@@ -270,6 +270,9 @@ function ManagerPage({ tab, store }: { tab: TagTab; store: StoreApi<TagsTabState
           />
         )}
         {dialog === "import" && <ImportTagsDialog onClose={() => setDialog(null)} />}
+        {dialog === "export" && (
+          <ExportTagsDialog visible={visible} filtered={filtered} all={all} checked={checkedTags} categories={categories} rules={rules} tagOf={tagOf} onClose={() => setDialog(null)} />
+        )}
         {dialog === "unused" && <UnusedTagsDialog tags={unused} onClose={() => setDialog(null)} />}
         {dialog === "merge" && <CreateSynonymsDialog checked={checkedTags} groupOf={rules.groupOf} tagOf={tagOf} onClose={() => setDialog(null)} />}
       </main>
