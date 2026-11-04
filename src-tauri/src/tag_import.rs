@@ -1,6 +1,7 @@
-//! Import d'une liste de tags partagée (TAGM-10, TAGM-18 ; nouveau format, lot R8-1) : tags (catégorie par sa clé,
-//! état masqué, description), groupes de synonymes et règles de parents. L'aperçu fait l'import dans une transaction
-//! annulée : ses nombres sont exacts. « Annuler » après l'import retire ce qui a été créé (GEN-21).
+//! Import d'une liste de tags partagée (TAGM-10, TAGM-18 ; nouveau format, lots R8-1 et R8-2) : tags (catégorie par sa
+//! clé, état masqué, description), groupes de synonymes (`import_groups.rs`) et règles de parents, chacun selon sa case
+//! (retour T3, point TAGM-18.4). L'aperçu fait l'import dans une transaction annulée : ses nombres et ses lignes sont
+//! exacts. « Annuler » après l'import remet tout comme avant, réunions de groupes comprises (GEN-21).
 
 use std::collections::HashSet;
 
@@ -8,7 +9,7 @@ use rusqlite::{Connection, OptionalExtension, TransactionBehavior, params};
 use serde::{Deserialize, Serialize};
 use tauri::State;
 
-use crate::groups::{self, add_linked, group_of_tag, principal, tag_named};
+use crate::import_groups::{self, GroupLine, JoinedGroup, Outcome};
 use crate::tagging::resolve;
 use crate::tags::{DEFAULT_CATEGORY, normalize};
 use crate::{AppState, db, parents};
@@ -47,6 +48,23 @@ pub struct ImportedRule {
     pub enabled: bool,
 }
 
+/// Cases de la pop-in d'import : groupes, règles de parents, fusion des tags déjà présents.
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ImportOptions {
+    pub groups: bool,
+    pub parents: bool,
+    pub merge_existing: bool,
+}
+
+/// Ligne « Règles de parents » de l'aperçu (retour T3, point TAGM-18.9).
+#[derive(Debug, Serialize)]
+pub struct RuleLine {
+    pub child: String,
+    pub parent: String,
+    pub enabled: bool,
+}
+
 #[derive(Debug, Deserialize)]
 pub struct SharedList {
     pub tags: Vec<ImportedTag>,
@@ -65,18 +83,23 @@ pub struct ImportReport {
     pub present: Vec<String>,
     /// Noms ajoutés à des groupes de synonymes.
     pub names: Vec<i64>,
-    /// Groupes créés ou complétés.
+    /// Noms déjà dans leur groupe, fusionnés par l'import ; groupes de la base réunis (pour « Annuler »).
+    pub fused: Vec<i64>,
+    pub joined: Vec<JoinedGroup>,
+    /// Groupes créés ou modifiés, une ligne chacun pour l'aperçu.
     pub groups: usize,
-    /// Noms ignorés : déjà dans un autre groupe (la réunion de groupes à l'import viendra au lot R8-2).
+    pub group_lines: Vec<GroupLine>,
+    /// Noms ignorés (tag introuvable).
     pub skipped_names: usize,
     pub parents: Vec<i64>,
     /// Règles refusées : tag absent ou boucle (une règle déjà là est simplement passée).
     pub skipped_parents: usize,
+    pub rule_lines: Vec<RuleLine>,
     /// Médias qui ont reçu un parent par les règles importées.
     pub tagged: usize,
 }
 
-fn run(db: &Connection, list: &SharedList, now: i64) -> anyhow::Result<ImportReport> {
+fn run(db: &Connection, list: &SharedList, options: &ImportOptions, now: i64) -> anyhow::Result<ImportReport> {
     let mut report = ImportReport::default();
     let default: i64 = db.query_row("SELECT id FROM tag_categories WHERE key = ?1", [DEFAULT_CATEGORY], |r| r.get(0))?;
     for tag in &list.tags {
@@ -93,56 +116,17 @@ fn run(db: &Connection, list: &SharedList, now: i64) -> anyhow::Result<ImportRep
         )?;
         report.tags.push(db.last_insert_rowid());
     }
-    // Groupes de synonymes : chaque nom est un tag de la liste (créé plus haut s'il manquait). Le principal doit être
-    // libre ou déjà principal de son groupe ; un nom déjà dans un autre groupe est ignoré. Un nom fusionné dans la
-    // liste l'est aussi ici s'il vient d'être créé (sans média) ; un tag déjà présent est seulement relié (la case
-    // « Fusionner les tags pré-existants » viendra au lot R8-2).
-    let created: HashSet<i64> = report.tags.iter().copied().collect();
-    for item in &list.groups {
-        let Some(p) = normalize(&item.principal).map(|n| tag_named(db, &n)).transpose()?.flatten() else {
-            report.skipped_names += item.names.len();
-            continue;
-        };
-        let group = match group_of_tag(db, p)? {
-            Some(g) if principal(db, g)? == p => g,
-            Some(_) => {
-                report.skipped_names += item.names.len();
-                continue;
-            }
-            None => {
-                db.execute("INSERT INTO tag_groups (principal_id, created_at) VALUES (?1, ?2)", params![p, now])?;
-                db.last_insert_rowid()
-            }
-        };
-        let mut added = 0;
-        for n in &item.names {
-            let Some(t) = normalize(&n.name).map(|name| tag_named(db, &name)).transpose()?.flatten() else {
-                report.skipped_names += 1;
-                continue;
-            };
-            match group_of_tag(db, t)? {
-                _ if t == p => continue,
-                Some(k) if k == group => continue,
-                Some(_) => {
-                    report.skipped_names += 1;
-                    continue;
-                }
-                None => {}
-            }
-            let id = add_linked(db, group, t, now)?;
-            if n.merged && created.contains(&t) {
-                groups::merge(db, id, &[])?;
-            }
-            report.names.push(id);
-            added += 1;
+    if options.groups {
+        let created: HashSet<i64> = report.tags.iter().copied().collect();
+        let mut out = Outcome::default();
+        for item in &list.groups {
+            import_groups::import(db, item, &created, options.merge_existing, now, &mut out)?;
         }
-        if added > 0 {
-            report.groups += 1;
-        }
-        // Groupe créé pour rien : il ne reste pas vide.
-        db.execute("DELETE FROM tag_groups WHERE id = ?1 AND NOT EXISTS (SELECT 1 FROM tag_group_names WHERE group_id = ?1)", [group])?;
+        report.groups = out.lines.len();
+        (report.names, report.fused, report.joined, report.group_lines, report.skipped_names) = (out.names, out.fused, out.joined, out.lines, out.skipped);
     }
-    for rule in &list.parents {
+    let rules = if options.parents { list.parents.as_slice() } else { &[] };
+    for rule in rules {
         let (Some(child), Some(parent)) = (resolve(db, &rule.child)?, resolve(db, &rule.parent)?) else {
             report.skipped_parents += 1;
             continue;
@@ -164,8 +148,13 @@ fn run(db: &Connection, list: &SharedList, now: i64) -> anyhow::Result<ImportRep
             parents::set_enabled(db, id, false)?;
         }
         report.parents.push(id);
+        report.rule_lines.push(RuleLine { child: tag_name(db, child.tag_id)?, parent: tag_name(db, parent.tag_id)?, enabled: on });
     }
     Ok(report)
+}
+
+fn tag_name(db: &Connection, tag: i64) -> rusqlite::Result<String> {
+    db.query_row("SELECT name FROM tags WHERE id = ?1", [tag], |r| r.get(0))
 }
 
 fn with_tx<T>(state: &State<'_, AppState>, commit: bool, f: impl FnOnce(&Connection, i64) -> anyhow::Result<T>) -> Result<T, String> {
@@ -183,26 +172,24 @@ fn with_tx<T>(state: &State<'_, AppState>, commit: bool, f: impl FnOnce(&Connect
 
 /// Aperçu exact : l'import est fait puis annulé.
 #[tauri::command]
-pub async fn preview_tag_import(state: State<'_, AppState>, list: SharedList) -> Result<ImportReport, String> {
-    with_tx(&state, false, |db, now| run(db, &list, now))
+pub async fn preview_tag_import(state: State<'_, AppState>, list: SharedList, options: ImportOptions) -> Result<ImportReport, String> {
+    with_tx(&state, false, |db, now| run(db, &list, &options, now))
 }
 
 #[tauri::command]
-pub async fn import_tags(state: State<'_, AppState>, list: SharedList) -> Result<ImportReport, String> {
-    with_tx(&state, true, |db, now| run(db, &list, now))
+pub async fn import_tags(state: State<'_, AppState>, list: SharedList, options: ImportOptions) -> Result<ImportReport, String> {
+    with_tx(&state, true, |db, now| run(db, &list, &options, now))
 }
 
-/// « Annuler » après l'import : les règles créées sont supprimées (les parents qu'elles ont posés sont retirés),
-/// puis les noms ajoutés aux groupes et les tags créés.
+/// « Annuler » après l'import : les règles créées sont supprimées (les parents qu'elles ont posés sont retirés), puis les
+/// groupes remis comme avant (import_groups.rs) et les tags créés supprimés.
 #[tauri::command]
-pub async fn undo_tag_import(state: State<'_, AppState>, tags: Vec<i64>, names: Vec<i64>, parents: Vec<i64>) -> Result<(), String> {
-    with_tx(&state, true, |db, _| {
+pub async fn undo_tag_import(state: State<'_, AppState>, tags: Vec<i64>, names: Vec<i64>, fused: Vec<i64>, joined: Vec<JoinedGroup>, parents: Vec<i64>) -> Result<(), String> {
+    with_tx(&state, true, |db, now| {
         for id in parents {
             parents::delete(db, id, true)?;
         }
-        for id in names {
-            groups::remove_name(db, id)?;
-        }
+        import_groups::undo(db, &names, &fused, &joined, now)?;
         for id in tags {
             db.execute("DELETE FROM tags WHERE id = ?1", [id])?;
         }

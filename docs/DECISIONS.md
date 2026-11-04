@@ -1323,3 +1323,10 @@ d'être créé (la case des tags pré-existants : R8-2) ; une règle déjà pré
 tag principal et ses fusions, les noms du code le rejoignent ; s'il en rencontre deux, ils sont réunis comme dans le
 formulaire (D14 : le plus grand garde son principal, les fusions de l'autre sont défaites). « Annuler » remet tout,
 réunion comprise.
+
+**Complément du 04/11 (lot R8-2, réalisation).** `import_groups.rs` : un groupe du code touche 0, 1 ou plusieurs groupes
+de la base (créé ; complété ; réunion par `group_create::absorb`, le plus grand gardant son principal). Fusions du code
+appliquées aux tags créés, et aux tags déjà présents si la case est cochée. Annulation : `names` (retirés), `fused`
+(défusionnés), `joined` (groupe recréé avec ses fusions, puis tags des médias et notes `tag_parent_media` remis à
+l'identique : défaire ses fusions avait retiré en chaîne des parents, qu'une nouvelle fusion ne repose pas). Aperçu :
+`group_lines` / `rule_lines` du rapport, affichés par `ImportRulesPreview.tsx`.

@@ -3,6 +3,30 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Import : cases, réunion de groupes, aperçu des règles, lot R8-2 (04/11/2026) — Backup v92
+
+SPEC : livrés `[~]` : TAGM-18 (retour T3, points TAGM-18.4, TAGM-18.9), TAGM-10 (point TAGM-18.10), TAGM-20 (lot R8-2 :
+toute la refonte est livrée) ; DEV-07. Validés : TAGM-11.2, TAGM-18.1 à 18.3, 18.5 à 18.8.
+
+- **Cases de l'import** : « Recréer les synonymes (N groupes) », dessous « Fusionner les tags pré-existants s'ils le
+  sont dans l'import » (décochée, avec sa bulle), « Recréer les règles de parents (N) ». L'aperçu suit les cases.
+- **Réunion de groupes** : un groupe du code qui rencontre un groupe de la base le complète (celui-ci garde son tag
+  principal et ses fusions) ; s'il en rencontre deux, ils sont réunis comme dans le formulaire « Créer » (le plus grand
+  garde son principal, les fusions de l'autre sont défaites).
+- **Aperçu des règles** : « Groupes de synonymes » (Nouveau, Complété, Réunis, Modifié) et « Règles de parents »
+  (Nouvelle), une ligne par règle ; « (F) » après un nom fusionné ; « (éteinte) ».
+- **Noms longs** de l'aperçu coupés par « … » (nom entier dans la bulle).
+- **« Annuler » après l'import** : tout redevient exactement comme avant, réunion comprise (les tags des images du
+  groupe réuni et les notes des règles sont remis).
+- **Base d'essai** : description de « essai demeure » avec les étapes et un code prêt à coller.
+
+Vérifié dans la version compilée, sur des copies de la base d'essai : aperçu (lignes, « (F) », cases qui retirent les
+groupes ou les règles), nom long coupé à 224 px avec sa bulle, import puis « Annuler », avec et sans la case de fusion :
+groupes, tags des images, règles, notes des règles et notes des fusions identiques à avant ; import confirmé ; tests du
+lot R8-1 refaits (import du code d'essai, annulation, aller-retour) ; presse-papiers remis ; zéro erreur `tsc` et
+`clippy`. Défaut trouvé pendant les essais et corrigé avant la livraison : après une réunion, « Annuler » oubliait un
+parent posé en chaîne (image 30 sans « essai transport »).
+
 ## Code de partage : nouveau format et pop-in d'export, lot R8-1 (04/11/2026) — Backup v91
 
 SPEC : livrés `[~]` : TAGM-18 (retour T3, points TAGM-18.1, 18.2, 18.6, 18.8), TAGM-10 (points TAGM-18.3, 18.5, 18.7),

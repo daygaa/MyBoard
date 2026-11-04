@@ -31,8 +31,8 @@ const FULL_GROUPS =
   "Si un groupe de synonymes contient un tag de la sélection, tous les tags du groupe sont exportés, même ceux qui ne sont pas sélectionnés, et le groupe est recréé en entier à l'import.";
 const WHOLE_CHAINS = "Si un tag sélectionné fait partie d'une règle de parents, toute la chaîne est exportée, même si les autres tags de la chaîne ne sont pas sélectionnés.";
 
-/** Une case ; `sub` : l'option plus petite, décalée sous la case principale. */
-function Option({ zone, on, onChange, title, sub = false, children }: { zone: string; on: boolean; onChange: (on: boolean) => void; title?: string; sub?: boolean; children: ReactNode }) {
+/** Une case ; `sub` : l'option plus petite, décalée sous la case principale (aussi dans la pop-in d'import). */
+export function ShareOption({ zone, on, onChange, title, sub = false, children }: { zone: string; on: boolean; onChange: (on: boolean) => void; title?: string; sub?: boolean; children: ReactNode }) {
   return (
     <label data-zone={zone} title={title} className={cn("flex w-fit cursor-pointer items-center gap-2 text-foreground", sub ? "mt-1 ml-6 text-xs" : "mt-3 text-sm")}>
       <Checkbox checked={on} onCheckedChange={(c) => onChange(c === true)} className={sub ? "size-3.5" : undefined} />
@@ -105,21 +105,21 @@ export function ExportTagsDialog({ visible, filtered, all, checked, categories, 
           </label>
         ))}
       </div>
-      <Option zone="export-tags.synonymes" on={options.groups} onChange={(groups) => set({ groups })}>
+      <ShareOption zone="export-tags.synonymes" on={options.groups} onChange={(groups) => set({ groups })}>
         Recréer les synonymes{options.groups && ` (${count(selection.groups.length, "groupe")})`}
-      </Option>
+      </ShareOption>
       {options.groups && (
-        <Option zone="export-tags.groupes-complets" on={options.fullGroups} onChange={(fullGroups) => set({ fullGroups })} title={FULL_GROUPS} sub>
+        <ShareOption zone="export-tags.groupes-complets" on={options.fullGroups} onChange={(fullGroups) => set({ fullGroups })} title={FULL_GROUPS} sub>
           Exporter les groupes complets
-        </Option>
+        </ShareOption>
       )}
-      <Option zone="export-tags.parents" on={options.parents} onChange={(parents) => set({ parents })}>
+      <ShareOption zone="export-tags.parents" on={options.parents} onChange={(parents) => set({ parents })}>
         Recréer les règles de parents{options.parents && ` (${formatNumber(selection.parents.length)})`}
-      </Option>
+      </ShareOption>
       {options.parents && (
-        <Option zone="export-tags.chaines" on={options.wholeChains} onChange={(wholeChains) => set({ wholeChains })} title={WHOLE_CHAINS} sub>
+        <ShareOption zone="export-tags.chaines" on={options.wholeChains} onChange={(wholeChains) => set({ wholeChains })} title={WHOLE_CHAINS} sub>
           Exporter toute la chaîne d'un tag
-        </Option>
+        </ShareOption>
       )}
       <p data-zone="export-tags.total" className="mt-4 text-sm text-muted-foreground select-text">
         Le code contiendra {count(n, "tag")}.

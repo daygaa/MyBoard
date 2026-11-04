@@ -25,7 +25,7 @@ fn reference(db: &Connection, raw: &str) -> rusqlite::Result<Option<Ref>> {
 /// Réunit le groupe `other` au groupe `group` (refonte, décision D14) : ses fusions sont défaites, ses noms et
 /// son principal deviennent des noms de `group`. Renvoie les noms ajoutés (ils prendront l'état de
 /// l'interrupteur, D2.2).
-fn absorb(db: &Connection, group: i64, other: i64, now: i64) -> anyhow::Result<Vec<i64>> {
+pub(crate) fn absorb(db: &Connection, group: i64, other: i64, now: i64) -> anyhow::Result<Vec<i64>> {
     let p = principal(db, other)?;
     for id in ids(db, "SELECT id FROM tag_group_names WHERE group_id = ?1 AND merged = 1", other)? {
         unmerge(db, id)?;

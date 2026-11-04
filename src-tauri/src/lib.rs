@@ -14,6 +14,7 @@ pub mod ffmpeg;
 pub mod formats;
 pub mod fullscreen;
 pub mod import;
+pub mod import_groups;
 pub mod library;
 pub mod media;
 pub mod parents;

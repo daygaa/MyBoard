@@ -79,15 +79,26 @@ export type DeleteCheck = { media: number; chains: Chain[] };
 export type SharedGroup = { principal: string; names: { name: string; merged: boolean }[] };
 export type SharedRule = { child: string; parent: string; enabled: boolean };
 export type SharedList = { tags: SharedTag[]; groups: SharedGroup[]; parents: SharedRule[] };
-/** Ce que crée (ou créerait, pour l'aperçu) l'import d'une liste : `names`, les noms ajoutés aux groupes ; `groups`, le
- *  nombre de groupes créés ou complétés. */
+/** Cases de la pop-in d'import (retour T3, point TAGM-18.4). */
+export type ImportOptions = { groups: boolean; parents: boolean; mergeExisting: boolean };
+/** Nom d'une ligne de l'aperçu, avec son état de fusion après l'import. */
+export type LineName = { name: string; merged: boolean };
+/** Ligne « Groupes de synonymes » de l'aperçu (retour T3, point TAGM-18.9) : voir `import_groups.rs`. */
+export type GroupLine = { kind: "new" | "completed" | "joined" | "changed"; principal: LineName; names: LineName[]; joined: { principal: LineName; names: LineName[] }[]; added: LineName[] };
+/** Ce que crée (ou créerait, pour l'aperçu) l'import d'une liste : `names`, les noms ajoutés aux groupes ; `fused` et
+ *  `joined`, de quoi défaire les fusions et les réunions (« Annuler ») ; `groups`, le nombre de groupes créés ou
+ *  modifiés. */
 export type ImportReport = {
   tags: number[];
   present: string[];
   names: number[];
+  fused: number[];
+  joined: { principal: number; names: [number, boolean][] }[];
   groups: number;
+  groupLines: GroupLine[];
   skippedNames: number;
   parents: number[];
+  ruleLines: { child: string; parent: string; enabled: boolean }[];
   skippedParents: number;
   tagged: number;
 };
@@ -122,7 +133,7 @@ export const rulesApi = {
   deleteParent: (id: number, remove: boolean) => invoke<void>("delete_parent", { id, remove }),
   /** Tag tapé dans le champ d'une règle, créé sans média ; renvoie son identifiant. */
   createTag: (name: string, categoryId: number) => invoke<number>("create_tag", { name, categoryId }),
-  previewImport: (list: SharedList) => invoke<ImportReport>("preview_tag_import", { list }),
-  importTags: (list: SharedList) => invoke<ImportReport>("import_tags", { list }),
-  undoImport: (report: ImportReport) => invoke<void>("undo_tag_import", { tags: report.tags, names: report.names, parents: report.parents }),
+  previewImport: (list: SharedList, options: ImportOptions) => invoke<ImportReport>("preview_tag_import", { list, options }),
+  importTags: (list: SharedList, options: ImportOptions) => invoke<ImportReport>("import_tags", { list, options }),
+  undoImport: (r: ImportReport) => invoke<void>("undo_tag_import", { tags: r.tags, names: r.names, fused: r.fused, joined: r.joined, parents: r.parents }),
 };
