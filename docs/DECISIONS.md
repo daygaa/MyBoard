@@ -1318,3 +1318,8 @@ g: [[principal, [nom, fusionné]…]], p: [[enfant, parent, allumée]] }`, compr
 `lib/exportSelection.ts` (ce qui part) ; `ExportTagsDialog.tsx` remplace `exportMenu.ts`. `tag_import.rs` : `groups` à
 la place de `aliases`, rapport `names` / `groups` / `skipped_names` ; un nom fusionné n'est fusionné que s'il vient
 d'être créé (la case des tags pré-existants : R8-2) ; une règle déjà présente est passée sans être comptée.
+
+**Complément du 04/11 (lot R8-2, réponses).** Import d'un groupe qui rencontre un groupe de la base : celui-ci garde son
+tag principal et ses fusions, les noms du code le rejoignent ; s'il en rencontre deux, ils sont réunis comme dans le
+formulaire (D14 : le plus grand garde son principal, les fusions de l'autre sont défaites). « Annuler » remet tout,
+réunion comprise.
