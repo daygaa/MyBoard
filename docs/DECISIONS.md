@@ -1305,3 +1305,9 @@ suivi (règle de l'utilisateur).
 **Complément du 04/11 (lot R8, export).** Pop-in d'export à la place du menu. Groupes : un lien de synonymes part
 quand au moins 2 tags du groupe sont exportés (option : groupe complet) ; règles de parents : quand l'enfant et le
 parent le sont (option : chaîne entière). Les états de fusion voyagent avec le groupe et sont rétablis à l'import.
+
+**Complément du 04/11 (lot R8, fin des réponses).** Export : ensemble des tags = la sélection, plus les groupes complets
+des tags sélectionnés (option), plus toutes les chaînes qui passent par eux, dans les deux sens (option) ; puis un
+groupe part s'il a au moins 2 tags dans cet ensemble, une règle si ses deux tags y sont. Groupe partiel sans son
+principal : principal = le plus utilisé des tags exportés, sans fusion (une fusion dit « fusionné dans ce principal »).
+Import : un lien n'est recréé que si ses deux côtés sont dans le code.
