@@ -64,6 +64,7 @@ function Ask({ ask }: { ask: RuleAsk }) {
       }
       danger={ask.danger}
       confirmLabel={ask.confirmLabel}
+      cancelLabel={ask.cancelLabel}
       onCancel={() => answer(false)}
       onConfirm={() => answer(true)}
     >

@@ -96,9 +96,9 @@ export function TagPills({ mediaId, kind, tags, onSearch }: PillsProps) {
           color={tag.hidden ? HIDDEN_COLOR : color(tag.categoryId)}
           title={withDescription(`Rechercher « ${displayTag(tag.name)} »`, tag.description)}
           onClick={() => onSearch(tag.name)}
-          onRemove={() => void remove(mediaId, tag.id)}
+          onRemove={() => void remove(mediaId, tag.id, kind)}
           removeLabel={`Retirer « ${displayTag(tag.name)} »`}
-          onContextMenu={(e) => openContextMenu(e, () => tagMenu(tag, list, { removeFrom: { kind, run: () => void remove(mediaId, tag.id) } }))}
+          onContextMenu={(e) => openContextMenu(e, () => tagMenu(tag, list, { removeFrom: { kind, run: () => void remove(mediaId, tag.id, kind) } }))}
         >
           {displayTag(tag.name)}
         </TagPill>

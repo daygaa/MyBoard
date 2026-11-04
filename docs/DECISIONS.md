@@ -1338,3 +1338,10 @@ fusionné que si elle était mise de côté chez celui qui a exporté (étendue,
 telle quelle recopie son état, réimporter son propre code ne crée rien, et une règle entre deux noms d'un même groupe
 n'est plus lue « tag → lui-même ». Conséquence acceptée : une règle reçue sur un nom fusionné chez soi arrive mise de
 côté et ne pose rien tant qu'il l'est ; l'aperçu le dit (« (mise de côté) », `RuleLine.aside`).
+
+**Complément du 05/11 (TAGM-22, cas P-08 du test complet).** Retirer un tag d'un média propose de retirer aussi les
+parents que sa chaîne y avait posés (`chain_removal.rs`, `lib/chainRemoval.ts`). Calcul : celui de la suppression d'une
+règle avec sa case (`remove_cascade` d'après les notes `tag_parent_media`, puis `restore_justified`), fait puis annulé
+pour l'aperçu, refait pour « Oui ». L'aperçu est demandé AVANT le retrait du tag : son retrait efface la note « posé
+par telle règle » (déclencheur `parent_lists_tag_removed`), qui donne le tag d'origine de la chaîne. Parents rangés
+dans l'ordre de la chaîne (`chain_order`), car les notes rangent tout sous la première règle.

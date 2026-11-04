@@ -15,7 +15,8 @@ import { TagPill } from "@/components/tags/TagPill";
 import { Button } from "@/components/ui/button";
 import { useCategories } from "@/hooks/useCategories";
 import { usePills } from "@/hooks/usePills";
-import { api, type TagInfo } from "@/lib/api";
+import { api, type ChainParents, type TagInfo } from "@/lib/api";
+import { offerChainRemoval, previewChain } from "@/lib/chainRemoval";
 import { formatNumber, plural } from "@/lib/format";
 import { queryClient } from "@/lib/queryClient";
 import { displayTag, normalizeTag } from "@/lib/tags";
@@ -100,18 +101,25 @@ export function SelectionBar() {
 
   const apply = async () => {
     setBusy(true);
+    const [ids, removed] = [selectedIds(), remover.list.map((t) => t.id)];
+    let done = false;
+    let chain: ChainParents | null = null;
     try {
-      await api.editSelectionTags(selectedIds(), adder.list, remover.list.map((t) => t.id));
+      chain = await previewChain(ids, removed);
+      await api.editSelectionTags(ids, adder.list, removed);
       adder.clear();
       remover.clear();
       await refreshLibrary();
       void queryClient.invalidateQueries({ queryKey: ["media-detail"] });
       void queryClient.invalidateQueries({ queryKey: ["selection-tags"] });
+      done = true;
     } catch (error) {
       useViewer.getState().setError({ action: "Modifier les tags de la sélection", code: null, message: String(error) });
     } finally {
       setBusy(false);
     }
+    // Tags retirés dont la chaîne de règles avait posé des parents : une seule pop-in pour la sélection (TAGM-22).
+    if (done) await offerChainRemoval(chain, ids, removed);
   };
 
   // Du texte tapé pas encore validé dans un des champs : on ne peut pas appliquer (choix du 24/10), une

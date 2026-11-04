@@ -122,6 +122,9 @@ export type TagManagerData = {
 };
 
 /** Renommage : fait, vide, nom pris par un tag ou un synonyme actif (fusion proposée, CTX-04, TAGM-15), ou synonyme du tag lui-même. */
+/** Retrait d'un enfant (TAGM-22) : parents qui partiraient (ordre de la chaîne), médias touchés, tags d'où partent
+ *  les chaînes. */
+export type ChainParents = { parents: string[]; media: number; origins: string[] };
 export type Renamed = { kind: "done" } | { kind: "empty" } | { kind: "exists"; id: number; name: string; mediaCount: number; alias: string | null } | { kind: "ownAlias" };
 
 /** Tag d'une liste partagée (TAGM-10, TAGM-18) : catégorie par sa clé (« general »…). */
@@ -231,6 +234,9 @@ export const api = {
   pageTags: (ids: number[]) => invoke<TagInfo[]>("page_tags", { ids }),
   addMediaTag: (mediaId: number, tag: NewTag) => invoke<void>("add_media_tag", { mediaId, tag }),
   removeMediaTag: (mediaId: number, tagId: number) => invoke<void>("remove_media_tag", { mediaId, tagId }),
+  /** Parents que la chaîne des tags retirés avait posés et qui partiraient (TAGM-22) ; sans rien changer. */
+  chainParents: (media: number[], tags: number[]) => invoke<ChainParents>("chain_parents", { media, tags }),
+  removeChainParents: (media: number[], tags: number[]) => invoke<ChainParents>("remove_chain_parents", { media, tags }),
   mediaDetail: (id: number) => invoke<MediaDetail | null>("media_detail", { id }),
   revealMedia: (id: number) => invoke<void>("reveal_media", { id }),
   openMedia: (id: number) => invoke<void>("open_media", { id }),

@@ -4,7 +4,8 @@
 
 import { useQueryClient } from "@tanstack/react-query";
 
-import { api, type NewTag } from "@/lib/api";
+import { api, type MediaKind, type NewTag } from "@/lib/api";
+import { offerChainRemoval, previewChain } from "@/lib/chainRemoval";
 
 const DEPENDENT = [["page-tags"], ["media"], ["stats"], ["autocomplete"], ["tag"]];
 
@@ -19,9 +20,12 @@ export function useTagChanges() {
       await api.addMediaTag(mediaId, tag);
       refresh(mediaId);
     },
-    remove: async (mediaId: number, tagId: number) => {
+    /** Puis, si sa chaîne de règles avait posé des parents sur ce média, pop-in pour les retirer aussi (TAGM-22). */
+    remove: async (mediaId: number, tagId: number, kind: MediaKind) => {
+      const chain = await previewChain([mediaId], [tagId]);
       await api.removeMediaTag(mediaId, tagId);
       refresh(mediaId);
+      await offerChainRemoval(chain, [mediaId], [tagId], kind);
     },
   };
 }

@@ -20,10 +20,12 @@ type Props = {
   onCancel: () => void;
   onConfirm: () => void;
   confirmLabel?: string;
+  /** Remplace « Annuler » (« Non » : retrait des parents d'une chaîne, TAGM-22). */
+  cancelLabel?: string;
   children?: ReactNode;
 };
 
-export function ConfirmDialog({ title, subtitle, message, danger = false, zone, onCancel, onConfirm, confirmLabel = "Oui", children }: Props) {
+export function ConfirmDialog({ title, subtitle, message, danger = false, zone, onCancel, onConfirm, confirmLabel = "Oui", cancelLabel = "Annuler", children }: Props) {
   return (
     <Modal
       open
@@ -36,8 +38,8 @@ export function ConfirmDialog({ title, subtitle, message, danger = false, zone, 
       description={message}
       footer={
         <>
-          <Button variant="ghost" onClick={onCancel} className="text-foreground hover:bg-secondary hover:text-foreground">
-            Annuler
+          <Button data-zone={`${zone}.non`} variant="ghost" onClick={onCancel} className="text-foreground hover:bg-secondary hover:text-foreground">
+            {cancelLabel}
           </Button>
           <Button
             data-zone={`${zone}.oui`}

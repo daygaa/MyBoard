@@ -1,6 +1,7 @@
 //! MyBoard — partie Rust : base de données, import, miniatures, tags, recherche, visionneuse.
 //! L'interface (React) appelle les commandes déclarées ici via `invoke`.
 
+pub mod chain_removal;
 pub mod clipboard_text;
 pub mod db;
 pub mod deletion;
@@ -156,6 +157,8 @@ pub fn run() {
             tag_import::preview_tag_import,
             tag_import::import_tags,
             tag_import::undo_tag_import,
+            chain_removal::chain_parents,
+            chain_removal::remove_chain_parents,
             similar::ignore_similar,
             similar::unignore_similar,
             similar::create_similar_groups,

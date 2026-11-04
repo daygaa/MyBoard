@@ -29,6 +29,8 @@ export type RuleAsk = {
   message: string;
   rules?: AskRules;
   confirmLabel: string;
+  /** Remplace « Annuler » (TAGM-22 : « Non »). */
+  cancelLabel?: string;
   danger?: boolean;
   option?: string;
   run: (option: boolean, extend: number[]) => Promise<unknown>;

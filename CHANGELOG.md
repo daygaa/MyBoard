@@ -3,6 +3,34 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Retirer un enfant : proposer de retirer ses parents, TAGM-22 (05/11/2026) — Backup v94
+
+SPEC : livré `[~]` : TAGM-22 (nouvelle demande du 04/11, cas P-08 du test complet de la refonte). Notés : P-09 gardé
+tel quel (D10.5) ; base à l'ancien format retirée (DEV-07).
+
+- **Pop-in « Retirer aussi ces parents ? »** après le retrait d'un tag dont la chaîne de règles avait posé des parents
+  sur le média : « « essai chat » et « essai animal » ont été ajoutés à cette image via la chaîne de parents de
+  « essai chaton ». Voulez-vous aussi les retirer ? » ; « Oui » (doré, Entrée) les retire, « Non » (Échap) les garde ;
+  le tag retiré reste retiré.
+- Visionneuse (croix de la pastille, menu du clic droit) : « cette image / cette vidéo / ce document / ce fichier
+  audio ». Barre de sélection (« Retirer des tags… », « Appliquer ») : une seule pop-in, « … à N médias de la
+  sélection … ».
+- Un parent qu'une autre règle justifie encore, ou qui était là avant la règle, n'est pas proposé ; rien à proposer :
+  pas de pop-in. Retirer un parent posé (« essai chat ») propose la suite (« essai animal »), avec l'origine de la
+  chaîne (« essai chaton »).
+- Pop-in de confirmation partagée : libellé du bouton d'annulation au choix (« Annuler » par défaut).
+- **Base d'essai** : « essai chaton » sur la 1re vidéo ; base à l'ancien format (« refonte-ancien », son modèle et son
+  lanceur) retirée, mise à la corbeille.
+
+Vérifié dans la version compilée, sur des copies de la base d'essai (chaîne t22 chaton → t22 chat → t22 animal et
+t22 chien → t22 animal) : pop-in au-dessus de la visionneuse, Échap la ferme sans fermer la visionneuse ; parent
+justifié par une autre règle non proposé ; parent posé avant la règle non proposé ; « Non » garde tout ; « Oui » par
+Entrée et par clic ; retrait d'un parent posé sur une vidéo (« cette vidéo », origine « t22 chaton ») ; tag sans règle :
+pas de pop-in ; sélection de 3 médias : une seule pop-in, les 3 nettoyés ; une autre pop-in garde « Annuler » ; zéro
+erreur `tsc` et `clippy`. Deux défauts trouvés pendant ces essais et corrigés avant la livraison : noms dans le
+désordre (« animal » avant « chat ») ; origine fausse au retrait d'un parent (la note « posé par » est effacée avec le
+tag : ce qui partirait est maintenant calculé juste avant le retrait).
+
 ## Import : règles sur un nom fusionné, cas C-09 (04/11/2026) — Backup v93
 
 SPEC : livré `[~]` : TAGM-18 (retour T3, point TAGM-18.11 ; TAGM-18 reste `[x]`). Nouvelle demande `[>]` : TAGM-21
