@@ -5,7 +5,8 @@
 // (décochée, ils le gardent). Sous un trait, les règles de parents qui partent (retour T3, point TAGM-16.8) : une ligne
 // par règle, les chaînes du tag et une case de retrait, comme dans la pop-in de suppression d'une règle
 // (ParentDeleteDialog). Ouverte par le menu du clic droit (« Annuler » rend le menu, CTX-02) et par le gestionnaire
-// (corbeille d'une ligne, barre des tags cochés).
+// (corbeille d'une ligne, barre des tags cochés). Les tags vont à la corbeille des tags pour 30 jours (TAGM-19), sauf avec
+// la case « Supprimer définitivement », décochée à chaque ouverture.
 
 import { useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -39,18 +40,27 @@ function principalLines(fate: DeletePreview["principals"][number], merged: strin
   return lines;
 }
 
+/** Ce que devient le tag (TAGM-19) : la corbeille pour 30 jours, ou une suppression définitive. */
+const TRASH_ONE = "sera placé dans la corbeille avant d'être supprimé définitivement dans 30 jours";
+const TRASH_MANY = "seront placés dans la corbeille avant d'être supprimés définitivement dans 30 jours";
+
 /** Texte de la pop-in pour un seul tag. */
-function oneTagLines(tag: Props["tags"][number], data: DeletePreview, also: boolean): string[] {
+function oneTagLines(tag: Props["tags"][number], data: DeletePreview, also: boolean, permanent: boolean): string[] {
   const fused = data.fused[0];
   const lines: string[] = [];
   if (fused) {
     const n = fused.media;
+    // Mis à la corbeille, il pourra revenir avec sa fusion : la fin de la phrase ne vaut que sans corbeille.
+    const undone = permanent ? ` ; cette fusion ne pourra plus être défaite pour ${n > 1 ? "eux" : "lui"}` : "";
     lines.push(
       n > 0
-        ? `${q(fused.name)} est fusionné dans ${q(fused.principal)} : ${n > 1 ? `ses ${media(n)} garderont` : "son média gardera"} ${q(fused.principal)} ; cette fusion ne pourra plus être défaite pour ${n > 1 ? "eux" : "lui"}.`
+        ? `${q(fused.name)} est fusionné dans ${q(fused.principal)} : ${n > 1 ? `ses ${media(n)} garderont` : "son média gardera"} ${q(fused.principal)}${undone}.`
         : `${q(fused.name)} est fusionné dans ${q(fused.principal)} et n'est sur aucun média.`,
     );
-  } else lines.push(tag.mediaCount > 0 ? `Il sera retiré de ${media(tag.mediaCount)}.` : "Il n'est sur aucun média.");
+    lines.push(permanent ? "Il sera définitivement supprimé." : `Il ${TRASH_ONE}.`);
+  } else if (tag.mediaCount > 0) {
+    lines.push(permanent ? `Il sera retiré de ${media(tag.mediaCount)} et sera définitivement supprimé.` : `Il sera retiré de ${media(tag.mediaCount)} puis ${TRASH_ONE}.`);
+  } else lines.push(permanent ? "Il n'est sur aucun média et sera définitivement supprimé." : `Il n'est sur aucun média ; il ${TRASH_ONE}.`);
   for (const fate of data.principals) lines.push(...principalLines(fate, data.merged, also));
   for (const l of data.linked)
     lines.push(l.dissolved ? `Il quittera le groupe de synonymes de ${q(l.principal)}, qui n'aura plus de synonyme.` : `Il quittera le groupe de synonymes de ${q(l.principal)}.`);
@@ -58,8 +68,17 @@ function oneTagLines(tag: Props["tags"][number], data: DeletePreview, also: bool
 }
 
 /** Texte de la pop-in pour plusieurs tags. */
-function manyTagsLines(data: DeletePreview, also: boolean): string[] {
-  const lines = ["Ils seront retirés de tous leurs médias."];
+function manyTagsLines(data: DeletePreview, also: boolean, permanent: boolean): string[] {
+  const n = data.media;
+  const lines = [
+    n > 0
+      ? permanent
+        ? `Ils seront retirés de ${media(n)} et seront définitivement supprimés.`
+        : `Ils seront retirés de ${media(n)} puis ${TRASH_MANY}.`
+      : permanent
+        ? "Ils ne sont sur aucun média et seront définitivement supprimés."
+        : `Ils ne sont sur aucun média ; ils ${TRASH_MANY}.`,
+  ];
   if (!also && data.merged.length > 0) lines.push(`Les tags fusionnés dans ces tags (${list(data.merged)}) seront d'abord défusionnés : leurs médias les retrouveront.`);
   // Groupe par groupe, ce qui reste (la défusion est dite une fois, au-dessus).
   for (const fate of data.principals) lines.push(...principalLines(fate, [], also));
@@ -125,14 +144,15 @@ export function TagDeleteDialog({ tags, onCancel, onDone }: Props) {
   const [also, setAlso] = useState(false);
   const [strip, setStrip] = useState(false);
   const [remove, setRemove] = useState(false);
+  const [permanent, setPermanent] = useState(false);
   const one = tags.length === 1 ? tags[0] : null;
-  const lines = !data ? [] : one ? oneTagLines(one, data, also) : manyTagsLines(data, also);
+  const lines = !data ? [] : one ? oneTagLines(one, data, also, permanent) : manyTagsLines(data, also, permanent);
   // Médias qui n'ont reçu le principal que par un tag fusionné supprimé.
   const only = data?.fused.reduce((n, f) => n + f.only, 0) ?? 0;
   const fused = data?.fused[0];
   const confirm = () => {
     onDone();
-    void deleteTags(ids, also, strip && only > 0, remove && (data?.posed ?? 0) > 0);
+    void deleteTags(ids, also, strip && only > 0, remove && (data?.posed ?? 0) > 0, permanent);
   };
   const merged = data?.merged ?? [];
   return (
@@ -148,7 +168,7 @@ export function TagDeleteDialog({ tags, onCancel, onDone }: Props) {
               <p key={line}>{line}</p>
             ))}
           </div>
-          {(merged.length > 0 || (only > 0 && fused)) && (
+          {data && (
             <div className="mt-3">
               {merged.length > 0 && (
                 <Option zone="tag-suppression.fusionnes" checked={also} onChange={setAlso}>
@@ -166,6 +186,10 @@ export function TagDeleteDialog({ tags, onCancel, onDone }: Props) {
                     : `Retirer leur tag principal des ${media(only)} qui ne l'ont reçu que par les tags fusionnés supprimés`}
                 </Option>
               )}
+              {/* Sans passer par la corbeille (TAGM-19), décochée à chaque ouverture. */}
+              <Option zone="tag-suppression.definitif" checked={permanent} onChange={setPermanent}>
+                Supprimer définitivement
+              </Option>
             </div>
           )}
         </div>

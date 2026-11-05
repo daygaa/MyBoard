@@ -3,14 +3,17 @@
 // la pop-in, 2 lignes au plus puis « … » (nom complet dans une bulle au survol) ; la pop-in grandit
 // vers le haut, les boutons restent à leur place.
 // Avec `refusal` (bouton « Créer un tag » du gestionnaire, retour T3, point TAGM-04.8), le nom se tape
-// dans la pop-in ; un nom déjà pris est refusé (« Créer » grisé, raison sous le champ).
+// dans la pop-in ; un nom déjà pris est refusé (« Créer » grisé, raison sous le champ). Un nom qui est dans la corbeille
+// des tags (TAGM-19) : « Voulez-vous restaurer … ? » d'abord (à l'ouverture, ou à « Créer » quand le nom se tape dans la
+// pop-in) ; « Oui » le restaure et la suite se fait avec lui, « Non » crée un nouveau tag.
 
-import { useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Plus } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
 import { normalizeTag } from "@/lib/tags";
+import { offerRestore } from "@/lib/tagTrash";
 import { titleIfCut } from "@/lib/utils";
 import { CategorySelect, useDefaultCategory } from "./CategorySelect";
 
@@ -25,12 +28,17 @@ type Props = {
   /** Nom tapé dans la pop-in (`name` = sa valeur de départ) : raison d'un refus (nom déjà pris), `null`
    *  si le nom (normalisé) est libre. */
   refusal?: (name: string) => string | null;
+  /** Nom restauré depuis la corbeille (TAGM-19) ; sans cette fonction, `onCreate` suit (le tag existe alors, avec
+   *  sa catégorie d'origine : la suite le reprend). */
+  onRestored?: (name: string) => void;
 };
 
 const LABEL = "mb-2 text-xs font-medium text-muted-foreground";
 
-export function CreateTagDialog({ name, onCancel, onCreate, refusal }: Props) {
+export function CreateTagDialog({ name, onCancel, onCreate, refusal, onRestored }: Props) {
   const fallback = useDefaultCategory();
+  // Nom donné à l'ouverture : la corbeille est consultée avant de montrer la pop-in.
+  const [checked, setChecked] = useState<string | null>(null);
   const [chosen, setChosen] = useState<number | null>(null);
   const category = chosen ?? fallback;
   const [typed, setTyped] = useState<string | null>(null);
@@ -43,7 +51,22 @@ export function CreateTagDialog({ name, onCancel, onCreate, refusal }: Props) {
   useLayoutEffect(() => {
     const p = descriptionRef.current;
     if (p) setLift(Math.max(0, p.offsetHeight - 2 * parseFloat(getComputedStyle(p).lineHeight)) / 2);
-  }, [name]);
+  }, [name, checked]);
+  const restored = (tag: string) => (onRestored ? onRestored(tag) : onCreate(category ?? 0, tag));
+  useEffect(() => {
+    if (name === null) setChecked(null);
+    if (name === null || refusal) return;
+    let live = true;
+    void offerRestore(name).then((offer) => {
+      if (!live) return;
+      if (offer === "restored") restored(name);
+      else setChecked(name);
+    });
+    return () => {
+      live = false;
+    };
+    // Une fois par ouverture (la suite, `restored`, ne change pas pendant ce temps).
+  }, [name, refusal]);
   const close = () => {
     setChosen(null);
     setTyped(null);
@@ -51,13 +74,25 @@ export function CreateTagDialog({ name, onCancel, onCreate, refusal }: Props) {
   };
   const create = () => {
     if (category === null || !final || refused) return;
-    setChosen(null);
-    setTyped(null);
+    const finish = () => {
+      setChosen(null);
+      setTyped(null);
+    };
+    // Nom tapé dans la pop-in : la corbeille est consultée à « Créer ».
+    if (refusal) {
+      void offerRestore(final).then((offer) => {
+        finish();
+        if (offer === "restored") restored(final);
+        else onCreate(category, final);
+      });
+      return;
+    }
+    finish();
     onCreate(category, final);
   };
   return (
     <Modal
-      open={name !== null}
+      open={name !== null && (refusal !== undefined || checked === name)}
       onEnter={create}
       onClose={close}
       zone="creation-tag"

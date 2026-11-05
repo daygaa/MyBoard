@@ -32,8 +32,11 @@ pub mod system_menu;
 pub mod tag_delete;
 pub mod tag_import;
 pub mod tag_manager;
+pub mod tag_trash;
 pub mod tag_rules;
 pub mod tagging;
+pub mod trash_journal;
+pub mod trash_restore;
 pub mod tags;
 mod test_screen;
 pub mod thumbs;
@@ -162,6 +165,10 @@ pub fn run() {
             tag_import::undo_tag_import,
             chain_removal::chain_parents,
             chain_removal::remove_chain_parents,
+            tag_trash::trash_list,
+            tag_trash::trash_find,
+            tag_trash::trash_restore,
+            tag_trash::trash_delete,
             similar::ignore_similar,
             similar::unignore_similar,
             similar::create_similar_groups,

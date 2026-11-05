@@ -142,15 +142,18 @@ pub async fn set_tags_hidden(state: State<'_, AppState>, ids: Vec<i64>, hidden: 
     update_many(&mut state.db.lock().unwrap(), "UPDATE tags SET hidden = ?1 WHERE id = ?2", &hidden, &ids).map_err(err)
 }
 
-/// Supprime des tags (retirés de leurs médias) ; renvoie le nombre supprimé. Groupes de synonymes : `tag_delete.rs`
+/// Supprime des tags (retirés de leurs médias), à la corbeille ou définitivement (`permanent`) ; renvoie le nombre
+/// supprimé. Groupes de synonymes : `tag_delete.rs`
 /// (`with_merged` : case « Supprimer aussi » ; `strip` : case « Supprimer « principal » de ces médias » ; `remove_posed` :
 /// case « Retirer … aux médias les ayant obtenus par ces règles »).
 #[tauri::command]
-pub async fn delete_tags(state: State<'_, AppState>, ids: Vec<i64>, with_merged: bool, strip: bool, remove_posed: bool) -> Result<usize, String> {
+pub async fn delete_tags(state: State<'_, AppState>, ids: Vec<i64>, with_merged: bool, strip: bool, remove_posed: bool, permanent: bool) -> Result<usize, String> {
     let mut conn = state.db.lock().unwrap();
     (|| -> anyhow::Result<usize> {
         let tx = conn.transaction()?;
-        let deleted = tag_delete::delete(&tx, &ids, with_merged, strip, remove_posed)?;
+        // À la corbeille (TAGM-19), sauf avec la case « Supprimer définitivement ».
+        let deleted =
+            if permanent { tag_delete::delete(&tx, &ids, with_merged, strip, remove_posed)? } else { crate::tag_trash::delete(&tx, &ids, with_merged, strip, remove_posed)? };
         tx.commit()?;
         Ok(deleted)
     })()

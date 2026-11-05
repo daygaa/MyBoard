@@ -3,6 +3,36 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Corbeille des tags, lot 2, TAGM-19 (05/11/2026) — Backup v98
+
+SPEC : livré `[~]` : TAGM-19 ; DEV-07 (base d'essai au schéma 14). Schéma de la base : version 14 (table `tag_trash`).
+
+- **Corbeille des tags** : un tag supprimé (menu du tag, poubelle du tableau, suppression groupée, « Supprimer les tags
+  non utilisés ») est gardé 30 jours avec le journal de sa suppression (D-049), puis effacé au lancement de MyBoard.
+- **Bouton « Corbeille (N) »** entre « Importer » et « Supprimer les tags non utilisés » ; pop-in : tableau (pastille
+  un peu plus grande, sans croix ; nombre de médias ; « Restaurer » ; « Supprimer » bordé de rouge, fond rouge au
+  survol), « Tout restaurer » et « Tout supprimer » avec confirmation.
+- **Restaurer** remet tout comme avant : le tag, ses médias, sa place dans son groupe et ses fusions, ses règles, les
+  parents retirés en chaîne. Chaque tag est indépendant : ce qui attend un autre tag de la corbeille (son groupe, une
+  règle vers lui) revient avec ce tag. Nom repris entre-temps : les deux sont réunis. Ce qui n'a plus de sens (média
+  disparu, règle qui ferait une boucle…) est sauté.
+- **Recréer un nom de la corbeille** : « Voulez-vous restaurer « chat » ? » (« … il était lié à N médias, M règles de
+  parents et avait L synonymes, voulez-vous le restaurer ? ») ; « Oui » le restaure, « Non » crée un nouveau tag.
+- **Pop-in de suppression** : « … puis sera placé dans la corbeille avant d'être supprimé définitivement dans 30 jours »
+  ; case « Supprimer définitivement », décochée, et ses textes.
+
+Vérifié dans la version compilée, sur des copies de la base d'essai : 10 cas du cœur (tag avec règle ; maillon de
+chaîne avec la case de retrait ; principal d'un groupe fusionné, avec et sans « Supprimer aussi » ; restauration dans
+le désordre ; nom fusionné ; deux tags liés par une règle restaurés séparément ; nom repris ; suppression définitive ;
+« Supprimer » d'une ligne) : base identique à avant, table par table ; interface (textes et case de la pop-in de
+suppression, bouton et pop-in « Corbeille », « Restaurer » sans confirmation, « Tout restaurer » et « Tout supprimer »
+avec, question « Voulez-vous restaurer » depuis la visionneuse avec « Oui » et depuis « Créer un tag » avec « Non ») ;
+comptes d'un principal supprimé avec ses noms ; 300 tags à la corbeille en 1 s, restaurés en 0,03 s ; effacement après
+30 jours au lancement ; fond rouge au survol de « Supprimer » ; presse-papiers remis ; zéro erreur `tsc` et `clippy`.
+Défauts trouvés pendant les essais et corrigés avant la livraison : un nom restauré avant son principal perdait son
+groupe (vidé par le départ d'un autre nom : il est maintenant recréé) ; les comptes d'un principal supprimé avec ses
+noms (relevés avant toute suppression).
+
 ## Icône du son de MyBoard dans le mélangeur, AUD-02 (05/11/2026) — Backup v97
 
 SPEC : AUD-02 `[~]` (retour de l'utilisateur sur la v96 : nom « MyBoard » affiché, icône de WebView2).

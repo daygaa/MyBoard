@@ -100,6 +100,8 @@ pub struct DeletePreview {
     pub posed: i64,
     /// Chaînes qui passent par le tag supprimé (un seul tag).
     pub chains: Vec<Chain>,
+    /// Médias qui portent au moins un de ces tags (« Ils seront retirés de N médias », TAGM-19).
+    pub media: i64,
 }
 
 /// Une règle « enfant → parent » qui part avec les tags supprimés.
@@ -215,6 +217,29 @@ pub fn preview(db: &Connection, ids: &[i64]) -> rusqlite::Result<DeletePreview> 
     if let [tag] = ids {
         out.chains = tag_chains(db, *tag)?;
     }
+    out.media = db.query_row(&format!("SELECT COUNT(DISTINCT media_id) FROM media_tags WHERE tag_id IN ({marks})"), rusqlite::params_from_iter(ids), |r| r.get(0))?;
+    Ok(out)
+}
+
+/// Les tags qui partent : ceux demandés, plus, avec `with_merged`, les tags fusionnés dans un principal supprimé.
+pub fn expand(db: &Connection, ids: &[i64], with_merged: bool) -> rusqlite::Result<Vec<i64>> {
+    let mut out: Vec<i64> = Vec::new();
+    for &id in ids {
+        if !out.contains(&id) {
+            out.push(id);
+        }
+    }
+    if with_merged {
+        for group in groups_of(db, ids)? {
+            if out.contains(&principal(db, group)?) {
+                for n in names_of(db, group)?.iter().filter(|n| n.merged) {
+                    if !out.contains(&n.tag) {
+                        out.push(n.tag);
+                    }
+                }
+            }
+        }
+    }
     Ok(out)
 }
 
@@ -226,16 +251,9 @@ pub fn delete(db: &Connection, ids: &[i64], with_merged: bool, strip: bool, remo
     if ids.is_empty() {
         return Ok(0);
     }
-    let mut doomed: HashSet<i64> = ids.iter().copied().collect();
     let groups = groups_of(db, ids)?;
-    if with_merged {
-        for &group in &groups {
-            if doomed.contains(&principal(db, group)?) {
-                doomed.extend(names_of(db, group)?.iter().filter(|n| n.merged).map(|n| n.tag));
-            }
-        }
-    }
-    let ids: Vec<i64> = doomed.iter().copied().collect();
+    let ids = expand(db, ids, with_merged)?;
+    let doomed: HashSet<i64> = ids.iter().copied().collect();
     // Lus avant la suppression : les règles et leurs listes partent avec les tags.
     let posed = if remove_posed { posed_by(db, &rules_of(db, &ids)?.iter().map(|r| r.0).collect::<Vec<_>>(), &doomed)? } else { Vec::new() };
     let mut removed = Vec::new();

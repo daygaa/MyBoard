@@ -10,7 +10,7 @@ import { queryClient } from "./queryClient";
 
 export function refreshTags(): Promise<unknown> {
   // Aperçu du formulaire des synonymes compris : une fusion changée dans la liste s'y voit tout de suite.
-  const keys = [["tag-manager"], ["tag-rules"], ["page-tags"], ["autocomplete"], ["tag"], ["media-detail"], ["media"], ["stats"], ["selection-tags"], ["group-preview"]];
+  const keys = [["tag-manager"], ["tag-rules"], ["page-tags"], ["autocomplete"], ["tag"], ["media-detail"], ["media"], ["stats"], ["selection-tags"], ["group-preview"], ["tag-trash"]];
   return Promise.all(keys.map((queryKey) => queryClient.invalidateQueries({ queryKey })));
 }
 
@@ -29,8 +29,11 @@ export async function runTagAction<T>(action: string, call: () => Promise<T>): P
 export const setTagsCategory = (ids: number[], categoryId: number) => runTagAction("Changer de catégorie", () => api.setTagsCategory(ids, categoryId));
 export const setTagsHidden = (ids: number[], hidden: boolean) =>
   runTagAction(hidden ? "Masquer de la recherche" : "Ne plus masquer de la recherche", () => api.setTagsHidden(ids, hidden));
-export const deleteTags = (ids: number[], withMerged = false, strip = false, removePosed = false) =>
-  runTagAction("Supprimer le tag", () => api.deleteTags(ids, withMerged, strip, removePosed));
+export const deleteTags = (ids: number[], withMerged = false, strip = false, removePosed = false, permanent = false) =>
+  runTagAction("Supprimer le tag", () => api.deleteTags(ids, withMerged, strip, removePosed, permanent));
+/** Corbeille des tags (TAGM-19) : « Restaurer » / « Tout restaurer », « Supprimer » / « Tout supprimer ». */
+export const restoreTrash = (ids: number[]) => runTagAction("Restaurer", () => api.trashRestore(ids));
+export const deleteTrash = (ids: number[]) => runTagAction("Supprimer de la corbeille", () => api.trashDelete(ids));
 /** Tag renommé ou fusionné (SRCH-27) : la recherche en cours (et celle de la visionneuse ouverte)
  *  prend le nouveau nom. */
 export function followRename(from: string, to: string) {

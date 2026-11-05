@@ -1372,3 +1372,22 @@ seconde coûtait 156 ms de processeur toutes les 20 s ; celle-ci, 0 ms au repos.
 fait avec l'utilisateur le 05/11 ; une icône déjà affichée pour un processus ne change plus, d'où un contrôle avec
 un nouveau processus). Dépendance : la bibliothèque
 `windows` 0.62, déjà présente par WebView2, avec sa partie audio.
+
+## D-049 — La corbeille des tags : un journal par suppression (05/11/2026)
+
+**Pourquoi.** TAGM-19 (lot 2) : un tag supprimé est gardé 30 jours et « Restaurer » remet tout comme avant (tag,
+médias, groupe et fusions, règles, parents retirés en chaîne) ; chaque tag est indépendant (réponses du 05/11).
+
+**Comment.** Plutôt que de recopier à la main chaque conséquence d'une suppression (elles sont nombreuses et passent par
+les cascades et les déclencheurs de la base), la suppression est **enregistrée** : des déclencheurs temporaires,
+propres à la connexion et retirés aussitôt après, notent chaque ligne ajoutée, retirée ou modifiée dans les tables des
+tags (`trash_journal.rs`). Le journal garde l'effet net de chaque ligne et des repères pour retrouver plus tard ce que
+désignent ses identifiants (nom des tags, empreinte des médias, principal des groupes, tag des noms, enfant et parent
+des règles), car un identifiant peut resservir. Les tags d'une même suppression sont supprimés un par un, chacun avec
+son journal (les noms d'abord, les principaux ensuite) : ils sont indépendants dans la corbeille. « Restaurer »
+(`trash_restore.rs`) rejoue le journal à l'envers : lignes ajoutées retirées si elles sont encore là, tag recréé (ou
+réuni au tag qui porte son nom), lignes modifiées remises si personne n'y a touché, lignes retirées remises si elles ont
+encore un sens (contraintes de la base, pas de boucle, un tag principal d'un seul groupe). Une ligne qui désigne un autre
+tag de la corbeille est rangée avec lui et revient avec lui ; un groupe vidé par le départ d'un autre nom est recréé.
+Table `tag_trash` (schéma 14) : une ligne par tag, ses comptes pour les pop-ins, le journal en JSON. Effacement après 30
+jours par le fil des suppressions de médias, comme la réserve (DEL-05).

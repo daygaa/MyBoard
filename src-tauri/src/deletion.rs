@@ -127,6 +127,10 @@ fn worker_loop(inner: &Inner) {
         if let Err(e) = reserve::purge(&inner.db.lock().unwrap()) {
             eprintln!("[suppression] réserve : {e:#}");
         }
+        // Corbeille des tags : 30 jours aussi (TAGM-19).
+        if let Err(e) = crate::tag_trash::purge(&inner.db.lock().unwrap()) {
+            eprintln!("[suppression] corbeille des tags : {e:#}");
+        }
         loop {
             match process_batch(inner) {
                 Ok(true) => continue,

@@ -45,6 +45,11 @@ export function NewTagButton({ tags, rules, tagOf, onCreated }: Props) {
           setOpen(false);
           void runTagAction("Créer le tag", () => rulesApi.createTag(name, categoryId)).then((id) => id !== undefined && onCreated(name));
         }}
+        // Nom restauré depuis la corbeille (TAGM-19) : montré par le filtre, comme un tag créé.
+        onRestored={(name) => {
+          setOpen(false);
+          onCreated(name);
+        }}
       />
     </>
   );

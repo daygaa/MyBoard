@@ -14,6 +14,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, Tags } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 import { createStore, type StoreApi } from "zustand";
 
 import { GridBadge } from "@/components/library/GridBadge";
@@ -24,7 +25,7 @@ import { Button } from "@/components/ui/button";
 import { useCategories } from "@/hooks/useCategories";
 import { useElementHeight } from "@/hooks/useElementHeight";
 import { useTagRules } from "@/hooks/useTagRules";
-import type { ManagedTag, Renamed } from "@/lib/api";
+import { api, type ManagedTag, type Renamed } from "@/lib/api";
 import { openContextMenu } from "@/lib/contextMenu";
 import { formatNumber, plural } from "@/lib/format";
 import { navigate, useTagTab, type TagTab } from "@/lib/router";
@@ -43,6 +44,7 @@ import { SimilarTagsDialog, type SimilarSnapshot } from "./SimilarTagsDialog";
 import { ExportTagsDialog } from "./ExportTagsDialog";
 import { ImportTagsDialog } from "./ImportTagsDialog";
 import { NewTagButton } from "./NewTagButton";
+import { TagTrashDialog } from "./TagTrashDialog";
 import { RulesTab } from "./RulesTab";
 import { TagFilters } from "./TagFilters";
 import { Tabs } from "./TagManagerTabs";
@@ -54,7 +56,7 @@ const TOOL = "h-8 gap-1.5 border-border bg-card/60 text-xs hover:bg-secondary ho
 /** Largeur de la page : 72 % de la fenêtre (TAGM-04.2), toute la fenêtre si elle est étroite. */
 const PAGE = "mx-auto w-full max-w-[max(72rem,72vw)] px-4 lg:px-6";
 
-type Dialog = "similar" | "import" | "export" | "unused" | "merge" | null;
+type Dialog = "similar" | "import" | "export" | "unused" | "merge" | "trash" | null;
 
 export function TagManagerPage() {
   return useTagTab() === "tags" ? <TagsTabEntry /> : <ManagerPage tab="rules" store={null} />;
@@ -86,6 +88,8 @@ function ManagerPage({ tab, store }: { tab: TagTab; store: StoreApi<TagsTabState
   // Retour arrière sur l'étape d'une pop-in « Tags proches » quittée par une loupe : elle se rouvre (TAGM-13.1).
   const [similar, setSimilar] = useState(() => (window.history.state?.[SIMILAR] as SimilarSnapshot | undefined) ?? undefined);
   const [dialog, setDialog] = useState<Dialog>(similar ? "similar" : null);
+  const { data: trash } = useQuery({ queryKey: ["tag-trash"], queryFn: api.trashList });
+  const trashCount = trash?.length ?? 0;
   const similarLevel = useUI((s) => s.similarLevel);
   // Tags proches : ils tiennent compte des groupes de synonymes et des paires écartées (lot R6-2).
   const blocks = useMemo(() => similarBlocks(all, data?.ignores ?? [], rules.groupOf, similarLevel), [all, data, rules, similarLevel]);
@@ -179,6 +183,12 @@ function ManagerPage({ tab, store }: { tab: TagTab; store: StoreApi<TagsTabState
               <Button data-zone="gestionnaire-tags.importer" variant="outline" size="sm" onClick={() => setDialog("import")} className={TOOL}>
                 Importer
               </Button>
+              {/* Corbeille des tags (TAGM-19) ; grisée quand elle est vide, la bulle passe par l'enveloppe. */}
+              <span title={trashCount === 0 ? "La corbeille est vide" : undefined} className="inline-flex">
+                <Button data-zone="gestionnaire-tags.corbeille" variant="outline" size="sm" disabled={trashCount === 0} onClick={() => setDialog("trash")} className={TOOL}>
+                  Corbeille ({formatNumber(trashCount)})
+                </Button>
+              </span>
               {/* Grisé, la bulle passe par l'enveloppe (TAGM-08.1). */}
               <span title={unused.length === 0 ? "Aucun tag non utilisé" : undefined} className="inline-flex">
                 <Button
@@ -274,6 +284,7 @@ function ManagerPage({ tab, store }: { tab: TagTab; store: StoreApi<TagsTabState
           <ExportTagsDialog visible={visible} filtered={filtered} all={all} checked={checkedTags} categories={categories} rules={rules} tagOf={tagOf} onClose={() => setDialog(null)} />
         )}
         {dialog === "unused" && <UnusedTagsDialog tags={unused} onClose={() => setDialog(null)} />}
+        {dialog === "trash" && <TagTrashDialog onClose={() => setDialog(null)} />}
         {dialog === "merge" && <CreateSynonymsDialog checked={checkedTags} groupOf={rules.groupOf} tagOf={tagOf} onClose={() => setDialog(null)} />}
       </main>
     </>

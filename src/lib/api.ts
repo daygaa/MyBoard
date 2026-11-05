@@ -102,7 +102,12 @@ export type DeletePreview = {
   further: boolean;
   posed: number;
   chains: { tags: string[]; at: number }[];
+  /** Médias qui portent au moins un de ces tags (TAGM-19). */
+  media: number;
 };
+
+/** Un tag de la corbeille (TAGM-19) : ce à quoi il était lié au moment de sa suppression. */
+export type TrashTag = { id: number; name: string; categoryId: number | null; hidden: boolean; media: number; rules: number; synonyms: number; deletedAt: number };
 
 /** Autre nom relié du groupe d'un tag ; les tags fusionnés n'y sont pas (ils n'ont aucun média). */
 export type Synonym = { name: string; categoryId: number; mediaCount: number; principal: boolean };
@@ -279,8 +284,15 @@ export const api = {
   renameTag: (id: number, name: string) => invoke<Renamed>("rename_tag", { id, name }),
   setTagsCategory: (ids: number[], categoryId: number) => invoke<number>("set_tags_category", { ids, categoryId }),
   setTagsHidden: (ids: number[], hidden: boolean) => invoke<number>("set_tags_hidden", { ids, hidden }),
-  /** `withMerged`, `strip` : les cases de la pop-in de suppression (retour T3, point TAGM-15.28). */
-  deleteTags: (ids: number[], withMerged = false, strip = false, removePosed = false) => invoke<number>("delete_tags", { ids, withMerged, strip, removePosed }),
+  /** `withMerged`, `strip` : les cases de la pop-in de suppression (retour T3, point TAGM-15.28) ; `permanent` : sans
+   *  passer par la corbeille (TAGM-19). */
+  deleteTags: (ids: number[], withMerged = false, strip = false, removePosed = false, permanent = false) =>
+    invoke<number>("delete_tags", { ids, withMerged, strip, removePosed, permanent }),
+  /** Corbeille des tags (TAGM-19). */
+  trashList: () => invoke<TrashTag[]>("trash_list"),
+  trashFind: (name: string) => invoke<TrashTag | null>("trash_find", { name }),
+  trashRestore: (ids: number[]) => invoke<number>("trash_restore", { ids }),
+  trashDelete: (ids: number[]) => invoke<number>("trash_delete", { ids }),
   deletePreview: (ids: number[]) => invoke<DeletePreview>("delete_preview", { ids }),
   setTagDescription: (id: number, text: string) => invoke<void>("set_tag_description", { id, text }),
   /** Tags proches (lot R6-2) : écarter `apart` de `kept` (vide : « Ignorer » le bloc `apart`). */
