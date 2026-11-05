@@ -1,6 +1,7 @@
 // Badge bref des ajouts (SEL-08) : « 3 ajoutés au dossier « Vacances » »… Plus grand que les badges du
 // lecteur vidéo, bordure dorée, centré dans la fenêtre sur la ligne des filtres de la grille (SEL-08.2) ;
-// sans cette ligne (gestionnaire de tags) ou quand elle a défilé hors de vue : en haut de la page.
+// sans cette ligne (gestionnaire de tags) ou quand elle a défilé hors de vue : en haut de la page. Toujours au premier
+// plan (visionneuse, pop-ins, menus, barre de titre ; retour du 05/11) ; il ne capte aucun clic.
 
 import { scroller } from "@/lib/scroller";
 import { useGridBadge } from "@/stores/badge";
@@ -20,7 +21,7 @@ export function GridBadge() {
   return (
     <div
       data-zone="grille.badge"
-      className="pointer-events-none fixed left-1/2 z-[60] -translate-x-1/2 -translate-y-1/2 rounded-md border border-[#d9a94e] bg-black/80 px-4 py-2 text-sm font-medium whitespace-nowrap text-white shadow-lg"
+      className="pointer-events-none fixed left-1/2 z-[200] -translate-x-1/2 -translate-y-1/2 rounded-md border border-[#d9a94e] bg-black/80 px-4 py-2 text-sm font-medium whitespace-nowrap text-white shadow-lg"
       style={{ top: badgeTop() }}
     >
       {text}

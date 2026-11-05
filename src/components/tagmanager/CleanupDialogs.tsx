@@ -1,6 +1,7 @@
 // Pop-ins de nettoyage du gestionnaire de tags :
 // - « Supprimer les N tags non utilisés ? » (TAGM-08) : case « Sélection manuelle » qui déplie la liste
-//   des tags concernés, tous cochés ; décocher un tag le garde (N baisse de 1) ;
+//   des tags concernés, tous cochés ; décocher un tag le garde (N baisse de 1) ; ils vont à la corbeille pour 30 jours,
+//   sauf avec la case « Supprimer définitivement » (TAGM-19), décochée d'office et retenue d'une fois sur l'autre ;
 // - « Créer un synonyme » / « Créer des synonymes » des tags cochés (retour T3, point TAGM-11.4 ; refonte, D8,
 //   D8.1, lot R6-1) : tag principal au choix, aperçu du groupe obtenu, interrupteur « Fusionner ».
 // Tags proches (TAGM-13) : SimilarTagsDialog.tsx.
@@ -18,6 +19,7 @@ import { whole } from "@/lib/keepWords";
 import { createGroup } from "@/lib/groupRules";
 import { rulesApi, type GroupRow } from "@/lib/rulesApi";
 import { deleteTags } from "@/lib/tagManager";
+import { useUI } from "@/stores/ui";
 import { q } from "@/lib/tagRules";
 import { displayTag } from "@/lib/tags";
 import { CANCEL, GOLD, KeepChoice, kept, mostUsed, RED, TagName } from "./TagChoice";
@@ -27,10 +29,19 @@ export function UnusedTagsDialog({ tags, onClose }: { tags: ManagedTag[]; onClos
   const [kept, setKept] = useState<Set<number>>(new Set());
   const doomed = tags.filter((t) => !kept.has(t.id));
   const n = doomed.length;
+  const permanent = useUI((s) => s.unusedPermanent);
+  const setPermanent = useUI((s) => s.setUnusedPermanent);
   const confirm = () => {
     if (n === 0) return;
-    void deleteTags(doomed.map((t) => t.id)).then(onClose);
+    void deleteTags(doomed.map((t) => t.id), false, false, false, permanent).then(onClose);
   };
+  const fate = permanent
+    ? n > 1
+      ? "Ils seront définitivement supprimés."
+      : "Il sera définitivement supprimé."
+    : n > 1
+      ? "Ils seront placés dans la corbeille pendant 30 jours."
+      : "Il sera placé dans la corbeille pendant 30 jours.";
   return (
     <Modal
       open
@@ -39,6 +50,7 @@ export function UnusedTagsDialog({ tags, onClose }: { tags: ManagedTag[]; onClos
       onClose={onClose}
       zone="tags-non-utilises"
       title={`Supprimer ${n === 1 ? "le tag non utilisé" : `les ${formatNumber(n)} tags non utilisés`} ?`}
+      description={<p data-zone="tags-non-utilises.texte">{fate}</p>}
       footer={
         <>
           <Button variant="ghost" onClick={onClose} className={CANCEL}>
@@ -74,6 +86,11 @@ export function UnusedTagsDialog({ tags, onClose }: { tags: ManagedTag[]; onClos
           ))}
         </div>
       )}
+      {/* Sous la liste quand elle est ouverte (TAGM-19). */}
+      <label data-zone="tags-non-utilises.definitif" className="mt-3 flex cursor-pointer items-center gap-2 text-sm text-foreground">
+        <Checkbox checked={permanent} onCheckedChange={(c) => setPermanent(c === true)} />
+        Supprimer définitivement
+      </label>
     </Modal>
   );
 }

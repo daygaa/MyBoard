@@ -20,8 +20,8 @@ import { CANCEL } from "./TagChoice";
 const HIDDEN_COLOR = "#a1a1aa";
 const TOOL = "h-8 border-border bg-card/60 text-xs hover:bg-secondary hover:text-foreground";
 const DELETE = "h-8 border border-destructive bg-transparent text-xs text-rose-300 hover:bg-destructive hover:text-white";
-/** Tag · médias · deux boutons. */
-const COLUMNS = "grid grid-cols-[minmax(0,1fr)_5rem_auto] items-center gap-3";
+/** Tag · médias · deux boutons (largeur fixe : la ligne des titres, sans boutons, garde les mêmes colonnes). */
+const COLUMNS = "grid grid-cols-[minmax(0,1fr)_5rem_11rem] items-center gap-3";
 
 export function TagTrashDialog({ onClose }: { onClose: () => void }) {
   const { data } = useQuery({ queryKey: ["tag-trash"], queryFn: api.trashList });
@@ -83,12 +83,14 @@ export function TagTrashDialog({ onClose }: { onClose: () => void }) {
           {tags.map((t) => (
             <div key={t.id} data-zone="tags-corbeille.ligne" className={`${COLUMNS} border-b border-border/50 py-2`}>
               <span className="min-w-0">
-                <TagPill color={t.hidden ? HIDDEN_COLOR : color(t.categoryId ?? 0)} fullTitleIfCut className="px-2.5 py-1 text-sm">
+                {/* 1 px de plus en haut : avec la police plus grande, le texte (remonté de 2 px comme toutes les pastilles) était
+                    0,5 px trop haut ; il tombe ainsi au centre, comme dans la recherche (mesuré le 05/11). */}
+                <TagPill color={t.hidden ? HIDDEN_COLOR : color(t.categoryId ?? 0)} fullTitleIfCut className="px-2.5 pt-[5px] pb-1 text-sm">
                   {displayTag(t.name)}
                 </TagPill>
               </span>
               <span className="text-right text-sm text-foreground tabular-nums">{formatNumber(t.media)}</span>
-              <span className="flex gap-2">
+              <span className="flex justify-end gap-2">
                 <Button data-zone="tags-corbeille.restaurer" variant="outline" size="sm" onClick={() => void restoreTrash([t.id])} className={TOOL}>
                   Restaurer
                 </Button>

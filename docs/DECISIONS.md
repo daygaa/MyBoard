@@ -1391,3 +1391,9 @@ encore un sens (contraintes de la base, pas de boucle, un tag principal d'un seu
 tag de la corbeille est rangée avec lui et revient avec lui ; un groupe vidé par le départ d'un autre nom est recréé.
 Table `tag_trash` (schéma 14) : une ligne par tag, ses comptes pour les pop-ins, le journal en JSON. Effacement après 30
 jours par le fil des suppressions de médias, comme la réserve (DEL-05).
+
+**Complément du 05/11 (retouches, v99).** La case « Supprimer définitivement » de la pop-in des tags non utilisés est
+retenue dans l'état de l'interface enregistré par le navigateur (`stores/ui.ts`, comme le menu burger), donc même après
+la fermeture de MyBoard ; celle de la pop-in de suppression d'un tag reste décochée à chaque ouverture (demande de
+TAGM-19). Les badges (`GridBadge`) passent au premier plan (z-index 200, au-dessus de la barre de titre à 130, des menus
+à 140, des pop-ins à 120 et de la visionneuse à 100) ; ils ne captent aucun clic.

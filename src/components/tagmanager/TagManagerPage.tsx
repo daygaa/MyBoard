@@ -53,6 +53,9 @@ import { freshTagsTab, NO_FILTERS, STEP, useTagsEntry, useTagsTab, type TagsTabS
 import { useTagList } from "./useTagList";
 
 const TOOL = "h-8 gap-1.5 border-border bg-card/60 text-xs hover:bg-secondary hover:text-foreground";
+/** Contour rouge des boutons qui suppriment (« Corbeille », « Supprimer les tags non utilisés » ; retour du 05/11). Aussi pour le
+ *  thème sombre : le style « contour » des boutons y impose sa propre bordure. */
+const RED_EDGE = "border-destructive dark:border-destructive";
 /** Largeur de la page : 72 % de la fenêtre (TAGM-04.2), toute la fenêtre si elle est étroite. */
 const PAGE = "mx-auto w-full max-w-[max(72rem,72vw)] px-4 lg:px-6";
 
@@ -169,10 +172,10 @@ function ManagerPage({ tab, store }: { tab: TagTab; store: StoreApi<TagsTabState
                 tags={all}
                 rules={rules}
                 tagOf={tagOf}
-                onCreated={(name) => {
+                onCreated={(name, restored) => {
                   // Le filtre montre le nouveau tag (choix de l'utilisateur), sinon il pourrait tomber après les 100 premiers.
                   setFilters({ ...NO_FILTERS, text: displayTag(name) });
-                  showGridBadge(`Tag « ${displayTag(name)} » créé`);
+                  showGridBadge(`Tag « ${displayTag(name)} » ${restored ? "restauré" : "créé"}`);
                 }}
               />
               {tab === "tags" && similarButton}
@@ -185,7 +188,7 @@ function ManagerPage({ tab, store }: { tab: TagTab; store: StoreApi<TagsTabState
               </Button>
               {/* Corbeille des tags (TAGM-19) ; grisée quand elle est vide, la bulle passe par l'enveloppe. */}
               <span title={trashCount === 0 ? "La corbeille est vide" : undefined} className="inline-flex">
-                <Button data-zone="gestionnaire-tags.corbeille" variant="outline" size="sm" disabled={trashCount === 0} onClick={() => setDialog("trash")} className={TOOL}>
+                <Button data-zone="gestionnaire-tags.corbeille" variant="outline" size="sm" disabled={trashCount === 0} onClick={() => setDialog("trash")} className={cn(TOOL, RED_EDGE)}>
                   Corbeille ({formatNumber(trashCount)})
                 </Button>
               </span>
@@ -197,7 +200,7 @@ function ManagerPage({ tab, store }: { tab: TagTab; store: StoreApi<TagsTabState
                   size="sm"
                   disabled={unused.length === 0}
                   onClick={() => setDialog("unused")}
-                  className={cn(TOOL, "text-rose-300 hover:text-rose-200")}
+                  className={cn(TOOL, RED_EDGE, "text-rose-300 hover:text-rose-200")}
                 >
                   Supprimer les tags non utilisés
                 </Button>

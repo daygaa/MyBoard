@@ -3,6 +3,25 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Retouches de la corbeille, badges au premier plan (05/11/2026) — Backup v99
+
+SPEC : TAGM-19 `[~]` (retouches), SEL-08 (badges, reste `[x]`), VIEW-25 (réponses notées, phase 4).
+
+- Boutons « Corbeille » et « Supprimer les tags non utilisés » : contour rouge (textes et survol inchangés).
+- Pop-in « Corbeille » : texte des pastilles centré (1 px de plus en haut : la police plus grande le laissait 0,5 px
+  trop haut) ; « Médias » au-dessus des nombres (colonne des boutons de largeur fixe).
+- Pop-in « Supprimer les tags non utilisés » : « Ils seront placés dans la corbeille pendant 30 jours. » sous le titre ;
+  case « Supprimer définitivement » sous « Sélection manuelle » (et sous la liste ouverte), retenue d'une fois sur
+  l'autre, même après la fermeture de MyBoard.
+- Badges toujours au premier plan, visionneuse comprise ; badge « Tag … restauré » après « Créer un tag » + « Oui ».
+
+Vérifié dans la version compilée, sur une copie de la base d'essai : contours, textes et survol des deux boutons ;
+écart du texte de la pastille au centre : 0 px (comme dans la recherche) ; « Médias » aligné sur les nombres ; texte,
+place et mémoire de la case (pop-in rouverte, puis MyBoard fermé et relancé) ; badge d'un synonyme créé depuis une
+pastille de la visionneuse (« Renommer… » vers un tag existant) visible par-dessus elle ; badge « restauré » ; zéro
+erreur `tsc` et `clippy`. Le contour rouge a d'abord été masqué par le style « contour » des boutons en thème sombre :
+corrigé avant la livraison.
+
 ## Corbeille des tags, lot 2, TAGM-19 (05/11/2026) — Backup v98
 
 SPEC : livré `[~]` : TAGM-19 ; DEV-07 (base d'essai au schéma 14). Schéma de la base : version 14 (table `tag_trash`).
