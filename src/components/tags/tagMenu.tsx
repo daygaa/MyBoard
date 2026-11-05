@@ -90,10 +90,12 @@ export function tagMenu(tag: TagInfo, categories: Category[], { removeFrom, rena
  *  renommer, changer de catégorie et masquer sont grisés). */
 export function termMenu(term: string, tag: TagInfo | null | undefined, categories: Category[]): MenuEntry[] {
   const { exclude, name, prefix } = splitTerm(term);
-  const { invertTerm, setTerms } = useSearch.getState();
+  const { invertTerm, removeTerm, setTerms } = useSearch.getState();
   const exact = prefix ? null : tag;
   return [
     { label: exclude ? "Inclure dans la recherche" : "Exclure de la recherche", run: () => invertTerm(term) },
+    // Comme la croix de la pastille et le menu du nom de fichier (SRCH-26) : ce seul terme (CTX-12).
+    { label: "Retirer de la recherche", run: () => removeTerm(term) },
     "separator",
     copyTag(prefix ? `${name}*` : name),
     renameEntry(exact),

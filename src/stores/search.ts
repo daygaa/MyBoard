@@ -15,6 +15,7 @@ import { create } from "zustand";
 import { stepState } from "@/lib/historySteps";
 import { navigate } from "@/lib/router";
 import { useLibrary } from "./library";
+import { stopSelection } from "./selection";
 
 type Search = {
   /** Termes actifs, dans l'ordre d'ajout : `tag`, `-tag` (exclusion), `tag*` (joker). */
@@ -121,6 +122,23 @@ const NONE: Search = { terms: [], file: null };
 export function searchInLibrary(terms: string[]) {
   lastView = "bibliotheque";
   useSearch.setState(apply({ terms: merge([], terms), file: null }, false));
+  navigate("library");
+}
+
+/** Retour complet à l'accueil (NAV-08) : logo « MyBoard » de l'en-tête et « Bibliothèque » du menu burger.
+ *  Bibliothèque, mode sélection quitté, recherche vide (une étape d'historique : le retour arrière la
+ *  ramène, comme après « Tout effacer ») et filtres de type retirés ; tri et densité gardés. */
+export function goHome() {
+  stopSelection();
+  useLibrary.getState().showAllKinds();
+  const view = searchView(window.location.hash);
+  if (view === "bibliotheque") useSearch.getState().setTerms([]);
+  else if (view === null) {
+    // Importer, gestionnaire de tags : sans cela, la bibliothèque reprendrait la recherche d'avant.
+    lastView = "bibliotheque";
+    useSearch.setState(apply(NONE, false));
+  }
+  // Favoris ou dossier : la bibliothèque est une autre vue, elle repart d'elle-même d'une recherche vide.
   navigate("library");
 }
 

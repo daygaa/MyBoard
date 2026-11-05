@@ -6,7 +6,7 @@
 import { deleteEntry } from "@/components/library/DeleteDialog";
 import type { MediaItem } from "@/lib/api";
 import type { MenuEntry } from "@/lib/contextMenu";
-import { VIDEO_SHORTCUTS, VIEWER_SHORTCUTS } from "@/lib/shortcuts";
+import { VIDEO_SHORTCUTS, VIEWER_SHORTCUTS, ZOOM_SHORTCUTS } from "@/lib/shortcuts";
 import { isSilent, SPEEDS, speedLabel, usePlayer } from "@/stores/player";
 import { useViewer } from "@/stores/viewer";
 import { copyFile, copyImage, copyName, copyPath, deleteShown, openFile, revealFile, saveFrame, setWallpaper } from "./mediaActions";
@@ -18,7 +18,7 @@ function fullscreenEntry(): MenuEntry {
 }
 
 /** Commandes du zoom de la visionneuse (useZoom). */
-export type ZoomControls = { zoomTo: (scale: number | "fit") => void; fitIsFullSize: boolean };
+export type ZoomControls = { zoomTo: (scale: number | "fit" | "adapt") => void; fitIsFullSize: boolean; adaptDisabled: boolean };
 
 /** Paliers du zoom : « Défaut » (ajusté, ou 100 % pour une image plus petite que la zone) ; 100 %
  *  grisé quand le défaut l'est déjà. */
@@ -34,6 +34,12 @@ function zoomEntry(zoom: ZoomControls): MenuEntry {
       step("400 %", 4),
     ],
   };
+}
+
+/** « Adapter à l'écran » (ZOOM-12), juste sous « Zoom ▸ » : grisé s'il est impossible, pareil que
+ *  « Défaut », ou déjà fait. */
+function adaptEntry(zoom: ZoomControls): MenuEntry {
+  return { label: "Adapter à l'écran", shortcut: ZOOM_SHORTCUTS.adapt.label, disabled: zoom.adaptDisabled, run: () => zoom.zoomTo("adapt") };
 }
 
 const fileEntries = (item: MediaItem) => ({
@@ -52,6 +58,7 @@ export function imageMenu(item: MediaItem, zoom: ZoomControls): MenuEntry[] {
     "separator",
     fullscreenEntry(),
     zoomEntry(zoom),
+    adaptEntry(zoom),
     "separator",
     file.path,
     file.open,
@@ -83,6 +90,7 @@ export function videoMenu(item: MediaItem, video: HTMLVideoElement, zoom: ZoomCo
     },
     fullscreenEntry(),
     zoomEntry(zoom),
+    adaptEntry(zoom),
     "separator",
     file.copy,
     // L'image affichée au moment du clic droit.

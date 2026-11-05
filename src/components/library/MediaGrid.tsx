@@ -4,6 +4,7 @@
 // La page défile dans la zone sous la barre de titre (NAV-04, `lib/scroller`), pas la fenêtre.
 // Mode sélection : rectangle de sélection (SEL-06) ; la page affichée est donnée à la sélection pour
 // « Tout » (SEL-04) et Maj + clic (SEL-10).
+// Touche Suppr : pop-in de suppression du média sous la souris ou de la sélection (GRID-13, DeleteKey).
 
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
@@ -14,6 +15,7 @@ import type { MediaItem } from "@/lib/api";
 import { scroller } from "@/lib/scroller";
 import { COMPACT_DENSITY, GRID_GAP, NAME_ONLY_TILE_INCHES, TILE_FULL_WIDTH, thumbSizeFor } from "@/lib/grid";
 import { setSelectionPage, useSelection } from "@/stores/selection";
+import { DeleteKey } from "./DeleteKey";
 import { MediaTile } from "./MediaTile";
 
 /** Largeur de la grille et sa position dans la zone qui défile, tenues à jour. */
@@ -129,6 +131,7 @@ export function MediaGrid({ items, density, firstIndex, pageSize }: Props) {
           </div>
         ))}
       <div ref={rectangleRef} data-zone="grille.rectangle" className="pointer-events-none fixed z-40 hidden rounded-sm border border-[#d9a94e] bg-[#d9a94e]/25" />
+      <DeleteKey />
     </div>
   );
 }

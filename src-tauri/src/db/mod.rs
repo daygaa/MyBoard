@@ -5,6 +5,8 @@ use std::path::Path;
 use anyhow::Context;
 use rusqlite::Connection;
 
+pub mod name_key;
+
 /// Migrations dans l'ordre : l'indice + 1 = numéro de version (`PRAGMA user_version`).
 const MIGRATIONS: &[&str] = &[
     include_str!("schema_v1.sql"),
@@ -21,6 +23,7 @@ const MIGRATIONS: &[&str] = &[
     include_str!("schema_v12.sql"),
     include_str!("schema_v13.sql"),
     include_str!("schema_v14.sql"),
+    include_str!("schema_v15.sql"),
 ];
 
 /// Ouvre une connexion avec les réglages communs à toute l'application.
@@ -52,10 +55,11 @@ pub fn migrate(conn: &mut Connection) -> anyhow::Result<()> {
     Ok(())
 }
 
-/// Ouvre la base et applique les migrations.
+/// Ouvre la base et applique les migrations ; puis la clé de tri du nom des médias qui n'en ont pas (FILT-09).
 pub fn open_and_migrate(path: &Path) -> anyhow::Result<Connection> {
     let mut conn = open(path)?;
     migrate(&mut conn)?;
+    name_key::fill_missing(&mut conn)?;
     Ok(conn)
 }
 

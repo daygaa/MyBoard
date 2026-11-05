@@ -6,7 +6,9 @@
 // coche toute la rangée (SEL-10) ; clic droit d'une vignette cochée : menu de la sélection (SEL-08). Vignettes de
 // moins de ~2,2 cm : nom seul, agrandi, sans l'étoile (GRID-11, GRID-08, index.css). Un média supprimé
 // disparaît à l'instant du clic (DEL-01).
-// Hors sélection : clic = visionneuse plein écran (VIEW-01) ; clic droit = menu de la vignette (CTX-05).
+// Hors sélection : clic = visionneuse plein écran (VIEW-01) ; Ctrl + clic = coche la vignette et passe en mode
+// sélection (SEL-11) ; clic droit = menu de la vignette (CTX-05). `data-media` : média sous la souris pour la
+// touche Suppr (GRID-13, MediaGrid).
 //
 // Taille de l'image choisie par la grille d'après la largeur réelle de la vignette (LIB-16) :
 // 128 px (LIB-12) ou 320 px ; pour 640 et 1 280 px, la 320 px s'affiche puis le grand aperçu,
@@ -25,7 +27,7 @@ import type { ThumbSize } from "@/lib/grid";
 import { cn } from "@/lib/utils";
 import { useDeletion } from "@/stores/deletion";
 import { setFavorite, useIsFavorite } from "@/stores/favorites";
-import { isSelected, toggleRowOf, toggleSelected, useIsSelected, useSelection } from "@/stores/selection";
+import { isSelected, startSelection, toggleRowOf, toggleSelected, useIsSelected, useSelection } from "@/stores/selection";
 import { useThumbs } from "@/stores/thumbs";
 import { useViewer } from "@/stores/viewer";
 import { loadSelection } from "./selectionMenu";
@@ -181,10 +183,13 @@ export const MediaTile = memo(function MediaTile({ item, index, pageSize, compac
     <div
       ref={ref}
       data-zone="grille.vignette"
+      data-media={item.id}
       title={item.fileName}
       onClick={(e) => {
-        if (!selecting) useViewer.getState().openAt(index, item, pageSize);
-        else if (e.shiftKey) toggleRowOf(item.id);
+        if (!selecting) {
+          if (e.ctrlKey || e.metaKey) startSelection([item]);
+          else useViewer.getState().openAt(index, item, pageSize);
+        } else if (e.shiftKey) toggleRowOf(item.id);
         else toggleSelected(item);
       }}
       // Maj + clic : pas de texte sélectionné au passage.

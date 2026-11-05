@@ -93,8 +93,8 @@ impl Indexer {
         let file_name = file.path.file_name().and_then(|n| n.to_str()).unwrap_or(path);
         conn.prepare_cached(
             "INSERT INTO media (hash, path, file_name, ext, kind, size, width, height,
-                                file_created_at, file_modified_at, imported_at, thumb_status)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
+                                file_created_at, file_modified_at, imported_at, thumb_status, name_key)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
         )?
         .execute(params![
             hash,
@@ -108,7 +108,8 @@ impl Indexer {
             created,
             modified,
             now,
-            thumb_status
+            thumb_status,
+            crate::db::name_key::name_key(file_name)
         ])?;
         Ok(Outcome::Imported(conn.last_insert_rowid()))
     }

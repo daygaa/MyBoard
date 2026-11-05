@@ -62,7 +62,7 @@ export function removeFromFolderEntry({ ids }: SelectionContext, folderId: numbe
 
 /** « Supprimer X de la bibliothèque… » : pop-in de DEL-04 au pluriel ; les médias supprimés quittent
  *  la sélection (ceux dont le fichier n'a pas pu être effacé y reviennent, DEL-08). */
-export function deleteSelectionEntry({ ids }: SelectionContext): MenuItem {
+export function deleteSelectionEntry({ ids }: Pick<SelectionContext, "ids">): MenuItem {
   return deleteEntry(
     { count: ids.length, name: singleName() },
     // Retirés de la sélection avant l'envoi : la réponse du cœur Rust (échec d'un fichier) peut

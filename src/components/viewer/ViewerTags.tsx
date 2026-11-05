@@ -15,7 +15,7 @@ import { useCategories } from "@/hooks/useCategories";
 import { useTagChanges } from "@/hooks/useTagChanges";
 import { api, type MediaKind, type TagInfo } from "@/lib/api";
 import { openContextMenu } from "@/lib/contextMenu";
-import { displayTag, normalizeTag, withDescription } from "@/lib/tags";
+import { compareTagNames, displayTag, normalizeTag, withDescription } from "@/lib/tags";
 
 /** Champ d'ajout de tag (VIEW-20 : placé juste à droite des infos du fichier). */
 export function TagAdder({ mediaId, kind }: { mediaId: number; kind: MediaKind }) {
@@ -75,7 +75,8 @@ export function TagAdder({ mediaId, kind }: { mediaId: number; kind: MediaKind }
 /** Couleur d'un tag masqué de la recherche (CTX-04). */
 const HIDDEN_COLOR = "#a1a1aa";
 
-/** Pastilles des tags du média, dans l'ordre des catégories (TAGM-03), les masqués en dernier. */
+/** Pastilles des tags du média, dans l'ordre des catégories (TAGM-03), puis par ordre alphabétique (VIEW-51) ;
+ *  les masqués en dernier (CTX-04), triés de même. */
 type PillsProps = { mediaId: number; kind: MediaKind; tags: TagInfo[]; onSearch: (name: string) => void };
 
 export function TagPills({ mediaId, kind, tags, onSearch }: PillsProps) {
@@ -83,7 +84,7 @@ export function TagPills({ mediaId, kind, tags, onSearch }: PillsProps) {
   const { remove } = useTagChanges();
   const order = new Map(list.map((c) => [c.id, c.sortOrder]));
   const rank = (t: TagInfo) => (t.hidden ? 1000 : 0) + (order.get(t.categoryId) ?? 99);
-  const sorted = [...tags].sort((a, b) => rank(a) - rank(b));
+  const sorted = [...tags].sort((a, b) => rank(a) - rank(b) || compareTagNames(a.name, b.name));
 
   if (sorted.length === 0) {
     return <span className="text-xs text-muted-foreground italic">Aucun tag. Utilise le champ ci-dessus pour en ajouter.</span>;

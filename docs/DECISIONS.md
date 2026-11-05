@@ -1397,3 +1397,25 @@ retenue dans l'état de l'interface enregistré par le navigateur (`stores/ui.ts
 la fermeture de MyBoard ; celle de la pop-in de suppression d'un tag reste décochée à chaque ouverture (demande de
 TAGM-19). Les badges (`GridBadge`) passent au premier plan (z-index 200, au-dessus de la barre de titre à 130, des menus
 à 140, des pop-ins à 120 et de la visionneuse à 100) ; ils ne captent aucun clic.
+
+## D-050 — Le tri par nom de fichier : une clé calculée par MyBoard (06/11/2026)
+
+**Contexte.** FILT-09 demande l'ordre de l'Explorateur de Windows : « image2 » avant « image10 », majuscules et
+accents ignorés. SQLite ne sait comparer les textes que caractère par caractère (« image10 » avant « image2 », « école »
+après « zèbre »). Trier 100 000 médias à chaque page sans index serait trop lent.
+
+**Choix (accepté par l'utilisateur le 05/11).** Une colonne cachée `media.name_key` (schéma 15) et son index
+`media_name_key (name_key, id)` : MyBoard y écrit une clé calculée à partir du nom (`db/name_key.rs`) — minuscules,
+accents retirés, chaque nombre précédé de son nombre de chiffres (« 2 » → « 012 », « 10 » → « 0210 »), le nom sans
+l'extension d'abord puis l'extension (séparés par un caractère plus petit que tous les autres : « photo.jpg » avant
+« photo 2.jpg », comme dans l'Explorateur). La clé est écrite à l'import ; à chaque ouverture de la base, les médias qui
+n'en ont pas la reçoivent (bibliothèques d'avant le schéma 15, médias écrits par les outils de test) : 1,8 s une seule
+fois pour 100 000 médias, puis 0,1 ms. Le fichier n'est jamais touché.
+
+**Écartés.** Une fonction de comparaison ajoutée à SQLite (elle devrait être déclarée sur chaque connexion, outils de
+test compris, sinon l'index devient illisible) ; le simple ordre des caractères (ce que l'utilisateur ne voulait pas).
+
+**Complément (DEL-08.2, même lot).** Pour un fichier en lecture seule, MyBoard demande à Windows de l'ouvrir avec le droit
+d'effacer (sans rien effacer ni modifier ; la lecture seule n'empêche pas cette ouverture) : un refus « erreur 32 »
+veut dire qu'un autre programme le tient ouvert ; il est alors signalé avec les deux raisons et « Supprimer quand
+même » ne le propose pas.

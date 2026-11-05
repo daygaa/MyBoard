@@ -5,8 +5,16 @@
 // `tx`, `ty` = décalage du centre de l'image par rapport au centre de la scène, en pixels.
 // Non zoomé : image « ajustée » et centrée. Zoomé : l'échelle et le décalage sont gardés, et
 // toujours bornés pour ne jamais sortir de l'image (recalculés si la fenêtre change de taille).
+// « Adapter à l'écran » (ZOOM-11, ZOOM-12) : le plus grand zoom où le média tient encore dans la zone
+// (entre la barre de titre et la barre du bas ; tout l'écran en plein écran). La molette s'y arrête au
+// passage, dans les deux sens ; adapté, le média le reste quand la zone change (touche F, fenêtre),
+// comme « ajusté ».
 
 import { useEffect, useLayoutEffect, useRef, useState, type PointerEvent, type RefObject } from "react";
+
+import { hasModalLayer } from "@/lib/escape";
+import { ZOOM_SHORTCUTS } from "@/lib/shortcuts";
+import { isTyping } from "./navigation";
 
 /** Zoom maximal ×4 (ZOOM-02). */
 export const MAX_ZOOM = 4;
@@ -24,12 +32,21 @@ const EPS = 0.0001;
 
 export type Size = { w: number; h: number };
 export type View = { scale: number; tx: number; ty: number };
-type Zoom = { zoomed: false } | { zoomed: true; scale: number; tx: number; ty: number };
+/** « ajusté » (ZOOM-01), « adapté à l'écran » (ZOOM-12 : suit la taille de la zone), ou zoom libre. */
+type Zoom = { mode: "fit" } | { mode: "adapt" } | { mode: "free"; scale: number; tx: number; ty: number };
+const FIT: Zoom = { mode: "fit" };
+const ADAPT: Zoom = { mode: "adapt" };
 
 /** Niveau « ajusté » (ZOOM-01), plafonné à 1 : une petite image reste en taille réelle. */
 export function fitScale(img: Size, stage: Size): number {
   if (!img.w || !img.h || !stage.w || !stage.h) return 1;
   return Math.min(1, stage.w / img.w, stage.h / img.h);
+}
+
+/** « Adapter à l'écran » (ZOOM-11) : le média touche deux bords de la zone sans en dépasser aucun. */
+export function adaptScale(img: Size, stage: Size): number {
+  if (!img.w || !img.h || !stage.w || !stage.h) return 0;
+  return Math.min(stage.w / img.w, stage.h / img.h);
 }
 
 /** ZOOM-04 : tant que l'image tient dans l'écran sur un axe, elle y reste centrée ; sinon le
@@ -63,29 +80,37 @@ export function useZoom(
 ) {
   const stage = useStageSize(stageRef);
   const minScale = fitScale(img, stage);
-  const [zoom, setZoom] = useState<Zoom>({ zoomed: false });
+  const adapt = adaptScale(img, stage);
+  /** « Adapter » utile : plus grand que « ajusté » (petit média) et atteint à 400 % au plus (ZOOM-12). */
+  const canAdapt = adapt > minScale + EPS && adapt <= MAX_ZOOM + EPS;
+  const [zoom, setZoom] = useState<Zoom>(FIT);
   const [animate, setAnimate] = useState(false);
+  const adapted = zoom.mode === "adapt" && canAdapt;
 
-  const view: View = zoom.zoomed
-    ? {
-        scale: zoom.scale,
-        tx: clampAxis(zoom.tx, img.w * zoom.scale, stage.w),
-        ty: clampAxis(zoom.ty, img.h * zoom.scale, stage.h),
-      }
-    : { scale: minScale, tx: 0, ty: 0 };
+  const view: View =
+    zoom.mode === "free"
+      ? {
+          scale: zoom.scale,
+          tx: clampAxis(zoom.tx, img.w * zoom.scale, stage.w),
+          ty: clampAxis(zoom.ty, img.h * zoom.scale, stage.h),
+        }
+      : { scale: adapted ? adapt : minScale, tx: 0, ty: 0 };
+  const zoomed = zoom.mode === "free" || adapted;
 
   // Valeurs à jour lues par les gestionnaires d'événements (molette regroupée par image affichée).
-  const live = useRef({ view, img, stage, minScale, onBackgroundClose, onContentClick });
+  const live = useRef({ view, img, stage, minScale, adapt, canAdapt, adapted, onBackgroundClose, onContentClick });
   useLayoutEffect(() => {
-    live.current = { view, img, stage, minScale, onBackgroundClose, onContentClick };
+    live.current = { view, img, stage, minScale, adapt, canAdapt, adapted, onBackgroundClose, onContentClick };
   });
 
-  /** Nouvelle échelle et nouveau décalage, bornés ; revenir à « ajusté » recentre l'image. */
+  /** Nouvelle échelle et nouveau décalage, bornés ; revenir à « ajusté » recentre l'image ; au niveau
+   *  « Adapter », le média est adapté (centré, il suit la zone). */
   const commit = (scale: number, tx: number, ty: number, animated: boolean) => {
-    const { img: i, stage: s, minScale: min } = live.current;
+    const { img: i, stage: s, minScale: min, adapt: a, canAdapt: can } = live.current;
     setAnimate(animated);
-    if (scale <= min + EPS) setZoom({ zoomed: false });
-    else setZoom({ zoomed: true, scale, tx: clampAxis(tx, i.w * scale, s.w), ty: clampAxis(ty, i.h * scale, s.h) });
+    if (scale <= min + EPS) setZoom(FIT);
+    else if (can && Math.abs(scale - a) < EPS) setZoom(ADAPT);
+    else setZoom({ mode: "free", scale, tx: clampAxis(tx, i.w * scale, s.w), ty: clampAxis(ty, i.h * scale, s.h) });
   };
 
   /** Position du pointeur par rapport au centre de la scène. */
@@ -102,10 +127,12 @@ export function useZoom(
     const pending = { delta: 0, cx: 0, cy: 0, frame: 0 };
     const apply = () => {
       pending.frame = 0;
-      const { view: v, img: i, minScale: min } = live.current;
+      const { view: v, img: i, minScale: min, adapt: a, canAdapt: can } = live.current;
       if (!i.w || !i.h) return;
-      const next = Math.max(min, Math.min(MAX_ZOOM, v.scale + pending.delta / WHEEL_DIVISOR));
+      let next = Math.max(min, Math.min(MAX_ZOOM, v.scale + pending.delta / WHEEL_DIVISOR));
       pending.delta = 0;
+      // ZOOM-11 : le cran qui passe le niveau « Adapter » s'y arrête, en zoomant comme en dézoomant.
+      if (can && ((v.scale < a - EPS && next > a + EPS) || (v.scale > a + EPS && next < a - EPS))) next = a;
       if (Math.abs(next - v.scale) < EPS) return;
       // Le point de l'image sous le curseur reste sous le curseur.
       const ax = (pending.cx - v.tx) / v.scale;
@@ -134,7 +161,7 @@ export function useZoom(
   const onPointerDown = (e: PointerEvent<HTMLDivElement>) => {
     if (e.button !== 0 || (e.target as HTMLElement).closest("button")) return;
     drag.current = { id: e.pointerId, x0: e.clientX, y0: e.clientY, x: e.clientX, y: e.clientY, moved: false };
-    if (zoom.zoomed) e.currentTarget.setPointerCapture(e.pointerId);
+    if (zoomed) e.currentTarget.setPointerCapture(e.pointerId);
   };
 
   const onPointerMove = (e: PointerEvent<HTMLDivElement>) => {
@@ -146,7 +173,7 @@ export function useZoom(
     d.x = e.clientX;
     d.y = e.clientY;
     // Déplacement uniquement si zoomé (ZOOM-06), sans animation.
-    if (!d.moved || !zoom.zoomed) return;
+    if (!d.moved || !zoomed) return;
     const v = live.current.view;
     commit(v.scale, v.tx + dx, v.ty + dy, false);
   };
@@ -161,11 +188,11 @@ export function useZoom(
     const onImage = Math.abs(cx - v.tx) <= (i.w * v.scale) / 2 && Math.abs(cy - v.ty) <= (i.h * v.scale) / 2;
     if (!onImage) {
       // Fond : zoomé → retour à « ajusté » ; sinon → fermer la visionneuse.
-      if (zoom.zoomed) commit(min, 0, 0, true);
+      if (zoomed) commit(min, 0, 0, true);
       else live.current.onBackgroundClose();
     } else if (live.current.onContentClick) {
       live.current.onContentClick();
-    } else if (zoom.zoomed) {
+    } else if (zoomed) {
       commit(min, 0, 0, true); // zoomé → « ajusté », centré
     } else if (min < 1 - EPS) {
       // « Ajusté » → taille réelle, centrée sur le point cliqué.
@@ -177,21 +204,44 @@ export function useZoom(
     }
   };
 
+  // Touche A (ZOOM-12) : adapté → « ajusté » ; sinon adapté (rien s'il ne peut pas l'être). Comme les
+  // autres touches de la visionneuse : pas pendant une saisie ni avec une pop-in ouverte.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key.toLowerCase() !== ZOOM_SHORTCUTS.adapt.key || e.ctrlKey || e.altKey || e.metaKey) return;
+      if (isTyping(e.target) || hasModalLayer()) return;
+      const { adapted: was, canAdapt: can, adapt: a, minScale: min } = live.current;
+      if (was) commit(min, 0, 0, true);
+      else if (can) commit(a, 0, 0, true);
+      else return;
+      e.preventDefault();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+    // `commit` ne lit que des références : inutile de le suivre.
+  }, []);
+
   return {
     view,
-    zoomed: zoom.zoomed,
+    zoomed,
     animate,
     /** Retour à « ajusté », centré, avec l'animation du clic. */
     reset: () => commit(live.current.minScale, 0, 0, true),
-    /** « Défaut » = « ajusté » (100 % pour une image plus petite que la zone). */
-    fitIsFullSize: minScale >= 1 - EPS,
-    /** Paliers du menu du clic droit (CTX-06, CTX-07) : `scale` (1 = 100 %), ou « Défaut ». Le
-     *  point au centre de la scène y reste, avec l'animation du clic. */
-    zoomTo: (scale: number | "fit") => {
-      const { view: v, minScale: min } = live.current;
-      if (scale === "fit") return commit(min, 0, 0, true);
-      const next = Math.min(MAX_ZOOM, Math.max(min, scale));
-      commit(next, (v.tx * next) / v.scale, (v.ty * next) / v.scale, true);
+    /** Commandes du menu du clic droit (CTX-06, CTX-07, mediaMenus). */
+    controls: {
+      /** Paliers : `scale` (1 = 100 %), « Défaut », ou « Adapter à l'écran » (ZOOM-12). Le point au
+       *  centre de la scène y reste, avec l'animation du clic. */
+      zoomTo: (scale: number | "fit" | "adapt") => {
+        const { view: v, minScale: min, adapt: a } = live.current;
+        if (scale === "fit") return commit(min, 0, 0, true);
+        if (scale === "adapt") return commit(a, 0, 0, true);
+        const next = Math.min(MAX_ZOOM, Math.max(min, scale));
+        commit(next, (v.tx * next) / v.scale, (v.ty * next) / v.scale, true);
+      },
+      /** « Défaut » = « ajusté » (100 % pour une image plus petite que la zone). */
+      fitIsFullSize: minScale >= 1 - EPS,
+      /** « Adapter à l'écran » grisé (ZOOM-12) : impossible, pareil que « Défaut », ou déjà adapté. */
+      adaptDisabled: !canAdapt || adapted,
     },
     // Geste interrompu (fenêtre qui perd le focus…) : ni clic ni déplacement.
     handlers: { onPointerDown, onPointerMove, onPointerUp, onPointerCancel: () => (drag.current = null) },

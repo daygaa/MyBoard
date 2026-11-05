@@ -1,7 +1,8 @@
 // Fichiers non effacés (DEL-04, DEL-08) : leurs médias sont revenus dans la bibliothèque avec toutes
 // leurs données. Les fichiers en lecture seule sont listés à part, chacun avec son chemin (un clic
 // ouvre l'Explorateur sur le fichier), et « Supprimer quand même » (rouge) les efface en retirant la
-// lecture seule. Ceux qui échouent encore restent listés avec la raison, sans le bouton. « Copier »
+// lecture seule. Ceux qui échouent encore restent listés avec la raison, sans le bouton ; de même, d'emblée,
+// un fichier en lecture seule aussi utilisé par un autre programme (erreur 32, DEL-08.2). « Copier »
 // met tout le texte dans le presse-papiers (CTX-19).
 
 import { useState } from "react";
@@ -35,8 +36,9 @@ function FileLine({ file, withReason }: { file: FailedFile; withReason: boolean 
       >
         {file.path}
       </button>
+      {/* Une ligne vide entre le chemin et la raison (DEL-08.1). */}
       {withReason && (
-        <p className="text-xs text-rose-200/90">
+        <p className="mt-4 text-xs text-rose-200/90">
           {reason(file)}
           {explanation && <span className="text-muted-foreground"> — {explanation}</span>}
         </p>

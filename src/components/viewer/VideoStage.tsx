@@ -74,7 +74,7 @@ export function VideoStage({ item, onClose, fallback }: { item: MediaItem; onClo
   const [failed, setFailed] = useState(false);
   const { volume, muted, loop, speed } = usePlayer();
   const { idle, restartIdle } = useContext(ViewerChrome);
-  const { view, zoomed, animate, handlers, reset, zoomTo, fitIsFullSize } = useZoom(stageRef, natural, onClose, () => toggle(videoRef.current));
+  const { view, zoomed, animate, handlers, reset, controls } = useZoom(stageRef, natural, onClose, () => toggle(videoRef.current));
   const frame = useFrameDuration(videoRef);
   const badge = usePlayerBadge();
   const showBadge = badge.show;
@@ -129,7 +129,7 @@ export function VideoStage({ item, onClose, fallback }: { item: MediaItem; onClo
           autoPlay
           playsInline
           onError={() => setFailed(true)}
-          onContextMenu={(e) => openContextMenu(e, () => videoMenu(item, e.currentTarget, { zoomTo, fitIsFullSize }))}
+          onContextMenu={(e) => openContextMenu(e, () => videoMenu(item, e.currentTarget, controls))}
           onLoadedMetadata={(e) => {
             const v = e.currentTarget;
             // Piste image illisible (le son seul passerait) : même message que l'échec.

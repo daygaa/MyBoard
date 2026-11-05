@@ -14,6 +14,7 @@ import { useOutsideClose } from "@/hooks/useOutsideClose";
 import { useEscape } from "@/lib/escape";
 import { navigate, useRoute, type Route } from "@/lib/router";
 import { cn } from "@/lib/utils";
+import { goHome } from "@/stores/search";
 import { useUI } from "@/stores/ui";
 
 type Item = { label: string; icon: ComponentType<{ className?: string }>; route?: Route };
@@ -37,7 +38,9 @@ function NavItem({ item, onDone }: { item: Item; onDone: () => void }) {
     <button
       type="button"
       onClick={() => {
-        navigate(target);
+        // « Bibliothèque » : retour complet à l'accueil, comme le logo de l'en-tête (NAV-08).
+        if (target === "library") goHome();
+        else navigate(target);
         onDone();
       }}
       className={cn(ITEM_CLASS, "text-foreground hover:bg-secondary", route === target && "bg-secondary")}

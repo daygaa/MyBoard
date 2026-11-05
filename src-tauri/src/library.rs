@@ -115,6 +115,9 @@ pub fn order_by(sort: &str) -> &'static str {
         "res_asc" => "pixels IS NULL, pixels ASC, id ASC",
         "tags_desc" => "tag_count DESC, id DESC",
         "tags_asc" => "tag_count ASC, id ASC",
+        // Nom de fichier (FILT-09) : clé de tri, ordre de l'Explorateur ; index `media_name_key` (schéma 15).
+        "name_asc" => "name_key ASC, id ASC",
+        "name_desc" => "name_key DESC, id DESC",
         // Mélange reproductible : (id × grand nombre + graine) modulo un nombre premier.
         "random" => "(id * 2654435761 + ?) % 4294967291, id",
         _ => "id DESC", // « Récents »

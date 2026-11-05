@@ -3,6 +3,32 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Lot 3 de la fin du retour de la phase 3 (06/11/2026) — Backup v100
+
+SPEC : DEL-08, ZOOM-11, ZOOM-12, VIEW-51, GRID-13, NAV-08, GEN-15, CTX-12, FILT-09, SEL-11 `[~]` ; VIEW-54 ajouté
+(barre de lecture des GIF, lot 4). Base de données : schéma 15.
+
+- Fichiers en lecture seule (DEL-08) : un fichier en lecture seule ET ouvert dans un autre programme est signalé d'emblée
+  avec les deux raisons, sans « Supprimer quand même » (qui échouerait) ; une ligne vide entre le chemin et l'erreur.
+- Zoom de la visionneuse : la molette s'arrête quand le média touche les bords de la zone (ZOOM-11) ; « Adapter à
+  l'écran » dans le menu du clic droit des images et des vidéos, touche A (ZOOM-12) ; un média adapté le reste en
+  passant en plein écran ou en changeant la taille de la fenêtre.
+- Tags de la visionneuse : par catégorie, puis par ordre alphabétique (VIEW-51).
+- Bibliothèque : touche Suppr (GRID-13) ; Ctrl + clic sur une vignette (SEL-11) ; tri « Nom A → Z » et « Nom Z → A »,
+  dans l'ordre de l'Explorateur de Windows (FILT-09).
+- Logo « MyBoard » et « Bibliothèque » du menu burger : retour complet à l'accueil (NAV-08).
+- Pastilles : chiffres descendus de 1 px (GEN-15) ; « Retirer de la recherche » dans le menu des termes (CTX-12).
+
+Vérifié dans la version compilée, sur une copie de la base d'essai : passage au schéma 15 (3 293 médias, tous avec leur
+clé ; 1,8 s une seule fois pour 100 000 médias, sur une copie) ; ordre A → Z et Z → A de 10 noms d'essai (chiffres,
+majuscules, accents) ; menus de tri de la bibliothèque et des favoris ; ordre des 44 tags d'un média ; centre des
+chiffres à 0,5 px de celui de la croix (avant : 1,5 px) ; menu et effet de « Retirer de la recherche » ; Ctrl + clic
+(1, 2, puis 1 coché) ; touche Suppr dans 6 situations (rien supprimé) ; retour à l'accueil depuis la bibliothèque
+(recherche, type, sélection ; retour arrière) et depuis le gestionnaire de tags ; molette en avant et en arrière
+(arrêt à 227,8 %, 400 % au plus) ; « Adapter à l'écran » grisé dans les 3 cas, touche A, plein écran (270 %) et
+retour ; suppression de 4 fichiers créés pour l'essai, dont 2 tenus ouverts par PowerShell (pop-in, « Supprimer quand
+même », lecture seule gardée) ; zéro erreur `tsc` et `clippy`.
+
 ## Retouches de la corbeille, badges au premier plan (05/11/2026) — Backup v99
 
 SPEC : TAGM-19 `[~]` (retouches), SEL-08 (badges, reste `[x]`), VIEW-25 (réponses notées, phase 4).

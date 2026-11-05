@@ -30,6 +30,24 @@ type Props = {
   onMouseLeave?: () => void;
 };
 
+/** Chiffres descendus de 1 px (GEN-15) : avec la police de Windows (Segoe UI), ils sont aussi hauts
+ *  que des majuscules (9 px contre 6 px pour un « x »), alors que le texte est centré sur la croix pour
+ *  les minuscules : mesurés 1,5 px trop hauts (06/11). 1 px les laisse 0,5 px au-dessus du centre : la
+ *  ligne du dessus, comme la rayure (SRCH-16). Dans « 1girl », le « 1 » est donc un peu plus bas que
+ *  « girl » (choix de l'utilisateur, 05/11). */
+function lowerDigits(children: ReactNode): ReactNode {
+  if (typeof children !== "string" || !/\d/.test(children)) return children;
+  return children.split(/(\d+)/).map((part, i) =>
+    i % 2 ? (
+      <span key={i} className="relative top-[1px]">
+        {part}
+      </span>
+    ) : (
+      part
+    ),
+  );
+}
+
 export function TagPill({
   color,
   children,
@@ -73,11 +91,11 @@ export function TagPill({
           du bas de la croix). */}
       {onClick ? (
         <button type="button" onClick={onClick} onMouseEnter={onTextEnter} className="relative -top-[2px] min-w-0 truncate hover:underline">
-          {children}
+          {lowerDigits(children)}
         </button>
       ) : (
         <span onMouseEnter={onTextEnter} className="relative -top-[2px] min-w-0 truncate">
-          {children}
+          {lowerDigits(children)}
           {/* Rayure dessinée au centre de la croix (le texte est remonté de 2 px) : celle du
               navigateur, placée par la police, était 1,5 px trop haut (SRCH-16). Le centre tombe
               entre deux lignes de pixels : la ligne du dessus (choix de l'utilisateur). */}

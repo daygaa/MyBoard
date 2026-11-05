@@ -1,5 +1,5 @@
-// En-tête collé en haut : menu burger à gauche, logo au centre exact (NAV-01),
-// statistiques (NAV-03) et bouton Importer à droite.
+// En-tête collé en haut : menu burger à gauche, logo au centre exact (NAV-01 ; un clic : retour complet
+// à l'accueil, NAV-08), statistiques (NAV-03) et bouton Importer à droite.
 // Fond opaque (la v8 utilisait un flou d'arrière-plan, coûteux pendant le défilement : D-008).
 
 import { useEffect, useState } from "react";
@@ -10,6 +10,7 @@ import { useStats } from "@/hooks/useLibraryData";
 import { formatCount } from "@/lib/format";
 import { navigate } from "@/lib/router";
 import { scroller } from "@/lib/scroller";
+import { goHome } from "@/stores/search";
 import { useUI } from "@/stores/ui";
 
 /** Largeur réservée à la barre de défilement (index.css) : l'en-tête s'arrête avant elle,
@@ -56,7 +57,7 @@ export function Header() {
         <button
           type="button"
           data-zone="entete.logo"
-          onClick={() => navigate("library")}
+          onClick={goHome}
           className="flex items-center gap-2.5"
           style={{ transform: `translateX(${gutter / 2}px)` }}
           aria-label="MyBoard — accueil"

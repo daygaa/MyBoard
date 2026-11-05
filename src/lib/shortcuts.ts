@@ -38,6 +38,11 @@ export function withShortcut(title: string, action: ViewerAction): string {
   return `${title} (${VIEWER_SHORTCUTS[action].label})`;
 }
 
+/** Zoom de la visionneuse (ZOOM-12) : « Adapter à l'écran » (A comme « Adapt »). */
+export const ZOOM_SHORTCUTS: Record<"adapt", Shortcut> = {
+  adapt: { key: "a", label: "A" },
+};
+
 /** Lecteur vidéo (VIEW-47) : son, vitesse d'un palier (convention de YouTube), boucle. */
 export type VideoAction = "mute" | "slower" | "faster" | "loop";
 

@@ -79,6 +79,9 @@ export const SORTS = [
   { label: "Résolution ↑", value: "res_asc" },
   { label: "Nb. tags ↓", value: "tags_desc" },
   { label: "Nb. tags ↑", value: "tags_asc" },
+  // Ordre de l'Explorateur de Windows : « image2 » avant « image10 », accents et majuscules ignorés (FILT-09).
+  { label: "Nom A → Z", value: "name_asc" },
+  { label: "Nom Z → A", value: "name_desc" },
   { label: "Aléatoire", value: "random" },
 ] as const;
 

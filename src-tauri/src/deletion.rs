@@ -10,7 +10,8 @@
 //! effacées. Un fichier impossible à effacer (ouvert ailleurs, disque débranché) : son média revient
 //! dans la bibliothèque avec toutes ses données, et l'interface reçoit la liste des échecs
 //! (`deletion-failed`). Un fichier en lecture seule est refusé de même (DEL-08) ; « Supprimer quand
-//! même » le marque 3 : la lecture seule est retirée, puis il est effacé. Vignette et miniatures sont
+//! même » le marque 3 : la lecture seule est retirée, puis il est effacé. S'il est aussi utilisé par un
+//! autre programme, il est signalé avec les deux raisons et le bouton ne le propose pas (DEL-08.2). Vignette et miniatures sont
 //! effacées dans tous les cas.
 
 use std::path::{Path, PathBuf};
@@ -48,8 +49,29 @@ pub struct FailedFile {
     /// Code d'erreur Windows, quand il est connu (VIEW-28).
     pub code: Option<i32>,
     pub message: String,
-    /// Refusé parce qu'en lecture seule (DEL-08) : « Supprimer quand même » est proposé.
+    /// Refusé seulement parce qu'en lecture seule (DEL-08) : « Supprimer quand même » est proposé. En lecture
+    /// seule ET utilisé par un autre programme : `false`, avec l'erreur 32 (DEL-08.2).
     pub read_only: bool,
+}
+
+/// Code d'erreur Windows 32 si un autre programme tient le fichier ouvert sans permettre de l'effacer :
+/// MyBoard demande seulement à l'ouvrir avec le droit d'effacer, sans rien effacer ni modifier. La lecture
+/// seule n'empêche pas cette ouverture (elle n'est vérifiée qu'à l'effacement lui-même).
+#[cfg(windows)]
+fn used_elsewhere(path: &Path) -> Option<i32> {
+    use std::os::windows::fs::OpenOptionsExt;
+    const DELETE: u32 = 0x0001_0000;
+    const SHARE_ALL: u32 = 0x1 | 0x2 | 0x4; // lecture, écriture, effacement
+    const SHARING_VIOLATION: i32 = 32;
+    match std::fs::OpenOptions::new().access_mode(DELETE).share_mode(SHARE_ALL).open(path) {
+        Err(e) if e.raw_os_error() == Some(SHARING_VIOLATION) => Some(SHARING_VIOLATION),
+        _ => None,
+    }
+}
+
+#[cfg(not(windows))]
+fn used_elsewhere(_path: &Path) -> Option<i32> {
+    None
 }
 
 /// Efface le fichier ; `force` retire d'abord la lecture seule, et la remet si l'effacement échoue
@@ -65,8 +87,10 @@ fn remove_file(path: &Path, force: bool) -> Result<(), FailedFile> {
         Err(e) => return Err(fail(e)),
         Ok(meta) if meta.permissions().readonly() => {
             if !force {
+                // Aussi utilisé par un autre programme : « Supprimer quand même » échouerait (DEL-08.2).
+                let code = used_elsewhere(path);
                 let message = "Fichier en lecture seule".to_string();
-                return Err(FailedFile { id: 0, path: path.display().to_string(), code: None, message, read_only: true });
+                return Err(FailedFile { id: 0, path: path.display().to_string(), code, message, read_only: code.is_none() });
             }
             let mut writable = meta.permissions();
             #[allow(clippy::permissions_set_readonly_false)] // voulu : « Supprimer quand même »

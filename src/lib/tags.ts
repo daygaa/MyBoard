@@ -13,6 +13,11 @@ export function displayTag(name: string): string {
 
 /** Termes tapés dans la recherche : séparés par des espaces, chacun normalisé en gardant
  *  son « - » (exclusion, SRCH-03) et son « * » final (joker, SRCH-04). */
+/** Ordre alphabétique des noms de tags affichés, comme l'Explorateur de Windows (VIEW-51) : majuscules et
+ *  accents ignorés, nombres par leur valeur (« 1girl », « 2girls », « 10girls »). */
+const tagCollator = new Intl.Collator("fr", { sensitivity: "base", numeric: true });
+export const compareTagNames = (a: string, b: string) => tagCollator.compare(displayTag(a), displayTag(b));
+
 export function parseTerms(text: string): string[] {
   const terms: string[] = [];
   for (const raw of text.split(/\s+/)) {
