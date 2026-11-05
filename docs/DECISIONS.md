@@ -1367,5 +1367,8 @@ AudioRendererMixerImmediatePause` ; une option inconnue est ignorée, donc sans 
 `audio_session.rs`, un fil qui dort : inscrit auprès de Windows (`IMMNotificationClient` pour les sorties son,
 `IAudioSessionNotification` pour les flux créés), il renomme alors les flux des processus descendant de MyBoard
 (liste des processus de Windows) qui ne s'appellent pas encore « MyBoard ». Une 1re version qui vérifiait chaque
-seconde coûtait 156 ms de processeur toutes les 20 s ; celle-ci, 0 ms au repos. Dépendance : la bibliothèque
+seconde coûtait 156 ms de processeur toutes les 20 s ; celle-ci, 0 ms au repos. L'icône est donnée sous la forme
+« chemin,0 » (1re icône du fichier) : avec le chemin seul, le mélangeur de Windows garde l'icône de WebView2 (essai
+fait avec l'utilisateur le 05/11 ; une icône déjà affichée pour un processus ne change plus, d'où un contrôle avec
+un nouveau processus). Dépendance : la bibliothèque
 `windows` 0.62, déjà présente par WebView2, avec sa partie audio.

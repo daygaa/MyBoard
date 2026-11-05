@@ -34,7 +34,9 @@ enum Wake {
 
 /// Lance la tâche de fond (une fois, au démarrage).
 pub fn start() {
-    let icon = std::env::current_exe().map(|p| p.display().to_string()).unwrap_or_default();
+    // « chemin,0 » (1re icône du fichier) : avec le chemin seul, le mélangeur de Windows garde l'icône de WebView2
+    // (essai avec l'utilisateur le 05/11 : chemin seul → icône de WebView2, « ,0 » → icône de MyBoard).
+    let icon = std::env::current_exe().map(|p| format!("{},0", p.display())).unwrap_or_default();
     let _ = std::thread::Builder::new().name("nom-du-son".into()).spawn(move || {
         // SAFETY : COM est initialisé pour ce fil, qui garde ses objets jusqu'à la fermeture de MyBoard.
         if unsafe { CoInitializeEx(None, COINIT_MULTITHREADED) }.is_err() {

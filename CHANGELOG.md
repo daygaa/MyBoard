@@ -3,6 +3,17 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Icône du son de MyBoard dans le mélangeur, AUD-02 (05/11/2026) — Backup v97
+
+SPEC : AUD-02 `[~]` (retour de l'utilisateur sur la v96 : nom « MyBoard » affiché, icône de WebView2).
+
+- L'icône du flux est donnée sous la forme « chemin de myboard.exe,0 » : le mélangeur de volume de Windows affiche
+  maintenant l'icône de MyBoard (avec le chemin seul, il gardait celle de WebView2).
+
+Vérifié avec l'utilisateur, dans le mélangeur de volume, sur MyBoard de test (vidéo à volume inaudible) : forme
+« ,0 » → icône de MyBoard ; chemin seul → icône de WebView2 (contrôle avec un nouveau processus, car une icône déjà
+affichée ne change plus) ; version corrigée → icône de MyBoard. Zéro erreur `clippy`.
+
 ## Le son de MyBoard : lot 1, AUD-01 et AUD-02 (05/11/2026) — Backup v96
 
 SPEC : livrés `[~]` : AUD-01 (ex-GEN-26), AUD-02 (ex-GEN-16) ; nouvelle catégorie « AUD — Audio ». Validés : TAGM-22.
