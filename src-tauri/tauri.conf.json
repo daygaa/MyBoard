@@ -22,7 +22,8 @@
         "maximized": true,
         "decorations": false,
         "backgroundColor": "#111214",
-        "zoomHotkeysEnabled": false
+        "zoomHotkeysEnabled": false,
+        "additionalBrowserArgs": "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection --enable-features=AudioRendererMixerImmediatePause"
       }
     ],
     "security": {

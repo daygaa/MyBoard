@@ -1345,3 +1345,27 @@ règle avec sa case (`remove_cascade` d'après les notes `tag_parent_media`, pui
 pour l'aperçu, refait pour « Oui ». L'aperçu est demandé AVANT le retrait du tag : son retrait efface la note « posé
 par telle règle » (déclencheur `parent_lists_tag_removed`), qui donne le tag d'origine de la chaîne. Parents rangés
 dans l'ordre de la chaîne (`chain_order`), car les notes rangent tout sous la première règle.
+
+## D-048 — Le son de MyBoard vu par Windows (05/11/2026)
+
+**Pourquoi.** AUD-01 (ex-GEN-26) et AUD-02 (ex-GEN-16), 1er lot de la fin du retour de la phase 3 : le flux de MyBoard
+s'appelle « MSEDGEWEBVIEW2 » et reste actif environ 10 s après la pause, alors que celui de Firefox s'appelle par son
+nom et s'arrête aussitôt.
+
+**Constat (essais du 05/11).** Le son est produit par le « service audio » de WebView2 (msedgewebview2.exe, enfant du
+navigateur de WebView2, lui-même enfant de MyBoard). Après une pause, le flux reste actif 10,1 s : Chromium garde la
+sortie 10 s (`AudioRendererMixer`, valeur fixée dans son code), puis encore 5 s ouverte (`kStreamCloseDelaySeconds`).
+La fonction `AudioRendererMixerImmediatePause` (Chromium 157 et plus, désactivée par défaut) coupe aussitôt. Faire
+passer le son par Web Audio mis en veille à la pause coupe en 0,14 s, mais retarde le son d'environ 50 ms : écarté
+(choix de l'utilisateur). Un autre processus peut renommer le flux (`SetDisplayName`, `SetIconPath`) : Windows
+l'accepte. SteelSeries GG affiche le nom du programme ; une application Electron (Discord) a son propre Chromium,
+dont tous les processus portent son nom : pas WebView2, qui est le moteur partagé de Windows.
+
+**Comment.** AUD-01 : `additionalBrowserArgs` de la fenêtre (tauri.conf.json) = les 3 réglages que Tauri met
+d'office (`--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection`, perdus sinon) + `--enable-features=
+AudioRendererMixerImmediatePause` ; une option inconnue est ignorée, donc sans risque avec WebView2 156. AUD-02 :
+`audio_session.rs`, un fil qui dort : inscrit auprès de Windows (`IMMNotificationClient` pour les sorties son,
+`IAudioSessionNotification` pour les flux créés), il renomme alors les flux des processus descendant de MyBoard
+(liste des processus de Windows) qui ne s'appellent pas encore « MyBoard ». Une 1re version qui vérifiait chaque
+seconde coûtait 156 ms de processeur toutes les 20 s ; celle-ci, 0 ms au repos. Dépendance : la bibliothèque
+`windows` 0.62, déjà présente par WebView2, avec sa partie audio.

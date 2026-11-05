@@ -59,7 +59,10 @@ clipboard-win = "5"
 # Appels Windows directs : densité réelle de l'écran (GRID-11, `GetDpiForMonitor`), plein écran
 # de la fenêtre sans barre de titre (NAV-04, VIEW-34 : calcul de la zone de dessin intercepté) et
 # état des touches Ctrl / Alt (GEN-18).
-windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_Graphics_Gdi", "Win32_UI_HiDpi", "Win32_UI_Input_KeyboardAndMouse", "Win32_UI_Shell", "Win32_UI_WindowsAndMessaging"] }
+windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_Graphics_Gdi", "Win32_System_Diagnostics_ToolHelp", "Win32_UI_HiDpi", "Win32_UI_Input_KeyboardAndMouse", "Win32_UI_Shell", "Win32_UI_WindowsAndMessaging"] }
+# Nom du son de MyBoard dans le mélangeur de volume (AUD-02) : API audio de Windows (interfaces COM).
+# Même version que celle de Tauri et de WebView2 (déjà compilée), avec la partie audio en plus.
+windows = { version = "0.62", features = ["Win32_Foundation", "Win32_Media_Audio", "Win32_System_Com", "Win32_System_Com_StructuredStorage", "Win32_System_Variant"] }
 # Réglages de WebView2 que Tauri ne propose pas (menu du navigateur, raccourcis du navigateur :
 # CTX-01, GEN-18). Déjà utilisées par Tauri (mêmes versions) : rien de plus à compiler.
 webview2-com = "0.39"

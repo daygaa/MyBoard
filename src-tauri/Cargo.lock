@@ -2065,6 +2065,7 @@ dependencies = [
  "webp",
  "webview2-com",
  "which",
+ "windows",
  "windows-core",
  "windows-sys 0.61.2",
 ]

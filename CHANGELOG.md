@@ -3,6 +3,25 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Le son de MyBoard : lot 1, AUD-01 et AUD-02 (05/11/2026) — Backup v96
+
+SPEC : livrés `[~]` : AUD-01 (ex-GEN-26), AUD-02 (ex-GEN-16) ; nouvelle catégorie « AUD — Audio ». Validés : TAGM-22.
+
+- **AUD-01** : WebView2 est lancé avec l'option de Chromium `AudioRendererMixerImmediatePause` (coupe le flux aussitôt
+  la pause au lieu de 10 s plus tard). Elle existe à partir de Chromium 157 : sans effet avec WebView2 156, elle
+  agira dès que WebView2 157 sera installé (mise à jour automatique). Les 3 réglages que Tauri met d'office sont gardés.
+- **AUD-02** : MyBoard renomme son flux « MyBoard », avec son icône, dans le mélangeur de volume de Windows
+  (`audio_session.rs`) ; il ne touche qu'aux flux des processus qu'il a lancés. SteelSeries GG affiche le nom du
+  programme : il garde « MSEDGEWEBVIEW2 ».
+
+Vérifié dans la version compilée (vidéo lue à un volume inaudible) : l'option arrive au navigateur de WebView2 ; le
+flux est renommé « MyBoard » avec l'icône de MyBoard environ 1 s après le début de la lecture, sans aide ; les flux
+des autres applications gardent leur nom ; avec WebView2 156, le flux passe encore inactif ~10 s après la pause
+(attendu) ; MyBoard au repos : 0 ms de processeur sur 20 s, avant et après une lecture (une 1re version qui
+vérifiait chaque seconde coûtait 156 ms toutes les 20 s : remplacée par les notifications de Windows avant la
+livraison) ; zéro erreur `tsc` et `clippy`. Pas essayé : changer de sortie son pendant la lecture (réglage du
+système) ; reste à vérifier : l'effet de l'option avec WebView2 157.
+
 ## Aperçu de l'import, texte de TAGM-22 pour une sélection, contour des vignettes (05/11/2026) — Backup v95
 
 SPEC : validés `[x]` par l'utilisateur : TAGM-18 (retour T3, point TAGM-18.11), TAGM-20 (la refonte est terminée).

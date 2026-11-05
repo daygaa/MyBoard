@@ -1,6 +1,7 @@
 //! MyBoard — partie Rust : base de données, import, miniatures, tags, recherche, visionneuse.
 //! L'interface (React) appelle les commandes déclarées ici via `invoke`.
 
+pub mod audio_session;
 pub mod chain_removal;
 pub mod clipboard_text;
 pub mod db;
@@ -99,6 +100,8 @@ pub fn run() {
                 system_menu::install(app.handle(), &window)?;
                 test_screen::place(&window)?;
             }
+            // Le son de MyBoard s'appelle « MyBoard » dans le mélangeur de volume de Windows (AUD-02).
+            audio_session::start();
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
