@@ -37,7 +37,9 @@ export function PageHead({ data, title }: { data: ListPage | undefined; title: R
   });
 
   return (
-    <div ref={rowRef} data-zone="grille.entete" className="relative mb-4 h-8">
+    // 14 px dessous (et non 16) : le haut fixe s'arrête 2 px au-dessus des vignettes, dont le contour doré (2 px)
+    // ne passe plus dessous ; la grille garde sa place (2 px au-dessus d'elle, MediaGrid ; retour du 05/11).
+    <div ref={rowRef} data-zone="grille.entete" className="relative mb-3.5 h-8">
       {title && (
         <div data-zone="grille.titre" className="absolute select-text inset-y-0 left-0 flex min-w-0 items-center" style={{ maxWidth: room }}>
           {title}

@@ -3,7 +3,7 @@
 // d'après les notes `tag_parent_media` (`remove_cascade`), puis ceux qu'une autre règle allumée justifie encore sont
 // remis (`restore_justified`). Un parent déjà là avant la règle n'a pas de note : il n'est jamais proposé.
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 use rusqlite::{Connection, OptionalExtension, TransactionBehavior, params};
 use serde::Serialize;
@@ -12,11 +12,13 @@ use tauri::State;
 use crate::tagging::{remove_cascade, restore_justified};
 use crate::{AppState, parents};
 
-/// Ce qui partirait : les parents (dans l'ordre de la chaîne), le nombre de médias touchés et les tags d'où viennent
-/// les chaînes (« via la chaîne de parents de « essai chaton » »).
+/// Ce qui partirait : les parents (dans l'ordre de la chaîne), pour chacun le nombre de médias d'où il partirait
+/// (`counts`, même ordre : texte d'une sélection, réponse du 05/11), le nombre de médias touchés et les tags d'où
+/// viennent les chaînes (« via la chaîne de parents de « essai chaton » »).
 #[derive(Debug, Default, Serialize)]
 pub struct ChainParents {
     pub parents: Vec<String>,
+    pub counts: Vec<usize>,
     pub media: usize,
     pub origins: Vec<String>,
 }
@@ -57,6 +59,7 @@ fn run(db: &Connection, media: &[i64], tags: &[i64]) -> rusqlite::Result<ChainPa
     let all: Vec<(i64, i64)> = plan.iter().flat_map(|(_, _, removed)| removed.iter().copied()).collect();
     restore_justified(db, &all)?;
     let (mut out, mut parents, mut origins, mut touched) = (ChainParents::default(), Vec::new(), HashSet::new(), HashSet::new());
+    let mut where_gone: HashMap<i64, HashSet<i64>> = HashMap::new();
     for (m, from, removed) in &plan {
         let mut gone = false;
         for &(_, parent) in removed {
@@ -68,6 +71,7 @@ fn run(db: &Connection, media: &[i64], tags: &[i64]) -> rusqlite::Result<ChainPa
                 if !parents.contains(&parent) {
                     parents.push(parent);
                 }
+                where_gone.entry(parent).or_default().insert(*m);
             }
         }
         if gone {
@@ -77,7 +81,9 @@ fn run(db: &Connection, media: &[i64], tags: &[i64]) -> rusqlite::Result<ChainPa
             }
         }
     }
-    out.parents = chain_order(db, parents)?.into_iter().map(|t| name(db, t)).collect::<rusqlite::Result<_>>()?;
+    let ordered = chain_order(db, parents)?;
+    out.counts = ordered.iter().map(|p| where_gone.get(p).map_or(0, HashSet::len)).collect();
+    out.parents = ordered.into_iter().map(|t| name(db, t)).collect::<rusqlite::Result<_>>()?;
     out.media = touched.len();
     Ok(out)
 }

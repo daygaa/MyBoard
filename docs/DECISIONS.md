@@ -1337,7 +1337,7 @@ remplacés par leur tag principal comme à la saisie (`resolve`). Raison : un co
 fusionné que si elle était mise de côté chez celui qui a exporté (étendue, elle serait sur le principal) ; la reprendre
 telle quelle recopie son état, réimporter son propre code ne crée rien, et une règle entre deux noms d'un même groupe
 n'est plus lue « tag → lui-même ». Conséquence acceptée : une règle reçue sur un nom fusionné chez soi arrive mise de
-côté et ne pose rien tant qu'il l'est ; l'aperçu le dit (« (mise de côté) », `RuleLine.aside`).
+côté et ne pose rien tant qu'il l'est ; l'aperçu le dit (« (désactivée) », mot choisi par l'utilisateur le 05/11 ; `RuleLine.aside`).
 
 **Complément du 05/11 (TAGM-22, cas P-08 du test complet).** Retirer un tag d'un média propose de retirer aussi les
 parents que sa chaîne y avait posés (`chain_removal.rs`, `lib/chainRemoval.ts`). Calcul : celui de la suppression d'une

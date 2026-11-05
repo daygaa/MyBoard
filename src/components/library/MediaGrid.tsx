@@ -93,7 +93,9 @@ export function MediaGrid({ items, density, firstIndex, pageSize }: Props) {
       ref={ref}
       data-zone="grille.vignettes"
       data-nom-seul={nameOnly || undefined}
-      className="relative w-full"
+      // 2 px au-dessus : la grille reste où elle était, le haut fixe (raccourci de 2 px, PageHead) ne cache plus le
+      // contour doré des vignettes de la 1re ligne (retour du 05/11).
+      className="relative mt-0.5 w-full"
       style={
         {
           height: Math.max(0, rowCount * rowHeight - GRID_GAP),

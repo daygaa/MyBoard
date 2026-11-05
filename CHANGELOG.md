@@ -3,6 +3,26 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Aperçu de l'import, texte de TAGM-22 pour une sélection, contour des vignettes (05/11/2026) — Backup v95
+
+SPEC : validés `[x]` par l'utilisateur : TAGM-18 (retour T3, point TAGM-18.11), TAGM-20 (la refonte est terminée).
+Livrés : TAGM-22 `[~]` (texte d'une sélection), GRID-14 (reste `[x]`, contour doré). TAGM-21 `[>]` précisé (phase 4).
+
+- **Aperçu de l'import** : une règle dont un tag est fusionné porte « (désactivée) » (et non plus « (mise de côté) »).
+- **TAGM-22, sélection** : « Dans la sélection, la chaîne de parents de « essai chaton » a ajouté « essai chat » à
+  4 médias, « essai animal » et « essai etre vivant » à 2 médias. Voulez-vous aussi les retirer ? » : chaque parent
+  avec le nombre de médias d'où il partira vraiment (tags au même nombre regroupés).
+- **Grille** : le haut fixe s'arrête 2 px plus haut ; le contour doré des vignettes cochées de la 1re ligne n'est plus
+  caché ; la grille ne bouge pas.
+- **TAGM-21** : tout ce qui concerne les tags masqués ira en phase 4, après les options d'import ; la ligne liste les
+  IDs liés et leur fonctionnement (le filtre « Masqués » du gestionnaire existe déjà, TAGM-04).
+
+Vérifié dans la version compilée, sur une copie de la base d'essai : haut fixe à 203 px, 1re ligne toujours à 205 px,
+contour doré entier (capture) ; C-09 refait (« (désactivée) » dans les deux aperçus, réimport de tous ses tags : rien à
+créer) ; sélection des 4 médias « essai chaton » de la base d'essai : texte avec 4 et 2 médias, « Oui » laisse
+« essai animal » et « essai etre vivant » là où ils sont justifiés ; essais de TAGM-22 refaits (visionneuse, vidéo,
+sélection) ; presse-papiers remis ; zéro erreur `tsc` et `clippy`.
+
 ## Retirer un enfant : proposer de retirer ses parents, TAGM-22 (05/11/2026) — Backup v94
 
 SPEC : livré `[~]` : TAGM-22 (nouvelle demande du 04/11, cas P-08 du test complet de la refonte). Notés : P-09 gardé
