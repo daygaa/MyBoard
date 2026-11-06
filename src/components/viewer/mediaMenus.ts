@@ -1,5 +1,6 @@
 // Menus du clic droit de la visionneuse (ordre et libellés de l'utilisateur) : image (CTX-06) et
-// vidéo (CTX-07), ouverts sur le média lui-même ; nom du fichier (CTX-08). Raccourcis affichés :
+// vidéo (CTX-07), ouverts sur le média lui-même ; nom du fichier (CTX-08). Vidéo : « Sous-titres ▸ » (VIEW-52) ;
+// GIF lu par le lecteur vidéo (VIEW-54) : menu de la vidéo sans le son, avec « Copier l'image » (celle affichée). Raccourcis affichés :
 // ceux de la visionneuse (lib/shortcuts.ts, touche F du plein écran, Espace). Suppression : pop-in
 // avec sa case (DEL-04), puis le média suivant (VIEW-14).
 
@@ -9,7 +10,9 @@ import type { MenuEntry } from "@/lib/contextMenu";
 import { VIDEO_SHORTCUTS, VIEWER_SHORTCUTS, ZOOM_SHORTCUTS } from "@/lib/shortcuts";
 import { isSilent, SPEEDS, speedLabel, usePlayer } from "@/stores/player";
 import { useViewer } from "@/stores/viewer";
-import { copyFile, copyImage, copyName, copyPath, deleteShown, openFile, revealFile, saveFrame, setWallpaper } from "./mediaActions";
+import type { GifControls } from "./VideoControls";
+import type { Subtitles } from "./Subtitles";
+import { copyFile, copyGifFrame, copyImage, copyName, copyPath, deleteShown, openFile, revealFile, saveFrame, setWallpaper } from "./mediaActions";
 import { printImage } from "./printMedia";
 
 function fullscreenEntry(): MenuEntry {
@@ -74,25 +77,42 @@ export function imageMenu(item: MediaItem, zoom: ZoomControls): MenuEntry[] {
   ];
 }
 
+/** Pistes de sous-titres (VIEW-52) : « Désactivés » puis chaque piste ; grisé sans piste. */
+function subtitlesEntry(subs: Subtitles): MenuEntry {
+  return {
+    label: "Sous-titres",
+    shortcut: VIDEO_SHORTCUTS.subtitles.label,
+    disabled: subs.tracks.length === 0,
+    submenu: [
+      { label: "Désactivés", checked: subs.active === null, run: () => subs.select(null) },
+      ...subs.tracks.map((t) => ({ label: t.label, checked: subs.active === t.key, run: () => subs.select(t.key) })),
+    ],
+  };
+}
+
 /** Toujours à l'image de la barre de lecture au moment du clic droit. */
-export function videoMenu(item: MediaItem, video: HTMLVideoElement, zoom: ZoomControls): MenuEntry[] {
+export function videoMenu(item: MediaItem, video: HTMLVideoElement, zoom: ZoomControls, subs: Subtitles, gif?: GifControls): MenuEntry[] {
   const player = usePlayer.getState();
   const file = fileEntries(item);
   const time = video.currentTime;
+  const loop = gif ? gif.loop : player.loop;
+  const setLoop = gif ? gif.setLoop : player.setLoop;
   return [
     { label: video.paused ? "Lire" : "Pause", shortcut: "Espace", run: () => void (video.paused ? video.play() : video.pause()) },
-    { label: isSilent(player) ? "Rétablir le son" : "Couper le son", shortcut: VIDEO_SHORTCUTS.mute.label, run: player.toggleSound },
-    { label: "Lecture en boucle", shortcut: VIDEO_SHORTCUTS.loop.label, checked: player.loop, run: () => player.setLoop(!player.loop) },
+    ...(gif ? [] : [{ label: isSilent(player) ? "Rétablir le son" : "Couper le son", shortcut: VIDEO_SHORTCUTS.mute.label, run: player.toggleSound }]),
+    { label: "Lecture en boucle", shortcut: VIDEO_SHORTCUTS.loop.label, checked: loop, run: () => setLoop(!loop) },
     {
       label: "Vitesse",
       shortcut: `${VIDEO_SHORTCUTS.slower.label} / ${VIDEO_SHORTCUTS.faster.label}`,
       submenu: [...SPEEDS].reverse().map((speed) => ({ label: speedLabel(speed), checked: speed === player.speed, run: () => player.setSpeed(speed) })),
     },
+    subtitlesEntry(subs),
     fullscreenEntry(),
     zoomEntry(zoom),
     adaptEntry(zoom),
     "separator",
     file.copy,
+    ...(gif ? [{ label: "Copier l'image", run: () => copyGifFrame(item, time) }] : []),
     // L'image affichée au moment du clic droit.
     { label: "Enregistrer une capture d'écran…", run: () => saveFrame(item, time) },
     file.path,

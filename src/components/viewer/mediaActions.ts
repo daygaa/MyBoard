@@ -42,6 +42,11 @@ export function copyImage(item: MediaItem) {
   void runExternal("Copier l'image", () => api.copyImage(item.id));
 }
 
+/** Image d'un GIF affichée à `seconds` (VIEW-54), dans le presse-papiers. */
+export function copyGifFrame(item: MediaItem, seconds: number) {
+  void runExternal("Copier l'image", () => api.copyGifFrame(item.id, seconds));
+}
+
 /** Fond d'écran du bureau de Windows (CTX-06, après confirmation). */
 export function setWallpaper(item: MediaItem) {
   void runExternal("Utiliser comme fond d'écran", () => api.setWallpaper(item.id));

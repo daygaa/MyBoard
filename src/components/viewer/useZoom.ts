@@ -245,6 +245,8 @@ export function useZoom(
     view,
     zoomed,
     animate,
+    /** Taille de la scène (place des sous-titres, VIEW-52). */
+    stage,
     /** Retour à « ajusté », centré, avec l'animation du clic. */
     reset: () => commit(live.current.minScale, 0, 0, true),
     /** Commandes du menu du clic droit (CTX-06, CTX-07, mediaMenus). */

@@ -7,6 +7,9 @@
 // - M = son, < et > = vitesse, L = boucle (VIEW-47), avec un badge bref.
 // Lecture automatique, avec le son, en boucle (VIEW-26) ; fichier original lu par morceaux.
 // Clic droit sur la vidéo (pas sur le fond) : son menu (CTX-07).
+// Sous-titres (VIEW-52, Subtitles.tsx) : bouton de la barre, sous-menu du clic droit, touche C.
+// GIF animé (VIEW-54, useGifVideo.ts) : le GIF s'affiche tout de suite, sa vidéo prend le relais au même instant ;
+// pas de son (M sans effet), boucle propre au GIF.
 
 import { useContext, useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 
@@ -19,8 +22,10 @@ import { isSilent, speedLabel, usePlayer } from "@/stores/player";
 
 import { videoMenu } from "./mediaMenus";
 import { PlayerBadge, SPEED_BADGE_MS, usePlayerBadge } from "./PlayerBadge";
+import { SubtitleOverlay, subtitleBox, useSubtitles } from "./Subtitles";
+import { useGifVideo } from "./useGifVideo";
 import { ANIM_MS, useZoom, type Size } from "./useZoom";
-import { VideoControls } from "./VideoControls";
+import { BAR_HEIGHT, FLOAT_GAP, VideoControls } from "./VideoControls";
 import { ViewerChrome } from "./viewerChrome";
 import { ZoomBadge } from "./ZoomBadge";
 
@@ -72,9 +77,15 @@ export function VideoStage({ item, onClose, fallback }: { item: MediaItem; onClo
   const videoRef = useRef<HTMLVideoElement>(null);
   const [natural, setNatural] = useState<Size>({ w: item.width ?? 0, h: item.height ?? 0 });
   const [failed, setFailed] = useState(false);
-  const { volume, muted, loop, speed } = usePlayer();
-  const { idle, restartIdle } = useContext(ViewerChrome);
-  const { view, zoomed, animate, handlers, reset, controls } = useZoom(stageRef, natural, onClose, () => toggle(videoRef.current));
+  const isGif = item.ext === "gif";
+  const gif = useGifVideo(item.id, isGif);
+  const subs = useSubtitles(item.id, videoRef, !isGif);
+  const { volume, muted, loop: videoLoop, speed } = usePlayer();
+  const loop = isGif ? gif.loop : videoLoop;
+  const { idle, restartIdle, bottomInset, lift } = useContext(ViewerChrome);
+  // GIF pas encore relayé par sa vidéo : un clic n'y fait rien.
+  const waiting = isGif && !gif.ready;
+  const { view, zoomed, animate, handlers, reset, controls, stage } = useZoom(stageRef, natural, onClose, () => !waiting && toggle(videoRef.current));
   const frame = useFrameDuration(videoRef);
   const badge = usePlayerBadge();
   const showBadge = badge.show;
@@ -85,16 +96,24 @@ export function VideoStage({ item, onClose, fallback }: { item: MediaItem; onClo
     const video = videoRef.current;
     if (!video) return;
     video.volume = volume;
-    video.muted = muted;
+    video.muted = isGif || muted;
     video.playbackRate = speed;
     video.loop = loop;
-  }, [volume, muted, speed, loop]);
+  }, [volume, muted, speed, loop, isGif]);
+
+  // État lu par les raccourcis (installés une fois).
+  const live = useRef({ subs, gif, isGif, waiting });
+  useEffect(() => {
+    live.current = { subs, gif, isGif, waiting };
+  });
 
   // Espace, image par image et raccourcis du lecteur (sauf pendant une saisie).
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const video = videoRef.current;
       if (!video || isTyping(e.target) || hasModalLayer() || e.ctrlKey || e.altKey) return;
+      const { subs: s, gif: g, isGif: gifShown, waiting: notYet } = live.current;
+      if (notYet && (e.code === "Space" || BACK_KEYS.includes(e.key) || FORWARD_KEYS.includes(e.key))) return;
       if (e.code === "Space") toggle(video);
       else if (BACK_KEYS.includes(e.key) || FORWARD_KEYS.includes(e.key)) {
         video.pause();
@@ -102,9 +121,13 @@ export function VideoStage({ item, onClose, fallback }: { item: MediaItem; onClo
         video.currentTime = Math.min(video.duration || 0, Math.max(0, video.currentTime + step));
       } else {
         const action = videoActionFor(e);
-        if (!action) return;
+        if (!action || (gifShown && action === "mute")) return;
         const speed = action === "slower" || action === "faster";
-        showBadge(runVideoShortcut(action), speed ? SPEED_BADGE_MS : undefined);
+        if (action === "subtitles") showBadge(s.toggle());
+        else if (gifShown && action === "loop") {
+          g.setLoop(!g.loop);
+          showBadge(g.loop ? "Boucle désactivée" : "Boucle activée");
+        } else showBadge(runVideoShortcut(action), speed ? SPEED_BADGE_MS : undefined);
         if (speed) restartIdle(); // commandes affichées : encore 3 s (VIEW-47)
       }
       e.preventDefault(); // Espace n'active pas en plus le bouton qui a le focus
@@ -113,7 +136,10 @@ export function VideoStage({ item, onClose, fallback }: { item: MediaItem; onClo
     return () => window.removeEventListener("keydown", onKey);
   }, [frame, showBadge, restartIdle]);
 
-  if (failed) return <>{fallback}</>;
+  if (failed || gif.failed) return <>{fallback}</>;
+  const transform = `translate(-50%, -50%) translate(${view.tx}px, ${view.ty}px) scale(${view.scale})`;
+  const transition = animate ? `transform ${ANIM_MS}ms ease-out` : undefined;
+  const gifControls = isGif ? { loop: gif.loop, setLoop: gif.setLoop, ready: gif.ready } : undefined;
   return (
     <>
       <div
@@ -123,15 +149,27 @@ export function VideoStage({ item, onClose, fallback }: { item: MediaItem; onClo
         // Curseur normal sur le fond ; main ou pointeur seulement sur la vidéo (VIEW-31).
         className="absolute inset-0 touch-none select-none"
       >
+        {waiting && (
+          <img
+            src={mediaUrl(item)}
+            alt=""
+            draggable={false}
+            onLoad={gif.onGifLoad}
+            className="pointer-events-none absolute top-1/2 left-1/2 max-w-none"
+            style={{ width: natural.w, height: natural.h, transform, transition }}
+          />
+        )}
         <video
           ref={videoRef}
-          src={mediaUrl(item)}
-          autoPlay
+          src={isGif ? (gif.src ?? undefined) : mediaUrl(item)}
+          autoPlay={!isGif}
           playsInline
           onError={() => setFailed(true)}
-          onContextMenu={(e) => openContextMenu(e, () => videoMenu(item, e.currentTarget, controls))}
+          onContextMenu={(e) => openContextMenu(e, () => videoMenu(item, e.currentTarget, controls, subs, gifControls))}
           onLoadedMetadata={(e) => {
             const v = e.currentTarget;
+            // GIF : ses dimensions restent celles du GIF (la vidéo a parfois 1 px de plus, non montré).
+            if (isGif) return gif.onVideoReady(v);
             // Piste image illisible (le son seul passerait) : même message que l'échec.
             if (v.videoWidth === 0) setFailed(true);
             else setNatural((n) => (n.w === v.videoWidth && n.h === v.videoHeight ? n : { w: v.videoWidth, h: v.videoHeight }));
@@ -143,15 +181,19 @@ export function VideoStage({ item, onClose, fallback }: { item: MediaItem; onClo
           style={{
             width: natural.w,
             height: natural.h,
-            transform: `translate(-50%, -50%) translate(${view.tx}px, ${view.ty}px) scale(${view.scale})`,
-            transition: animate ? `transform ${ANIM_MS}ms ease-out` : undefined,
+            transform,
+            transition,
             willChange: "transform",
+            ...(isGif && { objectFit: "none", objectPosition: "0 0", opacity: gif.ready ? 1 : 0 }),
           }}
         />
+        {subs.cues.length > 0 && (
+          <SubtitleOverlay cues={subs.cues} box={subtitleBox(stage, natural, view, idle ? 0 : bottomInset + FLOAT_GAP + BAR_HEIGHT + lift)} />
+        )}
         {zoomed && <ZoomBadge scale={view.scale} />}
         <PlayerBadge text={badge.text} />
       </div>
-      <VideoControls videoRef={videoRef} />
+      <VideoControls videoRef={videoRef} subs={subs} gif={gifControls} />
     </>
   );
 }

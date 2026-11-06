@@ -71,7 +71,9 @@ function ViewerOverlay({ base }: { base: ListBase }) {
   const barVisible = useBottomBarVisible(barRef, shown);
   const [panel, setPanel] = useState<PanelMetrics>({ rise: 0, oneLine: 0, anchor: 0, height: 0 });
   const barHeight = panel.height;
-  const { idle, restart: restartIdle } = useIdle(shown && item?.kind === "video", KEEP_SHOWN);
+  // Média lu par le lecteur vidéo : vidéo, ou GIF animé (VIEW-54) : mêmes commandes, cachées de même (VIEW-33).
+  const hasPlayer = item?.kind === "video" || item?.ext === "gif";
+  const { idle, restart: restartIdle } = useIdle(shown && hasPlayer, KEEP_SHOWN);
   // Plein écran : barre du bas affichée (souris proche, message d'erreur, « Copié » d'un
   // raccourci VIEW-35, ou saisie d'un tag ; un bouton cliqué ne compte pas, VIEW-43).
   const typing = useTypingIn(barRef);
@@ -217,7 +219,7 @@ function ViewerOverlay({ base }: { base: ListBase }) {
         </ViewerChrome.Provider>
         {/* Médias sans barre de lecture : bouton rond en bas à droite, toujours au même endroit
             (en plein écran, juste au-dessus de la barre du bas qui ne le recouvre jamais). */}
-        {item.kind !== "video" && (
+        {!hasPlayer && (
           <FullscreenButton
             ring
             className={cn(ROUND_BUTTON, "right-4")}

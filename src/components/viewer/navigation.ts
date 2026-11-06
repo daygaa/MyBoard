@@ -31,7 +31,11 @@ export const NEIGHBORS = [1, 2, -1];
 export function usePreload() {
   const queryClient = useQueryClient();
   return (current: MediaItem, neighbors: MediaItem[]) => {
-    for (const item of neighbors) void queryClient.ensureQueryData({ queryKey: ["media-detail", item.id], queryFn: () => api.mediaDetail(item.id) });
+    for (const item of neighbors) {
+      void queryClient.ensureQueryData({ queryKey: ["media-detail", item.id], queryFn: () => api.mediaDetail(item.id) });
+      // GIF voisins convertis d'avance pour le lecteur vidéo (VIEW-54).
+      if (item.ext === "gif") void api.prepareGif(item.id).catch(() => {});
+    }
     // Le média affiché en dernier : il est déjà à l'écran, sa copie ne sert qu'à y revenir.
     warm([...neighbors, current]);
   };

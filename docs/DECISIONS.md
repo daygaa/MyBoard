@@ -1445,3 +1445,20 @@ premier affichage, puis demande l'original, qui la recouvre une fois décodé. L
 plus anciennes oubliées (jamais l'image affichée ni ses voisines). Le protocole `media://` envoie
 `Access-Control-Allow-Origin: *` et la règle de sécurité de la page autorise `connect-src media:` : seule la fenêtre de
 MyBoard voit ce protocole. GIF animés exclus (une copie n'en garderait que la 1re image). Limite du moteur : une image géante quittée fige la page 0,15 à 0,29 s (libération de son image décodée, mesurée avec et sans le cache).
+
+## D-052 — Sous-titres dessinés par MyBoard ; GIF convertis en vidéo dans un cache (06/11/2026)
+
+**Sous-titres (VIEW-52).** Le cœur Rust (`media/subtitles.rs`) liste les pistes (fichiers à côté de la vidéo,
+pistes en texte de la vidéo par ffprobe) et rend une piste en répliques (début, fin, texte) : .srt et .vtt lus en Rust
+(UTF-8, sinon Windows-1252), .ass, .ssa et pistes intégrées convertis par ffmpeg en WebVTT (texte seul). L'interface
+ajoute les répliques à une piste de texte « cachée » de la vidéo (`addTextTrack`, `VTTCue`) : le navigateur dit quand
+chacune commence et finit et met en forme le texte (italique…), et MyBoard les dessine lui-même par-dessus la vidéo,
+hors du zoom, au-dessus de la barre de lecture. Écartés : l'affichage natif des pistes (`<track>` : il suit le zoom de
+la vidéo, ne sait pas éviter la barre de lecture, et une adresse `blob:` serait refusée par la règle de sécurité).
+
+**GIF (VIEW-54).** `media/gif.rs` : ffmpeg, H.264 « veryfast », qualité 10, durée de chaque image gardée
+(`-fps_mode vfr`), parties transparentes posées sur le fond de la visionneuse, largeur ou hauteur impaire complétée
+d'un pixel (montré nulle part : `object-fit: none`) ; une conversion à la fois ; fichier `cache-gif/<empreinte>.mp4`
+servi par `media://gif/<id>/<empreinte>.mp4` (Range compris). Cache vidé au lancement (fermeture forcée) et à la
+fermeture (`RunEvent::Exit`). Relais (`useGifVideo.ts`) : la vidéo est placée à (temps écoulé depuis l'affichage du
+GIF + 10 ms) modulo sa durée, lancée, et remplace le GIF à sa 1re image affichée (`requestVideoFrameCallback`).

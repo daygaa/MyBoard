@@ -207,6 +207,11 @@ export type ImportResult = {
 };
 
 /** Fichier qui n'a pas pu être effacé (DEL-04) : son média est revenu dans la bibliothèque. */
+/** Piste de sous-titres d'une vidéo (VIEW-52) : `key` = `f:<fichier>` ou `e:<piste intégrée>`. */
+export type SubTrack = { key: string; label: string; lang: string | null };
+/** Réplique d'une piste de sous-titres, en secondes. */
+export type SubCue = { start: number; end: number; text: string };
+
 export type FailedFile = { id: number; path: string; code: number | null; message: string; readOnly: boolean; alsoReadOnly: boolean };
 
 export type ImportPhase = "idle" | "scanning" | "ready" | "importing" | "finished";
@@ -256,6 +261,13 @@ export const api = {
   setWallpaper: (id: number) => invoke<void>("set_wallpaper", { id }),
   /** Fenêtre « Enregistrer sous » ; rien d'enregistré si l'utilisateur annule. `date` : « JJ-MM-AA ». */
   saveVideoFrame: (id: number, seconds: number, date: string) => invoke<void>("save_video_frame", { id, seconds, date }),
+  /** Image d'un GIF à `seconds` dans le presse-papiers (VIEW-54). */
+  copyGifFrame: (id: number, seconds: number) => invoke<void>("copy_gif_frame", { id, seconds }),
+  /** Vidéo d'un GIF (convertie si besoin, VIEW-54) : adresse relative à passer à `gifVideoUrl`. */
+  prepareGif: (id: number) => invoke<string>("prepare_gif", { id }),
+  /** Sous-titres d'une vidéo (VIEW-52) : fichiers à côté, puis pistes intégrées. */
+  videoSubtitles: (id: number) => invoke<SubTrack[]>("video_subtitles", { id }),
+  subtitleCues: (id: number, key: string) => invoke<SubCue[]>("subtitle_cues", { id, key }),
   /** Commande du menu de la fenêtre (CTX-13) : comme celui de Windows. */
   windowCommand: (command: WindowCommand) => invoke<void>("window_command", { command }),
   /** Renvoie le nombre de médias réellement ajoutés ou retirés (badge de SEL-08). */
@@ -348,3 +360,6 @@ const MEDIA_ROOT = convertFileSrc("", "media");
 export function mediaUrl(item: Pick<MediaItem, "id" | "hash" | "ext">): string {
   return `${MEDIA_ROOT}${item.id}/${item.hash}.${item.ext}`;
 }
+
+/** Adresse de la vidéo d'un GIF (VIEW-54), d'après la réponse de `prepareGif`. */
+export const gifVideoUrl = (path: string) => `${MEDIA_ROOT}${path}`;

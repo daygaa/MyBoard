@@ -43,14 +43,16 @@ export const ZOOM_SHORTCUTS: Record<"adapt", Shortcut> = {
   adapt: { key: "a", label: "A" },
 };
 
-/** Lecteur vidéo (VIEW-47) : son, vitesse d'un palier (convention de YouTube), boucle. */
-export type VideoAction = "mute" | "slower" | "faster" | "loop";
+/** Lecteur vidéo (VIEW-47) : son, vitesse d'un palier (convention de YouTube), boucle ; sous-titres
+ *  (VIEW-52, C comme YouTube). */
+export type VideoAction = "mute" | "slower" | "faster" | "loop" | "subtitles";
 
 export const VIDEO_SHORTCUTS: Record<VideoAction, Shortcut> = {
   mute: { key: "m", label: "M" },
   slower: { key: "<", label: "<" },
   faster: { key: ">", label: ">" },
   loop: { key: "l", label: "L" },
+  subtitles: { key: "c", label: "C" },
 };
 
 /** Action du lecteur dont le raccourci correspond à la touche pressée (Maj et Verr. Maj ignorés :

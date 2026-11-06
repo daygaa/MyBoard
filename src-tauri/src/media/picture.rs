@@ -2,6 +2,7 @@
 //! - « Copier l'image » (CTX-06) : l'image elle-même dans le presse-papiers, à coller dans Paint,
 //!   une conversation… ;
 //! - « Utiliser comme fond d'écran du bureau » (CTX-06) ;
+//! - « Copier l'image » d'un GIF (VIEW-54) : l'image affichée au moment du clic droit ;
 //! - « Enregistrer une capture d'écran » d'une vidéo (CTX-07) : l'image affichée au moment du clic,
 //!   pleine résolution, extraite par ffmpeg, enregistrée en .jpg là où l'utilisateur le choisit
 //!   (fenêtre « Enregistrer sous » de Windows).
@@ -18,6 +19,15 @@ use crate::thumbs;
 
 /// Images par seconde supposées si ffprobe ne les donne pas (comme la visionneuse, VIEW-29).
 const DEFAULT_FPS: f64 = 30.0;
+/// L'image d'un GIF à `seconds` (celle affichée), dans le presse-papiers (VIEW-54).
+#[tauri::command]
+pub async fn copy_gif_frame(state: State<'_, AppState>, id: i64, seconds: f64) -> Result<(), OpenFailure> {
+    let path = existing_path(&state, id)?;
+    let ffmpeg = state.thumbs.ffmpeg().cloned().ok_or_else(ffmpeg_missing)?;
+    let jpeg = thumbs::frame_jpeg_at(&ffmpeg, &path, seconds).map_err(failure)?;
+    clipboard::copy_image(&thumbs::decode(&jpeg).map_err(failure)?)
+}
+
 /// Formats que Windows prend tels quels comme fond d'écran.
 const WALLPAPER_FORMATS: [&str; 4] = ["jpg", "jpeg", "png", "bmp"];
 

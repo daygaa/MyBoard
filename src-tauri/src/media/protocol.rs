@@ -5,6 +5,8 @@
 //! Le contenu d'une adresse ne change donc jamais : la fenêtre peut le garder en cache
 //! (préchargement des médias voisins).
 //!
+//! Vidéo d'un GIF (VIEW-54, `gif.rs`) : `gif/<id>/<hash>.mp4`, servie depuis le cache si elle y est.
+//!
 //! Lisible aussi par la page et ses fils à part (`fetch`, en-tête CORS) : copies des images à la taille de
 //! l'écran (VIEW-53). Seule la fenêtre de MyBoard voit ce protocole.
 //!
@@ -51,17 +53,29 @@ struct Target {
 pub fn handle(app: &AppHandle, request: Request<Vec<u8>>, responder: UriSchemeResponder) {
     let state = app.state::<AppState>();
     let db_path = state.paths.db.clone();
+    let root = state.paths.root.clone();
     let ffmpeg = state.thumbs.ffmpeg().cloned();
     let range = request.headers().get(header::RANGE).and_then(|v| v.to_str().ok()).map(str::to_string);
     let name = request.uri().path().trim_start_matches('/').to_string();
     // Lecture du disque hors du fil principal : la fenêtre n'attend jamais.
     tauri::async_runtime::spawn_blocking(move || {
-        let response = match lookup(&db_path, &name) {
+        let target = match name.strip_prefix("gif/") {
+            Some(rest) => lookup(&db_path, rest).filter(|t| t.ext == "gif").and_then(|t| gif_target(&root, t, rest)),
+            None => lookup(&db_path, &name),
+        };
+        let response = match target {
             Some(target) => serve(&target, range.as_deref(), ffmpeg.as_ref()),
             None => status(StatusCode::NOT_FOUND),
         };
         responder.respond(response);
     });
+}
+
+/// Vidéo d'un GIF dans le cache (`<id>/<hash>.mp4`), si elle a été préparée.
+fn gif_target(root: &Path, gif: Target, rest: &str) -> Option<Target> {
+    let hash = rest.split_once('/')?.1.split('.').next()?;
+    let path = super::gif::cached_video(root, hash);
+    path.exists().then(|| Target { id: gif.id, path, ext: "mp4".into() })
 }
 
 /// `<id>/<hash>.<ext>` → le média correspondant, s'il existe avec cette empreinte.

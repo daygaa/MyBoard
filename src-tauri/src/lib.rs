@@ -82,6 +82,8 @@ pub fn run() {
         .setup(|app| {
             let handle = app.handle().clone();
             let paths = DataPaths::resolve(app.path().local_data_dir()?)?;
+            // Vidéos des GIF d'une session précédente (fermeture forcée…) : effacées (VIEW-54).
+            media::gif::clear_cache(&paths.root);
             let db = db::open_and_migrate(&paths.db)?;
             let search = SearchIndex::open(&paths.db)?;
             let thumbs = ThumbService::start(handle.clone(), &paths.db, &paths.thumbs_db)?;
@@ -137,6 +139,10 @@ pub fn run() {
             media::picture::copy_image,
             media::picture::set_wallpaper,
             media::picture::save_video_frame,
+            media::picture::copy_gif_frame,
+            media::gif::prepare_gif,
+            media::subtitles::video_subtitles,
+            media::subtitles::subtitle_cues,
             system_menu::window_command,
             favorites::set_favorite,
             deletion::delete_media,
@@ -189,6 +195,14 @@ pub fn run() {
             tag_rules::delete_parent,
             tag_rules::create_tag,
         ])
-        .run(tauri::generate_context!())
-        .expect("erreur au lancement de MyBoard");
+        .build(tauri::generate_context!())
+        .expect("erreur au lancement de MyBoard")
+        .run(|app, event| {
+            // Fermeture : vidéos des GIF effacées (VIEW-54).
+            if let tauri::RunEvent::Exit = event
+                && let Some(state) = app.try_state::<AppState>()
+            {
+                media::gif::clear_cache(&state.paths.root);
+            }
+        });
 }

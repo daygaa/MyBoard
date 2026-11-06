@@ -1,5 +1,5 @@
 // Contenu de la visionneuse selon le type de média : image zoomable, vidéo (lecteur
-// personnalisé, VIEW-29), son, document.
+// personnalisé, VIEW-29 ; aussi les GIF animés, VIEW-54), son, document.
 // Format que le lecteur intégré ne sait pas lire : message clair + « Ouvrir avec
 // l'application par défaut » (VIEW-24), en attendant la conversion à la volée (VIEW-25).
 
@@ -49,6 +49,8 @@ function Centered({ children, onClose }: { children: ReactNode; onClose: () => v
 }
 
 export function MediaStage({ item, onClose }: { item: MediaItem; onClose: () => void }) {
+  // GIF animé : lecteur vidéo (VIEW-54) ; s'il ne peut pas être converti (ffmpeg absent…), comme une image.
+  if (item.kind === "image" && item.ext === "gif") return <VideoStage item={item} onClose={onClose} fallback={<ImageStage item={item} onClose={onClose} />} />;
   if (item.kind === "image") return <ImageStage item={item} onClose={onClose} />;
   if (item.kind === "video") {
     const unplayable = (

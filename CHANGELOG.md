@@ -3,6 +3,26 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Lot 4 : sous-titres des vidéos, barre de lecture des GIF (06/11/2026) — Backup v103
+
+SPEC : VIEW-52, VIEW-54 `[~]` (retour T3, points VIS.1 et VIS.3).
+
+- Sous-titres : fichiers à côté de la vidéo (.srt, .vtt, .ass, .ssa) et pistes intégrées (MKV, MP4), trouvés tout
+  seuls ; bouton de la barre de lecture, sous-menu du clic droit, touche C ; désactivés à l'ouverture ; texte blanc à
+  contour noir, au-dessus de la barre de lecture quand elle est affichée.
+- GIF animés : barre de lecture des vidéos (lecture, pause, progression, image par image, vitesse, boucle, zoom,
+  plein écran) ; le GIF s'affiche tout de suite, sa vidéo prend le relais au même instant ; son grisé ; boucle propre
+  au GIF ; « Copier l'image » ; vidéos dans un cache vidé au lancement et à la fermeture ; GIF voisins préparés.
+
+Vérifié dans la version compilée, sur une copie de la base d'essai (vidéos d'essai créées par Claude) : liste des
+pistes (fichiers .srt, .vtt, .ass ; MKV avec une piste SRT française et une ASS anglaise titrée ; MP4 mov_text),
+texte affiché aux bons moments, accents d'un .srt en encodage Windows, italique, réplique sur 2 lignes, texte seul pour
+l'ASS ; touche C, bouton, menus ; vidéo sans sous-titres ; place des sous-titres en plein écran (barre affichée : au-
+dessus ; cachée : en bas de la vidéo) ; 5 GIF : affichage immédiat, barre grisée puis relais (écart de 3 à 21 ms),
+voisins préparés, son grisé, touches M et L, menu, image copiée (240 × 240) ; barre cachée en plein écran ; cache
+vidé à la fermeture normale et au lancement après une fermeture forcée ; tests Rust des sous-titres ; zéro erreur
+`tsc` et `clippy`.
+
 ## Lot 3.5 : images de la visionneuse gardées en mémoire (06/11/2026) — Backup v102
 
 SPEC : VIEW-53 `[~]` (retour T3, point AUT.7).
