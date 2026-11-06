@@ -3,6 +3,24 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Lot 3.5 : images de la visionneuse gardées en mémoire (06/11/2026) — Backup v102
+
+SPEC : VIEW-53 `[~]` (retour T3, point AUT.7).
+
+- Chaque image vue, et les voisines préparées d'avance (2 après, 1 avant), est gardée décodée à la taille de l'écran,
+  dans la limite de 1 Go, tant que MyBoard est ouvert (même visionneuse fermée) : elle s'affiche aussitôt, sans
+  fondu, puis l'original la recouvre une fois décodé.
+- Copies faites dans un fil à part (la page n'est jamais figée par elles) ; protocole `media://` lisible par la page
+  (en-tête CORS, `connect-src`).
+- Vidéos : inchangées (1re image en moins de 0,2 s, mesuré).
+
+Vérifié dans la version compilée, sur une copie de la base d'essai : 12 images de 32 à 61 Mpx en avant puis en
+arrière (6 à 16 ms au lieu de 155 à 414 ms plus le fondu avec la v101, même série ; une fois 0,22 s, voir la limite connue) ; visionneuse fermée puis rouverte
+sur une image déjà vue (24 ms) ; images ordinaires (4 à 5 ms) ; 330 grandes images : image vue il y a 20 images
+gardée, celle vue il y a plus de 320 images oubliée ; mémoire du moteur (1,7 Go juste après, 1,2 Go une minute plus
+tard ; v101 : 0,5 Go) ; 36 flèches tracées, toujours l'image nette ; tâches longues de la page : les mêmes qu'avec la v101 (images géantes quittées) ; zéro
+erreur `tsc` et `clippy`.
+
 ## Retouches du lot 3 (06/11/2026) — Backup v101
 
 SPEC : DEL-08, ZOOM-11, ZOOM-12, SRCH-18 `[~]` (retour T3, points DEL-08.3, DEL-08.4, VIS.2.1 à VIS.2.3, AUT.9.1).

@@ -1,15 +1,18 @@
 // Image de la visionneuse, zoomable façon wikifeet (ZOOM-01 à ZOOM-07).
-// La miniature (déjà prête) s'affiche tout de suite, puis l'original net la remplace (D-016).
+// La miniature (déjà prête) s'affiche tout de suite, puis l'original net la remplace (D-016). Image
+// gardée en mémoire (VIEW-53, imageCache.ts) : sa copie décodée à la taille de l'écran s'affiche aussitôt,
+// sans fondu, et l'original la recouvre une fois décodé (même image à l'écran : rien ne change).
 // Les miniatures sont des carrés recadrés au centre (D-013) : elle est donc posée exactement
 // sur le carré central de l'image, et le reste apparaît avec l'original.
 // Clic droit sur l'image (pas sur le fond) : son menu (CTX-06).
 
-import { useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 
 import { THUMB, mediaUrl, thumbUrl, type MediaItem } from "@/lib/api";
 import { openContextMenu } from "@/lib/contextMenu";
 import { cn } from "@/lib/utils";
 import { usePreviewReady } from "@/stores/previews";
+import { readyBitmap } from "./imageCache";
 import { imageMenu } from "./mediaMenus";
 import { ANIM_MS, useZoom, type Size } from "./useZoom";
 import { ZoomBadge } from "./ZoomBadge";
@@ -17,8 +20,21 @@ import { ZoomBadge } from "./ZoomBadge";
 export function ImageStage({ item, onClose }: { item: MediaItem; onClose: () => void }) {
   const stageRef = useRef<HTMLDivElement>(null);
   // Dimensions connues par la base (rotation EXIF comprise) ; corrigées au chargement si besoin.
+  // Gardée en mémoire : sa copie décodée, affichée sans attendre (décidé une fois, au premier affichage).
+  const [bitmap] = useState(() => readyBitmap(item.id));
+  const canvasRef = useRef<HTMLCanvasElement>(null);
   const [natural, setNatural] = useState<Size>({ w: item.width ?? 0, h: item.height ?? 0 });
-  const [loaded, setLoaded] = useState(false);
+  const [loaded, setLoaded] = useState(bitmap !== null);
+  /** Original décodé : la miniature ou la copie, dessous, peut partir. */
+  const [decoded, setDecoded] = useState(false);
+  // Copie dessinée avant le premier affichage : elle est à l'écran dès la première image.
+  useLayoutEffect(() => {
+    try {
+      if (bitmap) canvasRef.current?.getContext("2d")?.drawImage(bitmap, 0, 0);
+    } catch {
+      // Copie oubliée entre-temps : l'original arrive comme d'habitude.
+    }
+  }, [bitmap]);
   const { view, zoomed, animate, handlers, controls } = useZoom(stageRef, natural, onClose);
   const previewReady = usePreviewReady(item.id, 640);
   const side = Math.min(natural.w, natural.h);
@@ -44,7 +60,10 @@ export function ImageStage({ item, onClose }: { item: MediaItem; onClose: () => 
           willChange: "transform",
         }}
       >
-        {!loaded && item.thumbStatus === THUMB.ready && side > 0 && (
+        {bitmap && !decoded && (
+          <canvas ref={canvasRef} width={bitmap.width} height={bitmap.height} className="absolute inset-0 h-full w-full" />
+        )}
+        {!bitmap && !decoded && item.thumbStatus === THUMB.ready && side > 0 && (
           <img
             src={thumbUrl(item.hash, previewReady ? "preview" : "normal")}
             alt=""
@@ -68,9 +87,10 @@ export function ImageStage({ item, onClose }: { item: MediaItem; onClose: () => 
               .then(() => {
                 setNatural((n) => (n.w === size.w && n.h === size.h ? n : size));
                 setLoaded(true);
+                setDecoded(true);
               });
           }}
-          className="absolute inset-0 h-full w-full transition-opacity duration-150"
+          className={cn("absolute inset-0 h-full w-full", !bitmap && "transition-opacity duration-150")}
           style={{ opacity: loaded ? 1 : 0 }}
         />
       </div>

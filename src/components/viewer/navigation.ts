@@ -1,10 +1,12 @@
 // Navigation de la visionneuse dans TOUS les résultats (VIEW-04) : les pages voisines sont lues
-// avec la même requête que la grille (même cache), et les voisins (image, tags) sont préchargés.
+// avec la même requête que la grille (même cache), et les voisins (image, tags) sont préchargés :
+// 2 après et 1 avant (VIEW-53), images gardées dans imageCache.ts.
 
 import { useQueryClient } from "@tanstack/react-query";
 
-import { api, mediaUrl, type ListPage, type MediaItem } from "@/lib/api";
+import { api, type ListPage, type MediaItem } from "@/lib/api";
 import type { ListBase } from "@/stores/viewer";
+import { warm } from "./imageCache";
 
 /** Page de résultats contenant la position `index` (lue en cache si déjà chargée). */
 export function usePageAt() {
@@ -19,24 +21,19 @@ export function itemAt(page: ListPage, index: number): MediaItem | undefined {
   return page.items[index - (page.page - 1) * page.pageSize];
 }
 
-/** Garde en mémoire les images voisines déjà décodées : passer à la suivante est immédiat. */
-const preloaded = new Map<number, HTMLImageElement>();
+/** Voisins du média affiché, à préparer dans cet ordre : 2 après, puis 1 avant (VIEW-53 : on avance plus
+ *  souvent qu'on ne recule). */
+export const NEIGHBORS = [1, 2, -1];
 
-/** Préchargement des voisins : images décodées d'avance, et leurs infos (tags…) lues d'avance pour
- *  que la barre du bas ait tout de suite sa bonne hauteur (VIEW-40). */
+/** Préchargement : images du média affiché et des voisins lues et décodées d'avance (imageCache.ts), et
+ *  infos des voisins (tags…) lues d'avance pour que la barre du bas ait tout de suite sa bonne hauteur
+ *  (VIEW-40). */
 export function usePreload() {
   const queryClient = useQueryClient();
-  return (items: MediaItem[]) => {
-    const keep = new Set(items.map((i) => i.id));
-    for (const id of preloaded.keys()) if (!keep.has(id)) preloaded.delete(id);
-    for (const item of items) {
-      void queryClient.ensureQueryData({ queryKey: ["media-detail", item.id], queryFn: () => api.mediaDetail(item.id) });
-      if (item.kind !== "image" || preloaded.has(item.id)) continue;
-      const img = new Image();
-      img.decoding = "async";
-      img.src = mediaUrl(item);
-      preloaded.set(item.id, img);
-    }
+  return (current: MediaItem, neighbors: MediaItem[]) => {
+    for (const item of neighbors) void queryClient.ensureQueryData({ queryKey: ["media-detail", item.id], queryFn: () => api.mediaDetail(item.id) });
+    // Le média affiché en dernier : il est déjà à l'écran, sa copie ne sert qu'à y revenir.
+    warm([...neighbors, current]);
   };
 }
 

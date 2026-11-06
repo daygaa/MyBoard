@@ -1426,3 +1426,22 @@ n'utilise plus les explications de MyBoard (`windowsErrors.ts`, toujours utilis�
 de Windows seul, choix de l'utilisateur. Zoom (`useZoom`) : un zoom libre égal au niveau « Adapter » de la zone devient
 « adapté » ; l'indicateur de transition s'éteint 0,2 s après un clic, un menu ou la touche A. Zone dépliée
 (`useUnfolded`) : un menu du clic droit ouvert la garde dépliée.
+
+## D-051 — Images de la visionneuse gardées en mémoire : une copie à la taille de l'écran (06/11/2026)
+
+**Contexte.** VIEW-53 : garder les images déjà vues (1 Go au plus, choix de l'utilisateur) et préparer 2 images après
+et 1 avant. Une image doit être décodée avant de s'afficher : mesuré, 250 ms pour 40 Mpx, plus 100 à 300 ms de lecture
+du fichier.
+
+**Essais (06/11, version compilée).** 1) Garder l'élément `<img>` décodé (`decode()`) : parfait pour les images
+ordinaires, mais le moteur de WebView2 ne garde pas décodées les très grandes images (160 à 240 Mo chacune) : elles
+étaient redécodées, et plus lentes qu'avant (400 à 850 ms), les préparations se disputant le processeur. 2) Copie
+`ImageBitmap` réduite à la taille de l'écran faite dans la page : elle la figeait 0,26 à 0,39 s.
+
+**Choix.** Copie `ImageBitmap` à la taille de l'écran (au plus 1920 × 1080 × 4 = 8 Mo), faite dans un fil à part
+(`imageCache.worker.ts` : `fetch` du fichier, `createImageBitmap` avec réduction « high »), une à la fois, dans
+l'ordre « 2 après, 1 avant, puis l'image affichée ». La visionneuse dessine la copie dans un `<canvas>` avant le
+premier affichage, puis demande l'original, qui la recouvre une fois décodé. Limite : somme des copies ≤ 1 Go, les
+plus anciennes oubliées (jamais l'image affichée ni ses voisines). Le protocole `media://` envoie
+`Access-Control-Allow-Origin: *` et la règle de sécurité de la page autorise `connect-src media:` : seule la fenêtre de
+MyBoard voit ce protocole. GIF animés exclus (une copie n'en garderait que la 1re image). Limite du moteur : une image géante quittée fige la page 0,15 à 0,29 s (libération de son image décodée, mesurée avec et sans le cache).

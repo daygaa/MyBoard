@@ -5,6 +5,9 @@
 //! Le contenu d'une adresse ne change donc jamais : la fenêtre peut le garder en cache
 //! (préchargement des médias voisins).
 //!
+//! Lisible aussi par la page et ses fils à part (`fetch`, en-tête CORS) : copies des images à la taille de
+//! l'écran (VIEW-53). Seule la fenêtre de MyBoard voit ce protocole.
+//!
 //! Vidéos et sons : lecture partielle (« requêtes Range ») — le lecteur ne demande que le
 //! morceau dont il a besoin, avancer à la 40e minute d'un fichier de 4 Go est immédiat.
 
@@ -90,7 +93,8 @@ fn serve(target: &Target, range: Option<&str>, ffmpeg: Option<&Ffmpeg>) -> Respo
             let mut builder = Response::builder()
                 .header(header::CONTENT_TYPE, content_type(&target.ext))
                 .header(header::ACCEPT_RANGES, "bytes")
-                .header(header::CACHE_CONTROL, "public, max-age=31536000, immutable");
+                .header(header::CACHE_CONTROL, "public, max-age=31536000, immutable")
+                .header(header::ACCESS_CONTROL_ALLOW_ORIGIN, "*");
             if partial {
                 let end = start + bytes.len() as u64 - 1;
                 builder = builder
@@ -193,6 +197,7 @@ fn ok(bytes: Vec<u8>, content_type: &str) -> Response<Vec<u8>> {
     Response::builder()
         .status(StatusCode::OK)
         .header(header::CONTENT_TYPE, content_type)
+        .header(header::ACCESS_CONTROL_ALLOW_ORIGIN, "*")
         .body(bytes)
         .unwrap_or_else(|_| status(StatusCode::INTERNAL_SERVER_ERROR))
 }

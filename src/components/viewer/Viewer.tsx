@@ -31,7 +31,7 @@ import { BottomPanel, type PanelMetrics } from "./BottomPanel";
 import { FullscreenButton } from "./FullscreenButton";
 import { MediaStage } from "./MediaStage";
 import { NotesButton } from "./NotesButton";
-import { isTyping, itemAt, usePageAt, usePreload } from "./navigation";
+import { isTyping, itemAt, NEIGHBORS, usePageAt, usePreload } from "./navigation";
 import { removePrintHolder } from "./printMedia";
 import { useBottomBarVisible, useHeight, useIdle, useTypingIn } from "./useBottomBar";
 import { idleClass, KEEP_SHOWN, ViewerChrome } from "./viewerChrome";
@@ -145,11 +145,11 @@ function ViewerOverlay({ base }: { base: ListBase }) {
       if (here && here.id !== useViewer.getState().item?.id) show(index, here, page.total);
       if (page.total !== useViewer.getState().total) useViewer.setState({ total: page.total });
       const neighbors = await Promise.all(
-        [index - 1, index + 1]
+        NEIGHBORS.map((d) => index + d)
           .filter((i) => i >= 0 && i < page.total)
           .map(async (i) => itemAt(await pageAt(base, i), i)),
       );
-      if (!cancelled) preload(neighbors.filter((n): n is MediaItem => n !== undefined));
+      if (!cancelled && here) preload(here, neighbors.filter((n): n is MediaItem => n !== undefined));
     });
     return () => {
       cancelled = true;
