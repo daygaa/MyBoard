@@ -85,6 +85,8 @@ pub fn run() {
             // Vidéos des GIF d'une session précédente (fermeture forcée…) : effacées (VIEW-54).
             media::gif::clear_cache(&paths.root);
             let db = db::open_and_migrate(&paths.db)?;
+            // Disques des médias, confiés à la fenêtre avant le chargement de la page (VIEW-53, D-053).
+            let drives = media::direct::media_drives(&db);
             let search = SearchIndex::open(&paths.db)?;
             let thumbs = ThumbService::start(handle.clone(), &paths.db, &paths.thumbs_db)?;
             let previews = PreviewService::start(handle.clone(), thumbs.clone(), &paths.db, &paths.thumbs_db)?;
@@ -102,6 +104,7 @@ pub fn run() {
                 fullscreen::install(&window)?;
                 window_border::install(&window)?;
                 webview_settings::install(&window)?;
+                media::direct::install(&window, drives);
                 system_menu::install(app.handle(), &window)?;
                 test_screen::place(&window)?;
             }

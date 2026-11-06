@@ -23,6 +23,8 @@ export type MediaItem = {
   favorite: boolean;
   /** Dossiers qui contiennent le média (FOLD-09). */
   folders: number[];
+  /** Image lue directement sur le disque par la fenêtre (VIEW-53) ; absente : `media://`. */
+  fileUrl?: string | null;
 };
 
 /** Dossier manuel (FOLD-01) ; masqué : absent des listes (FOLD-02). */
@@ -363,6 +365,10 @@ const MEDIA_ROOT = convertFileSrc("", "media");
 export function mediaUrl(item: Pick<MediaItem, "id" | "hash" | "ext">): string {
   return `${MEDIA_ROOT}${item.id}/${item.hash}.${item.ext}`;
 }
+
+/** Adresse du fichier d'une IMAGE pour la visionneuse (VIEW-53) : lue directement sur le disque par la fenêtre
+ *  (10 fois plus rapide, sans bloquer MyBoard), sinon `media://` (formats convertis, chemins réseau). */
+export const imageUrl = (item: MediaItem): string => item.fileUrl ?? mediaUrl(item);
 
 /** Adresse de la vidéo d'un GIF (VIEW-54), d'après la réponse de `prepareGif`. */
 export const gifVideoUrl = (path: string) => `${MEDIA_ROOT}${path}`;

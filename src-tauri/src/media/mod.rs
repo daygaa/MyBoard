@@ -1,11 +1,13 @@
 //! Un média précis, pour la visionneuse : fiche détaillée (VIEW-10, VIEW-23), notes (VIEW-19),
 //! ouverture dans l'Explorateur (VIEW-13) ou dans l'application par défaut (VIEW-24), copie du
 //! fichier dans le presse-papiers (VIEW-35), avec le code d'erreur Windows en cas d'échec
-//! (VIEW-28). Fichier original servi par le protocole `media://` (voir `protocol.rs`). L'image
-//! elle-même (copie, fond d'écran, capture d'une vidéo) : `picture.rs`. Sous-titres (VIEW-52) :
-//! `subtitles.rs` ; GIF lus par le lecteur vidéo (VIEW-54) : `gif.rs`.
+//! (VIEW-28). Fichier original servi par le protocole `media://` (voir `protocol.rs`), ou lu
+//! directement par WebView2 pour les images (`direct.rs`, VIEW-53). L'image elle-même (copie, fond
+//! d'écran, capture d'une vidéo) : `picture.rs`. Sous-titres (VIEW-52) : `subtitles.rs` ; GIF lus par
+//! le lecteur vidéo (VIEW-54) : `gif.rs`.
 
 mod clipboard;
+pub mod direct;
 pub mod gif;
 pub mod picture;
 pub mod protocol;

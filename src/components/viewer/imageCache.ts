@@ -10,9 +10,10 @@
 // suivaient pas une navigation rapide sur des fichiers de 25 Mo, 0,5 s de décodage chacun), l'image affichée
 // d'abord ; en passant à une autre image, les copies en cours d'images déjà dépassées sont abandonnées (le fil
 // est relancé) : l'image où l'on s'arrête n'attend pas qu'elles finissent (mesuré : 1,5 s au lieu de 0,6 s).
-// Taille comptée : largeur × hauteur × 4 octets.
+// Taille comptée : largeur × hauteur × 4 octets. Fichier lu directement sur le disque par la fenêtre (D-053) :
+// 43 ms pour 28 Mo au lieu de 0,4 s par `media://`, qui bloquait aussi miniatures, tags et touches.
 
-import { mediaUrl, type MediaItem } from "@/lib/api";
+import { imageUrl, mediaUrl, type MediaItem } from "@/lib/api";
 
 /** Mémoire réservée aux images gardées (choix de l'utilisateur). */
 const BUDGET = 1024 * 1024 * 1024;
@@ -69,12 +70,22 @@ function trim() {
   }
 }
 
+/** Copies en attente : l'original de l'image ouverte depuis la grille se décode seul (ImageStage). */
+let paused = false;
+
+/** Met en attente (ou relance) les copies : à l'ouverture, elles ralentissaient le décodage de l'image ouverte
+ *  (mesuré : 0,45 s au lieu de 0,35 s). */
+export function pauseCopies(on: boolean) {
+  paused = on;
+  if (!on) next();
+}
+
 function next() {
-  while (busy.size < PARALLEL && queue.length > 0) {
+  while (!paused && busy.size < PARALLEL && queue.length > 0) {
     const job = queue.shift()!;
     busy.set(job.item.id, job);
     worker ??= createWorker();
-    worker.postMessage({ id: job.item.id, url: mediaUrl(job.item), w: job.w, h: job.h });
+    worker.postMessage({ id: job.item.id, url: imageUrl(job.item), fallback: mediaUrl(job.item), w: job.w, h: job.h });
   }
 }
 

@@ -8,7 +8,8 @@
 // quand chacune commence et finit), dessinées par MyBoard par-dessus la vidéo, hors du zoom (toujours
 // lisibles) : texte blanc à contour noir, sans fond, en bas de l'image visible (à 7 % de sa hauteur, retour
 // VIS.1.1), remonté au-dessus de la barre de lecture quand elle est affichée ; cachés pendant le passage en plein
-// écran ou sa sortie, pour apparaître directement à leur place (retour VIS.1.5). Retours à la ligne du fichier
+// écran ou sa sortie, puis tant que leur place bouge encore, pour apparaître directement à leur place (retour
+// VIS.1.5). Retours à la ligne du fichier
 // gardés (choix de l'utilisateur, VIS.1.2).
 
 import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
@@ -144,8 +145,38 @@ export function subtitleBox(stage: { w: number; h: number }, natural: { w: numbe
   return { left, width: Math.max(0, right - left), bottom: lift, fontSize };
 }
 
-export function SubtitleOverlay({ cues, box }: { cues: DocumentFragment[]; box: SubtitleBox }) {
+/** Images de suite sans que la place des sous-titres change, avant de les montrer après un changement de mode. */
+const STILL_FRAMES = 2;
+
+/** `hold` : passage en plein écran ou sortie en cours. Cachés pendant le passage, puis jusqu'à ce que leur place
+ *  ne bouge plus (taille de la scène et de la barre mesurées une image plus tard) : ils apparaissent directement
+ *  à leur place, sans glisser (retour VIS.1.5 : 4 px trop haut, puis glissement). */
+export function SubtitleOverlay({ cues, box, hold }: { cues: DocumentFragment[]; box: SubtitleBox; hold: boolean }) {
   const ref = useRef<HTMLDivElement>(null);
+  const [settled, setSettled] = useState(!hold);
+  const place = useRef("");
+  const where = `${box.left}|${box.width}|${box.bottom}|${box.fontSize}`;
+  useLayoutEffect(() => {
+    place.current = where;
+  }, [where]);
+  useLayoutEffect(() => {
+    if (hold) {
+      setSettled(false);
+      return;
+    }
+    if (settled) return;
+    let last = place.current;
+    let still = 0;
+    let frame = 0;
+    const tick = () => {
+      still = place.current === last ? still + 1 : 0;
+      last = place.current;
+      if (still >= STILL_FRAMES) setSettled(true);
+      else frame = requestAnimationFrame(tick);
+    };
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  }, [hold, settled]);
   useLayoutEffect(() => {
     ref.current?.replaceChildren(
       ...cues.map((f) => {
@@ -154,7 +185,8 @@ export function SubtitleOverlay({ cues, box }: { cues: DocumentFragment[]; box: 
         return line;
       }),
     );
-  }, [cues]);
+  }, [cues, settled]);
+  if (!settled) return null;
   return (
     <div
       ref={ref}

@@ -190,8 +190,12 @@ export function VideoStage({ item, onClose, fallback }: { item: MediaItem; onClo
             ...(isGif && { objectFit: "none", objectPosition: "0 0", opacity: gif.ready ? 1 : 0 }),
           }}
         />
-        {subs.cues.length > 0 && !switching && (
-          <SubtitleOverlay cues={subs.cues} box={subtitleBox(stage, natural, view, idle ? 0 : bottomInset + FLOAT_GAP + BAR_HEIGHT + lift)} />
+        {subs.cues.length > 0 && (
+          <SubtitleOverlay
+            cues={subs.cues}
+            box={subtitleBox(stage, natural, view, idle ? 0 : bottomInset + FLOAT_GAP + BAR_HEIGHT + lift)}
+            hold={switching}
+          />
         )}
         {zoomed && <ZoomBadge scale={view.scale} />}
         <PlayerBadge text={badge.text} />

@@ -48,10 +48,11 @@ function Centered({ children, onClose }: { children: ReactNode; onClose: () => v
   );
 }
 
-export function MediaStage({ item, onClose }: { item: MediaItem; onClose: () => void }) {
+/** `opening` : média ouvert depuis la grille, aucune flèche encore (image : original demandé aussitôt, VIEW-53). */
+export function MediaStage({ item, onClose, opening }: { item: MediaItem; onClose: () => void; opening: boolean }) {
   // GIF animé : lecteur vidéo (VIEW-54) ; s'il ne peut pas être converti (ffmpeg absent…), comme une image.
   if (item.kind === "image" && item.ext === "gif") return <VideoStage item={item} onClose={onClose} fallback={<ImageStage item={item} onClose={onClose} />} />;
-  if (item.kind === "image") return <ImageStage item={item} onClose={onClose} />;
+  if (item.kind === "image") return <ImageStage item={item} onClose={onClose} opening={opening} />;
   if (item.kind === "video") {
     const unplayable = (
       <Centered onClose={onClose}>

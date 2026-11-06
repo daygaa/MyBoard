@@ -1474,3 +1474,32 @@ premier zoom ; les copies en cours d'images dépassées sont abandonnées (fil �
 added_at)` (schéma 16), effacée avec le média ; une clé `i:<chemin>` n'est lue que si ce chemin est inscrit pour cette
 vidéo. Sous-titres cachés pendant le passage en plein écran (`fullscreen !== fullscreenShown`). Repère de progression :
 deux styles écrits à chaque image affichée pendant la lecture (`requestAnimationFrame`).
+
+## D-053 — Images de la visionneuse lues directement sur le disque par la fenêtre (06/11/2026)
+
+**Contexte.** Retours AUT.7.2 (1re ouverture d'une image de 28 Mo lente, puis clignotement) et AUT.7.3 (latences et
+images sautées en naviguant vite) de VIEW-53. Mesuré dans la version compilée, avec de vraies touches de Windows : le
+protocole `media://` (requêtes de WebView2 servies par Tauri) passe le fichier à la fenêtre par le fil principal de
+MyBoard, à ~16 ms par Mo et une lecture à la fois (3 lectures de 26 Mo lancées ensemble : finies à 0,45, 0,68 et
+0,87 s) ; pendant ce temps, un appel au cœur attend 230 ms, les miniatures aussi, et les vraies touches (examinées par
+MyBoard pour GEN-18) arrivent jusqu'à 0,86 s en retard, par paquets. Décoder le PNG de 28 Mo (4093 × 5787) prend
+0,34 s en Rust comme dans la fenêtre : rien à gagner à décoder ailleurs. Les touches injectées par le protocole
+DevTools ne passent pas par MyBoard : seules les vraies touches montrent ce retard (remarque de l'utilisateur).
+
+**Choix.** Au démarrage, avant le chargement de la page (WebView2 n'applique ce réglage qu'aux pages chargées
+après lui, mesuré), chaque disque qui contient un média de la bibliothèque est confié à WebView2 en lecture seule
+(`SetVirtualHostNameToFolderMapping`, `https://disque-c.myboard/…`, accès ALLOW : le fil des copies lit le fichier
+par `fetch`) ; disques trouvés par l'index du chemin (< 1 ms pour 100 000 médias). La liste des médias donne
+`fileUrl` pour les images aux formats affichés tels quels ; la visionneuse s'en sert pour l'original et les copies,
+et repasse par `media://` en cas d'échec. Restent sur `media://` : vidéos, sons, PDF, TIFF et HEIC (convertis),
+chemins réseau, disque qui reçoit son premier média pendant la séance (jusqu'au lancement suivant). Disques entiers :
+choix de l'utilisateur après explication (la fenêtre pourrait lire tout fichier de ces disques, mais elle n'exécute
+que le code de MyBoard, sa règle de sécurité interdit toute connexion vers l'extérieur, et aucun autre programme ne
+voit ces adresses). Mesuré : 43 ms pour 28 Mo au lieu de 0,40 s ; 3 lectures ensemble en 130 ms ; appel au cœur
+pendant ce temps : 30 ms.
+
+**Affichage.** Original après 1 s ou au zoom (choix de l'utilisateur ; aucun gel mesuré en quittant 5 images de 39 à
+61 Mpx). Ouverture depuis la grille sans copie prête : original demandé aussitôt, copies en attente jusqu'à son
+affichage (décodage seul : 0,39 s au lieu de 0,45 s). Ce qui est dessous (copie, miniature) n'est retiré qu'une fois
+l'original opaque (2 images plus tard, ou fin du fondu de 150 ms sur la miniature) ; sur une copie, sans fondu.
+Navigation : la position demandée ne suit l'image affichée que si aucun appui n'attend.

@@ -3,6 +3,22 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Visionneuse : ouverture et navigation rapide, sous-titres (06/11/2026) — Backup v105
+
+SPEC : VIEW-53, VIEW-52 `[~]` (retour T3, points AUT.7.2, AUT.7.3, VIS.1.5).
+
+- Visionneuse : images lues directement sur le disque par la fenêtre (10 fois plus vite, sans bloquer le reste de
+  MyBoard) ; 1re ouverture d'une image de 28 Mo nette en 0,45 s (avant : 1,5 s pour la copie, 2 s pour l'original),
+  sans clignotement ; navigation rapide au clavier ou aux flèches : chaque image s'affiche, touches sans retard.
+- Sous-titres : directement à leur place en sortant du plein écran (comme en y entrant).
+
+Vérifié dans la version compilée, sur une copie neuve de la base d'essai à chaque mesure, v104 puis v105 : 1re
+ouverture de l'image de 28 Mo (4093 × 5787) ; navigation au vrai clavier (touches envoyées par Windows) à 4 et 6 images
+par seconde, 30 appuis (images vues : 30 sur 30 au lieu de 22 et 19 ; retard des touches : 2 ms en médiane au lieu de
+0,12 à 0,19 s) ; 45 appuis injectés (aucun écran vide, au lieu de 10) ; zoom pendant la navigation (original sans
+trou) ; images géantes quittées après 2,5 s (aucune tâche longue) ; sous-titres à l'entrée et à la sortie du plein
+écran (une seule place) ; zéro erreur `tsc` et `clippy`.
+
 ## Retouches des lots 3.5 et 4 (06/11/2026) — Backup v104
 
 SPEC : VIEW-53, VIEW-52, DEL-08, VIEW-29 `[~]` (retour T3, points AUT.7.1, VIS.1.1, VIS.1.3 à VIS.1.5, DEL-08.5, VIS.4) ;

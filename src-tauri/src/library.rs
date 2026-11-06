@@ -17,7 +17,7 @@ pub const KINDS: [&str; 4] = ["image", "video", "audio", "document"];
 /// Colonnes d'un média de la grille, dans l'ordre lu par `media_from_row` (préfixées : la requête
 /// peut joindre les favoris ou un dossier).
 const MEDIA_COLUMNS: &str = "media.id, media.hash, media.file_name, media.ext, media.kind, media.size, media.width,      media.height, media.duration_ms, media.thumb_status, EXISTS (SELECT 1 FROM favorites f WHERE f.media_id = media.id), \
-     (SELECT group_concat(fm.folder_id) FROM folder_media fm WHERE fm.media_id = media.id)";
+     (SELECT group_concat(fm.folder_id) FROM folder_media fm WHERE fm.media_id = media.id), media.path";
 
 /// Demande d'une page de la grille. Filtres et tri sont indépendants des tags (FILT-02).
 #[derive(Debug, Deserialize)]
@@ -72,6 +72,8 @@ pub struct MediaItem {
     pub favorite: bool,
     /// Dossiers qui contiennent le média (liste à cocher, FOLD-09).
     pub folders: Vec<i64>,
+    /// Image lue directement par WebView2 sur le disque (VIEW-53, `media/direct.rs`) ; sinon `media://`.
+    pub file_url: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -130,12 +132,14 @@ pub fn ids_of(list: Option<String>) -> Vec<i64> {
 }
 
 fn media_from_row(r: &rusqlite::Row) -> rusqlite::Result<MediaItem> {
+    let (kind, ext): (String, String) = (r.get(4)?, r.get(3)?);
     Ok(MediaItem {
+        file_url: crate::media::direct::file_url(&r.get::<_, String>(12)?, &kind, &ext),
         id: r.get(0)?,
         hash: r.get(1)?,
         file_name: r.get(2)?,
-        ext: r.get(3)?,
-        kind: r.get(4)?,
+        ext,
+        kind,
         size: r.get(5)?,
         width: r.get(6)?,
         height: r.get(7)?,

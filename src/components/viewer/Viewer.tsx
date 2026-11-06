@@ -111,6 +111,10 @@ function ViewerOverlay({ base }: { base: ListBase }) {
     : `translateY(${-lift}px)`;
   // Dernière position demandée : un appui rapide sur → enchaîne sans attendre l'affichage.
   const target = useRef(index);
+  /** Position affichée au dernier rendu : un changement venu d'ailleurs (historique…) se reconnaît. */
+  const shownIndex = useRef(index);
+  /** Une flèche a déjà servi : le média affiché n'est plus celui ouvert depuis la grille (VIEW-53). */
+  const [navigated, setNavigated] = useState(false);
 
   // Échap, croix : fermeture (nouvelle étape « grille ») ; bouton 4 et flèche « précédent » : vrai retour
   // arrière ; bouton 5 et flèche « suivant » : l'étape d'après, s'il y en a une (AUT.6, AUT.17).
@@ -122,17 +126,23 @@ function ViewerOverlay({ base }: { base: ListBase }) {
   }, [idle]);
   // Inscrit après la visionneuse : en plein écran, Échap et le bouton 4 le quittent d'abord.
   useEscape(fullscreen, () => setFullscreen(false));
+  // La position demandée ne suit l'image affichée que si aucun appui n'attend : sinon, un rendu en retard la
+  // ramenait en arrière et l'appui suivant repartait de là (appui perdu, retour AUT.7.3).
   useEffect(() => {
-    target.current = index;
+    if (target.current === shownIndex.current) target.current = index;
+    shownIndex.current = index;
   }, [index]);
 
   const go = async (delta: number) => {
     const next = target.current + delta;
     if (next < 0 || next >= total) return;
     target.current = next;
-    const page = await pageAt(base, next);
-    const found = itemAt(page, next);
-    if (target.current === next && found) show(next, found, page.total);
+    setNavigated(true);
+    const page = await pageAt(base, next).catch(() => null);
+    const found = page ? itemAt(page, next) : undefined;
+    if (target.current !== next) return;
+    if (page && found) show(next, found, page.total);
+    else target.current = useViewer.getState().index; // rien à cette place : la position revient à l'image affichée
   };
 
   // Nombre total de résultats, puis préchargement des voisins à chaque changement de média.
@@ -213,7 +223,7 @@ function ViewerOverlay({ base }: { base: ListBase }) {
               se voit plus derrière). Ce cadre n'est pas recréé d'un média à l'autre : l'effet ne
               joue qu'à l'ouverture. */}
           <div className="mb-zoom-in absolute inset-0">
-            <MediaStage key={item.id} item={item} onClose={() => close()} />
+            <MediaStage key={item.id} item={item} onClose={() => close()} opening={!navigated} />
           </div>
           <NotesButton key={`note-${item.id}`} mediaId={item.id} />
         </ViewerChrome.Provider>
