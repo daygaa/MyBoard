@@ -1,6 +1,7 @@
 // Image de la visionneuse, zoomable façon wikifeet (ZOOM-01 à ZOOM-07).
 // La miniature (déjà prête) s'affiche tout de suite, puis l'image nette (D-016). Image nette (VIEW-53,
-// imageCache.ts) : sa copie décodée à la taille de l'écran, affichée aussitôt si elle est prête, sinon dès
+// imageCache.ts) : sa copie décodée à la taille de l'écran (posée dans le canevas unique de copyCanvas.ts, retour
+// AUT.7.4), affichée aussitôt si elle est prête, sinon dès
 // qu'elle l'est (préparée en premier). L'original est demandé après 1 s sur l'image, ou dès un zoom (choix de
 // l'utilisateur du 06/11) : une image qu'on ne fait que traverser n'est jamais décodée en entier. Fichiers lus
 // directement sur le disque par la fenêtre (D-053), sinon par `media://`.
@@ -17,6 +18,7 @@ import { THUMB, directUrl, mediaUrl, thumbUrl, type MediaItem } from "@/lib/api"
 import { openContextMenu } from "@/lib/contextMenu";
 import { cn } from "@/lib/utils";
 import { usePreviewReady } from "@/stores/previews";
+import { hideCopy, showCopy } from "./copyCanvas";
 import { canCopy, pauseCopies, readyBitmap, whenReady } from "./imageCache";
 import { imageMenu } from "./mediaMenus";
 import { ANIM_MS, useZoom, type Size } from "./useZoom";
@@ -35,7 +37,9 @@ export function ImageStage({ item, onClose, opening = false }: { item: MediaItem
   // Copie décodée : prête à l'ouverture (affichée sans attendre), ou attendue.
   const [bitmap, setBitmap] = useState(() => readyBitmap(item.id));
   const [copyPossible] = useState(() => canCopy(item));
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+  /** Scène de la copie : le canevas unique (copyCanvas.ts) y est posé ; copie à l'écran ou non. */
+  const copyHost = useRef<HTMLDivElement>(null);
+  const copyShown = useRef(false);
   // Dimensions connues par la base (rotation EXIF comprise) ; corrigées au chargement si besoin.
   const [natural, setNatural] = useState<Size>({ w: item.width ?? 0, h: item.height ?? 0 });
   /** Original décodé, affiché : d'un coup sur la copie, en fondu sur la miniature. */
@@ -57,17 +61,19 @@ export function ImageStage({ item, onClose, opening = false }: { item: MediaItem
     return () => pauseCopies(false);
   }, [holding]);
   const { view, zoomed, animate, handlers, controls } = useZoom(stageRef, natural, onClose);
-  // Copie dessinée avant d'être affichée : elle est à l'écran dès sa première image.
+  // Copie posée avant d'être affichée (elle est à l'écran dès sa première image), dans le canevas unique de la
+  // visionneuse (copyCanvas.ts, retour AUT.7.4) ; retirée quand l'original la recouvre ou que l'image change.
   useLayoutEffect(() => {
-    try {
-      // Canevas dessiné par le processeur (« willReadFrequently ») : dessinée par la carte graphique, chaque copie y
-      // restait aussi, même libérée (mesuré : +222 Mo pour 40 copies, retour AUT.7.4).
-      if (bitmap) canvasRef.current?.getContext("2d", { willReadFrequently: true })?.drawImage(bitmap, 0, 0);
-    } catch {
-      // Copie oubliée entre-temps : l'original arrive comme d'habitude.
-      setWantOriginal(true);
-    }
-  }, [bitmap]);
+    const host = copyHost.current;
+    if (!bitmap || covered || !host) return;
+    copyShown.current = showCopy(host, bitmap, natural);
+    // Copie oubliée entre-temps : l'original arrive comme d'habitude.
+    if (!copyShown.current) setWantOriginal(true);
+    return () => {
+      copyShown.current = false;
+      hideCopy(host);
+    };
+  }, [bitmap, covered, natural]);
   useEffect(() => {
     if (bitmap || !copyPossible || covered) return;
     return whenReady(item.id, (b) => (b ? setBitmap(b) : setWantOriginal(true)));
@@ -114,9 +120,7 @@ export function ImageStage({ item, onClose, opening = false }: { item: MediaItem
           willChange: "transform",
         }}
       >
-        {bitmap && !covered && (
-          <canvas ref={canvasRef} width={bitmap.width} height={bitmap.height} className="absolute inset-0 h-full w-full" />
-        )}
+        {bitmap && !covered && <div ref={copyHost} className="absolute inset-0 overflow-hidden" />}
         {!bitmap && !covered && item.thumbStatus === THUMB.ready && side > 0 && (
           <img
             src={thumbUrl(item.hash, previewReady ? "preview" : "normal")}
@@ -144,7 +148,7 @@ export function ImageStage({ item, onClose, opening = false }: { item: MediaItem
               .catch(() => undefined)
               .then(() => {
                 setNatural((n) => (n.w === size.w && n.h === size.h ? n : size));
-                setReveal(canvasRef.current ? "instant" : "fade");
+                setReveal(copyShown.current ? "instant" : "fade");
               });
           }}
           className="absolute inset-0 h-full w-full"

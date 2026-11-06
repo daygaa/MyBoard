@@ -1567,3 +1567,16 @@ quand le curseur s'arrête 150 ms ; en deçà, l'image exacte. Saut ignoré seul
 canevas `willReadFrequently` (dessiné par le processeur), rien. Résultat, 150 images lourdes : 899 Mo visionneuse
 fermée + 20 s (v106 : 1 035). Reste, pendant la navigation, 520 à 810 Mo dans la carte graphique, même sans aucun
 original : à étudier (éléments affichés puis retirés à chaque image).
+
+**Complément du 07/11 à D-051 (AUT.7.4, piste A, v108).** Relevé détaillé du moteur (« memory-infra », protocole
+DevTools du navigateur entier) après 100 images lourdes : `cc/image_memory` (images décodées gardées pour
+l'affichage) 560 à 660 Mo, ne se vide pas ; ses entrées avaient la taille de nos copies. Cause : un canevas neuf par
+image, posé dans le calque zoomable (will-change: transform), est dessiné par le moteur comme une image, et chaque
+contenu est gardé. Mesuré sur 40 copies dans un tel calque : canevas neuf +317 Mo (+141 dans la carte graphique) ;
+un seul canevas réutilisé +16 (+33) ; réutilisé mais redimensionné à chaque copie +218 (+142) ; déplacé d'un cadre à
+l'autre sans changer de taille +16. Choix : `copyCanvas.ts`, un seul canevas « processeur », de la taille de l'écran
+(agrandi une fois si une copie la dépasse), la copie dessinée dans son coin, le canevas agrandi à l'affichage
+(largeur × taille du canevas / taille de la copie) et la scène de l'image (`overflow: hidden`) masque le reste.
+Résultat : `cc/image_memory` 661 → 342 Mo (copies ≈ 16 Mo ; le reste : originaux, 36 à 90 Mo chacun) ; mémoire
+privée (colonne du Gestionnaire des tâches) 1 330 → 1 217 Mo après 150 images, 899 → 829 Mo visionneuse fermée : ce
+cache est surtout de la mémoire partagée « jetable » du moteur, que Windows ne compte pas dans cette colonne.

@@ -3,6 +3,19 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Visionneuse : un seul canevas pour les copies, moins de mémoire (07/11/2026) — Backup v108
+
+SPEC : VIEW-53 (retour T3, point AUT.7.4) `[~]`.
+
+- Les copies nettes des images sont affichées dans un seul canevas, réutilisé d'une image à l'autre : le moteur ne
+  garde plus chacune d'elles en double dans son cache d'images.
+
+Vérifié dans la version compilée, sur une copie neuve de la base d'essai : relevé détaillé de la mémoire du moteur
+après 100 images lourdes (images gardées : 661 → 342 Mo) ; mémoire privée après 150 images (1 330 → 1 217 Mo ;
+visionneuse fermée : 899 → 829 Mo) ; captures : copie paysage et portrait à la place exacte de l'image, identique à
+l'original ; non-régression : 1re ouverture (0,46 s), vrai clavier (30 images sur 30), zoom pendant la navigation
+(original sans trou) ; zéro erreur `tsc`.
+
 ## Aucune connexion vers l'extérieur ; glissement sans retour en arrière ; mémoire graphique (06/11/2026) — Backup v107
 
 SPEC : GEN-01 (retour T3, point AUT.29), VIEW-55 (VIS.5.1), VIEW-53 (AUT.7.4) `[~]`.
