@@ -143,6 +143,8 @@ pub fn run() {
             media::gif::prepare_gif,
             media::subtitles::video_subtitles,
             media::subtitles::subtitle_cues,
+            media::subtitles::import_subtitle,
+            media::subtitles::remove_imported_subtitle,
             system_menu::window_command,
             favorites::set_favorite,
             deletion::delete_media,

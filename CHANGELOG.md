@@ -3,6 +3,25 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Retouches des lots 3.5 et 4 (06/11/2026) — Backup v104
+
+SPEC : VIEW-53, VIEW-52, DEL-08, VIEW-29 `[~]` (retour T3, points AUT.7.1, VIS.1.1, VIS.1.3 à VIS.1.5, DEL-08.5, VIS.4) ;
+VIEW-54 validé. Base de données : schéma 16.
+
+- Visionneuse, navigation rapide sur des images lourdes : copies préparées 3 à la fois, l'image affichée d'abord ;
+  l'original chargé seulement après 1 s sur l'image ou au zoom ; copies d'images dépassées abandonnées.
+- Sous-titres : plus hauts quand la barre de lecture est cachée ; boutons « Vitesse » et « Sous-titres » échangés ;
+  « Importer un fichier… » (retenu pour la vidéo), « Retirer le fichier importé » ; plus de saut au passage en plein
+  écran.
+- Barre de progression des vidéos : repère fluide pendant la lecture.
+
+Vérifié dans la version compilée, sur une copie de la base d'essai : 16 images de 23 à 27 Mo à 2, 3 et 4 images par
+seconde (nettes en 9 à 27 ms à 2 par seconde, au lieu de 0,6 à 0,9 s ; aucune page figée) ; ordre des boutons, menus
+d'une vidéo sans sous-titres ; fichier importé (inscrit dans la base comme le fait la commande : la fenêtre « Ouvrir »
+de Windows ne se pilote pas) listé, affiché, retiré ; place des sous-titres en plein écran (76 px, barre cachée) et au
+passage en plein écran ; repère de progression (85 positions en 0,5 s) ; pop-in d'erreur avec 40 fichiers en lecture
+seule ; GIF et images gardées : inchangés ; zéro erreur `tsc` et `clippy`.
+
 ## Lot 4 : sous-titres des vidéos, barre de lecture des GIF (06/11/2026) — Backup v103
 
 SPEC : VIEW-52, VIEW-54 `[~]` (retour T3, points VIS.1 et VIS.3).

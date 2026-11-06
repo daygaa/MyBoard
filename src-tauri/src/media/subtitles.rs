@@ -2,7 +2,9 @@
 //! - fichiers posés à côté de la vidéo avec le même nom : `film.srt`, `film.fr.srt`, `film.en.vtt`,
 //!   `film.ass`… (majuscules ignorées) ;
 //! - pistes rangées dans la vidéo (MKV, MP4), listées par ffprobe ; seules les pistes en texte (les
-//!   sous-titres en images des DVD et Blu-ray ne peuvent pas être lus ainsi).
+//!   sous-titres en images des DVD et Blu-ray ne peuvent pas être lus ainsi) ;
+//! - fichiers importés par l'utilisateur (« Importer un fichier », retour VIS.1.4) : leur chemin est retenu pour la
+//!   vidéo (table `media_subtitles`, schéma 16), proposé tant que le fichier existe.
 //!
 //! Une piste est rendue en répliques (début, fin, texte) : `.srt` et `.vtt` lus ici (un vieux `.srt` en
 //! encodage Windows est reconnu) ; `.ass`, `.ssa` et pistes intégrées convertis par ffmpeg en WebVTT, texte
@@ -14,9 +16,11 @@ use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use std::sync::{Arc, Mutex};
 
+use rusqlite::params;
 use serde::Serialize;
 use serde_json::Value;
-use tauri::State;
+use tauri::{AppHandle, State, WebviewWindow};
+use tauri_plugin_dialog::DialogExt;
 
 use super::existing_path;
 use crate::AppState;
@@ -89,9 +93,14 @@ fn side_files(video: &Path) -> Vec<(String, String, String)> {
     found
 }
 
+/** Langue lue dans un nom de fichier : le dernier morceau reconnu (« film.forced.fr.srt » → français). */
+fn language_in_name(stem: &str) -> Option<(&'static str, &'static str)> {
+    stem.split('.').rev().find_map(language)
+}
+
 fn file_track((name, middle, ext): &(String, String, String)) -> SubTrack {
     // Langue : le dernier morceau reconnu (« film.forced.fr.srt ») ; sinon le texte du milieu tel quel.
-    let lang = middle.split('.').rev().find_map(language);
+    let lang = language_in_name(middle);
     let what = match lang {
         Some((_, label)) => label.to_string(),
         None if middle.is_empty() => "Sans langue".to_string(),
@@ -218,17 +227,45 @@ fn ffmpeg_webvtt(ff: &Ffmpeg, args: &[&str], input: Option<&str>, video: Option<
     Ok(String::from_utf8_lossy(&output.stdout).into_owned())
 }
 
-fn read_cues(ff: Option<&Ffmpeg>, video: &Path, key: &str) -> Result<Vec<Cue>, String> {
+/// Fichiers importés pour cette vidéo, qui existent encore.
+fn imported(state: &AppState, id: i64) -> Vec<PathBuf> {
+    let db = state.db.lock().unwrap();
+    let Ok(mut stmt) = db.prepare_cached("SELECT path FROM media_subtitles WHERE media_id = ?1 ORDER BY added_at") else { return Vec::new() };
+    stmt.query_map([id], |r| r.get::<_, String>(0))
+        .map(|rows| rows.filter_map(Result::ok).map(PathBuf::from).filter(|p| p.is_file()).collect())
+        .unwrap_or_default()
+}
+
+fn imported_track(path: &Path) -> SubTrack {
+    let name = path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+    let stem = path.file_stem().map(|s| s.to_string_lossy().to_lowercase()).unwrap_or_default();
+    SubTrack { key: format!("i:{}", path.display()), label: format!("{name} (importé)"), lang: language_in_name(&stem).map(|(c, _)| c.to_string()) }
+}
+
+/// Répliques d'un fichier de sous-titres (.srt, .vtt lus ici ; .ass, .ssa par ffmpeg).
+fn file_cues(ff: Option<&Ffmpeg>, path: &Path) -> Result<Vec<Cue>, String> {
+    let text = decode_text(&std::fs::read(path).map_err(|e| e.to_string())?);
+    let ext = path.extension().map(|e| e.to_string_lossy().to_lowercase()).unwrap_or_default();
+    match ext.as_str() {
+        "ass" | "ssa" => {
+            let ff = ff.ok_or("ffmpeg est introuvable : ces sous-titres ne peuvent pas être lus.")?;
+            Ok(parse_cues(&ffmpeg_webvtt(ff, &[], Some(&text), None)?))
+        }
+        _ => Ok(parse_cues(&text)),
+    }
+}
+
+/// `imported` : fichiers importés pour cette vidéo (seuls chemins acceptés pour une clé `i:`).
+fn read_cues(ff: Option<&Ffmpeg>, video: &Path, imported: &[PathBuf], key: &str) -> Result<Vec<Cue>, String> {
     let need_ffmpeg = || ff.ok_or_else(|| "ffmpeg est introuvable : ces sous-titres ne peuvent pas être lus.".to_string());
     if let Some(name) = key.strip_prefix("f:") {
         // Seulement un fichier à côté de la vidéo, portant son nom (jamais un autre chemin).
         let side = side_files(video).into_iter().find(|(n, _, _)| n == name).ok_or("Fichier de sous-titres introuvable.")?;
-        let path: PathBuf = video.with_file_name(&side.0);
-        let text = decode_text(&std::fs::read(&path).map_err(|e| e.to_string())?);
-        return match side.2.as_str() {
-            "ass" | "ssa" => Ok(parse_cues(&ffmpeg_webvtt(need_ffmpeg()?, &[], Some(&text), None)?)),
-            _ => Ok(parse_cues(&text)),
-        };
+        return file_cues(ff, &video.with_file_name(&side.0));
+    }
+    if let Some(path) = key.strip_prefix("i:") {
+        let path = imported.iter().find(|p| p.display().to_string() == path).ok_or("Fichier de sous-titres introuvable.")?;
+        return file_cues(ff, path);
     }
     let index: u32 = key.strip_prefix("e:").and_then(|i| i.parse().ok()).ok_or("Piste inconnue.")?;
     let map = format!("0:{index}");
@@ -240,11 +277,13 @@ fn read_cues(ff: Option<&Ffmpeg>, video: &Path, key: &str) -> Result<Vec<Cue>, S
 pub async fn video_subtitles(state: State<'_, AppState>, id: i64) -> Result<Vec<SubTrack>, String> {
     let video = existing_path(&state, id).map_err(|e| e.message)?;
     let ff = state.thumbs.ffmpeg().cloned();
+    let extra = imported(&state, id);
     tauri::async_runtime::spawn_blocking(move || {
         let mut tracks: Vec<SubTrack> = side_files(&video).iter().map(file_track).collect();
         if let Some(ff) = ff {
             tracks.extend(embedded_tracks(&ff, &video));
         }
+        tracks.extend(extra.iter().map(|p| imported_track(p)));
         tracks
     })
     .await
@@ -259,14 +298,54 @@ pub async fn subtitle_cues(state: State<'_, AppState>, id: i64, key: String) -> 
     }
     let video = existing_path(&state, id).map_err(|e| e.message)?;
     let ff = state.thumbs.ffmpeg().cloned();
+    let extra = imported(&state, id);
     let k = key.clone();
-    let cues = tauri::async_runtime::spawn_blocking(move || read_cues(ff.as_ref(), &video, &k)).await.map_err(|e| e.to_string())??;
+    let cues = tauri::async_runtime::spawn_blocking(move || read_cues(ff.as_ref(), &video, &extra, &k)).await.map_err(|e| e.to_string())??;
     let mut cache = CACHE.lock().unwrap();
     cache.push_back(((id, key), Arc::new(cues.clone())));
     if cache.len() > KEPT {
         cache.pop_front();
     }
     Ok(cues)
+}
+
+/// « Importer un fichier » : fenêtre « Ouvrir » de Windows (formats de sous-titres) ; le chemin choisi est retenu
+/// pour la vidéo. Renvoie la piste, ou rien si l'utilisateur annule.
+#[tauri::command]
+pub async fn import_subtitle(app: AppHandle, window: WebviewWindow, state: State<'_, AppState>, id: i64) -> Result<Option<SubTrack>, String> {
+    let video = existing_path(&state, id).map_err(|e| e.message)?;
+    let mut dialog = app
+        .dialog()
+        .file()
+        .set_parent(&window)
+        .set_title("Importer un fichier de sous-titres")
+        .add_filter("Sous-titres (.srt, .vtt, .ass, .ssa)", &SIDE_EXTS);
+    if let Some(dir) = video.parent() {
+        dialog = dialog.set_directory(dir);
+    }
+    let Some(chosen) = dialog.blocking_pick_file() else { return Ok(None) };
+    let path = chosen.into_path().map_err(|e| e.to_string())?;
+    state
+        .db
+        .lock()
+        .unwrap()
+        .execute("INSERT OR IGNORE INTO media_subtitles (media_id, path, added_at) VALUES (?1, ?2, ?3)", params![id, path.display().to_string(), crate::db::now_ms()])
+        .map_err(|e| e.to_string())?;
+    Ok(Some(imported_track(&path)))
+}
+
+/// « Retirer le fichier importé » : la vidéo l'oublie (le fichier reste où il est).
+#[tauri::command]
+pub async fn remove_imported_subtitle(state: State<'_, AppState>, id: i64, key: String) -> Result<(), String> {
+    let path = key.strip_prefix("i:").ok_or("Piste inconnue.")?;
+    state
+        .db
+        .lock()
+        .unwrap()
+        .execute("DELETE FROM media_subtitles WHERE media_id = ?1 AND path = ?2", params![id, path])
+        .map_err(|e| e.to_string())?;
+    CACHE.lock().unwrap().retain(|(k, _)| !(k.0 == id && k.1 == key));
+    Ok(())
 }
 
 #[cfg(test)]

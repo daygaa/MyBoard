@@ -1,14 +1,18 @@
 // Sous-titres de la vidéo affichée (VIEW-52) : pistes trouvées par MyBoard (fichiers à côté de la vidéo, pistes
 // intégrées : media/subtitles.rs), toujours désactivées à l'ouverture (choix de l'utilisateur : le bouton
 // montre seulement qu'il y en a). Bouton de la barre de lecture, sous-menu du clic droit, touche C (la piste
-// choisie en dernier, sinon français, anglais, puis la 1re).
+// choisie en dernier, sinon français, anglais, puis la 1re). « Importer un fichier » (retour VIS.1.4) : fenêtre
+// « Ouvrir » de Windows ; le fichier est retenu pour la vidéo et affiché aussitôt ; « Retirer le fichier
+// importé » quand c'est la piste affichée.
 // Affichage : répliques de la piste ajoutées à une piste de texte « cachée » de la vidéo (le navigateur dit
 // quand chacune commence et finit), dessinées par MyBoard par-dessus la vidéo, hors du zoom (toujours
-// lisibles) : texte blanc à contour noir, sans fond, en bas de l'image visible, remonté au-dessus de la barre
-// de lecture quand elle est affichée.
+// lisibles) : texte blanc à contour noir, sans fond, en bas de l'image visible (à 7 % de sa hauteur, retour
+// VIS.1.1), remonté au-dessus de la barre de lecture quand elle est affichée ; cachés pendant le passage en plein
+// écran ou sa sortie, pour apparaître directement à leur place (retour VIS.1.5). Retours à la ligne du fichier
+// gardés (choix de l'utilisateur, VIS.1.2).
 
 import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { api, type SubTrack } from "@/lib/api";
 
@@ -21,6 +25,12 @@ export type Subtitles = {
   toggle: () => string;
   /** Répliques en cours (texte mis en forme par le navigateur : italique, gras…). */
   cues: DocumentFragment[];
+  /** Sous-titres possibles (pas pour un GIF). */
+  enabled: boolean;
+  importFile: () => void;
+  /** La piste affichée est un fichier importé : « Retirer le fichier importé ». */
+  activeImported: boolean;
+  removeImported: () => void;
 };
 
 const NONE: SubTrack[] = [];
@@ -40,6 +50,7 @@ function textTrackOf(video: HTMLVideoElement): TextTrack {
 const preferred = (tracks: SubTrack[]) => tracks.find((t) => t.lang === "fr") ?? tracks.find((t) => t.lang === "en") ?? tracks[0];
 
 export function useSubtitles(mediaId: number, videoRef: RefObject<HTMLVideoElement | null>, enabled: boolean): Subtitles {
+  const queryClient = useQueryClient();
   const { data } = useQuery({ queryKey: ["subtitles", mediaId], queryFn: () => api.videoSubtitles(mediaId), enabled });
   const tracks = enabled ? (data ?? NONE) : NONE;
   const [active, setActive] = useState<string | null>(null);
@@ -88,7 +99,25 @@ export function useSubtitles(mediaId: number, videoRef: RefObject<HTMLVideoEleme
     select(track.key);
     return `Sous-titres : ${track.label}`;
   };
-  return { tracks, active, select, toggle, cues };
+  const refresh = () => void queryClient.invalidateQueries({ queryKey: ["subtitles", mediaId] });
+  const importFile = () =>
+    void api
+      .importSubtitle(mediaId)
+      .then((track) => {
+        if (!track) return;
+        refresh();
+        select(track.key);
+      })
+      .catch(() => {});
+  const activeImported = active?.startsWith("i:") ?? false;
+  const removeImported = () => {
+    if (!active?.startsWith("i:")) return;
+    const key = active;
+    select(null);
+    if (last.current === key) last.current = null;
+    void api.removeImportedSubtitle(mediaId, key).then(refresh, () => {});
+  };
+  return { tracks, active, select, toggle, cues, enabled, importFile, activeImported, removeImported };
 }
 
 /** Contour noir du texte (8 directions), sans fond. */
@@ -109,7 +138,10 @@ export function subtitleBox(stage: { w: number; h: number }, natural: { w: numbe
   const bottom = Math.min(stage.h, stage.h / 2 + view.ty + h / 2);
   // 4,5 % de la hauteur visible de la vidéo, entre 16 et 48 px.
   const fontSize = Math.min(48, Math.max(16, (bottom - top) * 0.045));
-  return { left, width: Math.max(0, right - left), bottom: Math.max(stage.h - bottom, barTop) + fontSize * 0.6, fontSize };
+  // Barre cachée : à 7 % de la hauteur visible au-dessus du bas de l'image (retour VIS.1.1 : à 0,6 ligne, trop
+  // bas) ; barre affichée : juste au-dessus d'elle si elle est plus haute.
+  const lift = Math.max(stage.h - bottom + (bottom - top) * 0.07, barTop + fontSize * 0.6);
+  return { left, width: Math.max(0, right - left), bottom: lift, fontSize };
 }
 
 export function SubtitleOverlay({ cues, box }: { cues: DocumentFragment[]; box: SubtitleBox }) {

@@ -77,15 +77,19 @@ export function imageMenu(item: MediaItem, zoom: ZoomControls): MenuEntry[] {
   ];
 }
 
-/** Pistes de sous-titres (VIEW-52) : « Désactivés » puis chaque piste ; grisé sans piste. */
+/** Pistes de sous-titres (VIEW-52) : « Désactivés », chaque piste, puis « Importer un fichier… » (VIS.1.4) ;
+ *  grisé pour un GIF. */
 function subtitlesEntry(subs: Subtitles): MenuEntry {
   return {
     label: "Sous-titres",
     shortcut: VIDEO_SHORTCUTS.subtitles.label,
-    disabled: subs.tracks.length === 0,
+    disabled: !subs.enabled,
     submenu: [
       { label: "Désactivés", checked: subs.active === null, run: () => subs.select(null) },
       ...subs.tracks.map((t) => ({ label: t.label, checked: subs.active === t.key, run: () => subs.select(t.key) })),
+      "separator",
+      { label: "Importer un fichier…", run: subs.importFile },
+      ...(subs.activeImported ? [{ label: "Retirer le fichier importé", run: subs.removeImported }] : []),
     ],
   };
 }

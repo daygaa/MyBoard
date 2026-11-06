@@ -2,10 +2,11 @@
 // flotte par-dessus la vidéo : centrée, bords arrondis, à la même hauteur à l'écran en plein
 // écran ou non (VIEW-32) ; cachée avec le curseur quand la souris est immobile (VIEW-33) :
 // lecture / pause, temps, barre de progression cliquable (temps au survol), volume + muet
-// (curseur continu), sous-titres (VIEW-52), vitesse, boucle (VIEW-26), plein écran tout à droite (VIEW-18).
+// (curseur continu), vitesse, sous-titres (VIEW-52 ; places échangées, retour VIS.1.3), boucle (VIEW-26), plein écran
+// tout à droite (VIEW-18). Repère de progression mis à jour à chaque image affichée pendant la lecture (VIS.4).
 // GIF (VIEW-54) : mêmes commandes, son grisé, boucle à part.
 
-import { useContext, useEffect, useReducer, useState, type PointerEvent, type RefObject } from "react";
+import { useContext, useEffect, useReducer, useRef, useState, type PointerEvent, type RefObject } from "react";
 import { Captions, Pause, Play, Repeat, Volume1, Volume2, VolumeX } from "lucide-react";
 
 import { formatDuration } from "@/lib/format";
@@ -42,6 +43,30 @@ function ProgressBar({ video }: { video: HTMLVideoElement }) {
   const [hover, setHover] = useState<{ x: number; time: number } | null>(null);
   const duration = video.duration || 0;
   const played = duration ? (video.currentTime / duration) * 100 : 0;
+  const fillRef = useRef<HTMLDivElement>(null);
+  const dotRef = useRef<HTMLDivElement>(null);
+  // Pendant la lecture, le repère avance à chaque image affichée (retour VIS.4 : seuls les événements « temps »
+  // de la vidéo, 4 par seconde, le faisaient avancer par à-coups) ; deux styles écrits, sans redessiner la barre.
+  useEffect(() => {
+    let frame = 0;
+    const tick = () => {
+      const d = video.duration || 0;
+      const at = d ? `${(video.currentTime / d) * 100}%` : "0%";
+      if (fillRef.current) fillRef.current.style.width = at;
+      if (dotRef.current) dotRef.current.style.left = at;
+      if (!video.paused) frame = requestAnimationFrame(tick);
+    };
+    const start = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(tick);
+    };
+    video.addEventListener("play", start);
+    if (!video.paused) start();
+    return () => {
+      cancelAnimationFrame(frame);
+      video.removeEventListener("play", start);
+    };
+  }, [video]);
   const buffered = duration && video.buffered.length ? (video.buffered.end(video.buffered.length - 1) / duration) * 100 : 0;
 
   const timeAt = (e: PointerEvent<HTMLDivElement>) => {
@@ -69,8 +94,9 @@ function ProgressBar({ video }: { video: HTMLVideoElement }) {
     >
       <div className="relative h-1 w-full rounded-full bg-white/15 transition-[height] group-hover:h-1.5">
         <div className="absolute inset-y-0 left-0 rounded-full bg-white/25" style={{ width: `${buffered}%` }} />
-        <div className="absolute inset-y-0 left-0 rounded-full bg-[#d9a94e]" style={{ width: `${played}%` }} />
+        <div ref={fillRef} className="absolute inset-y-0 left-0 rounded-full bg-[#d9a94e]" style={{ width: `${played}%` }} />
         <div
+          ref={dotRef}
           className="absolute top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#d9a94e] opacity-0 transition-opacity group-hover:opacity-100"
           style={{ left: `${played}%` }}
         />
@@ -114,18 +140,25 @@ function SpeedMenu() {
   );
 }
 
-/** Sous-titres (VIEW-52) : grisé sans piste, doré quand une piste est affichée. */
+/** Sous-titres (VIEW-52) : gris sans piste (« Importer un fichier » reste possible), doré quand une piste est
+ *  affichée ; grisé pour un GIF. */
 function SubtitlesMenu({ subs }: { subs: Subtitles }) {
   const none = subs.tracks.length === 0;
   return (
     <BarMenu
       zone="visionneuse.lecteur.sous-titres"
-      title={none ? "Aucun sous-titre pour cette vidéo" : `Sous-titres (${VIDEO_SHORTCUTS.subtitles.label})`}
-      disabled={none}
-      buttonClassName={cn(BUTTON, "disabled:cursor-default disabled:text-zinc-600 disabled:hover:bg-transparent", subs.active !== null && "text-[#d9a94e] hover:text-[#e3b75f]")}
+      title={!subs.enabled ? "Pas de sous-titres pour un GIF" : none ? "Aucun sous-titre trouvé pour cette vidéo (importer un fichier…)" : `Sous-titres (${VIDEO_SHORTCUTS.subtitles.label})`}
+      disabled={!subs.enabled}
+      buttonClassName={cn(
+        BUTTON,
+        "disabled:cursor-default disabled:text-zinc-600 disabled:hover:bg-transparent",
+        subs.active !== null ? "text-[#d9a94e] hover:text-[#e3b75f]" : none && "text-zinc-500",
+      )}
       items={[
         { key: "", label: "Désactivés", active: subs.active === null, onSelect: () => subs.select(null) },
         ...subs.tracks.map((t) => ({ key: t.key, label: t.label, active: subs.active === t.key, onSelect: () => subs.select(t.key) })),
+        { key: "importer", label: "Importer un fichier…", active: false, onSelect: subs.importFile, separated: true },
+        ...(subs.activeImported ? [{ key: "retirer", label: "Retirer le fichier importé", active: false, onSelect: subs.removeImported }] : []),
       ]}
     >
       <Captions className="h-4 w-4" />
@@ -211,8 +244,8 @@ export function VideoControls({ videoRef, subs, gif }: { videoRef: RefObject<HTM
         aria-label="Volume"
         className="h-1 w-24 shrink-0 cursor-pointer accent-[#d9a94e] disabled:cursor-default disabled:opacity-40"
       />
-      <SubtitlesMenu subs={subs} />
       <SpeedMenu />
+      <SubtitlesMenu subs={subs} />
       <button
         type="button"
         data-zone="visionneuse.boucle"

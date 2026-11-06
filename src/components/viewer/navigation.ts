@@ -36,8 +36,8 @@ export function usePreload() {
       // GIF voisins convertis d'avance pour le lecteur vidéo (VIEW-54).
       if (item.ext === "gif") void api.prepareGif(item.id).catch(() => {});
     }
-    // Le média affiché en dernier : il est déjà à l'écran, sa copie ne sert qu'à y revenir.
-    warm([...neighbors, current]);
+    // Le média affiché d'abord : sa copie est son image nette (ImageStage), puis 2 après et 1 avant.
+    warm([current, ...neighbors]);
   };
 }
 

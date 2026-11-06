@@ -19,6 +19,7 @@ import { hasModalLayer, useEscape } from "@/lib/escape";
 import { videoActionFor, type VideoAction } from "@/lib/shortcuts";
 import { cn } from "@/lib/utils";
 import { isSilent, speedLabel, usePlayer } from "@/stores/player";
+import { useViewer } from "@/stores/viewer";
 
 import { videoMenu } from "./mediaMenus";
 import { PlayerBadge, SPEED_BADGE_MS, usePlayerBadge } from "./PlayerBadge";
@@ -83,6 +84,8 @@ export function VideoStage({ item, onClose, fallback }: { item: MediaItem; onClo
   const { volume, muted, loop: videoLoop, speed } = usePlayer();
   const loop = isGif ? gif.loop : videoLoop;
   const { idle, restartIdle, bottomInset, lift } = useContext(ViewerChrome);
+  // Passage en plein écran ou sortie en cours : la barre de lecture n'est pas encore à sa place (VIS.1.5).
+  const switching = useViewer((s) => s.fullscreen !== s.fullscreenShown);
   // GIF pas encore relayé par sa vidéo : un clic n'y fait rien.
   const waiting = isGif && !gif.ready;
   const { view, zoomed, animate, handlers, reset, controls, stage } = useZoom(stageRef, natural, onClose, () => !waiting && toggle(videoRef.current));
@@ -187,7 +190,7 @@ export function VideoStage({ item, onClose, fallback }: { item: MediaItem; onClo
             ...(isGif && { objectFit: "none", objectPosition: "0 0", opacity: gif.ready ? 1 : 0 }),
           }}
         />
-        {subs.cues.length > 0 && (
+        {subs.cues.length > 0 && !switching && (
           <SubtitleOverlay cues={subs.cues} box={subtitleBox(stage, natural, view, idle ? 0 : bottomInset + FLOAT_GAP + BAR_HEIGHT + lift)} />
         )}
         {zoomed && <ZoomBadge scale={view.scale} />}

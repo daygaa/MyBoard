@@ -10,7 +10,8 @@ import { swallowClick } from "@/lib/swallowClick";
 import { cn } from "@/lib/utils";
 import { ViewerChrome } from "./viewerChrome";
 
-export type BarMenuItem = { key: string; label: string; active: boolean; onSelect: () => void };
+/** `separated` : trait au-dessus de l'entrée (commandes après la liste des choix). */
+export type BarMenuItem = { key: string; label: string; active: boolean; onSelect: () => void; separated?: boolean };
 
 type Props = {
   zone: string;
@@ -50,7 +51,7 @@ export function BarMenu({ zone, title, children, items, disabled = false, button
       {open && (
         <ul data-zone={`${zone}.menu`} className="absolute right-0 bottom-full z-30 mb-1 rounded-md border border-border bg-popover p-1 shadow-lg">
           {items.map((item) => (
-            <li key={item.key}>
+            <li key={item.key} className={cn(item.separated && "mt-1 border-t border-border pt-1")}>
               <button
                 type="button"
                 onClick={() => {

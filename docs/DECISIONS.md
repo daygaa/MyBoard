@@ -1462,3 +1462,15 @@ d'un pixel (montré nulle part : `object-fit: none`) ; une conversion à la fois
 servi par `media://gif/<id>/<empreinte>.mp4` (Range compris). Cache vidé au lancement (fermeture forcée) et à la
 fermeture (`RunEvent::Exit`). Relais (`useGifVideo.ts`) : la vidéo est placée à (temps écoulé depuis l'affichage du
 GIF + 10 ms) modulo sa durée, lancée, et remplace le GIF à sa 1re image affichée (`requestVideoFrameCallback`).
+
+**Complément du 06/11 à D-051 (retour AUT.7.1, v104).** Mesuré : en passant 2 images de 25 Mo par seconde, l'image nette
+arrivait 0,6 à 0,9 s après la flèche (copies une à une, original décodé aussitôt pour chaque image traversée, puis
+libéré en la quittant : page figée jusqu'à 0,48 s). Désormais : 3 copies à la fois, l'image affichée d'abord ; la
+visionneuse affiche la copie dès qu'elle arrive (`whenReady`) ; l'original n'est demandé qu'après 1 s sur l'image ou au
+premier zoom ; les copies en cours d'images dépassées sont abandonnées (fil à part relancé). Résultat : nettes en 9 à
+27 ms à 2 images par seconde ; l'image où l'on s'arrête, en 0,3 s à 4 images par seconde ; aucune page figée.
+
+**Complément du 06/11 à D-052 (v104).** Fichiers de sous-titres importés : table `media_subtitles (media_id, path,
+added_at)` (schéma 16), effacée avec le média ; une clé `i:<chemin>` n'est lue que si ce chemin est inscrit pour cette
+vidéo. Sous-titres cachés pendant le passage en plein écran (`fullscreen !== fullscreenShown`). Repère de progression :
+deux styles écrits à chaque image affichée pendant la lecture (`requestAnimationFrame`).

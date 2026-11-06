@@ -268,6 +268,9 @@ export const api = {
   /** Sous-titres d'une vidéo (VIEW-52) : fichiers à côté, puis pistes intégrées. */
   videoSubtitles: (id: number) => invoke<SubTrack[]>("video_subtitles", { id }),
   subtitleCues: (id: number, key: string) => invoke<SubCue[]>("subtitle_cues", { id, key }),
+  /** « Importer un fichier » (fenêtre « Ouvrir » de Windows) : la piste, ou null si l'utilisateur annule. */
+  importSubtitle: (id: number) => invoke<SubTrack | null>("import_subtitle", { id }),
+  removeImportedSubtitle: (id: number, key: string) => invoke<void>("remove_imported_subtitle", { id, key }),
   /** Commande du menu de la fenêtre (CTX-13) : comme celui de Windows. */
   windowCommand: (command: WindowCommand) => invoke<void>("window_command", { command }),
   /** Renvoie le nombre de médias réellement ajoutés ou retirés (badge de SEL-08). */
