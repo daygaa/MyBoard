@@ -1,4 +1,5 @@
-//! Images lues directement par WebView2 sur le disque (VIEW-53, retours AUT.7.2 et AUT.7.3, D-053).
+//! Images et vidéos lues directement par WebView2 sur le disque (VIEW-53, retours AUT.7.2 et AUT.7.3, D-053 ;
+//! vidéos : VIEW-55, D-054 : sauts 3 à 5 fois plus rapides, plus aucune attente de MyBoard pendant la lecture).
 //!
 //! Mesuré le 06/11 : le protocole `media://` passe le fichier à la fenêtre par le fil principal de MyBoard, à
 //! ~16 ms par Mo (0,40 s pour 28 Mo), une lecture à la fois ; pendant ce temps, miniatures, appels au cœur et
@@ -18,7 +19,10 @@ use std::sync::Mutex;
 use rusqlite::Connection;
 
 /// Formats d'image affichés tels quels par WebView2 (les autres sont convertis par `protocol.rs`).
-const DIRECT: [&str; 9] = ["jpg", "jpeg", "jpe", "jfif", "png", "gif", "webp", "bmp", "avif"];
+const IMAGES: [&str; 9] = ["jpg", "jpeg", "jpe", "jfif", "png", "gif", "webp", "bmp", "avif"];
+/// Formats vidéo lus directement (VIEW-55, D-054) ; essayés le 06/11 : .mov, .mp4, .webm, .mkv. Les autres (AVI…)
+/// passent par `media://` (que WebView2 ne sait de toute façon pas lire : message de la visionneuse).
+const VIDEOS: [&str; 6] = ["mp4", "m4v", "mov", "webm", "mkv", "ogv"];
 
 /// Lettres des disques confiés à WebView2 au démarrage.
 static DRIVES: Mutex<Vec<char>> = Mutex::new(Vec::new());
@@ -48,10 +52,15 @@ pub fn install(window: &tauri::WebviewWindow, drives: Vec<char>) {
     map(window, drives);
 }
 
-/// Adresse directe d'une image (`https://disque-c.myboard/Users/…/a%20b.png`), ou `None` : autre sorte de
-/// média, format converti, chemin réseau, disque non confié.
+/// Adresse directe d'une image ou d'une vidéo (`https://disque-c.myboard/Users/…/a%20b.png`), ou `None` : autre
+/// sorte de média, format converti ou non lu, chemin réseau, disque non confié.
 pub fn file_url(path: &str, kind: &str, ext: &str) -> Option<String> {
-    if kind != "image" || !DIRECT.contains(&ext) {
+    let direct = match kind {
+        "image" => IMAGES.contains(&ext),
+        "video" => VIDEOS.contains(&ext),
+        _ => false,
+    };
+    if !direct {
         return None;
     }
     let letter = path.chars().next().filter(char::is_ascii_alphabetic)?.to_ascii_uppercase();

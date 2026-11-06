@@ -5,15 +5,18 @@
 // - Espace = lecture / pause ; image par image, vidéo en pause : touche « , ? » = reculer,
 //   touche « ; . » = avancer.
 // - M = son, < et > = vitesse, L = boucle (VIEW-47), avec un badge bref.
-// Lecture automatique, avec le son, en boucle (VIEW-26) ; fichier original lu par morceaux.
+// Lecture automatique, avec le son, en boucle (VIEW-26) ; fichier original lu par morceaux, directement sur le disque par
+// la fenêtre (VIEW-55, D-054 ; `media://` si ce n'est pas possible). Images clés lues par ffprobe : glissement du curseur
+// de la barre de progression fluide (ProgressBar.tsx).
 // Clic droit sur la vidéo (pas sur le fond) : son menu (CTX-07).
 // Sous-titres (VIEW-52, Subtitles.tsx) : bouton de la barre, sous-menu du clic droit, touche C.
 // GIF animé (VIEW-54, useGifVideo.ts) : le GIF s'affiche tout de suite, sa vidéo prend le relais au même instant ;
 // pas de son (M sans effet), boucle propre au GIF.
 
 import { useContext, useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
+import { useQuery } from "@tanstack/react-query";
 
-import { mediaUrl, type MediaItem } from "@/lib/api";
+import { api, directUrl, mediaUrl, type MediaItem } from "@/lib/api";
 import { openContextMenu } from "@/lib/contextMenu";
 import { hasModalLayer, useEscape } from "@/lib/escape";
 import { videoActionFor, type VideoAction } from "@/lib/shortcuts";
@@ -33,6 +36,7 @@ import { ZoomBadge } from "./ZoomBadge";
 /** Durée d'une image quand la vidéo ne l'a pas encore révélée (30 images par seconde). */
 const DEFAULT_FRAME = 1 / 30;
 const BACK_KEYS = [",", "?"];
+const NO_KEYFRAMES: number[] = [];
 const FORWARD_KEYS = [";", "."];
 
 function isTyping(target: EventTarget | null): boolean {
@@ -78,7 +82,10 @@ export function VideoStage({ item, onClose, fallback }: { item: MediaItem; onClo
   const videoRef = useRef<HTMLVideoElement>(null);
   const [natural, setNatural] = useState<Size>({ w: item.width ?? 0, h: item.height ?? 0 });
   const [failed, setFailed] = useState(false);
+  /** Lecture directe impossible (D-054) : `media://`. */
+  const [viaProtocol, setViaProtocol] = useState(false);
   const isGif = item.ext === "gif";
+  const { data: keyframes } = useQuery({ queryKey: ["keyframes", item.id], queryFn: () => api.videoKeyframes(item.id), enabled: !isGif, staleTime: Infinity });
   const gif = useGifVideo(item.id, isGif);
   const subs = useSubtitles(item.id, videoRef, !isGif);
   const { volume, muted, loop: videoLoop, speed } = usePlayer();
@@ -164,10 +171,13 @@ export function VideoStage({ item, onClose, fallback }: { item: MediaItem; onClo
         )}
         <video
           ref={videoRef}
-          src={isGif ? (gif.src ?? undefined) : mediaUrl(item)}
+          src={isGif ? (gif.src ?? undefined) : viaProtocol ? mediaUrl(item) : directUrl(item)}
           autoPlay={!isGif}
           playsInline
-          onError={() => setFailed(true)}
+          onError={() => {
+            if (!isGif && item.fileUrl && !viaProtocol) setViaProtocol(true);
+            else setFailed(true);
+          }}
           onContextMenu={(e) => openContextMenu(e, () => videoMenu(item, e.currentTarget, controls, subs, gifControls))}
           onLoadedMetadata={(e) => {
             const v = e.currentTarget;
@@ -200,7 +210,7 @@ export function VideoStage({ item, onClose, fallback }: { item: MediaItem; onClo
         {zoomed && <ZoomBadge scale={view.scale} />}
         <PlayerBadge text={badge.text} />
       </div>
-      <VideoControls videoRef={videoRef} subs={subs} gif={gifControls} />
+      <VideoControls videoRef={videoRef} subs={subs} gif={gifControls} keyframes={keyframes ?? NO_KEYFRAMES} />
     </>
   );
 }

@@ -23,7 +23,7 @@ export type MediaItem = {
   favorite: boolean;
   /** Dossiers qui contiennent le média (FOLD-09). */
   folders: number[];
-  /** Image lue directement sur le disque par la fenêtre (VIEW-53) ; absente : `media://`. */
+  /** Image ou vidéo lue directement sur le disque par la fenêtre (VIEW-53, VIEW-55) ; absente : `media://`. */
   fileUrl?: string | null;
 };
 
@@ -269,6 +269,8 @@ export const api = {
   prepareGif: (id: number) => invoke<string>("prepare_gif", { id }),
   /** Sous-titres d'une vidéo (VIEW-52) : fichiers à côté, puis pistes intégrées. */
   videoSubtitles: (id: number) => invoke<SubTrack[]>("video_subtitles", { id }),
+  /** Temps des images clés d'une vidéo (glissement du curseur, VIEW-55). */
+  videoKeyframes: (id: number) => invoke<number[]>("video_keyframes", { id }),
   subtitleCues: (id: number, key: string) => invoke<SubCue[]>("subtitle_cues", { id, key }),
   /** « Importer un fichier » (fenêtre « Ouvrir » de Windows) : la piste, ou null si l'utilisateur annule. */
   importSubtitle: (id: number) => invoke<SubTrack | null>("import_subtitle", { id }),
@@ -366,9 +368,9 @@ export function mediaUrl(item: Pick<MediaItem, "id" | "hash" | "ext">): string {
   return `${MEDIA_ROOT}${item.id}/${item.hash}.${item.ext}`;
 }
 
-/** Adresse du fichier d'une IMAGE pour la visionneuse (VIEW-53) : lue directement sur le disque par la fenêtre
- *  (10 fois plus rapide, sans bloquer MyBoard), sinon `media://` (formats convertis, chemins réseau). */
-export const imageUrl = (item: MediaItem): string => item.fileUrl ?? mediaUrl(item);
+/** Adresse du fichier d'une image ou d'une vidéo pour la visionneuse : lu directement sur le disque par la fenêtre
+ *  (VIEW-53, VIEW-55 : 10 fois plus rapide, sans bloquer MyBoard), sinon `media://` (formats convertis, chemins réseau). */
+export const directUrl = (item: MediaItem): string => item.fileUrl ?? mediaUrl(item);
 
 /** Adresse de la vidéo d'un GIF (VIEW-54), d'après la réponse de `prepareGif`. */
 export const gifVideoUrl = (path: string) => `${MEDIA_ROOT}${path}`;

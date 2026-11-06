@@ -1,29 +1,24 @@
 // Barre de commandes du lecteur vidéo personnalisé (VIEW-29), aux couleurs de MyBoard, qui
 // flotte par-dessus la vidéo : centrée, bords arrondis, à la même hauteur à l'écran en plein
 // écran ou non (VIEW-32) ; cachée avec le curseur quand la souris est immobile (VIEW-33) :
-// lecture / pause, temps, barre de progression cliquable (temps au survol), volume + muet
+// lecture / pause, temps, barre de progression (ProgressBar.tsx), volume + muet
 // (curseur continu), vitesse, sous-titres (VIEW-52 ; places échangées, retour VIS.1.3), boucle (VIEW-26), plein écran
-// tout à droite (VIEW-18). Repère de progression mis à jour à chaque image affichée pendant la lecture (VIS.4).
+// tout à droite (VIEW-18).
 // GIF (VIEW-54) : mêmes commandes, son grisé, boucle à part.
 
-import { useContext, useEffect, useReducer, useRef, useState, type PointerEvent, type RefObject } from "react";
+import { useContext, useEffect, useReducer, type RefObject } from "react";
 import { Captions, Pause, Play, Repeat, Volume1, Volume2, VolumeX } from "lucide-react";
 
-import { formatDuration } from "@/lib/format";
 import { VIDEO_SHORTCUTS } from "@/lib/shortcuts";
 import { cn } from "@/lib/utils";
 import { isSilent, SPEEDS, speedLabel, usePlayer } from "@/stores/player";
 import { BarMenu } from "./BarMenu";
 import { FullscreenButton } from "./FullscreenButton";
+import { clock, ProgressBar } from "./ProgressBar";
 import type { Subtitles } from "./Subtitles";
 import { idleClass, ViewerChrome } from "./viewerChrome";
 
 const BUTTON = "grid h-8 w-8 shrink-0 place-items-center rounded-md text-zinc-200 transition hover:bg-white/10 hover:text-white";
-
-/** Temps en secondes → « 1:05 » (0 s compris). */
-function clock(seconds: number): string {
-  return Number.isFinite(seconds) && seconds > 0 ? formatDuration(seconds * 1000) : "0:00";
-}
 
 /** Redessine la barre à chaque événement de la vidéo (lecture, temps, volume…). */
 function useVideoEvents(ref: RefObject<HTMLVideoElement | null>) {
@@ -37,80 +32,6 @@ function useVideoEvents(ref: RefObject<HTMLVideoElement | null>) {
       for (const name of events) video.removeEventListener(name, refresh);
     };
   }, [ref]);
-}
-
-function ProgressBar({ video }: { video: HTMLVideoElement }) {
-  const [hover, setHover] = useState<{ x: number; time: number } | null>(null);
-  const duration = video.duration || 0;
-  const played = duration ? (video.currentTime / duration) * 100 : 0;
-  const fillRef = useRef<HTMLDivElement>(null);
-  const dotRef = useRef<HTMLDivElement>(null);
-  // Pendant la lecture, le repère avance à chaque image affichée (retour VIS.4 : seuls les événements « temps »
-  // de la vidéo, 4 par seconde, le faisaient avancer par à-coups) ; deux styles écrits, sans redessiner la barre.
-  useEffect(() => {
-    let frame = 0;
-    const tick = () => {
-      const d = video.duration || 0;
-      const at = d ? `${(video.currentTime / d) * 100}%` : "0%";
-      if (fillRef.current) fillRef.current.style.width = at;
-      if (dotRef.current) dotRef.current.style.left = at;
-      if (!video.paused) frame = requestAnimationFrame(tick);
-    };
-    const start = () => {
-      cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(tick);
-    };
-    video.addEventListener("play", start);
-    if (!video.paused) start();
-    return () => {
-      cancelAnimationFrame(frame);
-      video.removeEventListener("play", start);
-    };
-  }, [video]);
-  const buffered = duration && video.buffered.length ? (video.buffered.end(video.buffered.length - 1) / duration) * 100 : 0;
-
-  const timeAt = (e: PointerEvent<HTMLDivElement>) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    const ratio = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
-    return { x: ratio * rect.width, time: ratio * duration };
-  };
-  const seek = (e: PointerEvent<HTMLDivElement>) => {
-    if (duration) video.currentTime = timeAt(e).time;
-  };
-
-  return (
-    <div
-      data-zone="visionneuse.lecteur.progression"
-      className="group relative flex h-8 min-w-0 flex-1 cursor-pointer items-center"
-      onPointerDown={(e) => {
-        e.currentTarget.setPointerCapture(e.pointerId);
-        seek(e);
-      }}
-      onPointerMove={(e) => {
-        setHover(timeAt(e));
-        if (e.currentTarget.hasPointerCapture(e.pointerId)) seek(e);
-      }}
-      onPointerLeave={() => setHover(null)}
-    >
-      <div className="relative h-1 w-full rounded-full bg-white/15 transition-[height] group-hover:h-1.5">
-        <div className="absolute inset-y-0 left-0 rounded-full bg-white/25" style={{ width: `${buffered}%` }} />
-        <div ref={fillRef} className="absolute inset-y-0 left-0 rounded-full bg-[#d9a94e]" style={{ width: `${played}%` }} />
-        <div
-          ref={dotRef}
-          className="absolute top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#d9a94e] opacity-0 transition-opacity group-hover:opacity-100"
-          style={{ left: `${played}%` }}
-        />
-      </div>
-      {hover && (
-        <span
-          className="pointer-events-none absolute bottom-full mb-1 -translate-x-1/2 rounded bg-black/85 px-1.5 py-0.5 font-mono text-[11px] text-white"
-          style={{ left: hover.x }}
-        >
-          {clock(hover.time)}
-        </span>
-      )}
-    </div>
-  );
 }
 
 /** Libellé de vitesse le plus long (« 0,75× ») : sa largeur sert pour toutes les vitesses. */
@@ -174,7 +95,8 @@ export type GifControls = { loop: boolean; setLoop: (on: boolean) => void; ready
 export const FLOAT_GAP = 24;
 export const BAR_HEIGHT = 44;
 
-export function VideoControls({ videoRef, subs, gif }: { videoRef: RefObject<HTMLVideoElement | null>; subs: Subtitles; gif?: GifControls }) {
+/** `keyframes` : temps des images clés de la vidéo (glissement du curseur, VIEW-55) ; vide pour un GIF. */
+export function VideoControls({ videoRef, subs, gif, keyframes }: { videoRef: RefObject<HTMLVideoElement | null>; subs: Subtitles; gif?: GifControls; keyframes: number[] }) {
   const { bottomInset, idle, lift } = useContext(ViewerChrome);
   useVideoEvents(videoRef);
   const player = usePlayer();
@@ -216,7 +138,7 @@ export function VideoControls({ videoRef, subs, gif }: { videoRef: RefObject<HTM
       <span className="shrink-0 font-mono text-xs text-zinc-300 tabular-nums">
         {clock(video.currentTime)} / {clock(video.duration)}
       </span>
-      <ProgressBar video={video} />
+      <ProgressBar video={video} keyframes={keyframes} />
       <button
         type="button"
         className={cn(BUTTON, "disabled:cursor-default disabled:text-zinc-600 disabled:hover:bg-transparent")}

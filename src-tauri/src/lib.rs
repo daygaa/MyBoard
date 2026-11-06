@@ -145,6 +145,7 @@ pub fn run() {
             media::picture::copy_gif_frame,
             media::gif::prepare_gif,
             media::subtitles::video_subtitles,
+            media::keyframes::video_keyframes,
             media::subtitles::subtitle_cues,
             media::subtitles::import_subtitle,
             media::subtitles::remove_imported_subtitle,

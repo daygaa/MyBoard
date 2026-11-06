@@ -1503,3 +1503,32 @@ pendant ce temps : 30 ms.
 affichage (décodage seul : 0,39 s au lieu de 0,45 s). Ce qui est dessous (copie, miniature) n'est retiré qu'une fois
 l'original opaque (2 images plus tard, ou fin du fondu de 150 ms sur la miniature) ; sur une copie, sans fondu.
 Navigation : la position demandée ne suit l'image affichée que si aucun appui n'attend.
+
+**Complément du 06/11 à D-051 (retour AUT.7.4, v106).** L'utilisateur trouvait la mémoire vive trop élevée (1 500 Mo,
+puis 1 100). Mesuré (MyBoard et ses processus WebView2, 150 images lourdes) : 2 174 Mo, dont 598 dans le processus
+principal du moteur (chaque fichier lu par le fil des copies, 20 à 28 Mo, gardé tant que ce fil vit : vérifié, la
+mémoire retombe dès son arrêt), 787 pour la page (copies, 1 Go permis) et 455 à 940 pour la carte graphique. Choix de
+l'utilisateur (entre un cache sur le SSD, mesuré à 7-19 ms pour revenir sur une image, et la mémoire vive limitée) :
+mémoire vive, 300 Mo. Le fil des copies est arrêté après 1 s sans travail, ou après 4 copies dès qu'il n'en a plus
+en cours. Résultat : 1 316 Mo après la navigation, 1 035 Mo visionneuse fermée. La carte graphique garde encore
+470 à 950 Mo (même sans aucun original chargé : 615 à 820 Mo) ; le réglage `--force-gpu-mem-discardable-limit-mb=128`
+en retire 130 à 200 : non appliqué (effets sur la fluidité de la grille à mesurer), proposé.
+
+## D-054 — Vidéos lues directement sur le disque ; sauts par images clés (06/11/2026)
+
+**Contexte.** VIEW-55 (retour VIS.5) : sur une vidéo très lourde (IMG_0834.MOV, iPhone, 4K à 60 images/s en HEVC,
+105 Mbit/s, 684 Mo, une image clé par seconde), un clic dans la barre de progression mettait 0,7 à 0,8 s, et le
+glissement du curseur laissait la vidéo figée : chaque mouvement annulait le saut en cours. Mesuré : par `media://`,
+un saut prend 0,79 à 0,97 s, même pile sur une image clé (le transfert domine) ; lu directement (D-053), 0,15 à 0,25 s
+pour un instant quelconque et 62 à 65 ms juste après une image clé. Les .mov se lisent directement : l'échec du
+premier essai venait de la règle de sécurité de la page (`media-src`), pas du type de fichier.
+
+**Choix.** Les vidéos aux formats que WebView2 peut lire (.mp4, .m4v, .mov, .webm, .mkv, .ogv) reçoivent l'adresse
+directe (`fileUrl`) ; `media://` si elle échoue ; `media-src` autorise `https://*.myboard`. Commande
+`video_keyframes` : temps des images clés lus par ffprobe dans l'index du fichier (paquets marqués K ; 0,5 s pour
+684 Mo), 8 vidéos gardées en mémoire. Barre de progression (`ProgressBar.tsx`) : un seul saut à la fois (le suivant
+part à l'événement « seeked ») ; en glissant, saut 0,1 s après l'image clé qui précède le curseur (si elle est à moins
+de 2 s ; les temps de ffprobe et ceux du lecteur peuvent différer de quelques centièmes) ; tant que le curseur reste
+après la même image clé, l'image exacte sous le curseur ; au relâchement et au clic, l'instant exact. Mesuré : clic
+0,03 à 0,1 s ; glissement rapide 21-22 images en 3,6 s, lent 23 images ; plus aucun appel au cœur retardé pendant les
+sauts.

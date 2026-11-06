@@ -1,6 +1,6 @@
 // Images de la visionneuse gardées en mémoire (VIEW-53) : celles déjà vues et les voisines préparées
-// (2 après, 1 avant), dans la limite de 1 Go (choix de l'utilisateur, 06/11), les plus anciennes oubliées
-// au-delà. Gardées en mémoire vive tant que MyBoard est ouvert, même visionneuse fermée ; rien sur le disque.
+// (2 après, 1 avant), dans la limite de 300 Mo (choix de l'utilisateur, 06/11 soir, retour AUT.7.4 : 1 Go, c'était
+// trop de mémoire vive ; 40 à 90 images lourdes gardées), les plus anciennes oubliées au-delà. Gardées en mémoire vive tant que MyBoard est ouvert, même visionneuse fermée ; rien sur le disque.
 //
 // Chaque image est gardée DÉCODÉE, à la taille de l'écran (au plus 1920 × 1080 sur l'écran de
 // l'utilisateur, soit 8 Mo ; une petite image à sa taille réelle) : la visionneuse l'affiche aussitôt, nette
@@ -13,12 +13,20 @@
 // Taille comptée : largeur × hauteur × 4 octets. Fichier lu directement sur le disque par la fenêtre (D-053) :
 // 43 ms pour 28 Mo au lieu de 0,4 s par `media://`, qui bloquait aussi miniatures, tags et touches.
 
-import { imageUrl, mediaUrl, type MediaItem } from "@/lib/api";
+import { directUrl, mediaUrl, type MediaItem } from "@/lib/api";
 
 /** Mémoire réservée aux images gardées (choix de l'utilisateur). */
-const BUDGET = 1024 * 1024 * 1024;
+const BUDGET = 300 * 1024 * 1024;
 /** Copies préparées en même temps (processeur à 8 cœurs de l'utilisateur). */
 const PARALLEL = 3;
+/** Le fil à part est arrêté après 1 s sans copie à faire, ou après 4 copies dès qu'il n'en a plus en cours (puis
+ *  relancé au besoin) : le moteur garde en mémoire chaque fichier qu'il a lu (20 à 28 Mo) tant que le fil vit
+ *  (mesuré : jusqu'à 600 Mo, retour AUT.7.4). */
+const IDLE_MS = 1000;
+const RECYCLE = 4;
+let idleTimer: ReturnType<typeof setTimeout> | undefined;
+/** Copies terminées par le fil actuel. */
+let done = 0;
 
 type Entry = { bitmap: ImageBitmap | null; bytes: number };
 type Job = { item: MediaItem; w: number; h: number };
@@ -85,8 +93,17 @@ function next() {
     const job = queue.shift()!;
     busy.set(job.item.id, job);
     worker ??= createWorker();
-    worker.postMessage({ id: job.item.id, url: imageUrl(job.item), fallback: mediaUrl(job.item), w: job.w, h: job.h });
+    worker.postMessage({ id: job.item.id, url: directUrl(job.item), fallback: mediaUrl(job.item), w: job.w, h: job.h });
   }
+  clearTimeout(idleTimer);
+  if (busy.size === 0 && queue.length === 0) idleTimer = setTimeout(stopWorker, IDLE_MS);
+}
+
+function stopWorker() {
+  if (busy.size > 0) return;
+  worker?.terminate();
+  worker = null;
+  done = 0;
 }
 
 function createWorker(): Worker {
@@ -94,6 +111,7 @@ function createWorker(): Worker {
   w.onmessage = (e: MessageEvent<{ id: number; bitmap: ImageBitmap | null }>) => {
     const { id, bitmap } = e.data;
     busy.delete(id);
+    if (++done >= RECYCLE) stopWorker();
     const entry = entries.get(id);
     if (!entry || !bitmap) {
       bitmap?.close();
@@ -148,6 +166,7 @@ export function warm(items: MediaItem[]) {
   if (stale.length > 0) {
     worker?.terminate();
     worker = null;
+    done = 0;
     for (const id of stale) forget(id);
     const still = [...busy.values()].filter((j) => keep.has(j.item.id));
     busy.clear();

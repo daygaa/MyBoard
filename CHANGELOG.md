@@ -3,6 +3,24 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Visionneuse : moins de mémoire, vidéos lues directement, sauts fluides (06/11/2026) — Backup v106
+
+SPEC : VIEW-53 (retour T3, point AUT.7.4), VIEW-55 (nouveau, point VIS.5) `[~]`.
+
+- Mémoire vive : images gardées par la visionneuse limitées à 300 Mo (au lieu de 1 Go) ; fichiers lus par le fil des
+  copies libérés aussitôt (jusqu'à 600 Mo gardés auparavant).
+- Vidéos lues directement sur le disque par la fenêtre (.mp4, .mov, .webm, .mkv…) : plus aucune attente de MyBoard
+  pendant la lecture.
+- Barre de progression : un clic montre l'image en 0,1 s sur une vidéo 4K très lourde (au lieu de 0,7 à 0,8 s) ;
+  glisser le curseur, vite ou lentement, met l'image à jour en continu (avant : vidéo figée jusqu'au relâchement).
+
+Vérifié dans la version compilée, sur une copie neuve de la base d'essai à chaque mesure : mémoire de MyBoard et de
+ses processus WebView2 pendant 150 images lourdes (1 316 Mo au lieu de 2 174) ; vidéo de 684 Mo en 4K HEVC (.MOV) :
+clics, glissements rapide et lent (v105 / v106) ; .mp4, .mkv, .MOV lus directement dans la visionneuse, sous-titres
+affichés ; appels au cœur pendant la lecture et les sauts ; non-régression : 1re ouverture d'une image (0,46 s),
+navigation au vrai clavier (30 images vues sur 30), sous-titres au passage en plein écran ; zéro erreur `tsc` et
+`clippy`. Base d'essai : la vidéo IMG_0834.MOV (tag essai_video_lourde).
+
 ## Visionneuse : ouverture et navigation rapide, sous-titres (06/11/2026) — Backup v105
 
 SPEC : VIEW-53, VIEW-52 `[~]` (retour T3, points AUT.7.2, AUT.7.3, VIS.1.5).

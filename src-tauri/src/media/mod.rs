@@ -9,6 +9,7 @@
 mod clipboard;
 pub mod direct;
 pub mod gif;
+pub mod keyframes;
 pub mod picture;
 pub mod protocol;
 pub mod subtitles;

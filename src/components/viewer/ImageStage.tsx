@@ -13,7 +13,7 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
-import { THUMB, imageUrl, mediaUrl, thumbUrl, type MediaItem } from "@/lib/api";
+import { THUMB, directUrl, mediaUrl, thumbUrl, type MediaItem } from "@/lib/api";
 import { openContextMenu } from "@/lib/contextMenu";
 import { cn } from "@/lib/utils";
 import { usePreviewReady } from "@/stores/previews";
@@ -125,7 +125,7 @@ export function ImageStage({ item, onClose, opening = false }: { item: MediaItem
           />
         )}
         <img
-          src={wantOriginal ? (fallback ? mediaUrl(item) : imageUrl(item)) : undefined}
+          src={wantOriginal ? (fallback ? mediaUrl(item) : directUrl(item)) : undefined}
           alt={item.fileName}
           draggable={false}
           decoding="async"
