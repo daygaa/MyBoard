@@ -3,6 +3,23 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Aucune connexion vers l'extérieur ; glissement sans retour en arrière ; mémoire graphique (06/11/2026) — Backup v107
+
+SPEC : GEN-01 (retour T3, point AUT.29), VIEW-55 (VIS.5.1), VIEW-53 (AUT.7.4) `[~]`.
+
+- MyBoard ne se connecte plus à rien : le moteur WebView2 ne cherche plus les mises à jour de ses composants
+  (edge.microsoft.com), ne contacte plus le compte Microsoft de Windows (substrate.office.com) et ne cherche plus de
+  proxy sur le réseau local.
+- Barre de progression des vidéos : en glissant le curseur, plus de retour à l'image clé une image sur deux.
+- Mémoire de la carte graphique réduite (copies des images dessinées par le processeur, limite du moteur).
+
+Vérifié dans la version compilée, sur une copie neuve de la base d'essai : connexions de MyBoard et de tous ses
+processus WebView2 (aucune en 70 s avec les seuls réglages de MyBoard, aucune en 90 s d'utilisation) ; glissements
+rapide et lent sur IMG_0834.MOV (0 retour en arrière, position finale exacte) ; fluidité de la grille sur 100 000
+médias avec et sans la limite de mémoire graphique (identique) ; mémoire après 150 images lourdes (899 Mo
+visionneuse fermée) ; non-régression : 1re ouverture (0,47 s), vrai clavier (30 images sur 30), sous-titres, .mp4,
+.mkv, .MOV lus directement ; zéro erreur `tsc` et `clippy`.
+
 ## Visionneuse : moins de mémoire, vidéos lues directement, sauts fluides (06/11/2026) — Backup v106
 
 SPEC : VIEW-53 (retour T3, point AUT.7.4), VIEW-55 (nouveau, point VIS.5) `[~]`.

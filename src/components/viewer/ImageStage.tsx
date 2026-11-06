@@ -60,7 +60,9 @@ export function ImageStage({ item, onClose, opening = false }: { item: MediaItem
   // Copie dessinée avant d'être affichée : elle est à l'écran dès sa première image.
   useLayoutEffect(() => {
     try {
-      if (bitmap) canvasRef.current?.getContext("2d")?.drawImage(bitmap, 0, 0);
+      // Canevas dessiné par le processeur (« willReadFrequently ») : dessinée par la carte graphique, chaque copie y
+      // restait aussi, même libérée (mesuré : +222 Mo pour 40 copies, retour AUT.7.4).
+      if (bitmap) canvasRef.current?.getContext("2d", { willReadFrequently: true })?.drawImage(bitmap, 0, 0);
     } catch {
       // Copie oubliée entre-temps : l'original arrive comme d'habitude.
       setWantOriginal(true);

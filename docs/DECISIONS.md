@@ -1532,3 +1532,38 @@ de 2 s ; les temps de ffprobe et ceux du lecteur peuvent différer de quelques c
 après la même image clé, l'image exacte sous le curseur ; au relâchement et au clic, l'instant exact. Mesuré : clic
 0,03 à 0,1 s ; glissement rapide 21-22 images en 3,6 s, lent 23 images ; plus aucun appel au cœur retardé pendant les
 sauts.
+
+## D-055 — Le moteur de MyBoard ne se connecte à rien (06/11/2026)
+
+**Contexte.** GEN-01 (retour AUT.29) : l'utilisateur voit un processus « WebView2 Utilitaire : Network Service » et
+rappelle que MyBoard doit être 100 % local. Ce processus fait partie de l'architecture du moteur : c'est lui qui charge
+toutes les ressources, y compris les fichiers de MyBoard (page, `media://`, `thumb://`, lecture directe D-053) ; il
+reste. Mais en relevant les connexions de MyBoard et de tous ses processus WebView2 (Get-NetTCPConnection, toutes les
+2 s) et le journal réseau du moteur (`--log-net-log`), mesuré : (1) le « network service » envoyait
+`POST https://edge.microsoft.com/componentupdater/api/v1/update` (mise à jour des composants du moteur, avec la
+version de Windows et le type de processeur) ; (2) le processus principal du moteur se connectait à
+`substrate.office.com` (nom lu dans le cache DNS de Windows au moment de la connexion) : fonction `msOneAuthWAM`
+(compte Microsoft de Windows par le gestionnaire de comptes WAM ; trouvée en désactivant les fonctions liées au compte
+une à une) ; (3) recherche de proxy `wpad` sur le réseau local. La page de MyBoard, elle, ne peut rien envoyer (règle
+de sécurité : connexions limitées aux adresses locales).
+
+**Choix.** `additionalBrowserArgs` : `msOneAuthWAM` ajoutée aux fonctions désactivées, `--disable-component-update`
+(composants du moteur jamais mis à jour par le réseau : listes de révocation, modules de protection des contenus…, sans
+usage pour une page locale ; le moteur lui-même reste mis à jour par Windows), `--no-proxy-server`. Mesuré : aucune
+connexion ni point réseau (70 s avec les seuls réglages de MyBoard ; 90 s d'utilisation avec images et vidéos).
+`--disable-background-networking` essayé : sans effet sur la connexion au compte, non retenu. Les essais avec le port
+de pilotage (variable WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS) remplacent ces réglages : les scripts d'essai les
+redonnent (`fresh-args.ps1`).
+
+**Complément du 06/11 à D-054 (retour VIS.5.1, v107).** En mêlant images clés et images exactes, la vidéo revenait à
+l'image clé une image sur deux pendant un glissement. Désormais selon la vitesse du curseur : au-delà de 3 s de vidéo
+par seconde, images clés seulement, et seulement devant l'image affichée dans le sens du mouvement, puis l'image exacte
+quand le curseur s'arrête 150 ms ; en deçà, l'image exacte. Saut ignoré seulement si la vidéo est déjà à cet instant
+(`currentTime`). Mesuré : 0 retour en arrière (avant : 10 en 3 s de glissement lent), position finale exacte.
+
+**Complément du 06/11 à D-051 (AUT.7.4, carte graphique, v107).** Fluidité de la grille (bench-grid, 100 000 médias, 4 à
+30 colonnes) identique avec et sans `--force-gpu-mem-discardable-limit-mb=128` : réglage ajouté. Mesuré à part :
+40 copies dessinées dans des canevas ordinaires laissaient +222 Mo dans la carte graphique, même libérées ; dans un
+canevas `willReadFrequently` (dessiné par le processeur), rien. Résultat, 150 images lourdes : 899 Mo visionneuse
+fermée + 20 s (v106 : 1 035). Reste, pendant la navigation, 520 à 810 Mo dans la carte graphique, même sans aucun
+original : à étudier (éléments affichés puis retirés à chaque image).

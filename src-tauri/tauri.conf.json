@@ -23,7 +23,7 @@
         "decorations": false,
         "backgroundColor": "#111214",
         "zoomHotkeysEnabled": false,
-        "additionalBrowserArgs": "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection --enable-features=AudioRendererMixerImmediatePause"
+        "additionalBrowserArgs": "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection,msOneAuthWAM --enable-features=AudioRendererMixerImmediatePause --disable-component-update --no-proxy-server --force-gpu-mem-discardable-limit-mb=128"
       }
     ],
     "security": {
