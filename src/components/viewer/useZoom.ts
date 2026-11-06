@@ -7,8 +7,10 @@
 // toujours bornés pour ne jamais sortir de l'image (recalculés si la fenêtre change de taille).
 // « Adapter à l'écran » (ZOOM-11, ZOOM-12) : le plus grand zoom où le média tient encore dans la zone
 // (entre la barre de titre et la barre du bas ; tout l'écran en plein écran). La molette s'y arrête au
-// passage, dans les deux sens ; adapté, le média le reste quand la zone change (touche F, fenêtre),
-// comme « ajusté ».
+// passage, dans les deux sens, et un cran qui tomberait à 4 points ou moins de ce niveau y va directement.
+// Au niveau « Adapter » de la zone, par n'importe quel chemin (molette, menu, A, ou zone qui change), le
+// média est adapté : il le reste quand la zone change (touche F, fenêtre), comme « ajusté », sans
+// transition (elle n'est que pour le clic, le menu et la touche A).
 
 import { useEffect, useLayoutEffect, useRef, useState, type PointerEvent, type RefObject } from "react";
 
@@ -28,6 +30,9 @@ const CLICK_THRESHOLD = 3;
 const SMALL_IMAGE_ZOOM = 2;
 /** Animation réservée au clic (ZOOM-07). */
 export const ANIM_MS = 200;
+/** Un cran qui tomberait à 4 points de zoom ou moins du niveau « Adapter » y va directement (VIS.2.2, règle
+ *  de l'utilisateur : sans elle, 200 % puis 203 %, puis plus de 200 %). */
+const ADAPT_NEAR = 0.04;
 const EPS = 0.0001;
 
 export type Size = { w: number; h: number };
@@ -86,6 +91,15 @@ export function useZoom(
   const [zoom, setZoom] = useState<Zoom>(FIT);
   const [animate, setAnimate] = useState(false);
   const adapted = zoom.mode === "adapt" && canAdapt;
+  // Zoom libre arrivé au niveau « Adapter » parce que la zone a changé (plein écran quitté…) : adapté
+  // (VIS.2.1).
+  const freeAtAdapt = zoom.mode === "free" && canAdapt && Math.abs(zoom.scale - adapt) < EPS;
+  useEffect(() => {
+    if (freeAtAdapt) setZoom(ADAPT);
+  }, [freeAtAdapt]);
+  // La transition s'arrête avec l'animation : la zone qui change ensuite (plein écran) n'est pas animée (VIS.2.3).
+  const animTimer = useRef(0);
+  useEffect(() => () => clearTimeout(animTimer.current), []);
 
   const view: View =
     zoom.mode === "free"
@@ -108,6 +122,8 @@ export function useZoom(
   const commit = (scale: number, tx: number, ty: number, animated: boolean) => {
     const { img: i, stage: s, minScale: min, adapt: a, canAdapt: can } = live.current;
     setAnimate(animated);
+    clearTimeout(animTimer.current);
+    if (animated) animTimer.current = window.setTimeout(() => setAnimate(false), ANIM_MS);
     if (scale <= min + EPS) setZoom(FIT);
     else if (can && Math.abs(scale - a) < EPS) setZoom(ADAPT);
     else setZoom({ mode: "free", scale, tx: clampAxis(tx, i.w * scale, s.w), ty: clampAxis(ty, i.h * scale, s.h) });
@@ -131,8 +147,12 @@ export function useZoom(
       if (!i.w || !i.h) return;
       let next = Math.max(min, Math.min(MAX_ZOOM, v.scale + pending.delta / WHEEL_DIVISOR));
       pending.delta = 0;
-      // ZOOM-11 : le cran qui passe le niveau « Adapter » s'y arrête, en zoomant comme en dézoomant.
-      if (can && ((v.scale < a - EPS && next > a + EPS) || (v.scale > a + EPS && next < a - EPS))) next = a;
+      // ZOOM-11 : le cran qui passe le niveau « Adapter » s'y arrête, en zoomant comme en dézoomant ; celui
+      // qui s'en approche à 4 points ou moins y va directement (VIS.2.2 ; en s'en éloignant, rien : on peut
+      // toujours en partir, même par petits pas).
+      const crosses = (v.scale < a - EPS && next > a + EPS) || (v.scale > a + EPS && next < a - EPS);
+      const near = Math.abs(next - a) <= ADAPT_NEAR + EPS && Math.abs(next - a) < Math.abs(v.scale - a);
+      if (can && (crosses || near)) next = a;
       if (Math.abs(next - v.scale) < EPS) return;
       // Le point de l'image sous le curseur reste sous le curseur.
       const ax = (pending.cx - v.tx) / v.scale;

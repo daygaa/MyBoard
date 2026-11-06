@@ -1,9 +1,11 @@
 // Fichiers non effacés (DEL-04, DEL-08) : leurs médias sont revenus dans la bibliothèque avec toutes
 // leurs données. Les fichiers en lecture seule sont listés à part, chacun avec son chemin (un clic
-// ouvre l'Explorateur sur le fichier), et « Supprimer quand même » (rouge) les efface en retirant la
-// lecture seule. Ceux qui échouent encore restent listés avec la raison, sans le bouton ; de même, d'emblée,
-// un fichier en lecture seule aussi utilisé par un autre programme (erreur 32, DEL-08.2). « Copier »
-// met tout le texte dans le presse-papiers (CTX-19).
+// ouvre l'Explorateur sur le fichier), et « Supprimer quand même » (rouge), juste sous leur liste et aligné
+// sur « OK » (DEL-08.3), les efface en retirant la lecture seule. Ceux qui échouent encore restent listés
+// avec la raison, sans le bouton ; de même, d'emblée, un fichier en lecture seule aussi utilisé par un autre
+// programme (erreur 32, DEL-08.2). Raison : « Erreur Windows N : » et le message de Windows, puis, en gris,
+// « + Fichier en lecture seule » s'il l'est aussi (DEL-08.4). « Copier » met tout le texte dans le
+// presse-papiers (CTX-19).
 
 import { useState } from "react";
 import { Check, Copy } from "lucide-react";
@@ -12,16 +14,15 @@ import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
 import { api, type FailedFile } from "@/lib/api";
 import { formatNumber, plural } from "@/lib/format";
-import { explainWindowsError } from "@/lib/windowsErrors";
 import { forceDeleteMedia } from "@/stores/deletion";
 import { closeFailures, startForcing, useDeleteFailures } from "@/stores/deleteFailures";
 
 const COPIED_MS = 1500;
 const fileName = (path: string) => path.split(/[\\/]/).pop() ?? path;
-const reason = (f: FailedFile) => [f.message, f.code !== null ? `erreur Windows ${f.code}` : null].filter(Boolean).join(", ");
+const reason = (f: FailedFile) => (f.code !== null ? `Erreur Windows ${f.code} : ${f.message}` : f.message);
+const ALSO_READ_ONLY = "+ Fichier en lecture seule";
 
 function FileLine({ file, withReason }: { file: FailedFile; withReason: boolean }) {
-  const explanation = withReason ? explainWindowsError(file.code) : null;
   return (
     <li className="min-w-0 py-1">
       <p className="truncate text-sm font-medium text-foreground" title={fileName(file.path)}>
@@ -38,11 +39,9 @@ function FileLine({ file, withReason }: { file: FailedFile; withReason: boolean 
       </button>
       {/* Une ligne vide entre le chemin et la raison (DEL-08.1). */}
       {withReason && (
-        <p className="mt-4 text-xs text-rose-200/90">
-          {reason(file)}
-          {explanation && <span className="text-muted-foreground"> — {explanation}</span>}
-        </p>
+        <p className="mt-4 text-xs text-rose-200/90">{reason(file)}</p>
       )}
+      {withReason && file.alsoReadOnly && <p className="text-xs text-muted-foreground">{ALSO_READ_ONLY}</p>}
     </li>
   );
 }
@@ -56,7 +55,7 @@ export function DeleteFailedDialog() {
   const others = failures.filter((f) => !f.readOnly);
   const total = failures.length;
   const copy = async () => {
-    const lines = failures.map((f) => `${f.path} : ${reason(f)}`);
+    const lines = failures.map((f) => `${f.path} : ${reason(f)}${f.alsoReadOnly ? `\n${ALSO_READ_ONLY}` : ""}`);
     await api.writeClipboardText(["Supprimer les fichiers de votre stockage : échec", ...lines].join("\n"));
     setCopied(true);
     setTimeout(() => setCopied(false), COPIED_MS);
@@ -88,11 +87,6 @@ export function DeleteFailedDialog() {
             {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
             {copied ? "Copié" : "Copier"}
           </Button>
-          {readOnly.length > 0 && !forced && (
-            <Button data-zone="suppression-echec.forcer" onClick={force} className="bg-destructive text-white hover:bg-destructive/90">
-              Supprimer quand même
-            </Button>
-          )}
           <Button data-zone="suppression-echec.ok" onClick={closeFailures} className="bg-[#d9a94e] text-[#1a1408] hover:bg-[#e3b75f]">
             OK
           </Button>
@@ -110,6 +104,15 @@ export function DeleteFailedDialog() {
                 <FileLine key={f.id} file={f} withReason={false} />
               ))}
             </ul>
+            {/* Sous la liste des fichiers en lecture seule, qu'il est seul à concerner ; bord droit sur celui de
+                « OK » (`-mr-1` : la marge de la zone qui défile). */}
+            {!forced && (
+              <div className="mt-2 -mr-1 flex justify-end">
+                <Button data-zone="suppression-echec.forcer" onClick={force} className="bg-destructive text-white hover:bg-destructive/90">
+                  Supprimer quand même
+                </Button>
+              </div>
+            )}
           </section>
         )}
         {others.length > 0 && (

@@ -207,7 +207,7 @@ export type ImportResult = {
 };
 
 /** Fichier qui n'a pas pu être effacé (DEL-04) : son média est revenu dans la bibliothèque. */
-export type FailedFile = { id: number; path: string; code: number | null; message: string; readOnly: boolean };
+export type FailedFile = { id: number; path: string; code: number | null; message: string; readOnly: boolean; alsoReadOnly: boolean };
 
 export type ImportPhase = "idle" | "scanning" | "ready" | "importing" | "finished";
 

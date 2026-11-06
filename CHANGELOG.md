@@ -3,6 +3,25 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Retouches du lot 3 (06/11/2026) — Backup v101
+
+SPEC : DEL-08, ZOOM-11, ZOOM-12, SRCH-18 `[~]` (retour T3, points DEL-08.3, DEL-08.4, VIS.2.1 à VIS.2.3, AUT.9.1).
+
+- Fichiers non supprimés : « Supprimer quand même » sous la liste des fichiers en lecture seule, aligné sur « OK » ;
+  raisons écrites « Erreur Windows N : » + le message de Windows, et « + Fichier en lecture seule » en gris dessous
+  pour un fichier aussi en lecture seule ; « Copier » suit.
+- Zoom : au niveau « Adapter » de la zone, par n'importe quel chemin, le média est adapté (le plein écran l'adapte de
+  nouveau) ; un cran qui tomberait à 4 points ou moins de ce niveau y va directement ; la transition fluide n'est plus
+  que pour le clic, le menu et la touche A.
+- Recherche : la zone « +N » dépliée reste dépliée tant que le menu du clic droit d'une pastille est ouvert.
+
+Vérifié dans la version compilée, sur une copie de la base d'essai : pop-in avec 2 fichiers tenus ouverts par
+PowerShell (place et alignement du bouton, textes, texte copié, « Supprimer quand même ») ; 600 × 400 : adaptée au cran,
+un cran de moins, plein écran, un cran de plus, sortie et retour (227,8 % puis 270 %) ; Abricot.jpg en plein écran
+(100 → 116,7 → 133,3 → 152,5 → 169,2 %, plus de 150 %), petits pas depuis 152,5 % ; transition présente pour la touche
+A, absente 0,5 s après et pour le plein écran ; zone « +N » dépliée avec la souris sur la dernière entrée du menu, repliée
+à sa fermeture ; zéro erreur `tsc` et `clippy`.
+
 ## Lot 3 de la fin du retour de la phase 3 (06/11/2026) — Backup v100
 
 SPEC : DEL-08, ZOOM-11, ZOOM-12, VIEW-51, GRID-13, NAV-08, GEN-15, CTX-12, FILT-09, SEL-11 `[~]` ; VIEW-54 ajouté

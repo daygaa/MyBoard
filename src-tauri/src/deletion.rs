@@ -49,28 +49,30 @@ pub struct FailedFile {
     /// Code d'erreur Windows, quand il est connu (VIEW-28).
     pub code: Option<i32>,
     pub message: String,
-    /// Refusé seulement parce qu'en lecture seule (DEL-08) : « Supprimer quand même » est proposé. En lecture
-    /// seule ET utilisé par un autre programme : `false`, avec l'erreur 32 (DEL-08.2).
+    /// Refusé seulement parce qu'en lecture seule (DEL-08) : « Supprimer quand même » est proposé.
     pub read_only: bool,
+    /// Refusé pour une autre raison (`code`, `message`) ET en lecture seule : « + Fichier en lecture seule »
+    /// sous la raison, sans « Supprimer quand même » (DEL-08.2, DEL-08.4).
+    pub also_read_only: bool,
 }
 
-/// Code d'erreur Windows 32 si un autre programme tient le fichier ouvert sans permettre de l'effacer :
-/// MyBoard demande seulement à l'ouvrir avec le droit d'effacer, sans rien effacer ni modifier. La lecture
-/// seule n'empêche pas cette ouverture (elle n'est vérifiée qu'à l'effacement lui-même).
+/// Erreur Windows 32 (et son message) si un autre programme tient le fichier ouvert sans permettre de
+/// l'effacer : MyBoard demande seulement à l'ouvrir avec le droit d'effacer, sans rien effacer ni modifier.
+/// La lecture seule n'empêche pas cette ouverture (elle n'est vérifiée qu'à l'effacement lui-même).
 #[cfg(windows)]
-fn used_elsewhere(path: &Path) -> Option<i32> {
+fn used_elsewhere(path: &Path) -> Option<std::io::Error> {
     use std::os::windows::fs::OpenOptionsExt;
     const DELETE: u32 = 0x0001_0000;
     const SHARE_ALL: u32 = 0x1 | 0x2 | 0x4; // lecture, écriture, effacement
     const SHARING_VIOLATION: i32 = 32;
     match std::fs::OpenOptions::new().access_mode(DELETE).share_mode(SHARE_ALL).open(path) {
-        Err(e) if e.raw_os_error() == Some(SHARING_VIOLATION) => Some(SHARING_VIOLATION),
+        Err(e) if e.raw_os_error() == Some(SHARING_VIOLATION) => Some(e),
         _ => None,
     }
 }
 
 #[cfg(not(windows))]
-fn used_elsewhere(_path: &Path) -> Option<i32> {
+fn used_elsewhere(_path: &Path) -> Option<std::io::Error> {
     None
 }
 
@@ -80,25 +82,29 @@ fn remove_file(path: &Path, force: bool) -> Result<(), FailedFile> {
     let fail = |e: std::io::Error| {
         let text = e.to_string();
         let message = text.split(" (os error").next().unwrap_or(&text).trim().to_string();
-        FailedFile { id: 0, path: path.display().to_string(), code: e.raw_os_error(), message, read_only: false }
+        FailedFile { id: 0, path: path.display().to_string(), code: e.raw_os_error(), message, read_only: false, also_read_only: false }
     };
+    // Échec d'un fichier en lecture seule (la protection reste) : « + Fichier en lecture seule ».
+    let fail_read_only = |e: std::io::Error| FailedFile { also_read_only: true, ..fail(e) };
     match std::fs::metadata(path) {
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(()),
         Err(e) => return Err(fail(e)),
         Ok(meta) if meta.permissions().readonly() => {
             if !force {
                 // Aussi utilisé par un autre programme : « Supprimer quand même » échouerait (DEL-08.2).
-                let code = used_elsewhere(path);
+                if let Some(e) = used_elsewhere(path) {
+                    return Err(fail_read_only(e));
+                }
                 let message = "Fichier en lecture seule".to_string();
-                return Err(FailedFile { id: 0, path: path.display().to_string(), code, message, read_only: code.is_none() });
+                return Err(FailedFile { id: 0, path: path.display().to_string(), code: None, message, read_only: true, also_read_only: false });
             }
             let mut writable = meta.permissions();
             #[allow(clippy::permissions_set_readonly_false)] // voulu : « Supprimer quand même »
             writable.set_readonly(false);
-            std::fs::set_permissions(path, writable).map_err(fail)?;
+            std::fs::set_permissions(path, writable).map_err(fail_read_only)?;
             return std::fs::remove_file(path).or_else(|e| {
                 let _ = std::fs::set_permissions(path, meta.permissions());
-                if e.kind() == std::io::ErrorKind::NotFound { Ok(()) } else { Err(fail(e)) }
+                if e.kind() == std::io::ErrorKind::NotFound { Ok(()) } else { Err(fail_read_only(e)) }
             });
         }
         Ok(_) => {}

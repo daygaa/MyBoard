@@ -1419,3 +1419,10 @@ test compris, sinon l'index devient illisible) ; le simple ordre des caractères
 d'effacer (sans rien effacer ni modifier ; la lecture seule n'empêche pas cette ouverture) : un refus « erreur 32 »
 veut dire qu'un autre programme le tient ouvert ; il est alors signalé avec les deux raisons et « Supprimer quand
 même » ne le propose pas.
+
+**Complément du 06/11 (retouches du lot 3, v101).** `FailedFile.also_read_only` : fichier refusé pour une autre raison
+ET en lecture seule (affiché « + Fichier en lecture seule », jamais proposé à « Supprimer quand même ») ; la pop-in
+n'utilise plus les explications de MyBoard (`windowsErrors.ts`, toujours utilisées par la visionneuse) : le message
+de Windows seul, choix de l'utilisateur. Zoom (`useZoom`) : un zoom libre égal au niveau « Adapter » de la zone devient
+« adapté » ; l'indicateur de transition s'éteint 0,2 s après un clic, un menu ou la touche A. Zone dépliée
+(`useUnfolded`) : un menu du clic droit ouvert la garde dépliée.
