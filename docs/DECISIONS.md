@@ -1580,3 +1580,8 @@ l'autre sans changer de taille +16. Choix : `copyCanvas.ts`, un seul canevas « 
 Résultat : `cc/image_memory` 661 → 342 Mo (copies ≈ 16 Mo ; le reste : originaux, 36 à 90 Mo chacun) ; mémoire
 privée (colonne du Gestionnaire des tâches) 1 330 → 1 217 Mo après 150 images, 899 → 829 Mo visionneuse fermée : ce
 cache est surtout de la mémoire partagée « jetable » du moteur, que Windows ne compte pas dans cette colonne.
+
+**Complément du 07/11 à D-051 (v109).** Cache des copies : 150 Mo (choix de l'utilisateur, dernier réglage de la
+mémoire vive demandé). Mesuré : copies 182 Mo (le média affiché et ses voisins sont toujours gardés, au-delà de la
+limite), visionneuse fermée + 20 s 718 Mo. Retour AUT.7.5 (flèche maintenue) mesuré le 07/11, décision attendue : voir
+la SPEC (VIEW-53) ; environ deux tiers du travail vont à des copies abandonnées à l'appui suivant.

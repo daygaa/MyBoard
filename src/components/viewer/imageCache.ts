@@ -1,6 +1,6 @@
 // Images de la visionneuse gardées en mémoire (VIEW-53) : celles déjà vues et les voisines préparées
-// (2 après, 1 avant), dans la limite de 300 Mo (choix de l'utilisateur, 06/11 soir, retour AUT.7.4 : 1 Go, c'était
-// trop de mémoire vive ; 40 à 90 images lourdes gardées), les plus anciennes oubliées au-delà. Gardées en mémoire vive tant que MyBoard est ouvert, même visionneuse fermée ; rien sur le disque.
+// (2 après, 1 avant), dans la limite de 150 Mo (choix de l'utilisateur, 07/11, retour AUT.7.4 : 1 Go puis 300 Mo,
+// c'était trop de mémoire vive ; 20 à 45 images lourdes gardées), les plus anciennes oubliées au-delà. Gardées en mémoire vive tant que MyBoard est ouvert, même visionneuse fermée ; rien sur le disque.
 //
 // Chaque image est gardée DÉCODÉE, à la taille de l'écran (au plus 1920 × 1080 sur l'écran de
 // l'utilisateur, soit 8 Mo ; une petite image à sa taille réelle) : la visionneuse l'affiche aussitôt, nette
@@ -16,7 +16,7 @@
 import { directUrl, mediaUrl, type MediaItem } from "@/lib/api";
 
 /** Mémoire réservée aux images gardées (choix de l'utilisateur). */
-const BUDGET = 300 * 1024 * 1024;
+const BUDGET = 150 * 1024 * 1024;
 /** Copies préparées en même temps (processeur à 8 cœurs de l'utilisateur). */
 const PARALLEL = 3;
 /** Le fil à part est arrêté après 1 s sans copie à faire, ou après 4 copies dès qu'il n'en a plus en cours (puis

@@ -3,6 +3,16 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Visionneuse : cache des copies à 150 Mo (07/11/2026) — Backup v109
+
+SPEC : VIEW-53 (retour T3, point AUT.7.4) `[~]`.
+
+- Les images gardées par la visionneuse occupent au plus 150 Mo (au lieu de 300).
+
+Vérifié dans la version compilée, sur une copie neuve de la base d'essai : mémoire après 150 images lourdes (copies
+182 Mo au lieu de 331 ; mémoire privée 1 089 Mo au lieu de 1 217 ; visionneuse fermée 718 Mo au lieu de 829) ;
+non-régression : 1re ouverture (0,45 s), vrai clavier (30 images sur 30) ; zéro erreur `tsc`.
+
 ## Visionneuse : un seul canevas pour les copies, moins de mémoire (07/11/2026) — Backup v108
 
 SPEC : VIEW-53 (retour T3, point AUT.7.4) `[~]`.
