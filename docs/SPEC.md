@@ -37,6 +37,11 @@ détaillé dans son propre document.
 lot 2 = TAGM-19 ; lot 3 = DEL-08, ZOOM-11, ZOOM-12, VIEW-51, GRID-13, NAV-08, GEN-15, et CTX-12, FILT-09, SEL-11 (jugés
 simples par Claude) ; lot 3.5 = VIEW-53 (pas simple : images décodées gardées en mémoire, à mesurer) ; lot 4 = VIEW-52 et VIEW-54 (barre de lecture des GIF, ajoutée le 05/11) ;
 lot 5 = FOLD-10 ; puis la question Q.3 et la vérification que ce document contient tous les points du retour.
+**07/11 : phase 3 close.** Tous les lots livrés et validés ; Q.3 répondue (les 176 points du retour T3 sont dans ce
+document). Restent : AUD-01 `[~]` (essai de pause dès WebView2 157 : vérification de la version à poursuivre à chaque
+lot) ; DEL-05 (miniatures de la pop-in de restauration) reporté en phase 4 ; FUT-09 à FUT-11 plus tard. La phase 4 se
+prépare à partir de ce document seul : liste de ce qui reste à faire, classée par priorité et par simplicité, puis
+découpée en lots.
 
 **Phases de développement** (détail dans `docs/DECISIONS.md`) :
 1 Socle · 2 Visionneuse + tags + recherche · 3 Favoris, dossiers, sélection, suppression ·
