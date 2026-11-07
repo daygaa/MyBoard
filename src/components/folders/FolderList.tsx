@@ -13,16 +13,17 @@ import type { Folder } from "@/lib/api";
 import { openContextMenu, openMenuAt, type MenuEntry } from "@/lib/contextMenu";
 import { navigate, useFolderId, useRoute } from "@/lib/router";
 import { cn, titleIfCut } from "@/lib/utils";
-import { FOLDER_SORTS, useFolderSort } from "@/stores/folderSort";
+import { ARROWS, FOLDER_SORTS, useFolderSort } from "@/stores/folderSort";
 import { FolderNameDialog } from "./FolderNameDialog";
 import { folderMenu } from "./folderMenus";
 
 const HEAD_BUTTON =
   "inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs text-muted-foreground transition hover:bg-secondary hover:text-foreground";
 
-/** Bouton « tri » (FOLD-10) : menu des ordres, l'ordre en cours coché ; chaque entrée montre son sens. */
+/** Bouton « tri » (FOLD-10) : menu des ordres, l'ordre en cours coché ; chaque entrée montre son sens (flèche à
+ *  droite de la ligne). */
 function SortButton() {
-  const label = useFolderSort((s) => FOLDER_SORTS.find((o) => o.key === s.key)?.label[s.dirs[s.key]]);
+  const label = useFolderSort((s) => `${FOLDER_SORTS.find((o) => o.key === s.key)?.label[s.dirs[s.key]]} ${ARROWS[s.dirs[s.key]]}`);
   return (
     <button
       type="button"
@@ -32,7 +33,12 @@ function SortButton() {
       onClick={(e) => {
         const r = e.currentTarget.getBoundingClientRect();
         const { key, dirs, choose } = useFolderSort.getState();
-        const entries: MenuEntry[] = FOLDER_SORTS.map((o) => ({ label: o.label[dirs[o.key]], checked: o.key === key, run: () => choose(o.key) }));
+        const entries: MenuEntry[] = FOLDER_SORTS.map((o) => ({
+          label: o.label[dirs[o.key]],
+          detail: ARROWS[dirs[o.key]],
+          checked: o.key === key,
+          run: () => choose(o.key),
+        }));
         openMenuAt(r.left, r.bottom + 4, entries, e.detail === 0, { anchor: e.currentTarget });
       }}
       className={HEAD_BUTTON}

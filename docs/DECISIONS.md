@@ -1623,3 +1623,8 @@ nombres, accents et majuscules ignorés : ordre de l'Explorateur, comme FILT-09)
 (`stores/folderSort.ts`, critère en cours + dernier sens de chaque critère) gardé dans le stockage de la fenêtre
 (`myboard.dossiers.tri`), comme les filtres de la grille. `cachedFolders()` renvoie la liste rangée : les listes à
 cocher (FOLD-09) suivent sans autre changement.
+
+**Complément du 07/11 à D-057.** Le tri « Couleur » range par le rang de la couleur dans la palette fixe (FOLD-07) ;
+une couleur hors palette vient après, sans ordre entre elles. Le sélecteur de couleur libre (FOLD-08, plus tard)
+rendra ce rang insuffisant : le tri devra alors changer (par exemple par teinte, puis luminosité), à décider avec
+l'utilisateur à ce moment-là (noté sur FOLD-08, demande de l'utilisateur).

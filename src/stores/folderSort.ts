@@ -10,14 +10,16 @@ export type FolderSortKey = "name" | "media" | "created" | "color" | "opened";
 /** ↓ : ordre « naturel » (A en haut, le plus de médias, le plus récent, la palette dans l'ordre) ; ↑ : l'inverse. */
 export type SortDirection = "down" | "up";
 
-/** Entrées du menu, dans cet ordre, avec leur libellé dans chaque sens. */
+/** Entrées du menu, dans cet ordre, avec leur libellé dans chaque sens ; la flèche (`ARROWS`) est à droite de la
+ *  ligne (retour du 07/11). */
 export const FOLDER_SORTS: { key: FolderSortKey; label: Record<SortDirection, string> }[] = [
-  { key: "name", label: { down: "A → Z ↓", up: "A ← Z ↑" } },
-  { key: "media", label: { down: "Médias + ↓", up: "Médias - ↑" } },
-  { key: "created", label: { down: "Créés : récents ↓", up: "Créés : anciens ↑" } },
-  { key: "color", label: { down: "Couleur ↓", up: "Couleur ↑" } },
-  { key: "opened", label: { down: "Ouverts : récents ↓", up: "Ouverts : anciens ↑" } },
+  { key: "name", label: { down: "A → Z", up: "A ← Z" } },
+  { key: "media", label: { down: "Médias +", up: "Médias -" } },
+  { key: "created", label: { down: "Créés : récents", up: "Créés : anciens" } },
+  { key: "color", label: { down: "Couleur", up: "Couleur" } },
+  { key: "opened", label: { down: "Ouverts : récents", up: "Ouverts : anciens" } },
 ];
+export const ARROWS: Record<SortDirection, string> = { down: "↓", up: "↑" };
 
 type FolderSortState = {
   key: FolderSortKey;

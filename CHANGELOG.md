@@ -3,6 +3,16 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Dossiers : flèches du menu « tri » à droite (07/11/2026) — Backup v112
+
+SPEC : FOLD-10 (retour T3, point AUT.13) `[~]`.
+
+- Menu « tri » des dossiers : les flèches ↓ / ↑ sont à droite de la ligne, plus collées au libellé.
+- Noté sur FOLD-08 (sélecteur de couleur libre, plus tard) : le tri « Couleur » devra alors changer.
+
+Vérifié dans la version compilée, sur une copie neuve de la base d'essai : place des flèches (mesurée et en capture),
+tous les ordres, sens retenus, ouverture notée, liste « Ajouter à un dossier » (19 contrôles) ; zéro erreur `tsc`.
+
 ## Dossiers : ordre de la liste au choix (07/11/2026) — Backup v111
 
 SPEC : FOLD-10 (retour T3, point AUT.13) `[~]`.
