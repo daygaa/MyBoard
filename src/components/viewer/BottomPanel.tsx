@@ -7,6 +7,8 @@
 // place d'ancrage des flèches, VIEW-38), et sa hauteur repliée la plus grande (`anchor`, place
 // d'ancrage des commandes flottantes, VIEW-42). En passant à un média dont les tags ne sont pas
 // encore lus, la zone des tags garde sa hauteur jusqu'à leur arrivée (VIEW-40).
+// Défilement rapide (burst.ts, retour AUT.7.5) : la barre garde le média d'avant (Viewer.tsx) et ne répond pas
+// (`frozen`) ; elle passe au média affiché à l'arrêt.
 
 import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
 
@@ -43,9 +45,10 @@ type Props = {
   barRef: RefObject<HTMLDivElement | null>;
   className?: string;
   onMetrics: (metrics: PanelMetrics) => void;
+  frozen: boolean;
 };
 
-export function BottomPanel({ item, onSearch, barRef, className, onMetrics }: Props) {
+export function BottomPanel({ item, onSearch, barRef, className, onMetrics, frozen }: Props) {
   const [mode, setMode] = useState<Mode>("replie");
   const areaRef = useRef<HTMLDivElement>(null);
   const boxRef = useRef<HTMLDivElement>(null);
@@ -112,7 +115,13 @@ export function BottomPanel({ item, onSearch, barRef, className, onMetrics }: Pr
   }, [mode]);
 
   return (
-    <div ref={barRef} data-zone="visionneuse.bas" className={cn("relative", className)} style={{ height: open ? geo.collapsed : undefined }}>
+    <div
+      ref={barRef}
+      data-zone="visionneuse.bas"
+      inert={frozen}
+      className={cn("relative", className)}
+      style={{ height: open ? geo.collapsed : undefined }}
+    >
       <div className={open ? "absolute inset-x-0 bottom-0" : undefined}>
         <ErrorBanner />
         <InfoBar item={item}>

@@ -3,6 +3,23 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Visionneuse : défilement rapide allégé (07/11/2026) — Backup v110
+
+SPEC : VIEW-53 (retour T3, point AUT.7.5) `[~]`.
+
+- Flèche maintenue (ou appuis très rapides) : chaque média traversé garde un aperçu, mais allégé. Vidéos et GIF
+  montrent leur miniature, sans lecture ni son ni conversion ; seules les images légères (au plus 4K et 4 Mo) ont leur
+  copie nette, les autres leur miniature ; les miniatures des 10 médias suivants sont chargées d'avance (plus d'écran
+  vide) ; la barre du bas et la note restent sur le média d'avant.
+- À l'arrêt (touche relâchée, ou 200 ms sans appui), tout se charge normalement : la vidéo se lit, le GIF s'anime,
+  l'image devient nette, la barre passe au média affiché.
+
+Vérifié dans la version compilée, sur une copie neuve de la base d'essai, avec de vraies touches répétées 30 fois par
+seconde : mélange de médias 19-21 % → 5-8 % du PC pendant l'appui, médias restés vides 53 → 0, service audio presque
+plus sollicité ; images lourdes 24 → 5,5 % du PC, lectures du disque 721 → 6 Mo/s ; arrêt sur une vidéo, un GIF, une
+image lourde ou légère (bien chargés, barre à jour) ; non-régression : vrai clavier à 4 images/s (30 sur 30), 1re
+ouverture, vidéos, GIF et sous-titres ; zéro erreur `tsc`.
+
 ## Visionneuse : cache des copies à 150 Mo (07/11/2026) — Backup v109
 
 SPEC : VIEW-53 (retour T3, point AUT.7.4) `[~]`.

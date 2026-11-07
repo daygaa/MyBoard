@@ -36,6 +36,9 @@ export function usePreviewReady(id: number, size: PreviewSize): boolean {
   return usePreviews((s) => ((s.ready[id] ?? 0) & BIT[size]) !== 0);
 }
 
+/** Même question, lue une fois (hors affichage). */
+export const previewReady = (id: number, size: PreviewSize): boolean => ((usePreviews.getState().ready[id] ?? 0) & BIT[size]) !== 0;
+
 const keyOf = ({ id, size }: PreviewKey) => `${id}:${size}`;
 const want = new Map<string, PreviewKey>();
 const cancel = new Map<string, PreviewKey>();

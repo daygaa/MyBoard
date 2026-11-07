@@ -43,6 +43,9 @@ type ViewerState = {
   error: ExternalError | null;
   /** Média dont le fichier vient d'être copié : « Copié » s'affiche ~1,5 s (VIEW-35). */
   copied: number | null;
+  /** Défilement rapide en cours (flèche maintenue, appuis rapprochés) : affichage allégé (VIEW-53,
+   *  components/viewer/burst.ts). */
+  burst: boolean;
   openAt: (index: number, item: MediaItem, pageSize: number) => void;
   show: (index: number, item: MediaItem, total: number) => void;
   /** Fermeture (Échap, croix, clic sur le fond) : nouvelle étape « grille » ; `replace` : l'étape de la
@@ -125,6 +128,7 @@ export const useViewer = create<ViewerState>()((set, get) => {
     screenGap: 0,
     error: null,
     copied: null,
+    burst: false,
     openAt: (index, item, pageSize) => {
       const { kinds, sort, seed } = useLibrary.getState();
       const { terms, file } = useSearch.getState();

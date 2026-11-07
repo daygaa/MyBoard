@@ -14,13 +14,14 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
-import { THUMB, directUrl, mediaUrl, thumbUrl, type MediaItem } from "@/lib/api";
+import { THUMB, directUrl, mediaUrl, type MediaItem } from "@/lib/api";
 import { openContextMenu } from "@/lib/contextMenu";
 import { cn } from "@/lib/utils";
 import { usePreviewReady } from "@/stores/previews";
 import { hideCopy, showCopy } from "./copyCanvas";
 import { canCopy, pauseCopies, readyBitmap, whenReady } from "./imageCache";
 import { imageMenu } from "./mediaMenus";
+import { stageThumb } from "./navigation";
 import { ANIM_MS, useZoom, type Size } from "./useZoom";
 import { ZoomBadge } from "./ZoomBadge";
 
@@ -123,7 +124,7 @@ export function ImageStage({ item, onClose, opening = false }: { item: MediaItem
         {bitmap && !covered && <div ref={copyHost} className="absolute inset-0 overflow-hidden" />}
         {!bitmap && !covered && item.thumbStatus === THUMB.ready && side > 0 && (
           <img
-            src={thumbUrl(item.hash, previewReady ? "preview" : "normal")}
+            src={stageThumb(item, previewReady)}
             alt=""
             draggable={false}
             className="absolute"

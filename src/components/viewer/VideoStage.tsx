@@ -12,19 +12,24 @@
 // Sous-titres (VIEW-52, Subtitles.tsx) : bouton de la barre, sous-menu du clic droit, touche C.
 // GIF animé (VIEW-54, useGifVideo.ts) : le GIF s'affiche tout de suite, sa vidéo prend le relais au même instant ;
 // pas de son (M sans effet), boucle propre au GIF.
+// Défilement rapide (rafale, burst.ts, retour AUT.7.5) : seulement la miniature (ni lecture, ni son, ni ffprobe, ni
+// conversion du GIF) ; à l'arrêt, tout démarre et la miniature reste jusqu'à la 1re image (ou au GIF).
 
 import { useContext, useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import { useQuery } from "@tanstack/react-query";
 
-import { api, directUrl, mediaUrl, type MediaItem } from "@/lib/api";
+import { api, directUrl, mediaUrl, THUMB, type MediaItem } from "@/lib/api";
 import { openContextMenu } from "@/lib/contextMenu";
 import { hasModalLayer, useEscape } from "@/lib/escape";
 import { videoActionFor, type VideoAction } from "@/lib/shortcuts";
 import { cn } from "@/lib/utils";
 import { isSilent, speedLabel, usePlayer } from "@/stores/player";
+import { usePreviewReady } from "@/stores/previews";
 import { useViewer } from "@/stores/viewer";
 
+import { useBurstLight } from "./burst";
 import { videoMenu } from "./mediaMenus";
+import { stageThumb } from "./navigation";
 import { PlayerBadge, SPEED_BADGE_MS, usePlayerBadge } from "./PlayerBadge";
 import { SubtitleOverlay, subtitleBox, useSubtitles } from "./Subtitles";
 import { useGifVideo } from "./useGifVideo";
@@ -85,9 +90,20 @@ export function VideoStage({ item, onClose, fallback }: { item: MediaItem; onClo
   /** Lecture directe impossible (D-054) : `media://`. */
   const [viaProtocol, setViaProtocol] = useState(false);
   const isGif = item.ext === "gif";
-  const { data: keyframes } = useQuery({ queryKey: ["keyframes", item.id], queryFn: () => api.videoKeyframes(item.id), enabled: !isGif, staleTime: Infinity });
-  const gif = useGifVideo(item.id, isGif);
-  const subs = useSubtitles(item.id, videoRef, !isGif);
+  // Rafale : rien n'est lu ; arrivé pendant une rafale : miniature jusqu'à la 1re image de la vidéo (ou au GIF).
+  const light = useBurstLight();
+  const [fromBurst] = useState(light);
+  const [painted, setPainted] = useState(false);
+  const [gifShown, setGifShown] = useState(false);
+  const previewReady = usePreviewReady(item.id, 640);
+  const { data: keyframes } = useQuery({
+    queryKey: ["keyframes", item.id],
+    queryFn: () => api.videoKeyframes(item.id),
+    enabled: !isGif && !light,
+    staleTime: Infinity,
+  });
+  const gif = useGifVideo(item.id, isGif && !light);
+  const subs = useSubtitles(item.id, videoRef, !isGif && !light);
   const { volume, muted, loop: videoLoop, speed } = usePlayer();
   const loop = isGif ? gif.loop : videoLoop;
   const { idle, restartIdle, bottomInset, lift } = useContext(ViewerChrome);
@@ -150,6 +166,9 @@ export function VideoStage({ item, onClose, fallback }: { item: MediaItem; onClo
   const transform = `translate(-50%, -50%) translate(${view.tx}px, ${view.ty}px) scale(${view.scale})`;
   const transition = animate ? `transform ${ANIM_MS}ms ease-out` : undefined;
   const gifControls = isGif ? { loop: gif.loop, setLoop: gif.setLoop, ready: gif.ready } : undefined;
+  // Miniature : carré recadré au centre (D-013), posé sur le carré central du média, comme pour les images.
+  const side = Math.min(natural.w, natural.h);
+  const thumb = fromBurst && !(isGif ? gifShown || gif.ready : painted) && item.thumbStatus === THUMB.ready && side > 0;
   return (
     <>
       <div
@@ -159,21 +178,26 @@ export function VideoStage({ item, onClose, fallback }: { item: MediaItem; onClo
         // Curseur normal sur le fond ; main ou pointeur seulement sur la vidéo (VIEW-31).
         className="absolute inset-0 touch-none select-none"
       >
-        {waiting && (
+        {waiting && !light && (
           <img
             src={mediaUrl(item)}
             alt=""
             draggable={false}
-            onLoad={gif.onGifLoad}
+            onLoad={() => {
+              gif.onGifLoad();
+              setGifShown(true);
+            }}
             className="pointer-events-none absolute top-1/2 left-1/2 max-w-none"
             style={{ width: natural.w, height: natural.h, transform, transition }}
           />
         )}
         <video
           ref={videoRef}
-          src={isGif ? (gif.src ?? undefined) : viaProtocol ? mediaUrl(item) : directUrl(item)}
+          src={light ? undefined : isGif ? (gif.src ?? undefined) : viaProtocol ? mediaUrl(item) : directUrl(item)}
           autoPlay={!isGif}
           playsInline
+          // 1re image prête : la miniature part à l'image suivante (la vidéo est déjà dessinée dessous).
+          onLoadedData={() => fromBurst && requestAnimationFrame(() => setPainted(true))}
           onError={() => {
             if (!isGif && item.fileUrl && !viaProtocol) setViaProtocol(true);
             else setFailed(true);
@@ -200,6 +224,15 @@ export function VideoStage({ item, onClose, fallback }: { item: MediaItem; onClo
             ...(isGif && { objectFit: "none", objectPosition: "0 0", opacity: gif.ready ? 1 : 0 }),
           }}
         />
+        {thumb && (
+          <img
+            src={stageThumb(item, previewReady)}
+            alt=""
+            draggable={false}
+            className="pointer-events-none absolute top-1/2 left-1/2 max-w-none"
+            style={{ width: side, height: side, transform, transition }}
+          />
+        )}
         {subs.cues.length > 0 && (
           <SubtitleOverlay
             cues={subs.cues}

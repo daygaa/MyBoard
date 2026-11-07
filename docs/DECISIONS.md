@@ -1585,3 +1585,25 @@ cache est surtout de la mémoire partagée « jetable » du moteur, que Windows 
 mémoire vive demandé). Mesuré : copies 182 Mo (le média affiché et ses voisins sont toujours gardés, au-delà de la
 limite), visionneuse fermée + 20 s 718 Mo. Retour AUT.7.5 (flèche maintenue) mesuré le 07/11, décision attendue : voir
 la SPEC (VIEW-53) ; environ deux tiers du travail vont à des copies abandonnées à l'appui suivant.
+
+## D-056 — Défilement rapide : affichage allégé, aperçu gardé (07/11/2026)
+
+**Contexte.** VIEW-53, retour AUT.7.5 : flèche maintenue, processeur au-delà de 50 % selon l'utilisateur et
+grésillements du son. Mesuré (v109, vraies touches répétées 30 fois par seconde) : 19 à 24 % du PC ; chaque vidéo
+traversée démarrait sa lecture (décodage, carte graphique, service audio : son démarré puis coupé à chaque vidéo) ;
+une conversion FFmpeg par GIF affiché ou voisin ; deux tiers du travail sur les images lourdes allaient à des copies
+abandonnées à l'appui suivant (fil relancé) ; la moitié des médias traversés restaient vides (miniature arrivée trop
+tard). L'utilisateur veut garder un aperçu de chaque média (une pause des copies seule « ne lui plaît que moyennement »).
+
+**Choix (décision de l'utilisateur, a à e ; f en dernier recours).** `components/viewer/burst.ts` : rafale = répétition
+du clavier ou appuis à moins de 150 ms ; fin : touche maintenue relâchée, sinon 200 ms sans appui (des appuis répétés
+à la main ne chargent pas chaque média entre deux appuis). État `burst` dans `stores/viewer.ts`. Un média arrivé
+pendant la rafale est « allégé » tant qu'elle dure (`useBurstLight`) : vidéo sans adresse (aucune lecture, ni son),
+sous-titres, images clés et conversion du GIF non demandés, miniature posée sur le carré central (D-013) et gardée
+jusqu'à la 1re image ; `warm(…, true)` : seulement les images légères (≤ 8,3 Mpx et ≤ 4 Mo), et une copie légère
+dépassée finit au lieu de relancer le fil ; miniatures des 10 médias suivants (sens du défilement) lues et décodées
+par des `Image` gardées (20 au plus) ; barre du bas et bouton de note gardent le média d'avant (`inert`, raccourcis
+ignorés : une action ne vise jamais un média autre que celui affiché) ; infos des voisins non lues. À la fin de la
+rafale, le préchargement normal repart (l'effet dépend de `burst`). Mesuré (v110) : mélange 5 à 8 % du PC, 0 média
+vide, service audio presque plus sollicité ; images lourdes 5,5 %. Priorité de MyBoard abaissée (f) : non ajoutée,
+seulement si le son grésille encore.

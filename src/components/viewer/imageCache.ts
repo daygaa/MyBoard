@@ -57,6 +57,12 @@ function copySize(item: MediaItem): { w: number; h: number } | null {
 /** Une copie peut-elle être faite pour cette image ? (GIF animés, dimensions inconnues : non.) */
 export const canCopy = (item: MediaItem) => copySize(item) !== null;
 
+/** Image « légère » (VIEW-53, rafale, retour AUT.7.5) : au plus 4K (8,3 Mpx) et 4 Mo, copie prête vite ; les
+ *  autres n'ont que leur miniature pendant une rafale (69 % des images de la base d'essai sont légères). */
+const LIGHT_PIXELS = 3840 * 2160;
+const LIGHT_BYTES = 4 * 1024 * 1024;
+export const isLight = (item: MediaItem) => (item.width ?? 0) * (item.height ?? 0) <= LIGHT_PIXELS && item.size <= LIGHT_BYTES;
+
 function notify(id: number, bitmap: ImageBitmap | null) {
   for (const cb of waiting.get(id) ?? []) cb(bitmap);
   waiting.delete(id);
@@ -139,8 +145,11 @@ export function whenReady(id: number, cb: (bitmap: ImageBitmap | null) => void):
 }
 
 /** Prépare ces images, dans cet ordre de priorité, et les marque comme les plus récentes ; elles ne seront
- *  pas oubliées tant qu'elles sont autour du média affiché. GIF animés et autres sortes de médias : ignorés. */
-export function warm(items: MediaItem[]) {
+ *  pas oubliées tant qu'elles sont autour du média affiché. GIF animés et autres sortes de médias : ignorés.
+ *  `burst` (rafale) : seulement les images légères ; celles déjà dépassées finissent leur copie (vite prête,
+ *  gardée) au lieu de relancer le fil à chaque appui. */
+export function warm(items: MediaItem[], burst = false) {
+  if (burst) items = items.filter(isLight);
   keep = new Set(items.map((i) => i.id));
   const fresh: Job[] = [];
   for (const item of items) {
@@ -162,12 +171,13 @@ export function warm(items: MediaItem[]) {
   // Ce qui n'est plus autour du média affiché attendra : oublié s'il n'était pas encore préparé.
   for (const job of queue) if (!keep.has(job.item.id)) forget(job.item.id);
   // Copies en cours d'images dépassées : abandonnées (fil relancé) ; celles encore utiles reprennent en tête.
-  const stale = [...busy.keys()].filter((id) => !keep.has(id));
-  if (stale.length > 0) {
+  // Rafale : les copies d'images légères vont au bout.
+  const stale = [...busy.values()].filter((j) => !keep.has(j.item.id));
+  if (stale.length > 0 && (!burst || stale.some((j) => !isLight(j.item)))) {
     worker?.terminate();
     worker = null;
     done = 0;
-    for (const id of stale) forget(id);
+    for (const j of stale) forget(j.item.id);
     const still = [...busy.values()].filter((j) => keep.has(j.item.id));
     busy.clear();
     fresh.unshift(...still.filter((j) => !fresh.includes(j)));

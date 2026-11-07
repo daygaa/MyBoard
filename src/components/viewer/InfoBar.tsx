@@ -72,11 +72,12 @@ function dateFr(ms: number | null | undefined): string {
 }
 
 /** Raccourcis des actions disponibles (sauf pendant une saisie, une pop-in ou si du texte est
- *  sélectionné : Ctrl+C copie alors ce texte, comme partout). */
+ *  sélectionné : Ctrl+C copie alors ce texte, comme partout). Pendant un défilement rapide, la barre montre
+ *  encore le média d'avant (burst.ts) : aucun raccourci, pour ne jamais agir sur un autre média que celui affiché. */
 function useShortcuts(actions: ActionDef[]) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (isTyping(e.target) || hasModalLayer()) return;
+      if (isTyping(e.target) || hasModalLayer() || useViewer.getState().burst) return;
       const found = actions.find((a) => a.action === viewerActionFor(e));
       if (!found?.run || found.unavailable !== undefined) return;
       if (found.action === "copy" && window.getSelection()?.toString()) return;

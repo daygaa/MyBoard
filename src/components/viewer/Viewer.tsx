@@ -16,11 +16,12 @@
 //   de lecture glissent avec elle s'ils sont atteints (VIEW-39, BottomPanel).
 // - Ouverture : fond noir, barre du bas et boutons tout de suite ; seul le média apparaît en
 //   fondu (VIEW-41).
+// - Défilement rapide (rafale, burst.ts, VIEW-53) : aperçu allégé de chaque média, barre du bas et note
+//   mises à jour à l'arrêt.
 
 import { useEffect, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
 
-import type { MediaItem } from "@/lib/api";
 import { closeContextMenu, useContextMenu } from "@/lib/contextMenu";
 import { hasModalLayer, historyHasForward, useEscape } from "@/lib/escape";
 import { scroller } from "@/lib/scroller";
@@ -28,10 +29,11 @@ import { cn } from "@/lib/utils";
 import { useSearch } from "@/stores/search";
 import { useViewer, type ListBase } from "@/stores/viewer";
 import { BottomPanel, type PanelMetrics } from "./BottomPanel";
+import { arrowReleased, markStep } from "./burst";
 import { FullscreenButton } from "./FullscreenButton";
 import { MediaStage } from "./MediaStage";
 import { NotesButton } from "./NotesButton";
-import { isTyping, itemAt, NEIGHBORS, usePageAt, usePreload } from "./navigation";
+import { isTyping, itemAt, useNeighbors, usePageAt } from "./navigation";
 import { removePrintHolder } from "./printMedia";
 import { useBottomBarVisible, useHeight, useIdle, useTypingIn } from "./useBottomBar";
 import { idleClass, KEEP_SHOWN, ViewerChrome } from "./viewerChrome";
@@ -62,9 +64,12 @@ function ViewerOverlay({ base }: { base: ListBase }) {
   const screenGap = useViewer((s) => s.screenGap);
   const hasError = useViewer((s) => s.error !== null);
   const copied = useViewer((s) => s.copied !== null);
+  const burst = useViewer((s) => s.burst);
+  // Rafale : la barre du bas et la note gardent le média d'avant, mises à jour à l'arrêt (retour AUT.7.5).
+  const [barItem, setBarItem] = useState(item);
+  if (!burst && barItem !== item) setBarItem(item);
   const { show, close, setFullscreen, closeForSearch } = useViewer.getState();
   const pageAt = usePageAt();
-  const preload = usePreload();
   const rootRef = useRef<HTMLDivElement>(null);
   const viewerHeight = useHeight(rootRef);
   const barRef = useRef<HTMLDivElement>(null);
@@ -115,6 +120,8 @@ function ViewerOverlay({ base }: { base: ListBase }) {
   const shownIndex = useRef(index);
   /** Une flèche a déjà servi : le média affiché n'est plus celui ouvert depuis la grille (VIEW-53). */
   const [navigated, setNavigated] = useState(false);
+  /** Sens du dernier appui : miniatures préparées devant pendant une rafale. */
+  const direction = useRef(1);
 
   // Échap, croix : fermeture (nouvelle étape « grille ») ; bouton 4 et flèche « précédent » : vrai retour
   // arrière ; bouton 5 et flèche « suivant » : l'étape d'après, s'il y en a une (AUT.6, AUT.17).
@@ -133,10 +140,13 @@ function ViewerOverlay({ base }: { base: ListBase }) {
     shownIndex.current = index;
   }, [index]);
 
-  const go = async (delta: number) => {
+  /** `repeat` : répétition du clavier (touche maintenue). */
+  const go = async (delta: number, repeat = false) => {
     const next = target.current + delta;
     if (next < 0 || next >= total) return;
     target.current = next;
+    direction.current = Math.sign(delta);
+    markStep(repeat);
     setNavigated(true);
     const page = await pageAt(base, next).catch(() => null);
     const found = page ? itemAt(page, next) : undefined;
@@ -145,42 +155,28 @@ function ViewerOverlay({ base }: { base: ListBase }) {
     else target.current = useViewer.getState().index; // rien à cette place : la position revient à l'image affichée
   };
 
-  // Nombre total de résultats, puis préchargement des voisins à chaque changement de média.
-  useEffect(() => {
-    let cancelled = false;
-    void pageAt(base, index).then(async (page) => {
-      if (cancelled) return;
-      // Média revenu par l'historique, puis supprimé ou déplacé entre-temps : ce qui est à sa place, ou
-      // fermeture s'il ne reste rien.
-      if (page.total === 0) return close({ replace: true });
-      const here = itemAt(page, index);
-      if (here && here.id !== useViewer.getState().item?.id) show(index, here, page.total);
-      if (page.total !== useViewer.getState().total) useViewer.setState({ total: page.total });
-      const neighbors = await Promise.all(
-        NEIGHBORS.map((d) => index + d)
-          .filter((i) => i >= 0 && i < page.total)
-          .map(async (i) => itemAt(await pageAt(base, i), i)),
-      );
-      if (!cancelled && here) preload(here, neighbors.filter((n): n is MediaItem => n !== undefined));
-    });
-    return () => {
-      cancelled = true;
-    };
-    // `pageAt` et `preload` sont recréées à chaque affichage mais ne dépendent que du cache partagé.
-  }, [base, index]);
+  useNeighbors(base, index, burst, direction);
 
   // Flèches et touche F (plein écran), sauf pendant une saisie ou si une pop-in est ouverte.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (isTyping(e.target) || hasModalLayer() || e.ctrlKey || e.altKey || e.metaKey) return;
-      if (e.key === "ArrowLeft") void go(-1);
-      else if (e.key === "ArrowRight") void go(1);
+      if (e.key === "ArrowLeft") void go(-1, e.repeat);
+      else if (e.key === "ArrowRight") void go(1, e.repeat);
       else if (e.key === "f" || e.key === "F") setFullscreen(!useViewer.getState().fullscreen);
       else return;
       e.preventDefault();
     };
+    // Flèche maintenue relâchée : fin de la rafale tout de suite, le média où l'on s'arrête se charge normalement.
+    const onKeyUp = (e: KeyboardEvent) => {
+      if (e.key === "ArrowLeft" || e.key === "ArrowRight") arrowReleased();
+    };
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    window.addEventListener("keyup", onKeyUp);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("keyup", onKeyUp);
+    };
   });
 
   // La page derrière ne défile plus (VIEW-06), même au clavier. La zone qui défile (NAV-04) est
@@ -197,6 +193,7 @@ function ViewerOverlay({ base }: { base: ListBase }) {
   }, []);
 
   if (!item) return null;
+  const infoItem = barItem ?? item;
   const searchTag = (name: string) => {
     useSearch.getState().setTerms([name]);
     closeForSearch(); // nouvelle recherche : page 1
@@ -225,7 +222,7 @@ function ViewerOverlay({ base }: { base: ListBase }) {
           <div className="mb-zoom-in absolute inset-0">
             <MediaStage key={item.id} item={item} onClose={() => close()} opening={!navigated} />
           </div>
-          <NotesButton key={`note-${item.id}`} mediaId={item.id} />
+          <NotesButton key={`note-${infoItem.id}`} mediaId={infoItem.id} />
         </ViewerChrome.Provider>
         {/* Médias sans barre de lecture : bouton rond en bas à droite, toujours au même endroit
             (en plein écran, juste au-dessus de la barre du bas qui ne le recouvre jamais). */}
@@ -273,7 +270,8 @@ function ViewerOverlay({ base }: { base: ListBase }) {
       </div>
       {/* Plein écran : la barre passe par-dessus le média, visible selon `barShown`. */}
       <BottomPanel
-        item={item}
+        item={infoItem}
+        frozen={burst}
         onSearch={searchTag}
         barRef={barRef}
         onMetrics={setPanel}
