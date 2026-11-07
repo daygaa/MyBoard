@@ -1,19 +1,46 @@
 // Dossiers du menu burger (NAV-02, FOLD-01, FOLD-02, FOLD-07), apparence v8 (captures 08 et 09) :
-// « + Nouveau », puis chaque dossier par ordre alphabétique : pastille de couleur, nom, nombre de
+// « + Nouveau », puis chaque dossier dans l'ordre choisi par le bouton « tri » à côté du titre (FOLD-10,
+// stores/folderSort.ts ; par défaut A → Z) : pastille de couleur, nom, nombre de
 // médias, menu ⋮ (le clic droit sur la ligne ouvre le même). Un clic ouvre la page du dossier.
 // En bas, « Dossiers masqués (N) » les montre en gris : ligne provisoire pour les tests de la
 // phase 3, retirée avec le gestionnaire de dossiers (FOLD-05, FOLD-06).
 
 import { useEffect, useState } from "react";
-import { ChevronRight, MoreVertical, Plus } from "lucide-react";
+import { ChevronDown, ChevronRight, MoreVertical, Plus } from "lucide-react";
 
-import { useFolders } from "@/hooks/useFolders";
+import { useSortedFolders } from "@/hooks/useFolders";
 import type { Folder } from "@/lib/api";
-import { openContextMenu, openMenuAt } from "@/lib/contextMenu";
+import { openContextMenu, openMenuAt, type MenuEntry } from "@/lib/contextMenu";
 import { navigate, useFolderId, useRoute } from "@/lib/router";
 import { cn, titleIfCut } from "@/lib/utils";
+import { FOLDER_SORTS, useFolderSort } from "@/stores/folderSort";
 import { FolderNameDialog } from "./FolderNameDialog";
 import { folderMenu } from "./folderMenus";
+
+const HEAD_BUTTON =
+  "inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs text-muted-foreground transition hover:bg-secondary hover:text-foreground";
+
+/** Bouton « tri » (FOLD-10) : menu des ordres, l'ordre en cours coché ; chaque entrée montre son sens. */
+function SortButton() {
+  const label = useFolderSort((s) => FOLDER_SORTS.find((o) => o.key === s.key)?.label[s.dirs[s.key]]);
+  return (
+    <button
+      type="button"
+      data-zone="menu.dossiers.tri"
+      aria-label={`Trier les dossiers (${label})`}
+      title={`Trier les dossiers : ${label}`}
+      onClick={(e) => {
+        const r = e.currentTarget.getBoundingClientRect();
+        const { key, dirs, choose } = useFolderSort.getState();
+        const entries: MenuEntry[] = FOLDER_SORTS.map((o) => ({ label: o.label[dirs[o.key]], checked: o.key === key, run: () => choose(o.key) }));
+        openMenuAt(r.left, r.bottom + 4, entries, e.detail === 0, { anchor: e.currentTarget });
+      }}
+      className={HEAD_BUTTON}
+    >
+      tri <ChevronDown className="h-3 w-3" />
+    </button>
+  );
+}
 
 function FolderRow({ folder, active, onDone }: { folder: Folder; active: boolean; onDone: () => void }) {
   return (
@@ -57,7 +84,7 @@ function FolderRow({ folder, active, onDone }: { folder: Folder; active: boolean
 }
 
 export function FolderList({ onDone }: { onDone: () => void }) {
-  const { data: folders = [] } = useFolders();
+  const folders = useSortedFolders();
   const route = useRoute();
   const current = useFolderId();
   const [creating, setCreating] = useState(false);
@@ -79,13 +106,11 @@ export function FolderList({ onDone }: { onDone: () => void }) {
   return (
     <div data-zone="menu.dossiers" className="mt-2 border-t border-border p-2">
       <div className="flex items-center justify-between px-3 py-1.5">
-        <h3 className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">Dossiers</h3>
-        <button
-          type="button"
-          data-zone="menu.dossiers.nouveau"
-          onClick={() => setCreating(true)}
-          className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs text-muted-foreground transition hover:bg-secondary hover:text-foreground"
-        >
+        <div className="flex items-center gap-1.5">
+          <h3 className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">Dossiers</h3>
+          <SortButton />
+        </div>
+        <button type="button" data-zone="menu.dossiers.nouveau" onClick={() => setCreating(true)} className={HEAD_BUTTON}>
           <Plus className="h-3.5 w-3.5" /> Nouveau
         </button>
       </div>

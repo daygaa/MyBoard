@@ -3,6 +3,22 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Dossiers : ordre de la liste au choix (07/11/2026) — Backup v111
+
+SPEC : FOLD-10 (retour T3, point AUT.13) `[~]`.
+
+- Menu burger : petit bouton « tri » à droite du titre « Dossiers ». Une entrée par ordre, qui montre son sens :
+  « A → Z ↓ », « Médias + ↓ », « Créés : récents ↓ », « Couleur ↓ », « Ouverts : récents ↓ ». Un clic sur une autre
+  entrée l'applique telle qu'affichée ; un clic sur l'entrée en cours inverse son sens (« A ← Z ↑ », « Médias - ↑ »…) ;
+  chaque entrée garde son dernier sens.
+- Même ordre dans les listes « Ajouter à un dossier » ; ordre gardé d'un lancement à l'autre.
+- MyBoard note la dernière ouverture de chaque dossier (page affichée, média ajouté ou retiré) : la base passe au
+  schéma 17 à la première ouverture.
+
+Vérifié dans la version compilée, sur une copie neuve de la base d'essai (9 dossiers ajoutés au modèle) : chaque ordre
+et son inverse, sens retenu par entrée, dossier ouvert ou modifié qui passe en tête, liste « Ajouter à un dossier »
+dans le même ordre, ordre gardé après rechargement et redémarrage ; zéro erreur `tsc` et `cargo clippy`.
+
 ## Visionneuse : défilement rapide allégé (07/11/2026) — Backup v110
 
 SPEC : VIEW-53 (retour T3, point AUT.7.5) `[~]`.

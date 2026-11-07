@@ -2,6 +2,8 @@
 //! être dans plusieurs dossiers. Le nombre de médias de chaque dossier est tenu par la base
 //! (déclencheurs, D-005) ; supprimer un dossier ne supprime aucun média. Nom unique sans tenir compte
 //! des majuscules ; un nom déjà pris est refusé avec un nom libre proposé (« nom-2 », « nom-3 »…).
+//! Dernière ouverture notée (page affichée, média ajouté ou retiré) pour le tri de la liste, que l'interface
+//! range dans l'ordre choisi (FOLD-10).
 
 use rusqlite::{Connection, OptionalExtension, params};
 use serde::Serialize;
@@ -22,7 +24,13 @@ pub struct Folder {
     /// Masqué (FOLD-02) : absent des listes, ses médias restent visibles partout.
     pub hidden: bool,
     pub media_count: i64,
+    /// Création et dernière ouverture (jamais ouvert : sa création), en ms : tris de la liste (FOLD-10).
+    pub created_at: i64,
+    pub opened_at: i64,
 }
+
+/// Colonnes lues par `folder_from_row`, dans l'ordre.
+const FOLDER_COLUMNS: &str = "id, name, color, hidden, media_count, created_at, COALESCE(opened_at, created_at)";
 
 /// Nom refusé : vide, ou déjà pris (avec le nom libre proposé).
 #[derive(Debug, Serialize)]
@@ -46,6 +54,8 @@ fn folder_from_row(r: &rusqlite::Row) -> rusqlite::Result<Folder> {
         color: r.get::<_, Option<String>>(2)?.unwrap_or_else(|| PALETTE[0].to_string()),
         hidden: r.get(3)?,
         media_count: r.get(4)?,
+        created_at: r.get(5)?,
+        opened_at: r.get(6)?,
     })
 }
 
@@ -101,12 +111,12 @@ fn add_media(tx: &Connection, folder_id: i64, media_ids: &[i64], now: i64) -> ru
 
 // --- Commandes appelées par l'interface ---
 
-/// Tous les dossiers, par ordre alphabétique (FOLD-01), masqués compris.
+/// Tous les dossiers, masqués compris ; l'interface les range dans l'ordre choisi (FOLD-10).
 #[tauri::command]
 pub async fn list_folders(state: State<'_, AppState>) -> Result<Vec<Folder>, String> {
     let db = state.db.lock().unwrap();
     let mut stmt = db
-        .prepare_cached("SELECT id, name, color, hidden, media_count FROM folders ORDER BY name COLLATE NOCASE")
+        .prepare_cached(&format!("SELECT {FOLDER_COLUMNS} FROM folders ORDER BY name COLLATE NOCASE"))
         .map_err(|e| e.to_string())?;
     let rows = stmt.query_map([], folder_from_row).map_err(|e| e.to_string())?;
     rows.collect::<Result<_, _>>().map_err(|e| e.to_string())
@@ -125,7 +135,7 @@ pub async fn create_folder(state: State<'_, AppState>, name: String, media_ids: 
     tx.execute("INSERT INTO folders (name, color, created_at) VALUES (?1, ?2, ?3)", params![name, color, now])?;
     let id = tx.last_insert_rowid();
     add_media(&tx, id, &media_ids, now)?;
-    let folder = tx.query_row("SELECT id, name, color, hidden, media_count FROM folders WHERE id = ?1", [id], folder_from_row)?;
+    let folder = tx.query_row(&format!("SELECT {FOLDER_COLUMNS} FROM folders WHERE id = ?1"), [id], folder_from_row)?;
     tx.commit()?;
     Ok(folder)
 }
@@ -180,9 +190,20 @@ pub async fn set_folder_media(state: State<'_, AppState>, folder_id: i64, media_
                     changed += stmt.execute(params![folder_id, id])?;
                 }
             }
+            // Un média ajouté ou retiré compte comme une ouverture du dossier (tri FOLD-10, choix de l'utilisateur).
+            if changed > 0 {
+                tx.execute("UPDATE folders SET opened_at = ?1 WHERE id = ?2", params![db::now_ms(), folder_id])?;
+            }
         }
         tx.commit()?;
         Ok(changed)
     })()
     .map_err(|e| e.to_string())
+}
+
+/// Page du dossier affichée : dernière ouverture notée (tri « Ouverts », FOLD-10).
+#[tauri::command]
+pub async fn mark_folder_opened(state: State<'_, AppState>, id: i64) -> Result<(), String> {
+    let db = state.db.lock().unwrap();
+    db.execute("UPDATE folders SET opened_at = ?1 WHERE id = ?2", params![db::now_ms(), id]).map(|_| ()).map_err(|e| e.to_string())
 }

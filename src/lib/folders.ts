@@ -1,7 +1,9 @@
 // Actions sur les dossiers (FOLD-01 à FOLD-04, FOLD-07, FOLD-09), partagées par le menu burger, les
 // menus du clic droit et la visionneuse. Tout ce qui en dépend est relu ensuite : liste des dossiers
-// et leurs compteurs, grille (vignettes, page d'un dossier), fiches de la visionneuse.
+// et leurs compteurs, grille (vignettes, page d'un dossier), fiches de la visionneuse. Ordre des listes
+// choisi par l'utilisateur (FOLD-10, stores/folderSort.ts).
 
+import { useFolderSort, type FolderSortKey, type SortDirection } from "@/stores/folderSort";
 import { useViewer } from "@/stores/viewer";
 import { api, type Folder } from "./api";
 import { queryClient } from "./queryClient";
@@ -27,9 +29,34 @@ export function refreshFolders(): Promise<unknown> {
   return Promise.all(keys.map((queryKey) => queryClient.invalidateQueries({ queryKey })));
 }
 
-/** Dossiers déjà lus (le menu burger les lit au lancement) : pour les menus, calculés au clic droit. */
+/** Ordre de l'Explorateur de Windows (« dossier 2 » avant « dossier 10 »), sans tenir compte des accents ni des
+ *  majuscules, comme le tri des noms de la grille (FILT-09). */
+const collator = new Intl.Collator("fr", { numeric: true, sensitivity: "base" });
+const byName = (a: Folder, b: Folder) => collator.compare(a.name, b.name);
+/** Rang de la couleur dans la palette (FOLD-07) ; une autre couleur vient après. */
+const paletteRank = (color: string) => {
+  const i = FOLDER_COLORS.findIndex((c) => c.color === color);
+  return i < 0 ? FOLDER_COLORS.length : i;
+};
+const COMPARE: Record<FolderSortKey, (a: Folder, b: Folder) => number> = {
+  name: byName,
+  media: (a, b) => b.mediaCount - a.mediaCount,
+  created: (a, b) => b.createdAt - a.createdAt,
+  color: (a, b) => paletteRank(a.color) - paletteRank(b.color),
+  opened: (a, b) => b.openedAt - a.openedAt,
+};
+
+/** Dossiers dans l'ordre choisi (FOLD-10) ; à égalité (même nombre de médias, même couleur…), par nom A → Z. */
+export function sortFolders(folders: Folder[], key: FolderSortKey, direction: SortDirection): Folder[] {
+  const sign = direction === "down" ? 1 : -1;
+  return [...folders].sort((a, b) => sign * COMPARE[key](a, b) || byName(a, b));
+}
+
+/** Dossiers déjà lus (le menu burger les lit au lancement), dans l'ordre choisi : pour les menus, calculés au
+ *  clic droit. */
 export function cachedFolders(): Folder[] {
-  return queryClient.getQueryData<Folder[]>(["folders"]) ?? [];
+  const { key, dirs } = useFolderSort.getState();
+  return sortFolders(queryClient.getQueryData<Folder[]>(["folders"]) ?? [], key, dirs[key]);
 }
 
 /** Appelle le cœur Rust, affiche une erreur éventuelle, puis relit les dossiers ; renvoie la réponse

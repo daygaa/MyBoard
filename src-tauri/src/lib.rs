@@ -160,6 +160,7 @@ pub fn run() {
             folders::set_folder_color,
             folders::delete_folder,
             folders::set_folder_media,
+            folders::mark_folder_opened,
             selection::result_ids,
             selection::selection_info,
             selection::selection_tags,

@@ -1607,3 +1607,19 @@ ignorés : une action ne vise jamais un média autre que celui affiché) ; infos
 rafale, le préchargement normal repart (l'effet dépend de `burst`). Mesuré (v110) : mélange 5 à 8 % du PC, 0 média
 vide, service audio presque plus sollicité ; images lourdes 5,5 %. Priorité de MyBoard abaissée (f) : non ajoutée,
 seulement si le son grésille encore.
+
+## D-057 — Ordre de la liste des dossiers : rangé par l'interface, dernière ouverture notée (07/11/2026)
+
+**Contexte.** FOLD-10 (retour AUT.13) : choisir l'ordre de la liste des dossiers (choix de l'utilisateur du 07/11 :
+nom, nombre de médias, création, couleur, dernière ouverture, chacun dans les deux sens ; même ordre dans les listes
+« Ajouter à un dossier » ; réglage gardé). La base ne notait pas les ouvertures.
+
+**Choix.** Schéma 17 : `folders.opened_at` (vide = jamais ouvert ; `list_folders` renvoie `COALESCE(opened_at,
+created_at)` : un dossier jamais ouvert compte comme ouvert à sa création, choix de l'utilisateur), mise à jour par
+`mark_folder_opened` (page du dossier affichée, `LibraryPage`) et par `set_folder_media` quand un média est
+réellement ajouté ou retiré (même transaction). Le tri se fait dans l'interface (`sortFolders`, `lib/folders.ts`) :
+quelques dizaines de dossiers au plus, déjà tous lus ; noms comparés par `Intl.Collator` (« fr », chiffres comme des
+nombres, accents et majuscules ignorés : ordre de l'Explorateur, comme FILT-09) ; à égalité, par nom A → Z. Réglage
+(`stores/folderSort.ts`, critère en cours + dernier sens de chaque critère) gardé dans le stockage de la fenêtre
+(`myboard.dossiers.tri`), comme les filtres de la grille. `cachedFolders()` renvoie la liste rangée : les listes à
+cocher (FOLD-09) suivent sans autre changement.

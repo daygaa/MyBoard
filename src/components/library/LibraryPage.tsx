@@ -11,7 +11,9 @@ import { Sidebar } from "@/components/layout/Sidebar";
 import { useFolders } from "@/hooks/useFolders";
 import { useGridShortcuts } from "@/hooks/useGridShortcuts";
 import { useMediaPage, useStats } from "@/hooks/useLibraryData";
+import { api } from "@/lib/api";
 import { useBusy } from "@/lib/busy";
+import { queryClient } from "@/lib/queryClient";
 import { navigate, useFolderId, useRoute } from "@/lib/router";
 import { glideToTop } from "@/lib/scroller";
 import { useLibrary } from "@/stores/library";
@@ -45,6 +47,11 @@ export function LibraryPage() {
   useEffect(() => {
     if (route === "folder" && folders && !folder) navigate("library");
   }, [route, folders, folder]);
+  // Page d'un dossier affichée (clic dans la liste, retour arrière…) : dernière ouverture notée (tri FOLD-10).
+  useEffect(() => {
+    if (route !== "folder" || folderId === null) return;
+    void api.markFolderOpened(folderId).then(() => queryClient.invalidateQueries({ queryKey: ["folders"] }), () => {});
+  }, [route, folderId]);
   // Autre page, filtre, tri ou recherche qui tarde : curseur d'attente passé 0,3 s (GEN-13).
   useBusy(isPlaceholderData, 300);
 

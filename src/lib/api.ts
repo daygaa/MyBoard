@@ -28,7 +28,8 @@ export type MediaItem = {
 };
 
 /** Dossier manuel (FOLD-01) ; masqué : absent des listes (FOLD-02). */
-export type Folder = { id: number; name: string; color: string; hidden: boolean; mediaCount: number };
+/** `createdAt`, `openedAt` : création et dernière ouverture (jamais ouvert : sa création), en ms (tris FOLD-10). */
+export type Folder = { id: number; name: string; color: string; hidden: boolean; mediaCount: number; createdAt: number; openedAt: number };
 
 export type ListQuery = {
   kinds: MediaKind[];
@@ -291,6 +292,8 @@ export const api = {
   deleteFolder: (id: number) => invoke<void>("delete_folder", { id }),
   /** Renvoie le nombre de médias réellement ajoutés ou retirés (badge de SEL-08). */
   setFolderMedia: (folderId: number, mediaIds: number[], on: boolean) => invoke<number>("set_folder_media", { folderId, mediaIds, on }),
+  /** Page du dossier affichée : dernière ouverture notée (tri FOLD-10). */
+  markFolderOpened: (id: number) => invoke<void>("mark_folder_opened", { id }),
   /** Tous les résultats de la vue, toutes pages confondues (« Sélectionner tous les résultats », SEL-03). */
   resultIds: (query: ListQuery) => invoke<number[]>("result_ids", { query }),
   selectionInfo: (ids: number[]) => invoke<SelectionInfo>("selection_info", { ids }),
