@@ -108,7 +108,7 @@ export function FilesCard() {
   }
 
   return (
-    <section data-zone="import.fichiers" className="rounded-xl border border-border bg-card/60 p-6">
+    <section data-zone="import.fichiers" className="flex flex-col rounded-xl border border-border bg-card/60 p-6">
       <h2 className="mb-4 flex items-center gap-2 text-sm font-semibold tracking-wider text-muted-foreground uppercase">
         <Upload className="h-4 w-4 text-[#d9a94e]" />
         Fichiers
@@ -117,7 +117,7 @@ export function FilesCard() {
       <div
         data-zone="import.depot"
         className={cn(
-          "flex flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed px-6 py-8 text-center transition-colors",
+          "flex flex-1 flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed px-6 py-8 text-center transition-colors",
           dragging
             ? "border-[#d9a94e] bg-[#d9a94e]/5 ring-2 ring-[#d9a94e]/20"
             : "border-border bg-background/40 hover:border-[#d9a94e]/50 hover:bg-[#d9a94e]/[0.03]",

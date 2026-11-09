@@ -127,6 +127,7 @@ pub fn run() {
             import::list::remove_scan_file,
             import::list::clear_scan,
             import::list::reveal_scan_file,
+            import::list::count_compressible_existing,
             tags::tag_categories,
             tags::autocomplete_tags,
             tags::find_tag,

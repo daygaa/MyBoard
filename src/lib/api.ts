@@ -184,6 +184,10 @@ export type ImportProgress = {
   alreadyPresent: number;
   duplicates: number;
   errors: number;
+  /** Compression des images (IMP-20) : gardées compressées · originaux gardés (moins de 5 % de gain) · impossibles. */
+  compressed: number;
+  notSmaller: number;
+  compressFailed: number;
   currentFile: string | null;
 };
 
@@ -223,6 +227,9 @@ export type ImportPhase = "idle" | "scanning" | "ready" | "importing" | "finishe
 export type ScanEntry = { path: string; name: string; size: number; ext: string; kind: MediaKind };
 export type ScanPage = { entries: ScanEntry[]; total: number };
 
+/** Options de la carte « Options d'import » (IMP-30) : qualité si « Compresser les images » est cochée (IMP-20). */
+export type ImportOptions = { compressQuality: number | null; compressExisting: boolean };
+
 /** Photo complète de l'état de l'import (événement `import-state`). */
 export type ImportSnapshot = {
   phase: ImportPhase;
@@ -243,7 +250,9 @@ export const api = {
   importSnapshot: () => invoke<ImportSnapshot>("import_snapshot"),
   scanPaths: (paths: string[], recursive: boolean) => invoke<void>("scan_paths", { paths, recursive }),
   supportedExtensions: () => invoke<string[]>("supported_extensions"),
-  startImport: (defaultTags: NewTag[]) => invoke<void>("start_import", { defaultTags }),
+  startImport: (defaultTags: NewTag[], options: ImportOptions) => invoke<void>("start_import", { defaultTags, options }),
+  /** Images de la liste déjà dans la bibliothèque au même endroit, jamais compressées (pop-in IMP-60). */
+  countCompressibleExisting: () => invoke<number>("count_compressible_existing"),
   cancelImport: () => invoke<void>("cancel_import"),
   /** Liste des fichiers avant l'import, par pages (IMP-10 à IMP-12) ; retirer, tout vider (IMP-51, CTX-14). */
   scanFiles: (offset: number, limit: number) => invoke<ScanPage>("scan_files", { offset, limit }),
@@ -373,8 +382,9 @@ export function thumbUrl(hash: string, tier: ThumbTier = "normal"): string {
 }
 
 /** Aperçu d'un fichier de la liste avant l'import (IMP-10), pas encore dans la bibliothèque. */
-export function scanPreviewUrl(path: string): string {
-  return `${THUMB_ROOT}apercu?p=${encodeURIComponent(path)}`;
+export function scanPreviewUrl(path: string, large = false): string {
+  // `large` : aperçu agrandi de 256 px au survol de la miniature (IMP-59).
+  return `${THUMB_ROOT}${large ? "apercu-grand" : "apercu"}?p=${encodeURIComponent(path)}`;
 }
 
 const MEDIA_ROOT = convertFileSrc("", "media");

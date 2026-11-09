@@ -81,3 +81,30 @@ pub fn reveal_scan_file(state: State<'_, AppState>, path: String) -> Result<(), 
     }
     crate::media::reveal(Path::new(&path)).map_err(|e| e.to_string())
 }
+
+/// Images de la liste déjà dans la bibliothèque au même endroit et jamais compressées : la pop-in « Compresser
+/// aussi » ne s'ouvre que s'il y en a (IMP-60). Une recherche par chemin (index) par fichier, hors de la fenêtre.
+#[tauri::command]
+pub async fn count_compressible_existing(app: tauri::AppHandle) -> Result<u64, String> {
+    use tauri::Manager;
+    let count = tauri::async_runtime::spawn_blocking(move || -> anyhow::Result<u64> {
+        let state = app.state::<AppState>();
+        let paths: Vec<String> = {
+            let inner = state.import.inner.lock().unwrap();
+            let eligible = |f: &&ScanFile| f.kind == crate::formats::Kind::Image && super::compress::eligible(&f.path, &f.ext);
+            inner.files.iter().filter(eligible).filter_map(|f| f.path.to_str().map(str::to_owned)).collect()
+        };
+        let conn = crate::db::open(&state.paths.db)?;
+        let mut known = conn.prepare("SELECT 1 FROM media WHERE path = ?1 AND original_hash IS NULL")?;
+        let mut count = 0;
+        for path in &paths {
+            // Un WebP animé ne sera jamais compressé : pas compté (son en-tête n'est lu que s'il est déjà connu).
+            let webp = path.to_ascii_lowercase().ends_with(".webp");
+            if known.exists([path])? && !(webp && super::compress::animated_webp(Path::new(path))) {
+                count += 1;
+            }
+        }
+        Ok(count)
+    });
+    count.await.map_err(|e| e.to_string())?.map_err(|e| format!("{e:#}"))
+}

@@ -7,6 +7,8 @@
 //! cet état (`import-state`) à chaque changement. Changer de page puis revenir, ou
 //! redémarrer l'interface, ne perd donc jamais la progression.
 
+mod compress;
+mod encode;
 mod index;
 pub mod list;
 pub mod preview;
@@ -24,6 +26,8 @@ use crate::reserve;
 use crate::tagging::{Tagger, Target, resolve_or_create};
 use crate::tags::NewTag;
 use crate::{AppState, db};
+pub use compress::ImportOptions;
+use compress::{Compress, Squeeze};
 use index::{Indexer, Outcome};
 pub use scan::ScanSummary;
 use scan::ScanFile;
@@ -152,9 +156,15 @@ pub fn scan_paths(app: AppHandle, state: State<'_, AppState>, paths: Vec<String>
 }
 
 /// Lance l'import des fichiers trouvés par le dernier parcours. `default_tags` : ajoutés à
-/// tous les fichiers de l'import, y compris ceux déjà présents dans la bibliothèque (IMP-30).
+/// tous les fichiers de l'import, y compris ceux déjà présents dans la bibliothèque (IMP-30) ; `options` : compression
+/// des images (IMP-20, IMP-60).
 #[tauri::command]
-pub fn start_import(app: AppHandle, state: State<'_, AppState>, default_tags: Vec<NewTag>) -> Result<(), String> {
+pub fn start_import(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    default_tags: Vec<NewTag>,
+    options: ImportOptions,
+) -> Result<(), String> {
     let manager = &state.import;
     let files = {
         let inner = manager.inner.lock().unwrap();
@@ -173,7 +183,7 @@ pub fn start_import(app: AppHandle, state: State<'_, AppState>, default_tags: Ve
 
     std::thread::Builder::new()
         .name("import".into())
-        .spawn(move || run_import(&app, files, default_tags))
+        .spawn(move || run_import(&app, files, default_tags, options.compress()))
         .map_err(|e| e.to_string())?;
     Ok(())
 }
@@ -184,7 +194,7 @@ pub fn cancel_import(state: State<'_, AppState>) {
     state.import.cancel.store(true, Ordering::SeqCst);
 }
 
-fn run_import(app: &AppHandle, files: Vec<ScanFile>, default_tags: Vec<NewTag>) {
+fn run_import(app: &AppHandle, files: Vec<ScanFile>, default_tags: Vec<NewTag>, compress: Option<Compress>) {
     let state = app.state::<AppState>();
     let manager = &state.import;
     let start = Instant::now();
@@ -221,7 +231,13 @@ fn run_import(app: &AppHandle, files: Vec<ScanFile>, default_tags: Vec<NewTag>) 
                 break;
             }
             progress.current_file = file.path.file_name().map(|n| n.to_string_lossy().into_owned());
-            let outcome = indexer.index(&conn, file, db::now_ms());
+            let outcome = indexer.index(&conn, file, db::now_ms(), compress);
+            match indexer.squeeze {
+                Some(Squeeze::Done) => progress.compressed += 1,
+                Some(Squeeze::NotSmaller) => progress.not_smaller += 1,
+                Some(Squeeze::Failed) => progress.compress_failed += 1,
+                None => {}
+            }
             if let Ok(Outcome::Imported(id) | Outcome::Updated(id) | Outcome::AlreadyPresent(id) | Outcome::Duplicate(id)) =
                 &outcome
             {

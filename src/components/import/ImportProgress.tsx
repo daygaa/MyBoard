@@ -1,4 +1,5 @@
-// Progression et résumé de l'import, affichés DANS la barre d'actions (IMP-40, IMP-41).
+// Progression et résumé de l'import, affichés DANS la barre d'actions (IMP-40, IMP-41) ; résultat de la compression
+// des images (IMP-20), en attendant la pop-in de bilan (IMP-45).
 
 import { Check, Loader2, Square } from "lucide-react";
 
@@ -36,6 +37,19 @@ function resultLine(p: ProgressData, r: ImportResult): string {
   return `${start} — ${parts.join(", ")} (${duration})`;
 }
 
+/** « 12 images compressées · 3 gardées telles quelles (moins de 5 % de gain) · 1 compression impossible… ». */
+function compressionLine(p: ProgressData): string {
+  const parts = [];
+  if (p.compressed > 0) parts.push(`${formatNumber(p.compressed)} ${plural(p.compressed, "image compressée", "images compressées")}`);
+  if (p.notSmaller > 0)
+    parts.push(`${formatNumber(p.notSmaller)} ${plural(p.notSmaller, "gardée telle quelle", "gardées telles quelles")} (moins de 5 % de gain)`);
+  if (p.compressFailed > 0)
+    parts.push(
+      `${formatNumber(p.compressFailed)} ${plural(p.compressFailed, "compression impossible", "compressions impossibles")} (${plural(p.compressFailed, "importée", "importées")} sans compression)`,
+    );
+  return parts.join(" · ");
+}
+
 export function ImportProgress({ progress, result }: { progress: ProgressData; result: ImportResult | null }) {
   const pct = progress.total > 0 ? Math.round((progress.processed / progress.total) * 100) : 0;
   const running = result === null;
@@ -69,6 +83,12 @@ export function ImportProgress({ progress, result }: { progress: ProgressData; r
           ? `Traitement en cours… (fichier ${formatNumber(Math.min(progress.processed + 1, progress.total))}/${formatNumber(progress.total)})${progress.currentFile ? ` — ${progress.currentFile}` : ""}`
           : resultLine(progress, result)}
       </p>
+
+      {progress.compressed + progress.notSmaller + progress.compressFailed > 0 && (
+        <p data-zone="import.compression" className="-mt-1.5 text-[11px] text-muted-foreground">
+          {compressionLine(progress)}
+        </p>
+      )}
 
       {result?.fatal && <p className="text-xs text-rose-400">{result.fatal}</p>}
 

@@ -1,15 +1,19 @@
 // Barre d'actions de l'import (apparence v8) : état, bouton Importer, bouton Arrêter
 // (IMP-42), progression intégrée (IMP-40). Le bouton Importer reste bloqué après un
-// import terminé, jusqu'au choix d'un nouveau dossier (IMP-44).
+// import terminé, jusqu'au choix d'un nouveau dossier (IMP-44). Elle reste collée sous l'en-tête quand la page
+// défile (IMP-56). Avec « Compresser les images », la pop-in « Compresser aussi » peut s'ouvrir avant (IMP-60).
 
+import { useState } from "react";
 import { Eye, Loader2, Play, Square, Upload } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { useStats } from "@/hooks/useLibraryData";
 import { api, type ImportSnapshot } from "@/lib/api";
 import { formatNumber, plural } from "@/lib/format";
-import { navigate } from "@/lib/router";
 import { useImport } from "@/stores/import";
+import { goHome } from "@/stores/search";
+import { useViewer } from "@/stores/viewer";
+import { CompressExistingDialog } from "./CompressExistingDialog";
 import { ImportProgress } from "./ImportProgress";
 
 function StatusText({ snapshot }: { snapshot: ImportSnapshot | null }) {
@@ -58,11 +62,33 @@ export function ImportActionBar() {
   const phase = snapshot?.phase ?? "idle";
   const total = snapshot?.scan?.total ?? 0;
   const canImport = phase === "ready" && total > 0;
+  // Images déjà dans la bibliothèque à proposer de compresser aussi (IMP-60) ; vérification en cours.
+  const [ask, setAsk] = useState<number | null>(null);
+  const [checking, setChecking] = useState(false);
+
+  const launch = (compressExisting: boolean) => {
+    setAsk(null);
+    const { defaultTags, compress, quality } = useImport.getState();
+    void api.startImport(defaultTags, { compressQuality: compress ? quality : null, compressExisting });
+  };
+  const start = async () => {
+    if (!useImport.getState().compress) return launch(false);
+    setChecking(true);
+    try {
+      const count = await api.countCompressibleExisting();
+      if (count > 0) setAsk(count);
+      else launch(false);
+    } catch (error) {
+      useViewer.getState().setError({ action: "Importer", code: null, message: String(error) });
+    } finally {
+      setChecking(false);
+    }
+  };
 
   return (
     <div
       data-zone="import.action"
-      className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card/40 px-4 py-3"
+      className="sticky top-[57px] z-10 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-[color-mix(in_srgb,var(--card)_40%,var(--background))] px-4 py-3"
     >
       <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
         <StatusText snapshot={snapshot} />
@@ -82,15 +108,16 @@ export function ImportActionBar() {
           </Button>
         )}
         {phase === "finished" && (
-          <Button size="sm" onClick={() => navigate("library")} className="gap-1.5 bg-[#d9a94e] text-[#1a1408] hover:bg-[#e3b75f]">
+          // Retour complet à l'accueil, comme le logo (IMP-58, NAV-08).
+          <Button size="sm" onClick={goHome} className="gap-1.5 bg-[#d9a94e] text-[#1a1408] hover:bg-[#e3b75f]">
             <Eye className="h-4 w-4" />
             Voir la bibliothèque
           </Button>
         )}
         <Button
           data-zone="import.importer"
-          disabled={!canImport}
-          onClick={() => void api.startImport(useImport.getState().defaultTags)}
+          disabled={!canImport || checking}
+          onClick={() => void start()}
           className="bg-[#d9a94e] text-[#1a1408] hover:bg-[#e3b75f] focus-visible:ring-[#d9a94e]/40 disabled:hover:bg-[#d9a94e]"
         >
           <Upload className="h-4 w-4" />
@@ -102,6 +129,7 @@ export function ImportActionBar() {
         <ImportProgress progress={snapshot.progress} result={snapshot.result} />
       )}
       <ThumbsPending />
+      {ask !== null && <CompressExistingDialog count={ask} onAnswer={launch} onCancel={() => setAsk(null)} />}
     </div>
   );
 }

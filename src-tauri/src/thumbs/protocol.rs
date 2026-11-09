@@ -26,13 +26,16 @@ thread_local! {
 pub fn handle(app: &AppHandle, request: Request<Vec<u8>>, responder: UriSchemeResponder) {
     // « %2F » = « / » encodé : accepté aussi, par sécurité.
     let name = request.uri().path().trim_start_matches('/').replace("%2F", "/").replace("%2f", "/");
-    // `apercu?p=<chemin>` : aperçu d'un fichier de la liste avant l'import (IMP-10), seulement s'il en fait partie.
-    if name == "apercu" {
+    // `apercu?p=<chemin>` : aperçu d'un fichier de la liste avant l'import (IMP-10), seulement s'il en fait partie ;
+    // `apercu-grand` : aperçu agrandi au survol de sa miniature (IMP-59).
+    if name == "apercu" || name == "apercu-grand" {
+        use crate::import::preview::{LARGE, SIDE};
+        let side = if name == "apercu" { SIDE } else { LARGE };
         let path = request.uri().query().and_then(|q| q.strip_prefix("p=")).and_then(percent_decode);
         let app = app.clone();
         tauri::async_runtime::spawn_blocking(move || {
             let known = path.filter(|p| app.state::<AppState>().import.has_file(p));
-            let body = known.and_then(|p| crate::import::preview::preview(Path::new(&p)));
+            let body = known.and_then(|p| crate::import::preview::preview(Path::new(&p), side));
             responder.respond(match body {
                 Some(bytes) => Response::builder()
                     .status(StatusCode::OK)

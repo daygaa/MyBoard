@@ -1,5 +1,6 @@
-// Page d'import : import sur place de fichiers et de dossiers, avec tags par défaut (IMP-30).
-// Les options de conversion / compression arrivent en phase 4.
+// Page d'import : import sur place de fichiers et de dossiers ; carte « Options d'import » à droite de la carte
+// Fichiers et tags par défaut dessous (IMP-30, disposition v8). La page passe toujours SOUS l'en-tête (IMP-57) : ses
+// listes et aperçus (suggestions des tags, aperçu agrandi) restent sous le logo, le menu burger et « Importer ».
 
 import { useQuery } from "@tanstack/react-query";
 import { AlertTriangle, ArrowLeft, Upload } from "lucide-react";
@@ -11,6 +12,7 @@ import { DefaultTagsEditor } from "./DefaultTagsEditor";
 import { FileList } from "./FileList";
 import { FilesCard } from "./FilesCard";
 import { ImportActionBar } from "./ImportActionBar";
+import { OptionsCard } from "./OptionsCard";
 
 /** ffmpeg sert aux miniatures vidéo (IMP-48) : message clair s'il est absent. */
 function FfmpegNotice() {
@@ -39,7 +41,7 @@ function FfmpegNotice() {
 
 export function ImportPage() {
   return (
-    <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 lg:px-6">
+    <main className="isolate mx-auto w-full max-w-6xl flex-1 px-4 py-6 lg:px-6">
       <div className="mb-5">
         <Button
           variant="ghost"
@@ -69,7 +71,10 @@ export function ImportPage() {
       </header>
 
       <div className="space-y-5">
-        <FilesCard />
+        <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_22rem]">
+          <FilesCard />
+          <OptionsCard />
+        </div>
         <DefaultTagsEditor />
         <FfmpegNotice />
         <ImportActionBar />

@@ -8,10 +8,12 @@ use std::sync::mpsc::{Sender, SyncSender, channel, sync_channel};
 use std::sync::{Arc, Mutex, OnceLock};
 
 /// Côté demandé à Windows (la ligne de la liste montre 44 px ; marge pour les écrans à forte densité).
-const SIDE: i32 = 128;
+pub const SIDE: i32 = 128;
+/// Aperçu agrandi au survol d'une miniature (IMP-59) : la taille que garde déjà le cache de l'Explorateur.
+pub const LARGE: i32 = 256;
 const WORKERS: usize = 2;
 
-type Job = (PathBuf, SyncSender<Option<Vec<u8>>>);
+type Job = (PathBuf, i32, SyncSender<Option<Vec<u8>>>);
 static QUEUE: OnceLock<Mutex<Sender<Job>>> = OnceLock::new();
 
 fn queue() -> &'static Mutex<Sender<Job>> {
@@ -27,8 +29,8 @@ fn queue() -> &'static Mutex<Sender<Job>> {
                 let _ = unsafe { windows::Win32::System::Com::CoInitializeEx(None, windows::Win32::System::Com::COINIT_MULTITHREADED) };
                 loop {
                     let job = rx.lock().unwrap().recv();
-                    let Ok((path, reply)) = job else { break };
-                    let _ = reply.send(make(&path));
+                    let Ok((path, side, reply)) = job else { break };
+                    let _ = reply.send(make(&path, side));
                 }
             });
         }
@@ -36,19 +38,19 @@ fn queue() -> &'static Mutex<Sender<Job>> {
     })
 }
 
-/// Aperçu WebP d'un fichier de la liste ; `None` : pas d'aperçu.
-pub fn preview(path: &Path) -> Option<Vec<u8>> {
+/// Aperçu WebP d'un fichier de la liste, de côté `side` (`SIDE` ou `LARGE`) ; `None` : pas d'aperçu.
+pub fn preview(path: &Path, side: i32) -> Option<Vec<u8>> {
     let (reply, answer) = sync_channel(1);
-    queue().lock().unwrap().send((path.to_path_buf(), reply)).ok()?;
+    queue().lock().unwrap().send((path.to_path_buf(), side, reply)).ok()?;
     answer.recv().ok().flatten()
 }
 
-fn make(path: &Path) -> Option<Vec<u8>> {
+fn make(path: &Path, side: i32) -> Option<Vec<u8>> {
     #[cfg(windows)]
-    if let Ok(webp) = shell::thumbnail(path, SIDE) {
+    if let Ok(webp) = shell::thumbnail(path, side) {
         return Some(webp);
     }
-    crate::thumbs::list_preview(path).ok()
+    if side == SIDE { crate::thumbs::list_preview(path).ok() } else { crate::thumbs::list_preview_fit(path, side as u32).ok() }
 }
 
 #[cfg(windows)]

@@ -45,6 +45,13 @@ pub fn preview_of(img: DynamicImage, side: u32) -> anyhow::Result<Vec<u8>> {
     Ok(encode(&square(img, side)?))
 }
 
+/// Aperçu de `side` px de côté au plus, proportions gardées (aperçu agrandi de la liste avant l'import, IMP-59).
+pub fn fit_of(img: DynamicImage, side: u32) -> anyhow::Result<Vec<u8>> {
+    let img = img.thumbnail(side, side);
+    let img = if img.color().has_alpha() { DynamicImage::ImageRgba8(img.into_rgba8()) } else { DynamicImage::ImageRgb8(img.into_rgb8()) };
+    Ok(encode(&img))
+}
+
 /// Décode en se fiant au contenu (pas à l'extension) et applique la rotation EXIF :
 /// une photo de téléphone prise en portrait doit apparaître en portrait.
 pub fn decode(bytes: &[u8]) -> anyhow::Result<DynamicImage> {

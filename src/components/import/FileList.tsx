@@ -4,25 +4,19 @@
 // avec 100 000 fichiers choisis (IMP-12). « Tout vider » (IMP-51) remet la page à son état de départ.
 // Clic droit sur une ligne : Retirer de la liste ‖ Afficher dans l'explorateur de fichiers (CTX-14).
 // Pendant l'import, la liste reste affichée, sans croix ni « Tout vider » ; elle disparaît à la fin (IMP-50).
+// Miniature et aperçu agrandi au survol (IMP-59) : `ListThumb`.
 
 import { useEffect, useState } from "react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { ChevronDown, File, FileText, Film, Image as ImageIcon, ListChecks, Music, Trash2, X } from "lucide-react";
+import { ChevronDown, ListChecks, Trash2, X } from "lucide-react";
 
-import { api, scanPreviewUrl, type ScanEntry } from "@/lib/api";
+import { api, type ScanEntry } from "@/lib/api";
 import { openContextMenu, type MenuEntry } from "@/lib/contextMenu";
 import { formatBytes, formatNumber, plural } from "@/lib/format";
 import { useImport } from "@/stores/import";
+import { ListThumb } from "./ListThumb";
 
 const STEP = 100;
-
-/** Fichiers qui ont un aperçu (les autres : une icône, comme dans la grille). */
-const hasPreview = (e: ScanEntry) => e.kind === "image" || e.kind === "video" || e.ext === "pdf";
-
-function KindIcon({ entry }: { entry: ScanEntry }) {
-  const Icon = entry.kind === "audio" ? Music : entry.kind === "video" ? Film : entry.kind === "image" ? ImageIcon : entry.ext === "pdf" ? FileText : File;
-  return <Icon className="h-5 w-5 text-zinc-500" />;
-}
 
 function rowMenu(entry: ScanEntry, locked: boolean): MenuEntry[] {
   return [
@@ -33,28 +27,13 @@ function rowMenu(entry: ScanEntry, locked: boolean): MenuEntry[] {
 }
 
 function Row({ entry, locked }: { entry: ScanEntry; locked: boolean }) {
-  const [failed, setFailed] = useState(false);
   return (
     <li
       data-zone="import.liste.fichier"
       onContextMenu={(e) => openContextMenu(e, () => rowMenu(entry, locked))}
       className="flex items-center gap-3 rounded-lg border border-border bg-background/40 px-2.5 py-2"
     >
-      <span className="grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-md bg-[#0d0e12]">
-        {hasPreview(entry) && !failed ? (
-          <img
-            src={scanPreviewUrl(entry.path)}
-            alt=""
-            loading="lazy"
-            decoding="async"
-            draggable={false}
-            onError={() => setFailed(true)}
-            className="h-full w-full object-cover"
-          />
-        ) : (
-          <KindIcon entry={entry} />
-        )}
-      </span>
+      <ListThumb entry={entry} />
       <span className="min-w-0 flex-1 select-text">
         <span className="block truncate text-sm text-foreground" title={entry.path}>
           {entry.name}

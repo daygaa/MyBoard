@@ -29,6 +29,9 @@ image = { version = "0.25", default-features = false, features = ["jpeg", "png",
 fast_image_resize = { version = "6", features = ["image"] }
 # Encodage WebP avec perte (le WebP du crate `image` est sans perte, donc trop lourd).
 webp = "0.3"
+# Compression des JPEG à l'import (IMP-20) : tables de Huffman optimisées, fichiers plus légers que l'encodeur du
+# crate `image` à qualité égale.
+jpeg-encoder = "0.6"
 # Dimensions lues dans l'en-tête du fichier, sans le décoder.
 imagesize = "0.15"
 # Recherche de ffmpeg dans le PATH (gère les extensions .exe de Windows).

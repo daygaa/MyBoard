@@ -3,6 +3,33 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Phase 4, lot 3 : compression des images, carte d'options, retouches de la page Importer (09/11/2026) — Backup v115
+
+SPEC : IMP-20, IMP-27, IMP-29, IMP-56, IMP-57, IMP-58, IMP-59, IMP-60 (nouveau) `[~]` ; IMP-25 (partie images) et
+IMP-30 complétés. Décision D-061. Schéma de la base : 18 (`media.original_hash`).
+
+- Page Importer : carte « Options d'import » à droite de la carte Fichiers (disposition v8), tags par défaut dessous ;
+  « Compresser les images » et sa qualité (20 à 95, 85 par défaut), retenues avec la case des sous-dossiers, même
+  après la fermeture de MyBoard.
+- Compression des JPEG et des WebP fixes : version « photo (compressé).jpg » écrite à côté de l'original, gardée si
+  elle est au moins 5 % plus légère ; résolution, EXIF, XMP, IPTC, profil de couleurs et dates du fichier gardés ;
+  le média pointe vers elle et garde l'empreinte de l'original (un réimport de l'original compte comme doublon).
+  Jamais : GIF, PNG, WebP animé, BMP, TIFF, AVIF, HEIC, fichier déjà compressé par MyBoard. Résultat sous la
+  progression.
+- Images déjà dans la bibliothèque au même endroit : pop-in « Compresser aussi » au clic sur « Importer » ; même
+  fiche (tags, dossiers, favoris, note), seul le fichier change.
+- Barre d'actions collée sous l'en-tête pendant le défilement ; toute la page passe sous l'en-tête (suggestions des
+  tags par défaut comprises) ; « Voir la bibliothèque » fait comme le logo ; aperçu agrandi de 256 px au survol d'une
+  miniature de la liste, après 1 s.
+
+Vérifié dans la version compilée, sur des copies neuves de la base d'essai et des copies de photos : 22 fichiers
+(11 compressés, gains de 37 à 91 %, 2 gardés, GIF, PNG, BMP, WebP animé et fichier « (compressé) » laissés,
+5 doublons), EXIF et profil de couleurs relus, dates identiques, WebP transparent et sans perte ; second import sans
+nouvelle écriture ; pop-in IMP-60 (3 photos taguées, mêmes fiches, miniatures refaites ; Échap = Annuler ; WebP animé
+non compté) ; barre collée, en-tête au premier plan (suggestions, menu burger, menu des catégories, clic droit,
+pop-in), aperçu agrandi (1 s, centré, décalé sous l'en-tête), « Voir la bibliothèque », options après rechargement ;
+zéro erreur `tsc` et `clippy`.
+
 ## Phase 4, lot 2 : liste des fichiers avant l'import (09/11/2026) — Backup v114
 
 SPEC : IMP-10, IMP-11, IMP-12, IMP-13, IMP-51, CTX-14, DEL-09 (nouveau) `[~]` ; IMP-52 retouché. Décision D-060.

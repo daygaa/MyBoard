@@ -1704,3 +1704,29 @@ est fait par MyBoard (`thumbs::list_preview`, jamais une vidéo) ; sinon l'icôn
 entrent dans le cache de l'Explorateur. Les miniatures de la bibliothèque ne changent pas (carrées, 4 tailles, `thumbs.db`,
 D-014, D-035). Liste lue par pages (`import/list.rs`) ; elle reste dans le cœur pendant l'import (copie) et se vide
 à la fin.
+
+## D-061 — Compression des images à l'import : à côté de l'original, mêmes informations (09/11/2026)
+
+**Contexte.** IMP-20, IMP-25, IMP-27, IMP-60, réponses de l'utilisateur du 09/11 (D-058 et SPEC) : version compressée
+écrite à côté de l'original, gardée seulement si elle est au moins 5 % plus légère, informations de la photo et dates
+gardées ; image déjà dans la bibliothèque : même fiche, nouveau fichier, après une pop-in.
+
+**Choix.**
+- Formats : JPEG (`.jpg`, `.jpeg`, `.jpe`, `.jfif`) et WebP fixes, reconnus par leur contenu ; jamais un WebP animé, un
+  PNG, un GIF, un BMP, un TIFF, un AVIF, un HEIC, ni un JPEG en CMJN (profil de couleurs inadapté) ; jamais un fichier
+  dont le nom finit par « (compressé) » ou « (compressé N) » (déjà compressé par MyBoard).
+- Encodage (`import/encode.rs`) : JPEG avec le crate `jpeg-encoder` (Rust pur, tables de Huffman optimisées, 4:2:0
+  sous la qualité 90, comme les appareils photo) ; WebP avec perte (`webp`, libwebp). Pixels non tournés, résolution
+  inchangée ; segments recopiés tels quels : EXIF (rotation comprise), XMP, profil de couleurs (ICC), IPTC ; pas les
+  segments qui décrivent l'ancien encodage (Adobe) ni les images annexes (MPF). WebP : conteneur « étendu » (VP8X)
+  écrit à la main avec les morceaux ICCP, EXIF et XMP de l'original ; transparence gardée.
+- Écriture (`import/compress.rs`) : nom « photo (compressé).jpg », puis « (compressé 2) »… ; d'abord un fichier
+  provisoire `….myboard-tmp`, dates de création et de modification de l'original recopiées, écrit sur le disque, puis
+  placé par un lien (échoue si le nom a été pris entre-temps : jamais un fichier écrasé ; disque sans liens : renommage
+  après vérification). Contenu déjà connu : rien n'est écrit.
+- Base (schéma 18) : `media.original_hash` (index partiel) ; un fichier dont l'empreinte est celle d'un original
+  compressé compte comme doublon. IMP-60 : la fiche garde son id (tags, dossiers, favoris, note, date d'import) ;
+  chemin, nom, empreinte, poids changent, miniature refaite. La pop-in compte les images de la liste dont le chemin est
+  dans la bibliothèque, jamais compressées (sans les WebP animés).
+- Compression faite dans le fil de l'import, un fichier après l'autre (mesuré le 09/11 : 19 fichiers dont 8 compressés,
+  photos de 12 Mpx comprises, en 17 s).

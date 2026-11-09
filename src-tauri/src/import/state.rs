@@ -25,6 +25,11 @@ pub struct Progress {
     pub already_present: u64,
     pub duplicates: u64,
     pub errors: u64,
+    /// Compression des images (IMP-20) : versions compressées gardées ; originaux gardés faute d'au moins 5 % de
+    /// gain ; compressions impossibles (original importé tel quel).
+    pub compressed: u64,
+    pub not_smaller: u64,
+    pub compress_failed: u64,
     pub current_file: Option<String>,
 }
 

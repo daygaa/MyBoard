@@ -318,6 +318,16 @@ pub fn list_preview(path: &Path) -> anyhow::Result<Vec<u8>> {
     image::open_image(path).and_then(image::small_of)
 }
 
+/// Aperçu agrandi au survol (IMP-59), proportions gardées, quand Windows n'en donne pas : mêmes fichiers.
+pub fn list_preview_fit(path: &Path, side: u32) -> anyhow::Result<Vec<u8>> {
+    if is_pdf(path) {
+        return pdf::first_page(path, side).and_then(|img| image::fit_of(img, side));
+    }
+    let ext = crate::formats::extension(path).unwrap_or_default();
+    anyhow::ensure!(crate::formats::kind_of_ext(&ext) == Some(crate::formats::Kind::Image), "pas une image");
+    image::open_image(path).and_then(|img| image::fit_of(img, side))
+}
+
 fn is_pdf(path: &Path) -> bool {
     path.extension().is_some_and(|e| e.eq_ignore_ascii_case("pdf"))
 }
