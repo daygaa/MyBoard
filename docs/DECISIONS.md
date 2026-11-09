@@ -1628,3 +1628,39 @@ cocher (FOLD-09) suivent sans autre changement.
 une couleur hors palette vient après, sans ordre entre elles. Le sélecteur de couleur libre (FOLD-08, plus tard)
 rendra ce rang insuffisant : le tri devra alors changer (par exemple par teinte, puis luminosité), à décider avec
 l'utilisateur à ce moment-là (noté sur FOLD-08, demande de l'utilisateur).
+
+## D-058 — Cadrage de la phase 4 : options d'import (09/11/2026)
+
+Réponses de l'utilisateur aux questions posées avant de coder (liste des points et découpage en lots proposés le 07/11).
+
+**Où vont les fichiers convertis (Q-03, IMP-27).** Le fichier converti ou compressé est écrit à côté de l'original,
+dans le même dossier, et le média de la bibliothèque pointe vers lui ; l'original reste sur le disque, sauf si
+« Supprimer les originaux » est coché (IMP-28 : après une conversion réussie seulement, définitivement, avec une double
+confirmation comme DEL-04). Un fichier converti a une autre empreinte (LIB-03) : MyBoard garde aussi l'empreinte de
+l'original, pour qu'un réimport de l'original soit reconnu comme le même média (choix de données accepté).
+
+**Bibliothèque gérée (LIB-02).** Choisie dans la page Paramètres, en phase 5 (SET-06) ; ses sous-dossiers par
+empreinte iront dans le dossier « Images » de Windows (`C:\Users\dada8\Pictures\MyBoard`, à confirmer) ; les fichiers
+convertis y seront alors rangés.
+
+**Conversions.** Images : JPG, PNG, WebP, AVIF (JFIF = variante du nom de JPG ; HEIF seulement si un moyen fiable de
+l'écrire existe) ; GIF animés jamais convertis ; PNG jamais « compressé » ; résultat plus lourd → original gardé et
+signalé ; informations de la photo (EXIF) gardées. Vidéos : encodeur au choix (carte graphique ou processeur), le
+meilleur par défaut (GTX 1060 pour H.264 et H.265), choix gardé après un redémarrage ; toutes les pistes son et les
+sous-titres en texte gardés ; une vidéo déjà au format choisi n'est pas reconvertie. Options : dernier choix retenu
+d'un import à l'autre jusqu'à la page Paramètres (IMP-29).
+
+**Déroulement.** « Arrêter » devient la pause immédiate (ffmpeg compris) → « Reprendre » ; « Annuler l'import » (rouge,
+avec confirmation) défait tout l'import en cours ; MyBoard tient la liste des fichiers en cours d'écriture pour effacer
+les restes après une fermeture ou un plantage. Pop-in de bilan à la fin de chaque import, puis la restauration
+(DEL-05) s'il y a lieu.
+
+**Vidéo illisible (VIEW-25).** Copie convertie gardée pour toujours ; bandeau dans la visionneuse, « Convertir » ouvre
+une pop-in (format, qualité, case « Supprimer l'original »).
+
+**Fichiers disparus (LIB-05).** « Conserver la miniature » : le média reste, marqué « fichier introuvable », et retrouve
+son fichier au réimport ; un fichier déplacé puis réimporté met à jour le chemin du média (aujourd'hui compté comme
+doublon).
+
+**Reporté.** FOLD-11 en phase 5 (avec FOLD-05) ; l'option du moteur d'AUD-01 (gardée ou retirée) à réfléchir en
+phase 5. Formats : `.gslides` / `.gsheet` (raccourcis de Google Drive) ignorés ; `.csv` gardés avec un aperçu (VIEW-56).
