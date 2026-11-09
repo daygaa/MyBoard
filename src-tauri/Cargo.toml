@@ -62,8 +62,9 @@ clipboard-win = "5"
 windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_Graphics_Gdi", "Win32_System_Diagnostics_ToolHelp", "Win32_UI_HiDpi", "Win32_UI_Input_KeyboardAndMouse", "Win32_UI_Shell", "Win32_UI_WindowsAndMessaging"] }
 # Nom du son de MyBoard dans le mélangeur de volume (AUD-02) : API audio de Windows (interfaces COM).
 # Même version que celle de Tauri et de WebView2 (déjà compilée), avec la partie audio en plus.
-# Miniatures des PDF (LIB-17) : moteur PDF de Windows (`Data_Pdf`, fichiers et flux de Windows).
-windows = { version = "0.62", features = ["Data_Pdf", "Foundation", "Storage", "Storage_Streams", "Win32_Foundation", "Win32_Media_Audio", "Win32_System_Com", "Win32_System_Com_StructuredStorage", "Win32_System_Variant"] }
+# Miniatures des PDF (LIB-17) : moteur PDF de Windows (`Data_Pdf`, fichiers et flux de Windows) ; aperçus de la
+# liste avant l'import (IMP-13) : miniatures de l'Explorateur (`Win32_UI_Shell`, `Win32_Graphics_Gdi`).
+windows = { version = "0.62", features = ["Data_Pdf", "Foundation", "Storage", "Storage_Streams", "Win32_Foundation", "Win32_Graphics_Gdi", "Win32_Media_Audio", "Win32_System_Com", "Win32_System_Com_StructuredStorage", "Win32_System_Variant", "Win32_UI_Shell"] }
 # Réglages de WebView2 que Tauri ne propose pas (menu du navigateur, raccourcis du navigateur :
 # CTX-01, GEN-18). Déjà utilisées par Tauri (mêmes versions) : rien de plus à compiler.
 webview2-com = "0.39"

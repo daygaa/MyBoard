@@ -26,6 +26,25 @@ thread_local! {
 pub fn handle(app: &AppHandle, request: Request<Vec<u8>>, responder: UriSchemeResponder) {
     // « %2F » = « / » encodé : accepté aussi, par sécurité.
     let name = request.uri().path().trim_start_matches('/').replace("%2F", "/").replace("%2f", "/");
+    // `apercu?p=<chemin>` : aperçu d'un fichier de la liste avant l'import (IMP-10), seulement s'il en fait partie.
+    if name == "apercu" {
+        let path = request.uri().query().and_then(|q| q.strip_prefix("p=")).and_then(percent_decode);
+        let app = app.clone();
+        tauri::async_runtime::spawn_blocking(move || {
+            let known = path.filter(|p| app.state::<AppState>().import.has_file(p));
+            let body = known.and_then(|p| crate::import::preview::preview(Path::new(&p)));
+            responder.respond(match body {
+                Some(bytes) => Response::builder()
+                    .status(StatusCode::OK)
+                    .header(header::CONTENT_TYPE, "image/webp")
+                    .header(header::CACHE_CONTROL, "private, max-age=600")
+                    .body(bytes)
+                    .unwrap_or_else(|_| Response::new(Vec::new())),
+                None => Response::builder().status(StatusCode::NOT_FOUND).body(Vec::new()).unwrap_or_else(|_| Response::new(Vec::new())),
+            });
+        });
+        return;
+    }
     let thumbs_db = app.state::<AppState>().paths.thumbs_db.clone();
     // Lecture hors du fil principal : la fenêtre n'attend jamais le disque.
     tauri::async_runtime::spawn_blocking(move || responder.respond(respond(&thumbs_db, &name)));
@@ -52,6 +71,23 @@ fn respond(thumbs_db: &Path, name: &str) -> Response<Vec<u8>> {
         None => Response::builder().status(StatusCode::NOT_FOUND).body(Vec::new()),
     }
     .unwrap_or_else(|_| Response::new(Vec::new()))
+}
+
+/// « %XX » → octet (texte encodé par `encodeURIComponent`).
+fn percent_decode(text: &str) -> Option<String> {
+    let bytes = text.as_bytes();
+    let mut out = Vec::with_capacity(bytes.len());
+    let mut i = 0;
+    while i < bytes.len() {
+        if bytes[i] == b'%' {
+            out.push(u8::from_str_radix(text.get(i + 1..i + 3)?, 16).ok()?);
+            i += 3;
+        } else {
+            out.push(bytes[i]);
+            i += 1;
+        }
+    }
+    String::from_utf8(out).ok()
 }
 
 fn read(thumbs_db: PathBuf, tier: Tier, hash: &str) -> Option<Vec<u8>> {

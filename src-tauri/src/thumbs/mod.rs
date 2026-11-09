@@ -307,6 +307,17 @@ pub fn make_preview(ff: Option<&Ffmpeg>, kind: &str, path: &Path, side: u32) -> 
     }
 }
 
+/// Aperçu 128 px d'un fichier pas encore importé (liste avant l'import, IMP-10), quand Windows n'en donne pas :
+/// seulement une image lisible par MyBoard ou un PDF (une vidéo n'est jamais lue ici : trop lourd pour une liste).
+pub fn list_preview(path: &Path) -> anyhow::Result<Vec<u8>> {
+    if is_pdf(path) {
+        return pdf::first_page(path, image::THUMB_SIZE).and_then(image::small_of);
+    }
+    let ext = crate::formats::extension(path).unwrap_or_default();
+    anyhow::ensure!(crate::formats::kind_of_ext(&ext) == Some(crate::formats::Kind::Image), "pas une image");
+    image::open_image(path).and_then(image::small_of)
+}
+
 fn is_pdf(path: &Path) -> bool {
     path.extension().is_some_and(|e| e.eq_ignore_ascii_case("pdf"))
 }

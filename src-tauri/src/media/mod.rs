@@ -109,14 +109,14 @@ fn existing_path(state: &AppState, id: i64) -> Result<PathBuf, OpenFailure> {
 /// Le chemin entre guillemets doit suivre la virgule tel quel : `raw_arg` évite l'échappement
 /// automatique de Rust, que l'Explorateur ne comprend pas.
 #[cfg(windows)]
-fn reveal(path: &Path) -> std::io::Result<()> {
+pub(crate) fn reveal(path: &Path) -> std::io::Result<()> {
     use std::os::windows::process::CommandExt;
     std::process::Command::new("explorer.exe").raw_arg(format!("/select,\"{}\"", path.display())).spawn().map(|_| ())
 }
 
 /// Hors Windows : ouvre simplement le dossier.
 #[cfg(not(windows))]
-fn reveal(path: &Path) -> std::io::Result<()> {
+pub(crate) fn reveal(path: &Path) -> std::io::Result<()> {
     opener::open(path.parent().unwrap_or(path)).map_err(std::io::Error::other)
 }
 

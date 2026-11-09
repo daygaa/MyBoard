@@ -3,6 +3,22 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Phase 4, lot 2 : liste des fichiers avant l'import (09/11/2026) — Backup v114
+
+SPEC : IMP-10, IMP-11, IMP-12, IMP-13, IMP-51, CTX-14, DEL-09 (nouveau) `[~]` ; IMP-52 retouché. Décision D-060.
+
+- Page Importer : sous la barre d'actions, la liste des fichiers choisis (aperçu, nom, poids · format, croix pour
+  retirer un fichier), 100 lignes puis « Voir plus » ; « Tout vider » ; menu du clic droit d'une ligne (Retirer de
+  la liste, Afficher dans l'explorateur) et d'un fichier en erreur (Copier le message, Afficher dans l'explorateur).
+- Aperçus de la liste : la miniature de Windows (celle de l'Explorateur), sinon faite par MyBoard pour une image ou
+  un PDF (mesures dans D-060).
+- Suggestions des tags par défaut : toujours au-dessus du champ.
+- Pop-in de restauration : tags dans l'ordre de la visionneuse (catégorie, puis nom).
+
+Vérifié dans la version compilée, sur des copies neuves de la base d'essai : liste de 50 fichiers d'essai et de
+13 388 fichiers (C: et D:), croix, menu, « Voir plus », « Tout vider », liste pendant l'import, suggestions, ordre
+des tags de 2 médias restaurés ; zéro erreur `tsc` et `clippy`.
+
 ## Phase 4, lot 1 : aperçu des PDF, restauration, formats (09/11/2026) — Backup v113
 
 SPEC : LIB-17 (nouveau), DEL-05, IMP-52 `[~]` ; IMP-05, IMP-07 vérifiés. Décision D-059.

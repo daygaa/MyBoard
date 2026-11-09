@@ -3,8 +3,18 @@
 import { Check, Loader2, Square } from "lucide-react";
 
 import { Progress } from "@/components/ui/progress";
-import type { ImportProgress as ProgressData, ImportResult } from "@/lib/api";
+import { api, type ImportProgress as ProgressData, type ImportResult } from "@/lib/api";
+import { openContextMenu, type MenuEntry } from "@/lib/contextMenu";
 import { formatNumber, plural } from "@/lib/format";
+
+/** Clic droit sur un fichier en erreur (CTX-14). */
+function errorMenu(f: { path: string; message: string }): MenuEntry[] {
+  return [
+    { label: "Copier le message", run: () => void api.writeClipboardText(`${f.path}\n${f.message}`) },
+    "separator",
+    { label: "Afficher dans l'explorateur de fichiers", run: () => void api.revealScanFile(f.path) },
+  ];
+}
 
 function Stat({ label, value, color }: { label: string; value: number; color: string }) {
   return (
@@ -70,7 +80,11 @@ export function ImportProgress({ progress, result }: { progress: ProgressData; r
           </p>
           <ul className="max-h-44 space-y-1 overflow-y-auto pr-1">
             {result.errorFiles.map((f) => (
-              <li key={f.path} className="rounded-md border border-border bg-background/40 px-2 py-1.5 text-xs">
+              <li
+                key={f.path}
+                onContextMenu={(e) => openContextMenu(e, () => errorMenu(f))}
+                className="rounded-md border border-border bg-background/40 px-2 py-1.5 text-xs"
+              >
                 <span className="block truncate text-foreground" title={f.path}>
                   {f.path}
                 </span>

@@ -10,10 +10,50 @@ use walkdir::WalkDir;
 
 use crate::formats::{self, Kind};
 
+#[derive(Clone)]
 pub struct ScanFile {
     pub path: PathBuf,
     pub kind: Kind,
     pub ext: String,
+    /// Poids, lu avec le dossier (liste avant l'import, IMP-10).
+    pub size: u64,
+}
+
+/// Une ligne de la liste des fichiers avant l'import (IMP-10).
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ScanEntry {
+    pub path: String,
+    pub name: String,
+    pub size: u64,
+    pub ext: String,
+    pub kind: &'static str,
+}
+
+impl ScanFile {
+    pub fn entry(&self) -> ScanEntry {
+        ScanEntry {
+            path: self.path.display().to_string(),
+            name: self.path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default(),
+            size: self.size,
+            ext: self.ext.clone(),
+            kind: self.kind.as_str(),
+        }
+    }
+}
+
+impl ScanSummary {
+    /// Un fichier retiré de la liste (IMP-10, CTX-14) : les compteurs suivent.
+    pub fn forget(&mut self, file: &ScanFile) {
+        match file.kind {
+            Kind::Image => self.images -= 1,
+            Kind::Video => self.videos -= 1,
+            Kind::Audio => self.audio -= 1,
+            Kind::Document => self.documents -= 1,
+        }
+        self.total -= 1;
+        self.bytes -= file.size;
+    }
 }
 
 /// Résumé affiché avant de lancer l'import.
@@ -64,7 +104,7 @@ impl Collector<'_> {
         }
         self.summary.total += 1;
         self.summary.bytes += size;
-        self.files.push(ScanFile { path, kind, ext });
+        self.files.push(ScanFile { path, kind, ext, size });
         if self.last.elapsed() > Duration::from_millis(100) {
             (self.progress)(&self.summary);
             self.last = Instant::now();

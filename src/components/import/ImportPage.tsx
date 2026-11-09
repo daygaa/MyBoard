@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
 import { navigate } from "@/lib/router";
 import { DefaultTagsEditor } from "./DefaultTagsEditor";
+import { FileList } from "./FileList";
 import { FilesCard } from "./FilesCard";
 import { ImportActionBar } from "./ImportActionBar";
 
@@ -72,6 +73,7 @@ export function ImportPage() {
         <DefaultTagsEditor />
         <FfmpegNotice />
         <ImportActionBar />
+        <FileList />
       </div>
     </main>
   );

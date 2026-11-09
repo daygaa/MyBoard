@@ -13,7 +13,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Modal } from "@/components/ui/modal";
 import { useCategories } from "@/hooks/useCategories";
 import { api, thumbUrl, type RestoreCandidate } from "@/lib/api";
-import { displayTag } from "@/lib/tags";
+import { displayTag, sortTagsForDisplay } from "@/lib/tags";
 import { cn } from "@/lib/utils";
 import { useImport } from "@/stores/import";
 import { useThumbs } from "@/stores/thumbs";
@@ -30,8 +30,11 @@ function Thumb({ item }: { item: RestoreCandidate }) {
 }
 
 function Row({ item, checked, onToggle }: { item: RestoreCandidate; checked: boolean; onToggle: () => void }) {
-  const { color } = useCategories();
+  const { color, list } = useCategories();
   const date = new Date(item.deletedAt).toLocaleDateString("fr-FR");
+  // Ordre de la visionneuse (DEL-09) : catégorie, puis le nom du tag que le média retrouvera.
+  const order = new Map(list.map((c) => [c.id, c.sortOrder]));
+  const tags = sortTagsForDisplay(item.tags, (t) => order.get(t.category) ?? 99, (t) => t.name);
   return (
     <label data-zone="restauration.media" className="flex cursor-pointer gap-3 rounded-lg border border-border p-2.5 hover:bg-secondary/40">
       <Checkbox checked={checked} onCheckedChange={onToggle} className="mt-1" />
@@ -44,9 +47,9 @@ function Row({ item, checked, onToggle }: { item: RestoreCandidate; checked: boo
           {item.favorite && <Star className="h-3.5 w-3.5 shrink-0 fill-[#d9a94e] text-[#d9a94e]" aria-label="Favori" />}
         </span>
         <span className="block text-muted-foreground">Supprimé le {date}</span>
-        {item.tags.length > 0 && (
+        {tags.length > 0 && (
           <span className="flex flex-wrap gap-x-2 gap-y-0.5">
-            {item.tags.map((t) => (
+            {tags.map((t) => (
               <span key={`${t.alias ?? ""}>${t.name}`} style={{ color: color(t.category) }}>
                 {t.alias && <span className="text-muted-foreground">{displayTag(t.alias)} → </span>}
                 {displayTag(t.name)}

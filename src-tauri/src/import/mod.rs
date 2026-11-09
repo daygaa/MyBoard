@@ -8,6 +8,8 @@
 //! redémarrer l'interface, ne perd donc jamais la progression.
 
 mod index;
+pub mod list;
+pub mod preview;
 mod scan;
 mod state;
 
@@ -155,11 +157,12 @@ pub fn scan_paths(app: AppHandle, state: State<'_, AppState>, paths: Vec<String>
 pub fn start_import(app: AppHandle, state: State<'_, AppState>, default_tags: Vec<NewTag>) -> Result<(), String> {
     let manager = &state.import;
     let files = {
-        let mut inner = manager.inner.lock().unwrap();
+        let inner = manager.inner.lock().unwrap();
         if inner.snapshot.phase != Phase::Ready || inner.files.is_empty() {
             return Err("Aucun fichier prêt à importer.".into());
         }
-        std::mem::take(&mut inner.files)
+        // La liste reste affichée pendant l'import (IMP-10) ; vidée à la fin.
+        inner.files.clone()
     };
     manager.cancel.store(false, Ordering::SeqCst);
     let total = files.len() as u64;
@@ -271,6 +274,7 @@ fn run_import(app: &AppHandle, files: Vec<ScanFile>, default_tags: Vec<NewTag>) 
     progress.current_file = None;
     let result = ImportResult { cancelled, fatal, error_files, elapsed_ms: start.elapsed().as_millis() as u64, restorable };
     manager.update(false, |inner| {
+        inner.files.clear();
         inner.snapshot.phase = Phase::Finished;
         inner.snapshot.progress = Some(progress);
         inner.snapshot.result = Some(result);

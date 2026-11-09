@@ -219,6 +219,10 @@ export type FailedFile = { id: number; path: string; code: number | null; messag
 
 export type ImportPhase = "idle" | "scanning" | "ready" | "importing" | "finished";
 
+/** Une ligne de la liste des fichiers avant l'import (IMP-10). */
+export type ScanEntry = { path: string; name: string; size: number; ext: string; kind: MediaKind };
+export type ScanPage = { entries: ScanEntry[]; total: number };
+
 /** Photo complète de l'état de l'import (événement `import-state`). */
 export type ImportSnapshot = {
   phase: ImportPhase;
@@ -241,6 +245,11 @@ export const api = {
   supportedExtensions: () => invoke<string[]>("supported_extensions"),
   startImport: (defaultTags: NewTag[]) => invoke<void>("start_import", { defaultTags }),
   cancelImport: () => invoke<void>("cancel_import"),
+  /** Liste des fichiers avant l'import, par pages (IMP-10 à IMP-12) ; retirer, tout vider (IMP-51, CTX-14). */
+  scanFiles: (offset: number, limit: number) => invoke<ScanPage>("scan_files", { offset, limit }),
+  removeScanFile: (path: string) => invoke<void>("remove_scan_file", { path }),
+  clearScan: () => invoke<void>("clear_scan"),
+  revealScanFile: (path: string) => invoke<void>("reveal_scan_file", { path }),
   tagCategories: () => invoke<Category[]>("tag_categories"),
   autocompleteTags: (text: string) => invoke<TagInfo[]>("autocomplete_tags", { text }),
   findTag: (name: string) => invoke<TagInfo | null>("find_tag", { name }),
@@ -361,6 +370,11 @@ const THUMB_ROOT = convertFileSrc("", "thumb");
 /** Adresse d'une miniature d'un média. */
 export function thumbUrl(hash: string, tier: ThumbTier = "normal"): string {
   return `${THUMB_ROOT}${TIER_PREFIX[tier]}${hash}.webp`;
+}
+
+/** Aperçu d'un fichier de la liste avant l'import (IMP-10), pas encore dans la bibliothèque. */
+export function scanPreviewUrl(path: string): string {
+  return `${THUMB_ROOT}apercu?p=${encodeURIComponent(path)}`;
 }
 
 const MEDIA_ROOT = convertFileSrc("", "media");

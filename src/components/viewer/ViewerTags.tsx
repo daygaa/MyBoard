@@ -15,7 +15,7 @@ import { useCategories } from "@/hooks/useCategories";
 import { useTagChanges } from "@/hooks/useTagChanges";
 import { api, type MediaKind, type TagInfo } from "@/lib/api";
 import { openContextMenu } from "@/lib/contextMenu";
-import { compareTagNames, displayTag, normalizeTag, withDescription } from "@/lib/tags";
+import { displayTag, normalizeTag, sortTagsForDisplay, withDescription } from "@/lib/tags";
 
 /** Champ d'ajout de tag (VIEW-20 : placé juste à droite des infos du fichier). */
 export function TagAdder({ mediaId, kind }: { mediaId: number; kind: MediaKind }) {
@@ -84,7 +84,7 @@ export function TagPills({ mediaId, kind, tags, onSearch }: PillsProps) {
   const { remove } = useTagChanges();
   const order = new Map(list.map((c) => [c.id, c.sortOrder]));
   const rank = (t: TagInfo) => (t.hidden ? 1000 : 0) + (order.get(t.categoryId) ?? 99);
-  const sorted = [...tags].sort((a, b) => rank(a) - rank(b) || compareTagNames(a.name, b.name));
+  const sorted = sortTagsForDisplay(tags, rank, (t) => t.name);
 
   if (sorted.length === 0) {
     return <span className="text-xs text-muted-foreground italic">Aucun tag. Utilise le champ ci-dessus pour en ajouter.</span>;

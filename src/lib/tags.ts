@@ -18,6 +18,12 @@ export function displayTag(name: string): string {
 const tagCollator = new Intl.Collator("fr", { sensitivity: "base", numeric: true });
 export const compareTagNames = (a: string, b: string) => tagCollator.compare(displayTag(a), displayTag(b));
 
+/** Tags dans l'ordre de la visionneuse : rang de leur catégorie (TAGM-03 ; `rank`), puis leur nom (VIEW-51).
+ *  Aussi pour la pop-in de restauration (DEL-09). */
+export function sortTagsForDisplay<T>(tags: T[], rank: (tag: T) => number, name: (tag: T) => string): T[] {
+  return [...tags].sort((a, b) => rank(a) - rank(b) || compareTagNames(name(a), name(b)));
+}
+
 export function parseTerms(text: string): string[] {
   const terms: string[] = [];
   for (const raw of text.split(/\s+/)) {

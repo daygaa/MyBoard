@@ -1679,3 +1679,28 @@ lancement, les PDF marqués « pas de miniature » (importés avant) repassent �
 **Complément (DEL-05).** Les résultats des miniatures partent par paquets (au plus toutes les 200 ms) ; quand la file
 est vide, le dernier résultat part tout de suite (`finish`, `thumbs/mod.rs`) : avant, les dernières miniatures d'une
 série pouvaient ne jamais être envoyées.
+
+## D-060 — Aperçus de la liste avant l'import : la miniature de Windows (09/11/2026)
+
+**Contexte.** IMP-10 / IMP-13 : la liste des fichiers choisis montre un aperçu ; l'utilisateur a demandé de comparer
+les miniatures de l'Explorateur et celles de MyBoard, charge comprise. Mesuré le 09/11 (120 images et 30 vidéos de
+ses dossiers, sur C: et leur copie sur D:, chaque méthode sur des fichiers différents ; aperçu de 128 px ;
+`IShellItemImageFactory` contre la chaîne de MyBoard et ffmpeg) :
+
+| | Windows, déjà en cache | Windows, 1re fois | MyBoard |
+|---|---|---|---|
+| Image, SSD (médiane) | 2,5 ms | 36 ms, processeur 63 ms | 65 ms, processeur 83 ms |
+| Image, disque dur | 2,8 ms | 75 ms | 62 ms |
+| Vidéo, SSD | 16 ms | 0,48 s, processeur 0,49 s | 0,29 s, processeur 3,8 s |
+| Vidéo, disque dur | 17 ms | 1,47 s, processeur 0,64 s | 0,32 s, processeur 3,9 s |
+
+Avant l'essai, le cache de Windows avait déjà 19 des 120 images et 4 des 30 vidéos de C: (rien pour D:). La carte
+graphique, déjà occupée par une autre application, ne montre pas de différence mesurable.
+
+**Choix.** `import/preview.rs` : deux fils (COM « multithread ») demandent la miniature à Windows
+(`SIIGBF_THUMBNAILONLY`, sans icône), convertie en WebP ; à défaut, une image lisible par MyBoard ou un PDF (LIB-17)
+est fait par MyBoard (`thumbs::list_preview`, jamais une vidéo) ; sinon l'icône. Servi par
+`thumb://apercu?p=<chemin>`, seulement pour un fichier de la liste en cours. Effet de bord voulu : ces miniatures
+entrent dans le cache de l'Explorateur. Les miniatures de la bibliothèque ne changent pas (carrées, 4 tailles, `thumbs.db`,
+D-014, D-035). Liste lue par pages (`import/list.rs`) ; elle reste dans le cœur pendant l'import (copie) et se vide
+à la fin.
