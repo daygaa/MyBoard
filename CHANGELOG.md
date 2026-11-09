@@ -3,6 +3,23 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Phase 4, lot 1 : aperçu des PDF, restauration, formats (09/11/2026) — Backup v113
+
+SPEC : LIB-17 (nouveau), DEL-05, IMP-52 `[~]` ; IMP-05, IMP-07 vérifiés. Décision D-059.
+
+- Grille : la vignette d'un PDF montre le haut de sa 1re page (moteur PDF de Windows) ; les PDF déjà importés
+  reçoivent la leur au lancement suivant.
+- Pop-in de restauration (fin d'un import) : les miniatures apparaissent toutes. Les dernières miniatures d'une
+  série n'étaient jamais envoyées à l'interface quand elles finissaient juste après un envoi.
+- Page Importer : la liste des suggestions des tags par défaut s'ouvre au-dessus du champ quand la place manque
+  en dessous.
+- Formats : les raccourcis .gslides / .gsheet de Google Drive sont ignorés ; un son illisible (.wma) affiche la
+  carte « Ouvrir avec l'application par défaut », comme une vidéo illisible, au lieu d'un lecteur vide.
+
+Vérifié dans la version compilée, sur des copies neuves de la base d'essai : un fichier par format accepté
+(50 fichiers d'essai : import, miniatures, visionneuse), restauration de 3 images, suggestions en haut et en bas,
+capture des vignettes PDF ; zéro erreur `tsc`.
+
 ## Dossiers : flèches du menu « tri » à droite (07/11/2026) — Backup v112
 
 SPEC : FOLD-10 (retour T3, point AUT.13) `[~]`.

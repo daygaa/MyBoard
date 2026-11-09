@@ -33,10 +33,11 @@ const AUDIO: &[&str] = &["mp3", "wav", "flac", "ogg", "oga", "m4a", "aac", "opus
 const DOCUMENTS: &[&str] = &[
     // PDF
     "pdf",
-    // PowerPoint / Slides
-    "ppt", "pptx", "pps", "ppsx", "odp", "gslides",
-    // Excel / Sheets
-    "xls", "xlsx", "xlsm", "ods", "csv", "gsheet",
+    // PowerPoint. Les raccourcis .gslides / .gsheet de Google Drive (sans contenu sur le PC : ils
+    // ouvrent la page Google dans le navigateur) sont ignorés depuis le 09/11 (IMP-05).
+    "ppt", "pptx", "pps", "ppsx", "odp",
+    // Excel
+    "xls", "xlsx", "xlsm", "ods", "csv",
     // Word (ajouté le 11/10/2026, IMP-07)
     "doc", "docx", "odt",
 ];

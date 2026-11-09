@@ -5,8 +5,10 @@
 //! jamais : il réveille simplement le service après chaque lot enregistré.
 //! L'interface est prévenue par lots (`thumbs-ready`) : seules les vignettes
 //! concernées se redessinent. Les miniatures sont rangées dans `thumbs.db` (D-014).
+//! Documents : seuls les PDF ont une miniature, leur 1re page (LIB-17).
 
 mod image;
+mod pdf;
 mod video;
 
 pub mod preview;
@@ -102,6 +104,11 @@ impl ThumbService {
                 [status::TODO, status::READY, status::ERROR],
             )?;
         }
+        // PDF importés avant LIB-17 (« pas de miniature ») : leur 1re page est à faire.
+        db.execute(
+            "UPDATE media SET thumb_status = ?1 WHERE thumb_status = ?2 AND kind = 'document' AND ext = 'pdf'",
+            [status::TODO, status::NONE],
+        )?;
         let shared = Arc::new(Shared {
             app,
             db: Mutex::new(db),
@@ -259,6 +266,9 @@ fn process(shared: &Shared, job: &Job) -> Option<ThumbUpdate> {
                 return Some(update);
             }
         },
+        "document" if is_pdf(&job.path) => {
+            pdf::first_page(&job.path, image::PREVIEW_SIZE).and_then(image::thumbs_of).map(|t| (t, None))
+        }
         _ => {
             update.status = status::NONE;
             return Some(update);
@@ -271,8 +281,11 @@ fn process(shared: &Shared, job: &Job) -> Option<ThumbUpdate> {
     }) {
         Ok((w, h, duration)) => {
             update.status = status::READY;
-            update.width = Some(w);
-            update.height = Some(h);
+            // Un PDF n'a pas de dimensions à montrer : la taille de sa page rendue n'en est pas une.
+            if job.kind != "document" {
+                update.width = Some(w);
+                update.height = Some(h);
+            }
             update.duration_ms = duration;
         }
         Err(e) => eprintln!("[miniatures] {} : {e:#}", job.path.display()),
@@ -289,8 +302,13 @@ pub fn make_preview(ff: Option<&Ffmpeg>, kind: &str, path: &Path, side: u32) -> 
             None => Err(e),
         }),
         ("video", Some(ff)) => video::video_preview(ff, path, side),
+        ("document", _) if is_pdf(path) => pdf::first_page(path, side).and_then(|img| image::preview_of(img, side)),
         _ => anyhow::bail!("pas d'aperçu pour ce type de média"),
     }
+}
+
+fn is_pdf(path: &Path) -> bool {
+    path.extension().is_some_and(|e| e.eq_ignore_ascii_case("pdf"))
 }
 
 /// Bibliothèques créées avant les miniatures 128 px (LIB-12) : on les fabrique à partir des
@@ -324,11 +342,18 @@ fn finish(shared: &Shared, id: i64, update: Option<ThumbUpdate>) {
             eprintln!("[miniatures] enregistrement du média {id} : {e}");
         }
     }
-    shared.queue.lock().unwrap().in_flight.remove(&id);
+    // Plus rien à faire après ce média : ses résultats partent tout de suite. Sinon, les dernières miniatures
+    // d'une série, finies moins de 200 ms après un envoi, attendaient la miniature suivante, qui ne venait
+    // pas (pop-in de restauration restée sans miniatures, DEL-05).
+    let idle = {
+        let mut queue = shared.queue.lock().unwrap();
+        queue.in_flight.remove(&id);
+        queue.exhausted && queue.priority.is_empty() && queue.batch.is_empty()
+    };
     if let Some(u) = update {
         shared.pending.lock().unwrap().updates.push(u);
     }
-    flush(shared, false);
+    flush(shared, idle);
 }
 
 /// Envoie les résultats accumulés à l'interface (au plus toutes les 200 ms, sauf `force`).

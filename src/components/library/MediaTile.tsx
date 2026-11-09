@@ -33,7 +33,7 @@ import { useViewer } from "@/stores/viewer";
 import { loadSelection } from "./selectionMenu";
 import { tileMenu } from "./tileMenu";
 
-const SHEETS = ["xls", "xlsx", "xlsm", "ods", "csv", "gsheet"];
+const SHEETS = ["xls", "xlsx", "xlsm", "ods", "csv"];
 const WORD = ["doc", "docx", "odt"];
 
 /** Icône à la place de l'image : audio, documents, miniature pas encore prête ou en échec. */

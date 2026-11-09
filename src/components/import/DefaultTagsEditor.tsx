@@ -44,6 +44,7 @@ export function DefaultTagsEditor() {
       <div className="flex flex-wrap items-center gap-2">
         <TagInput
           zone="import.tags-defaut.champ"
+          dropdown="auto"
           value={text}
           onChange={setText}
           onSubmit={(raw) => void submit(raw)}

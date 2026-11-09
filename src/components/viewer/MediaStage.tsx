@@ -1,9 +1,10 @@
 // Contenu de la visionneuse selon le type de média : image zoomable, vidéo (lecteur
 // personnalisé, VIEW-29 ; aussi les GIF animés, VIEW-54), son, document.
 // Format que le lecteur intégré ne sait pas lire : message clair + « Ouvrir avec
-// l'application par défaut » (VIEW-24), en attendant la conversion à la volée (VIEW-25).
+// l'application par défaut » (VIEW-24), en attendant la conversion à la volée (VIEW-25) ;
+// pareil pour un son illisible (.wma : trouvé en testant tous les formats, IMP-05).
 
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { ExternalLink, File, FileSpreadsheet, Film, Music } from "lucide-react";
 
 import { api, mediaUrl, type MediaItem } from "@/lib/api";
@@ -11,7 +12,7 @@ import { ImageStage } from "./ImageStage";
 import { VideoStage } from "./VideoStage";
 import { runExternal } from "./externalOpen";
 
-const SHEETS = ["xls", "xlsx", "xlsm", "ods", "csv", "gsheet"];
+const SHEETS = ["xls", "xlsx", "xlsm", "ods", "csv"];
 
 function OpenExternally({ item }: { item: MediaItem }) {
   return (
@@ -48,6 +49,31 @@ function Centered({ children, onClose }: { children: ReactNode; onClose: () => v
   );
 }
 
+/** Lecteur de son ; si le moteur ne sait pas le lire, la carte « Ouvrir avec » comme pour une vidéo illisible. */
+function AudioStage({ item, onClose }: { item: MediaItem; onClose: () => void }) {
+  const [unplayable, setUnplayable] = useState(false);
+  if (unplayable) {
+    return (
+      <Centered onClose={onClose}>
+        <Card
+          item={item}
+          icon={<Music className="h-12 w-12 text-amber-300/80" />}
+          message="Ce fichier audio ne peut pas être lu dans MyBoard : son format n'est pas pris en charge par le lecteur intégré."
+        />
+      </Centered>
+    );
+  }
+  return (
+    <Centered onClose={onClose}>
+      <div className="flex w-full max-w-xl flex-col items-center rounded-xl border border-border bg-card px-6 py-12">
+        <Music className="h-12 w-12 text-amber-300/80" />
+        <p className="mt-4 mb-6 font-medium break-all text-foreground">{item.fileName}</p>
+        <audio data-zone="visionneuse.audio" src={mediaUrl(item)} controls autoPlay onError={() => setUnplayable(true)} className="w-full" />
+      </div>
+    </Centered>
+  );
+}
+
 /** `opening` : média ouvert depuis la grille, aucune flèche encore (image : original demandé aussitôt, VIEW-53). */
 export function MediaStage({ item, onClose, opening }: { item: MediaItem; onClose: () => void; opening: boolean }) {
   // GIF animé : lecteur vidéo (VIEW-54) ; s'il ne peut pas être converti (ffmpeg absent…), comme une image.
@@ -65,17 +91,8 @@ export function MediaStage({ item, onClose, opening }: { item: MediaItem; onClos
     );
     return <VideoStage item={item} onClose={onClose} fallback={unplayable} />;
   }
-  if (item.kind === "audio") {
-    return (
-      <Centered onClose={onClose}>
-        <div className="flex w-full max-w-xl flex-col items-center rounded-xl border border-border bg-card px-6 py-12">
-          <Music className="h-12 w-12 text-amber-300/80" />
-          <p className="mt-4 mb-6 font-medium break-all text-foreground">{item.fileName}</p>
-          <audio data-zone="visionneuse.audio" src={mediaUrl(item)} controls autoPlay className="w-full" />
-        </div>
-      </Centered>
-    );
-  }
+  // Une clé par média : l'état « illisible » ne passe pas au son suivant.
+  if (item.kind === "audio") return <AudioStage key={item.id} item={item} onClose={onClose} />;
   if (item.ext === "pdf") {
     return (
       <Centered onClose={onClose}>

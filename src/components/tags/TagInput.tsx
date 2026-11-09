@@ -32,8 +32,9 @@ type Props = {
    *  termes, « -tag » tapé pour exclure (SRCH-03). */
   onAddTerm?: (tag: TagInfo, exclude: boolean) => void;
   placeholder: string;
-  /** Côté où s'ouvrent les suggestions (« top » dans la visionneuse, VIEW-21). */
-  dropdown?: Dropdown;
+  /** Côté où s'ouvrent les suggestions (« top » dans la visionneuse, VIEW-21) ; « auto » : en dessous, ou
+   *  au-dessus quand la place manque en bas de la fenêtre (tags par défaut de l'import, IMP-52). */
+  dropdown?: Dropdown | "auto";
   zone: string;
   className?: string;
   /** Ajustements du champ lui-même (taille, fond…). */
@@ -83,6 +84,18 @@ export function TagInput({
   // les flèches de la barre de titre les ignorent (NAV-07).
   useEscape(open, () => setFocused(false), { escapeOnly: true });
 
+  // « auto » (IMP-52) : la liste mesurée avant d'être montrée passe au-dessus si elle dépasserait du bas de la
+  // fenêtre et qu'il y a plus de place en haut ; recalculé quand les suggestions changent.
+  const [above, setAbove] = useState(false);
+  const side: Dropdown = dropdown === "auto" ? (above ? "top" : "bottom") : dropdown;
+  useLayoutEffect(() => {
+    const box = field.current?.getBoundingClientRect();
+    const list = field.current?.parentElement?.querySelector("ul");
+    if (dropdown !== "auto" || !open || !box || !list) return;
+    const below = window.innerHeight - box.bottom;
+    setAbove(list.getBoundingClientRect().height + 8 > below && box.top > below);
+  }, [dropdown, open, suggestions]);
+
   useLayoutEffect(() => {
     const at = nextCaret.current;
     if (at === null || !field.current) return;
@@ -124,7 +137,7 @@ export function TagInput({
   };
 
   const onKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
-    if (open && moveHighlight(e, suggestions, dropdown, setHighlight, takenHere)) return;
+    if (open && moveHighlight(e, suggestions, side, setHighlight, takenHere)) return;
     if (e.key === "Enter") {
       e.preventDefault();
       const chosen = open && highlight >= 0 ? suggestions[highlight] : undefined;
@@ -163,7 +176,7 @@ export function TagInput({
           suggestions={suggestions}
           highlight={highlight}
           setHighlight={setHighlight}
-          dropdown={dropdown}
+          dropdown={side}
           onPick={pick}
           negated={negated}
           onAddTerm={search ? addTerm : undefined}

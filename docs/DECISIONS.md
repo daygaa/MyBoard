@@ -1664,3 +1664,18 @@ doublon).
 
 **Reporté.** FOLD-11 en phase 5 (avec FOLD-05) ; l'option du moteur d'AUD-01 (gardée ou retirée) à réfléchir en
 phase 5. Formats : `.gslides` / `.gsheet` (raccourcis de Google Drive) ignorés ; `.csv` gardés avec un aperçu (VIEW-56).
+
+## D-059 — Miniatures des PDF : le moteur PDF de Windows (09/11/2026)
+
+**Contexte.** LIB-17 (demande du 09/11) : la vignette d'un PDF montre sa 1re page. ffmpeg ne lit pas les PDF.
+
+**Choix.** `Windows.Data.Pdf` (moteur PDF présent dans Windows 10 et 11), appelé par le crate `windows` (fonctions
+`Data_Pdf`, `Storage`, `Storage_Streams`) : rien à installer ni à fournir (écarté : pdfium, environ 5 Mo de plus à
+livrer). `thumbs/pdf.rs` : page 1 rendue en PNG à 640 px de large (1 280 pour le plus grand aperçu), décodée puis
+coupée en carré depuis le haut ; ensuite le chemin habituel des miniatures (320 et 128 px, WebP, `thumbs.db`). Les
+fils des miniatures sont préparés pour COM (MTA) à leur 1er PDF. Pas de dimensions enregistrées pour un document. Au
+lancement, les PDF marqués « pas de miniature » (importés avant) repassent « à faire ».
+
+**Complément (DEL-05).** Les résultats des miniatures partent par paquets (au plus toutes les 200 ms) ; quand la file
+est vide, le dernier résultat part tout de suite (`finish`, `thumbs/mod.rs`) : avant, les dernières miniatures d'une
+série pouvaient ne jamais être envoyées.
