@@ -3,15 +3,22 @@
 //! de la bibliothèque il y a moins d'un mois et réimporté : la fin de l'import propose de remettre
 //! ses données (DEL-05, `reserve.rs`).
 //!
+//! Options (compression, conversion, suppression des originaux, paires) : `plan.rs` ; déroulement : `run.rs`.
+//!
 //! L'état de l'import vit ici, côté Rust : l'interface reçoit une photo complète de
 //! cet état (`import-state`) à chaque changement. Changer de page puis revenir, ou
 //! redémarrer l'interface, ne perd donc jamais la progression.
 
 mod compress;
+mod convert;
 mod encode;
 mod index;
 pub mod list;
+pub mod pairs;
+mod plan;
+mod png_out;
 pub mod preview;
+mod run;
 mod scan;
 mod state;
 
@@ -22,13 +29,9 @@ use std::time::{Duration, Instant};
 
 use tauri::{AppHandle, Emitter, Manager, State};
 
-use crate::reserve;
-use crate::tagging::{Tagger, Target, resolve_or_create};
+use crate::AppState;
 use crate::tags::NewTag;
-use crate::{AppState, db};
-pub use compress::ImportOptions;
-use compress::{Compress, Squeeze};
-use index::{Indexer, Outcome};
+pub use plan::ImportOptions;
 pub use scan::ScanSummary;
 use scan::ScanFile;
 pub use state::{FileError, ImportResult, Phase, Progress, Snapshot};
@@ -183,7 +186,7 @@ pub fn start_import(
 
     std::thread::Builder::new()
         .name("import".into())
-        .spawn(move || run_import(&app, files, default_tags, options.compress()))
+        .spawn(move || run::run_import(&app, files, default_tags, options))
         .map_err(|e| e.to_string())?;
     Ok(())
 }
@@ -192,110 +195,4 @@ pub fn start_import(
 #[tauri::command]
 pub fn cancel_import(state: State<'_, AppState>) {
     state.import.cancel.store(true, Ordering::SeqCst);
-}
-
-fn run_import(app: &AppHandle, files: Vec<ScanFile>, default_tags: Vec<NewTag>, compress: Option<Compress>) {
-    let state = app.state::<AppState>();
-    let manager = &state.import;
-    let start = Instant::now();
-    let mut progress = Progress { total: files.len() as u64, ..Progress::default() };
-    let mut error_files = Vec::new();
-    let mut cancelled = false;
-    let mut restorable = Vec::new();
-
-    let fatal = (|| -> anyhow::Result<()> {
-        let mut conn = db::open(&state.paths.db)?;
-        // Tags par défaut : créés une fois au départ (ceux qui existent gardent leur catégorie ; un
-        // synonyme donne son tag principal, TAGM-15). Les parents suivent à chaque média (TAGM-16).
-        let targets: Vec<Target> = {
-            let tx = conn.transaction()?;
-            let mut found = Vec::new();
-            for tag in &default_tags {
-                found.extend(resolve_or_create(&tx, tag, db::now_ms())?);
-            }
-            tx.commit()?;
-            found
-        };
-        let tagger = Tagger::load(&conn)?;
-        let mut indexer = Indexer::new();
-        // Médias nouveaux dont les données sont en réserve (DEL-05).
-        let mut found = Vec::new();
-        let mut in_batch = 0;
-        let mut last_commit = Instant::now();
-        let mut last_library = Instant::now();
-        conn.execute_batch("BEGIN IMMEDIATE")?;
-
-        for file in &files {
-            if manager.cancel.load(Ordering::SeqCst) {
-                cancelled = true;
-                break;
-            }
-            progress.current_file = file.path.file_name().map(|n| n.to_string_lossy().into_owned());
-            let outcome = indexer.index(&conn, file, db::now_ms(), compress);
-            match indexer.squeeze {
-                Some(Squeeze::Done) => progress.compressed += 1,
-                Some(Squeeze::NotSmaller) => progress.not_smaller += 1,
-                Some(Squeeze::Failed) => progress.compress_failed += 1,
-                None => {}
-            }
-            if let Ok(Outcome::Imported(id) | Outcome::Updated(id) | Outcome::AlreadyPresent(id) | Outcome::Duplicate(id)) =
-                &outcome
-            {
-                for target in &targets {
-                    tagger.attach(&conn, *id, *target)?;
-                }
-            }
-            if let Ok(Outcome::Imported(id)) = &outcome
-                && reserve::has_kept(&conn, *id)?
-            {
-                found.push(*id);
-            }
-            match outcome {
-                Ok(Outcome::Imported(_)) => progress.imported += 1,
-                Ok(Outcome::Updated(_)) => progress.updated += 1,
-                Ok(Outcome::AlreadyPresent(_)) => progress.already_present += 1,
-                Ok(Outcome::Duplicate(_)) => progress.duplicates += 1,
-                Err(e) => {
-                    progress.errors += 1;
-                    if error_files.len() < MAX_LISTED_ERRORS {
-                        error_files.push(FileError { path: file.path.display().to_string(), message: format!("{e:#}") });
-                    }
-                }
-            }
-            progress.processed += 1;
-            in_batch += 1;
-
-            if in_batch >= COMMIT_EVERY || last_commit.elapsed() >= COMMIT_INTERVAL {
-                // Miniatures réveillées AVANT de reprendre l'écriture : sinon l'import attendait leur file, tenue par
-                // un fil qui attendait la base, tenue par l'import (5 s perdues à chaque fois, IMP-63).
-                conn.execute_batch("COMMIT")?;
-                state.thumbs.wake();
-                conn.execute_batch("BEGIN IMMEDIATE")?;
-                in_batch = 0;
-                last_commit = Instant::now();
-                if last_library.elapsed() >= LIBRARY_INTERVAL {
-                    let _ = app.emit("library-changed", ());
-                    last_library = Instant::now();
-                }
-            }
-            let snapshot = progress.clone();
-            manager.update(true, |inner| inner.snapshot.progress = Some(snapshot));
-        }
-        conn.execute_batch("COMMIT")?;
-        restorable = reserve::candidates(&conn, &found)?;
-        Ok(())
-    })()
-    .err()
-    .map(|e| format!("{e:#}"));
-
-    state.thumbs.wake();
-    let _ = app.emit("library-changed", ());
-    progress.current_file = None;
-    let result = ImportResult { cancelled, fatal, error_files, elapsed_ms: start.elapsed().as_millis() as u64, restorable };
-    manager.update(false, |inner| {
-        inner.files.clear();
-        inner.snapshot.phase = Phase::Finished;
-        inner.snapshot.progress = Some(progress);
-        inner.snapshot.result = Some(result);
-    });
 }

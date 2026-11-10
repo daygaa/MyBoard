@@ -187,8 +187,15 @@ export type ImportProgress = {
   errors: number;
   /** Compression des images (IMP-20) : gardées compressées · originaux gardés (moins de 5 % de gain) · impossibles. */
   compressed: number;
+  /** Converties dans le format choisi (IMP-21). */
+  converted: number;
   notSmaller: number;
   compressFailed: number;
+  /** Fichiers écartés d'une paire original + version (IMP-64). */
+  setAside: number;
+  /** Fichiers effacés du disque (IMP-28, IMP-64) et effacements impossibles. */
+  deleted: number;
+  deleteFailed: number;
   currentFile: string | null;
 };
 
@@ -228,8 +235,23 @@ export type ImportPhase = "idle" | "scanning" | "ready" | "importing" | "finishe
 export type ScanEntry = { path: string; name: string; size: number; ext: string; kind: MediaKind };
 export type ScanPage = { entries: ScanEntry[]; total: number };
 
-/** Options de la carte « Options d'import » (IMP-30) : qualité si « Compresser les images » est cochée (IMP-20). */
-export type ImportOptions = { compressQuality: number | null; compressExisting: boolean };
+/** Format de « Convertir les images en » (IMP-21) ; JFIF = JPEG sous un autre nom. */
+export type ImageTarget = "jpg" | "jfif" | "png" | "webp" | "avif";
+/** Réponse de la pop-in des paires originaux + versions compressées (IMP-64). */
+export type PairChoice = "both" | "originals" | "versions";
+/** Options de la carte « Options d'import » (IMP-30) envoyées au lancement de l'import. */
+export type ImportOptions = {
+  /** Qualité si « Compresser les images » est cochée (IMP-20). */
+  compressQuality: number | null;
+  convertTo: ImageTarget | null;
+  /** Réponse « Compresser aussi » / « Convertir aussi » (IMP-60). */
+  processExisting: boolean;
+  /** « Supprimer les originaux », confirmé deux fois (IMP-28). */
+  deleteOriginals: boolean;
+  pairs: PairChoice;
+  /** « Supprimer du stockage » de la pop-in des paires, confirmé deux fois (IMP-64). */
+  deletePairFiles: boolean;
+};
 
 /** Photo complète de l'état de l'import (événement `import-state`). */
 export type ImportSnapshot = {
@@ -252,8 +274,11 @@ export const api = {
   scanPaths: (paths: string[], recursive: boolean) => invoke<void>("scan_paths", { paths, recursive }),
   supportedExtensions: () => invoke<string[]>("supported_extensions"),
   startImport: (defaultTags: NewTag[], options: ImportOptions) => invoke<void>("start_import", { defaultTags, options }),
-  /** Médias de la liste déjà dans la bibliothèque au même endroit, jamais compressés, par type (pop-in IMP-60). */
-  countCompressibleExisting: () => invoke<KindCounts>("count_compressible_existing"),
+  /** Médias de la liste déjà dans la bibliothèque au même endroit, jamais traités, par type (pop-in IMP-60). */
+  countCompressibleExisting: (compressQuality: number | null, convertTo: ImageTarget | null) =>
+    invoke<KindCounts>("count_compressible_existing", { compressQuality, convertTo }),
+  /** Paires originaux + versions compressées de la liste (pop-in IMP-64). */
+  countPairs: () => invoke<number>("count_pairs"),
   cancelImport: () => invoke<void>("cancel_import"),
   /** Liste des fichiers avant l'import, par pages (IMP-10 à IMP-12) ; retirer, tout vider (IMP-51, CTX-14). */
   scanFiles: (offset: number, limit: number) => invoke<ScanPage>("scan_files", { offset, limit }),

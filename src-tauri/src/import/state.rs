@@ -28,8 +28,15 @@ pub struct Progress {
     /// Compression des images (IMP-20) : versions compressées gardées ; originaux gardés faute d'au moins 5 % de
     /// gain ; compressions impossibles (original importé tel quel).
     pub compressed: u64,
+    /// Converties dans le format choisi (IMP-21).
+    pub converted: u64,
     pub not_smaller: u64,
     pub compress_failed: u64,
+    /// Fichiers écartés d'une paire original + version (IMP-64).
+    pub set_aside: u64,
+    /// Fichiers effacés du disque (originaux, IMP-28 ; fichiers écartés, IMP-64) et effacements impossibles.
+    pub deleted: u64,
+    pub delete_failed: u64,
     pub current_file: Option<String>,
 }
 

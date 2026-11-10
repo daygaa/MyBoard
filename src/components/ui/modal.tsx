@@ -36,7 +36,7 @@ type Props = {
   danger?: boolean;
   /** Faux : seule une réponse par ses boutons la ferme (ni croix, ni Échap, ni clic sur le fond). */
   dismissible?: boolean;
-  /** Plus large, pour une liste (restauration des données, DEL-05). */
+  /** Plus large, pour une liste (restauration des données, DEL-05) ou trois longs boutons (pop-in des paires, IMP-64). */
   wide?: boolean;
   /** Un peu plus large qu'une pop-in ordinaire : trois boutons au texte long (pop-in « Compresser aussi », IMP-60). */
   size?: "lg";

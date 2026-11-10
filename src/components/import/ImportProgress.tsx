@@ -37,16 +37,21 @@ function resultLine(p: ProgressData, r: ImportResult): string {
   return `${start} — ${parts.join(", ")} (${duration})`;
 }
 
-/** « 12 images compressées · 3 gardées telles quelles (moins de 5 % de gain) · 1 compression impossible… ». */
+/** « 12 images compressées · 4 converties · 3 gardées telles quelles (moins de 5 % de gain) · 2 originaux supprimés… ». */
 function compressionLine(p: ProgressData): string {
   const parts = [];
   if (p.compressed > 0) parts.push(`${formatNumber(p.compressed)} ${plural(p.compressed, "image compressée", "images compressées")}`);
+  if (p.converted > 0) parts.push(`${formatNumber(p.converted)} ${plural(p.converted, "image convertie", "images converties")}`);
   if (p.notSmaller > 0)
     parts.push(`${formatNumber(p.notSmaller)} ${plural(p.notSmaller, "gardée telle quelle", "gardées telles quelles")} (moins de 5 % de gain)`);
   if (p.compressFailed > 0)
     parts.push(
       `${formatNumber(p.compressFailed)} ${plural(p.compressFailed, "compression impossible", "compressions impossibles")} (${plural(p.compressFailed, "importée", "importées")} sans compression)`,
     );
+  if (p.setAside > 0) parts.push(`${formatNumber(p.setAside)} ${plural(p.setAside, "fichier écarté", "fichiers écartés")} (paires)`);
+  if (p.deleted > 0) parts.push(`${formatNumber(p.deleted)} ${plural(p.deleted, "fichier supprimé", "fichiers supprimés")} du disque`);
+  if (p.deleteFailed > 0)
+    parts.push(`${formatNumber(p.deleteFailed)} ${plural(p.deleteFailed, "suppression impossible", "suppressions impossibles")}`);
   return parts.join(" · ");
 }
 
@@ -84,7 +89,7 @@ export function ImportProgress({ progress, result }: { progress: ProgressData; r
           : resultLine(progress, result)}
       </p>
 
-      {progress.compressed + progress.notSmaller + progress.compressFailed > 0 && (
+      {compressionLine(progress) !== "" && (
         <p data-zone="import.compression" className="-mt-1.5 text-[11px] text-muted-foreground">
           {compressionLine(progress)}
         </p>

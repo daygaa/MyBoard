@@ -1,81 +1,54 @@
-//! Compression des images à l'import (IMP-20, IMP-27, IMP-60, D-058) : la version compressée est écrite À CÔTÉ
-//! de l'original (« photo (compressé).jpg »), avec ses dates ; l'original n'est jamais modifié. Elle n'est gardée que
-//! si elle est au moins 5 % plus légère.
+//! Écriture d'une version compressée ou convertie À CÔTÉ de l'original (IMP-20, IMP-21, IMP-27, IMP-65, D-058), avec
+//! ses dates ; l'original n'est jamais modifié (il n'est effacé que si « Supprimer les originaux » est cochée, IMP-28,
+//! après coup). Version gardée seulement si elle est au moins 5 % plus légère. Noms (réponses du 10/11) : compressée
+//! « photo_c.jpg » ; convertie « photo.webp » ; convertie et compressée « photo_c.webp » ; nom pris : « photo_c (1).webp »…
 
 use std::fs::{File, FileTimes, Metadata, OpenOptions};
 use std::io::{ErrorKind, Read, Write};
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, bail};
-use serde::Deserialize;
 
-/// Options de compression choisies pour l'import.
-#[derive(Clone, Copy)]
-pub struct Compress {
-    /// Qualité 20 à 95 (IMP-20).
-    pub quality: u8,
-    /// Réponse « Compresser aussi » de la pop-in : images déjà dans la bibliothèque au même endroit (IMP-60).
-    pub existing: bool,
-}
+use super::plan::Action;
 
-/// Options de la carte « Options d'import » (IMP-30) envoyées au lancement de l'import.
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ImportOptions {
-    /// Qualité si « Compresser les images » est cochée.
-    pub compress_quality: Option<u8>,
-    /// Réponse « Compresser aussi » de la pop-in (IMP-60).
-    pub compress_existing: bool,
-}
-
-impl ImportOptions {
-    pub fn compress(&self) -> Option<Compress> {
-        self.compress_quality.map(|q| Compress { quality: q.clamp(20, 95), existing: self.compress_existing })
-    }
-}
-
-/// Ce que la compression a donné pour un fichier (compté dans la progression).
+/// Ce que le traitement a donné pour un fichier (compté dans la progression).
 #[derive(Clone, Copy)]
 pub enum Squeeze {
-    Done,
+    Compressed,
+    Converted,
     /// Pas au moins 5 % plus légère : l'original est gardé.
     NotSmaller,
     /// Lecture, encodage ou écriture impossible : l'original est importé tel quel.
     Failed,
 }
 
-/// Version compressée prête à écrire.
+/// Version prête à écrire.
 pub struct Encoded {
     pub bytes: Vec<u8>,
     pub hash: String,
 }
 
-const SUFFIX: &str = " (compressé";
-
-/// JPEG ou WebP, et pas déjà compressé par MyBoard (le recompresser abîmerait encore l'image).
-pub fn eligible(path: &Path, ext: &str) -> bool {
-    matches!(ext, "jpg" | "jpeg" | "jpe" | "jfif" | "webp") && !already_compressed(path)
+/// GIF ou WebP animé : jamais compressé ni converti (WebP : 21 premiers octets ; GIF : deux images au moins).
+pub fn animated(path: &Path) -> bool {
+    let ext = path.extension().map(|e| e.to_string_lossy().to_lowercase()).unwrap_or_default();
+    match ext.as_str() {
+        "webp" => {
+            let mut head = [0u8; 21];
+            File::open(path).and_then(|mut f| f.read_exact(&mut head)).is_ok() && super::encode::animated_webp(&head)
+        }
+        "gif" => std::fs::read(path).ok().and_then(|b| {
+            use image::AnimationDecoder;
+            let frames = image::codecs::gif::GifDecoder::new(std::io::Cursor::new(b)).ok()?.into_frames().take(2).count();
+            Some(frames > 1)
+        }) == Some(true),
+        _ => false,
+    }
 }
 
-/// WebP animé (drapeau de l'en-tête VP8X, lu dans les 21 premiers octets) : jamais compressé.
-pub fn animated_webp(path: &Path) -> bool {
-    let mut head = [0u8; 21];
-    File::open(path).and_then(|mut f| f.read_exact(&mut head)).is_ok() && &head[12..16] == b"VP8X" && head[20] & 0x02 != 0
-}
-
-/// Nom « … (compressé) » ou « … (compressé 2) ».
-fn already_compressed(path: &Path) -> bool {
-    let stem = path.file_stem().map(|s| s.to_string_lossy()).unwrap_or_default();
-    let Some(rest) = stem.strip_suffix(')').and_then(|s| s.rfind(SUFFIX).map(|i| &s[i + SUFFIX.len()..])) else {
-        return false;
-    };
-    rest.is_empty() || rest.strip_prefix(' ').is_some_and(|n| !n.is_empty() && n.bytes().all(|b| b.is_ascii_digit()))
-}
-
-/// Réencode le fichier ; `Ok(None)` : pas au moins 5 % plus léger, ou image à ne jamais compresser (`animated`).
-pub fn encode(path: &Path, quality: u8, animated: &mut bool) -> anyhow::Result<Option<Encoded>> {
+/// Réencode le fichier ; `Ok(None)` : pas au moins 5 % plus léger, ou image animée (`animated`).
+pub fn encode(path: &Path, action: Action, animated: &mut bool) -> anyhow::Result<Option<Encoded>> {
     let original = std::fs::read(path)?;
-    let Some(bytes) = super::encode::reencode(&original, quality)? else {
+    let Some(bytes) = super::encode::reencode(&original, action)? else {
         *animated = true;
         return Ok(None);
     };
@@ -86,10 +59,18 @@ pub fn encode(path: &Path, quality: u8, animated: &mut bool) -> anyhow::Result<O
     Ok(Some(Encoded { bytes, hash }))
 }
 
-/// Écrit la version compressée à côté de l'original, sous un nom libre, avec les dates de l'original (le tri
-/// « Date de création » utilise celle du fichier). D'abord sous un nom provisoire : jamais de fichier à moitié écrit.
-pub fn write_beside(original: &Path, meta: &Metadata, bytes: &[u8]) -> anyhow::Result<PathBuf> {
-    let target = free_name(original)?;
+/// Extension et suffixe « _c » du fichier écrit pour cette action.
+pub fn naming(action: Action, original: &Path) -> (String, bool) {
+    match action {
+        Action::Compress(_) => (original.extension().map(|e| e.to_string_lossy().into_owned()).unwrap_or_default(), true),
+        Action::Convert { target, compressed, .. } => (target.ext().to_owned(), compressed),
+    }
+}
+
+/// Écrit la version à côté de l'original, sous un nom libre, avec les dates de l'original (le tri « Date de création »
+/// utilise celle du fichier). D'abord sous un nom provisoire : jamais de fichier à moitié écrit.
+pub fn write_beside(original: &Path, meta: &Metadata, bytes: &[u8], ext: &str, suffix: bool) -> anyhow::Result<PathBuf> {
+    let target = free_name(original, ext, suffix)?;
     let tmp = target.with_file_name(format!("{}.myboard-tmp", target.file_name().unwrap_or_default().to_string_lossy()));
     // Reste d'une écriture interrompue de MyBoard (même nom provisoire) : remplacé.
     let _ = std::fs::remove_file(&tmp);
@@ -102,7 +83,7 @@ pub fn write_beside(original: &Path, meta: &Metadata, bytes: &[u8]) -> anyhow::R
     })();
     if let Err(e) = written {
         let _ = std::fs::remove_file(&tmp);
-        return Err(e.context("écriture du fichier compressé"));
+        return Err(e.context("écriture de la nouvelle version"));
     }
     // Un lien échoue si le nom a été pris entre-temps, contrairement à un renommage qui écraserait le fichier.
     let placed = match std::fs::hard_link(&tmp, &target) {
@@ -117,18 +98,27 @@ pub fn write_beside(original: &Path, meta: &Metadata, bytes: &[u8]) -> anyhow::R
     Ok(target)
 }
 
-/// « photo (compressé).jpg », sinon « photo (compressé 2).jpg »… (même extension que l'original).
-fn free_name(original: &Path) -> anyhow::Result<PathBuf> {
+/// « photo_c.jpg » (ou « photo.webp » sans suffixe), sinon « photo_c (1).jpg », « photo_c (2).jpg »…
+fn free_name(original: &Path, ext: &str, suffix: bool) -> anyhow::Result<PathBuf> {
     let stem = original.file_stem().context("nom de fichier vide")?.to_string_lossy();
-    let ext = original.extension().map(|e| format!(".{}", e.to_string_lossy())).unwrap_or_default();
+    let dot = if ext.is_empty() { String::new() } else { format!(".{ext}") };
+    let first = original.with_file_name(format!("{stem}{}{dot}", if suffix { "_c" } else { "" }));
+    if free(&first, original) {
+        return Ok(first);
+    }
     for n in 1..1000 {
-        let label = if n == 1 { String::new() } else { format!(" {n}") };
-        let candidate = original.with_file_name(format!("{stem}{SUFFIX}{label}){ext}"));
-        if std::fs::symlink_metadata(&candidate).is_err() {
+        let candidate = original.with_file_name(format!("{stem}_c ({n}){dot}"));
+        if free(&candidate, original) {
             return Ok(candidate);
         }
     }
-    bail!("aucun nom libre pour la version compressée")
+    bail!("aucun nom libre pour la nouvelle version")
+}
+
+/// Nom libre, et jamais celui de l'original (Windows ne distingue pas les majuscules).
+fn free(candidate: &Path, original: &Path) -> bool {
+    std::fs::symlink_metadata(candidate).is_err()
+        && !candidate.to_string_lossy().eq_ignore_ascii_case(&original.to_string_lossy())
 }
 
 fn copy_times(meta: &Metadata, file: &File) -> std::io::Result<()> {

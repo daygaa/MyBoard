@@ -1746,3 +1746,28 @@ son numéro.
 
 **Rotation EXIF (LIB-18).** Les miniatures et les dimensions suivent ce que montre la visionneuse : WebView2 applique la
 rotation EXIF d'un JPEG mais pas celle d'un WebP (mesuré le 10/11) ; MyBoard ne l'applique donc plus pour un WebP.
+
+## D-063 — Conversion des images, PNG, suppression des originaux, paires (10/11/2026)
+
+**Contexte.** Lot 4 de la phase 4 (IMP-21, IMP-28, IMP-47, IMP-62, IMP-64, IMP-65), réponses de l'utilisateur du 10/11
+(SPEC).
+
+**Choix.**
+- Plan (`import/plan.rs`) : pour chaque image, rien, « compresser » (même format : JPEG, WebP, PNG) ou « convertir »
+  (autre format). Format choisi = format de l'image : seulement la compression. Qualité de la conversion : celle du
+  curseur si « Compresser » est cochée, sinon 90.
+- Conversion (`import/convert.rs`) : image décodée avec son EXIF et son profil de couleurs, tournée comme MyBoard
+  l'affiche (rotation EXIF, sauf WebP : LIB-18), EXIF recopié remis « droit ». JPG : transparence sur fond blanc. WebP :
+  avec perte, conteneur VP8X. AVIF : ffmpeg déjà installé (libaom, `-still-picture`, transparence dans un second flux),
+  écrit dans un fichier provisoire ; ffmpeg n'écrit ni l'EXIF ni le profil de couleurs.
+- PNG (`import/png_out.rs`, IMP-62) : optimisation sans perte par oxipng (préréglage 2, 15 s au plus), 16 → 8 bits à 75
+  ou moins, 256 couleurs (NeuQuant de `color_quant`, PNG indexé écrit par le crate `png`) à 50 ou moins.
+- Noms (IMP-65) : compressée « photo_c.jpg », convertie « photo.webp », convertie et compressée « photo_c.webp », nom pris
+  « photo_c (1).webp ». Déjà traitée : seulement d'après la bibliothèque (empreinte de l'original).
+- Suppression des originaux (IMP-28) et des fichiers écartés d'une paire (IMP-64) : notés pendant l'import, effacés
+  définitivement juste après la validation du lot qui ne les utilise plus, jamais s'ils sont encore le fichier d'un
+  média. Case non retenue d'une ouverture à l'autre (comme DEL-04).
+- Paires (`import/pairs.rs`) : « X_c » ou « X_c (n) » et « X » dans le même dossier, mêmes dimensions (en-tête), aucun des
+  deux dans la bibliothèque ; une version reconnue n'est jamais retraitée ; « Supprimer les originaux » : la version
+  retient l'empreinte de l'original.
+- Déroulement de l'import déplacé dans `import/run.rs` (fichiers courts).

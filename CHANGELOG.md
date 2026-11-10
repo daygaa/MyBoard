@@ -3,6 +3,27 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Phase 4, lot 4 : conversion des images, PNG, suppression des originaux, paires (10/11/2026) — Backup v118
+
+SPEC : IMP-21, IMP-28, IMP-47, IMP-62, IMP-64, IMP-65 `[~]` ; IMP-30 complété. Décision D-063.
+
+- Carte « Options d'import » : « Convertir les images en » (JPG, JFIF, PNG, WebP, AVIF) et « Supprimer les originaux »,
+  chacune avec son « ⓘ ».
+- Conversion à côté de l'original, gardée si au moins 5 % plus légère ; EXIF et profil de couleurs gardés (sauf AVIF) ;
+  transparence sur fond blanc en JPG ; le média prend sa vraie extension.
+- PNG compressés : sans perte, 16 → 8 bits à 75 ou moins, 256 couleurs à 50 ou moins.
+- Noms « photo_c.jpg », « photo_c (1).jpg »…
+- « Supprimer les originaux » : deux confirmations ; effacement définitif après l'enregistrement de la nouvelle version.
+- Originaux ET versions compressées réimportés ensemble : pop-in « Importer les deux » · « Supprimer les doublons » ·
+  « Supprimer les originaux », case « Supprimer du stockage » et 2e confirmation rouge.
+- « Compresser aussi » devient « Convertir aussi » quand la conversion est cochée.
+
+Vérifié dans la version compilée, sur des copies neuves de la base d'essai et des copies de fichiers : conversion WebP
+(5 converties, 1 compressée, WebP animé laissé, EXIF et profil relus), règles PNG (85, 70, 40), JPG sur fond blanc
+(3 149 pixels transparents devenus blancs), AVIF, nom déjà pris, suppression des originaux (3 copies), paires (11,
+« Supprimer les originaux », « Supprimer les doublons » + stockage, doubles confirmations), « Convertir aussi »
+(mêmes fiches, extension webp), marges des pop-ins ; zéro erreur `tsc` et `clippy`.
+
 ## Phase 4, lot 3 : corrections du 10/11 (10/11/2026) — Backup v117
 
 SPEC : IMP-63, SRCH-30, VIEW-57, LIB-18 (nouveaux, défauts), IMP-60 `[~]` ; IMP-62 décidé (lot 4) ; marques posées.

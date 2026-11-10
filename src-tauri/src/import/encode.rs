@@ -1,21 +1,37 @@
 //! Réencodage d'une image à la qualité choisie (IMP-20) : JPEG et WebP fixes. La résolution ne change pas (IMP-25)
 //! et les pixels ne sont pas tournés : les informations de la photo (EXIF, rotation comprise), le XMP, l'IPTC et
-//! le profil de couleurs de l'original sont recopiés tels quels.
+//! le profil de couleurs de l'original sont recopiés tels quels. PNG : règles d'IMP-62 (`png_out.rs`). Autre format
+//! choisi : conversion (`convert.rs`, IMP-21).
 
 use std::io::Cursor;
 
 use anyhow::{Context, bail};
 use image::{DynamicImage, ImageReader};
 
-/// Contenu réencodé ; `None` : image à ne jamais compresser (WebP animé : l'animation serait perdue).
-pub fn reencode(bytes: &[u8], quality: u8) -> anyhow::Result<Option<Vec<u8>>> {
+use super::plan::Action;
+
+/// Contenu réencodé ; `None` : image à ne jamais traiter (GIF ou WebP animé : l'animation serait perdue).
+pub fn reencode(bytes: &[u8], action: Action) -> anyhow::Result<Option<Vec<u8>>> {
+    let quality = match action {
+        Action::Convert { target, quality, compressed } => return super::convert::convert(bytes, target, quality, compressed),
+        Action::Compress(quality) => quality,
+    };
     if bytes.starts_with(&[0xFF, 0xD8]) {
         return jpeg(bytes, quality).map(Some);
     }
     if bytes.len() > 12 && &bytes[..4] == b"RIFF" && &bytes[8..12] == b"WEBP" {
         return webp(bytes, quality);
     }
-    bail!("contenu ni JPEG ni WebP")
+    if bytes.starts_with(b"\x89PNG") {
+        let Some(source) = super::convert::read(bytes)? else { return Ok(None) };
+        return super::png_out::encode(source.img, &source.meta, Some(quality)).map(Some);
+    }
+    bail!("contenu ni JPEG, ni WebP, ni PNG")
+}
+
+/// WebP animé (drapeau « animation » de l'en-tête VP8X).
+pub fn animated_webp(bytes: &[u8]) -> bool {
+    bytes.len() > 20 && &bytes[12..16] == b"VP8X" && bytes[20] & 0x02 != 0
 }
 
 fn decode(bytes: &[u8]) -> anyhow::Result<DynamicImage> {
@@ -116,7 +132,7 @@ fn riff_chunks(bytes: &[u8]) -> Vec<([u8; 4], &[u8])> {
 }
 
 /// WebP « étendu » (en-tête VP8X) avec le profil de couleurs, l'EXIF et le XMP de l'original.
-fn with_meta(encoded: &[u8], w: u32, h: u32, icc: Option<&[u8]>, exif: Option<&[u8]>, xmp: Option<&[u8]>) -> Vec<u8> {
+pub fn with_meta(encoded: &[u8], w: u32, h: u32, icc: Option<&[u8]>, exif: Option<&[u8]>, xmp: Option<&[u8]>) -> Vec<u8> {
     if icc.is_none() && exif.is_none() && xmp.is_none() {
         return encoded.to_vec();
     }

@@ -32,6 +32,12 @@ webp = "0.3"
 # Compression des JPEG à l'import (IMP-20) : recopie de tous les segments d'informations de la photo (EXIF, XMP, IPTC,
 # profil de couleurs), que l'encodeur du crate `image` ne sait pas tous écrire.
 jpeg-encoder = "0.6"
+# PNG (IMP-62) : optimisation sans perte (oxipng, sans ses options de ligne de commande ni fils parallèles) ; images à
+# 256 couleurs écrites avec le crate `png` (celui du crate `image`), couleurs choisies par `color_quant` (déjà utilisé
+# par `image` pour les GIF).
+oxipng = { version = "9", default-features = false }
+png = "0.18"
+color_quant = "1.1"
 # Dimensions lues dans l'en-tête du fichier, sans le décoder.
 imagesize = "0.15"
 # Recherche de ffmpeg dans le PATH (gère les extensions .exe de Windows).

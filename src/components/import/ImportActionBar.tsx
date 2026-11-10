@@ -1,21 +1,19 @@
 // Barre d'actions de l'import (apparence v8) : état, bouton Importer, bouton Arrêter
 // (IMP-42), progression intégrée (IMP-40). Le bouton Importer reste bloqué après un
 // import terminé, jusqu'au choix d'un nouveau dossier (IMP-44). Elle reste collée sous l'en-tête quand la page
-// défile (IMP-56). Avec « Compresser les images », la pop-in « Compresser aussi » peut s'ouvrir avant (IMP-60).
+// défile (IMP-56). Avant de démarrer, les pop-ins des paires, de « Compresser aussi » et de la suppression des
+// originaux peuvent s'ouvrir (useImportStart.tsx : IMP-64, IMP-60, IMP-28).
 
-import { useState } from "react";
 import { Eye, Loader2, Play, Square, Upload } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { useStats } from "@/hooks/useLibraryData";
 import { api, type ImportSnapshot } from "@/lib/api";
 import { formatNumber, plural } from "@/lib/format";
-import type { KindCounts } from "@/lib/mediaWords";
 import { useImport } from "@/stores/import";
 import { goHome } from "@/stores/search";
-import { useViewer } from "@/stores/viewer";
-import { CompressExistingDialog } from "./CompressExistingDialog";
 import { ImportProgress } from "./ImportProgress";
+import { useImportStart } from "./useImportStart";
 
 function StatusText({ snapshot }: { snapshot: ImportSnapshot | null }) {
   const scan = snapshot?.scan;
@@ -63,28 +61,7 @@ export function ImportActionBar() {
   const phase = snapshot?.phase ?? "idle";
   const total = snapshot?.scan?.total ?? 0;
   const canImport = phase === "ready" && total > 0;
-  // Médias déjà dans la bibliothèque à proposer de compresser aussi, par type (IMP-60) ; vérification en cours.
-  const [ask, setAsk] = useState<KindCounts | null>(null);
-  const [checking, setChecking] = useState(false);
-
-  const launch = (compressExisting: boolean) => {
-    setAsk(null);
-    const { defaultTags, compress, quality } = useImport.getState();
-    void api.startImport(defaultTags, { compressQuality: compress ? quality : null, compressExisting });
-  };
-  const start = async () => {
-    if (!useImport.getState().compress) return launch(false);
-    setChecking(true);
-    try {
-      const counts = await api.countCompressibleExisting();
-      if (counts.images + counts.videos + counts.audio + counts.documents > 0) setAsk(counts);
-      else launch(false);
-    } catch (error) {
-      useViewer.getState().setError({ action: "Importer", code: null, message: String(error) });
-    } finally {
-      setChecking(false);
-    }
-  };
+  const { start, checking, dialog } = useImportStart();
 
   return (
     <div
@@ -130,7 +107,7 @@ export function ImportActionBar() {
         <ImportProgress progress={snapshot.progress} result={snapshot.result} />
       )}
       <ThumbsPending />
-      {ask !== null && <CompressExistingDialog counts={ask} onAnswer={launch} onCancel={() => setAsk(null)} />}
+      {dialog}
     </div>
   );
 }
