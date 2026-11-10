@@ -2,7 +2,9 @@
 // (« photo.jpg » et « photo_c.jpg »), aucun des deux dans la bibliothèque. « Importer les deux » ; « Supprimer les
 // doublons » : seuls les originaux sont importés ; « Supprimer les originaux » : seules les versions. Case « Supprimer
 // du stockage » (décochée à chaque ouverture) : les fichiers écartés sont aussi effacés du disque, après une 2e pop-in
-// à bordure rouge, définitivement (comme DEL-04). Échap ou la croix : rien n'est importé. Entrée : « Importer les deux ».
+// à bordure rouge, définitivement (comme DEL-04) ; cochée, la pop-in prend le style des suppressions (bordure et boutons
+// « Supprimer… » rouges). Échap ou la croix : rien n'est importé. Pas de raccourci Entrée : ce n'est pas un simple oui /
+// non (demande du 10/11).
 
 import { useState } from "react";
 
@@ -13,6 +15,10 @@ import { Modal } from "@/components/ui/modal";
 import type { PairChoice } from "@/lib/api";
 import { formatNumber } from "@/lib/format";
 import { keepQuoted } from "@/lib/keepWords";
+
+/** Boutons rouges des suppressions (comme DeleteDialog, DEL-04). */
+const RED = "bg-destructive text-white hover:bg-destructive/90";
+const PLAIN = "border-border text-foreground hover:bg-secondary hover:text-foreground";
 
 type Props = {
   count: number;
@@ -48,9 +54,9 @@ export function PairsDialog({ count, onAnswer, onCancel }: Props) {
     <Modal
       open
       wide
+      danger={deleteFiles}
       zone="import.paires"
       onClose={onCancel}
-      onEnter={() => onAnswer("both", false)}
       title="Originaux et versions compressées"
       description={
         <>
@@ -66,13 +72,13 @@ export function PairsDialog({ count, onAnswer, onCancel }: Props) {
       }
       footer={
         <>
-          <Button data-zone="import.paires.les-deux" variant="outline" onClick={() => choose("both")} className="border-border text-foreground hover:bg-secondary hover:text-foreground">
+          <Button data-zone="import.paires.les-deux" variant="outline" onClick={() => choose("both")} className={PLAIN}>
             Importer les deux
           </Button>
-          <Button data-zone="import.paires.doublons" variant="outline" onClick={() => choose("originals")} className="border-border text-foreground hover:bg-secondary hover:text-foreground">
+          <Button data-zone="import.paires.doublons" variant={deleteFiles ? "default" : "outline"} onClick={() => choose("originals")} className={deleteFiles ? RED : PLAIN}>
             Supprimer les doublons
           </Button>
-          <Button data-zone="import.paires.originaux" onClick={() => choose("versions")} className="bg-[#d9a94e] text-[#1a1408] hover:bg-[#e3b75f]">
+          <Button data-zone="import.paires.originaux" onClick={() => choose("versions")} className={deleteFiles ? RED : "bg-[#d9a94e] text-[#1a1408] hover:bg-[#e3b75f]"}>
             Supprimer les originaux
           </Button>
         </>

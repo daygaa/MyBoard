@@ -1,20 +1,26 @@
 // Menu du format de « Convertir les images en » (IMP-21, apparence v8 : « JPG · DÉFAUT »). JFIF = JPEG sous un autre
-// nom ; pas de HEIF (ffmpeg ne sait pas l'écrire, Windows demande une extension payante).
+// nom ; pas de HEIF (ffmpeg ne sait pas l'écrire, Windows demande une extension payante). À droite de chaque format,
+// un « ⓘ » : qualité, vitesse, compatibilité (IMP-66, textes choisis par l'utilisateur le 10/11).
 
 import { useState } from "react";
 import { ChevronDown } from "lucide-react";
 
+import { InfoTip } from "@/components/ui/info-tip";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import type { ImageTarget } from "@/lib/api";
 import { useEscape } from "@/lib/escape";
 import { cn } from "@/lib/utils";
 
-const FORMATS: { value: ImageTarget; label: string }[] = [
-  { value: "jpg", label: "JPG" },
-  { value: "jfif", label: "JFIF" },
-  { value: "png", label: "PNG" },
-  { value: "webp", label: "WebP" },
-  { value: "avif", label: "AVIF" },
+const FORMATS: { value: ImageTarget; label: string; info: string[] }[] = [
+  { value: "jpg", label: "JPG", info: ["Qualité : bonne", "Vitesse : très rapide", "Compatibilité : maximale"] },
+  { value: "jfif", label: "JFIF", info: ["Qualité : bonne", "Vitesse : très rapide", "Compatibilité : moyenne"] },
+  {
+    value: "png",
+    label: "PNG",
+    info: ["Qualité : lossless + transparence conservée", "Vitesse : rapide", "Compatibilité : maximale", "Inconvénient : poids élevé"],
+  },
+  { value: "webp", label: "WebP", info: ["Qualité : très bonne et poids léger", "Vitesse : rapide", "Compatibilité : moyenne"] },
+  { value: "avif", label: "AVIF", info: ["Qualité : excellente et poids léger", "Vitesse : lente", "Compatibilité : mauvaise"] },
 ];
 
 function Label({ value }: { value: ImageTarget }) {
@@ -46,8 +52,15 @@ export function FormatSelect({ value, onChange, disabled }: { value: ImageTarget
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="z-[130] min-w-[var(--radix-dropdown-menu-trigger-width)] border-border bg-popover text-popover-foreground">
         {FORMATS.map((f) => (
-          <DropdownMenuItem key={f.value} onSelect={() => onChange(f.value)}>
+          <DropdownMenuItem key={f.value} onSelect={() => onChange(f.value)} className="justify-between gap-6">
             <Label value={f.value} />
+            <InfoTip zone={`import.options.format.${f.value}.info`}>
+              {f.info.map((line) => (
+                <span key={line} className="block whitespace-nowrap">
+                  {line}
+                </span>
+              ))}
+            </InfoTip>
           </DropdownMenuItem>
         ))}
       </DropdownMenuContent>

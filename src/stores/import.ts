@@ -55,9 +55,10 @@ export const useImport = create<ImportState>()(
         set(finished ? { snapshot, defaultTags: [] } : { snapshot });
       },
       setRecursive: (recursive) => set({ recursive }),
-      setCompress: (compress) => set({ compress }),
+      // Sans compression ni conversion, « Supprimer les originaux » n'a pas de sens : décochée (et grisée, IMP-28).
+      setCompress: (compress) => set({ compress, deleteOriginals: get().deleteOriginals && (compress || get().convert) }),
       setQuality: (quality) => set({ quality: Math.min(QUALITY.max, Math.max(QUALITY.min, Math.round(quality))) }),
-      setConvert: (convert) => set({ convert }),
+      setConvert: (convert) => set({ convert, deleteOriginals: get().deleteOriginals && (convert || get().compress) }),
       setConvertTo: (convertTo) => set({ convertTo }),
       setDeleteOriginals: (deleteOriginals) => set({ deleteOriginals }),
       addDefaultTag: (tag) => {

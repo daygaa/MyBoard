@@ -111,10 +111,11 @@ export function OptionsCard() {
         </div>
 
         <div data-zone="import.options.suppression">
+          {/* Grisée sans compression ni conversion (demande du 10/11) ; utilisable aussi avec la bibliothèque gérée (LIB-02). */}
           <OptionRow
             zone="import.options.suppression"
             checked={s.deleteOriginals}
-            disabled={busy}
+            disabled={busy || !(s.compress || s.convert)}
             onChange={s.setDeleteOriginals}
             icon={<Trash2 className="h-4 w-4 text-rose-400" />}
             label="Supprimer les originaux"

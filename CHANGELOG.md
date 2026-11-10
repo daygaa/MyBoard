@@ -3,6 +3,17 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Phase 4, lot 4 : retouches (10/11/2026) — Backup v119
+
+SPEC : IMP-28, IMP-64, IMP-66 (nouveau) `[~]` ; IMP-67 et IMP-68 décidés (lot 4 bis) ; marques posées.
+
+- « Supprimer les originaux » grisée tant que ni la compression ni la conversion ne sont cochées.
+- Pop-in des paires : plus de raccourci Entrée ; avec « Supprimer du stockage », bordure et boutons de suppression rouges.
+- Menu des formats d'image : un « ⓘ » à droite de chaque format (qualité, vitesse, compatibilité).
+
+Vérifié dans la version compilée, sur une copie neuve de la base d'essai : état de la case selon les options, les 5
+bulles, Entrée sans effet, couleurs de la bordure et des boutons ; zéro erreur `tsc`.
+
 ## Phase 4, lot 4 : conversion des images, PNG, suppression des originaux, paires (10/11/2026) — Backup v118
 
 SPEC : IMP-21, IMP-28, IMP-47, IMP-62, IMP-64, IMP-65 `[~]` ; IMP-30 complété. Décision D-063.
