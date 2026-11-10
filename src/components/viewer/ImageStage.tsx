@@ -36,7 +36,7 @@ const FADE_MS = 150;
 export function ImageStage({ item, onClose, opening = false }: { item: MediaItem; onClose: () => void; opening?: boolean }) {
   const stageRef = useRef<HTMLDivElement>(null);
   // Copie décodée : prête à l'ouverture (affichée sans attendre), ou attendue.
-  const [bitmap, setBitmap] = useState(() => readyBitmap(item.id));
+  const [bitmap, setBitmap] = useState(() => readyBitmap(item.hash));
   const [copyPossible] = useState(() => canCopy(item));
   /** Scène de la copie : le canevas unique (copyCanvas.ts) y est posé ; copie à l'écran ou non. */
   const copyHost = useRef<HTMLDivElement>(null);
@@ -77,8 +77,8 @@ export function ImageStage({ item, onClose, opening = false }: { item: MediaItem
   }, [bitmap, covered, natural]);
   useEffect(() => {
     if (bitmap || !copyPossible || covered) return;
-    return whenReady(item.id, (b) => (b ? setBitmap(b) : setWantOriginal(true)));
-  }, [bitmap, copyPossible, covered, item.id]);
+    return whenReady(item.hash, (b) => (b ? setBitmap(b) : setWantOriginal(true)));
+  }, [bitmap, copyPossible, covered, item.hash]);
   useEffect(() => {
     if (wantOriginal) return;
     const timer = window.setTimeout(() => setWantOriginal(true), DWELL_MS);

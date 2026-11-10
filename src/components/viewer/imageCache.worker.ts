@@ -4,7 +4,7 @@
 // page sans être recopiée (« transfer »). Fichier lu directement sur le disque (`url`, D-053) ; s'il ne peut
 // pas l'être, par `media://` (`fallback`).
 
-type Job = { id: number; url: string; fallback: string; w: number; h: number };
+type Job = { id: string; url: string; fallback: string; w: number; h: number };
 
 async function read(url: string): Promise<Blob> {
   const response = await fetch(url);

@@ -50,11 +50,11 @@ export function CompressExistingDialog({
                 `${w.agree("échangé")} avec ${pick("sa", "leur")} version compressée)`,
             )}
           </span>
-          {/* Juste en dessous ; disparaît quand « Supprimer les originaux » est cochée (IMP-28, lot 4). */}
+          {/* Une ligne vide au-dessus (demande du 10/11) ; disparaît quand « Supprimer les originaux » est cochée (IMP-28, lot 4). */}
           {!deleteOriginals && (
             <span
               data-zone="import.compresser-aussi.originaux"
-              className="mt-1.5 block"
+              className="mt-5 block"
             >
               {pick(
                 "L'original sera toujours disponible à son emplacement actuel.",

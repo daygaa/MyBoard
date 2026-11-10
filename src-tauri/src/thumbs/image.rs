@@ -53,12 +53,14 @@ pub fn fit_of(img: DynamicImage, side: u32) -> anyhow::Result<Vec<u8>> {
 }
 
 /// Décode en se fiant au contenu (pas à l'extension) et applique la rotation EXIF :
-/// une photo de téléphone prise en portrait doit apparaître en portrait.
+/// une photo de téléphone prise en portrait doit apparaître en portrait. Sauf pour un WebP : la visionneuse
+/// (WebView2) ignore sa rotation EXIF (mesuré le 10/11) ; miniature et dimensions doivent montrer la même chose
+/// qu'elle (LIB-18).
 pub fn decode(bytes: &[u8]) -> anyhow::Result<DynamicImage> {
-    let mut decoder = ImageReader::new(Cursor::new(bytes))
-        .with_guessed_format()?
-        .into_decoder()?;
-    let orientation = decoder.orientation().unwrap_or(Orientation::NoTransforms);
+    let reader = ImageReader::new(Cursor::new(bytes)).with_guessed_format()?;
+    let webp = reader.format() == Some(image::ImageFormat::WebP);
+    let mut decoder = reader.into_decoder()?;
+    let orientation = if webp { Orientation::NoTransforms } else { decoder.orientation().unwrap_or(Orientation::NoTransforms) };
     let mut img = DynamicImage::from_decoder(decoder)?;
     img.apply_orientation(orientation);
     Ok(img)

@@ -10,7 +10,9 @@
 // suivaient pas une navigation rapide sur des fichiers de 25 Mo, 0,5 s de décodage chacun), l'image affichée
 // d'abord ; en passant à une autre image, les copies en cours d'images déjà dépassées sont abandonnées (le fil
 // est relancé) : l'image où l'on s'arrête n'attend pas qu'elles finissent (mesuré : 1,5 s au lieu de 0,6 s).
-// Taille comptée : largeur × hauteur × 4 octets. Fichier lu directement sur le disque par la fenêtre (D-053) :
+// Images rangées par leur empreinte (contenu), jamais par le numéro du média : un numéro libéré par une suppression
+// est repris par le média importé suivant, qui aurait affiché l'image d'un autre (retour du 10/11). Taille comptée :
+// largeur × hauteur × 4 octets. Fichier lu directement sur le disque par la fenêtre (D-053) :
 // 43 ms pour 28 Mo au lieu de 0,4 s par `media://`, qui bloquait aussi miniatures, tags et touches.
 
 import { directUrl, mediaUrl, type MediaItem } from "@/lib/api";
@@ -32,16 +34,16 @@ type Entry = { bitmap: ImageBitmap | null; bytes: number };
 type Job = { item: MediaItem; w: number; h: number };
 
 /** Ordre d'utilisation : la plus ancienne en premier (Map garde l'ordre d'ajout). */
-const entries = new Map<number, Entry>();
+const entries = new Map<string, Entry>();
 let total = 0;
 /** Images à préparer, dans l'ordre de priorité. */
 let queue: Job[] = [];
 /** Copies en cours dans le fil à part. */
-const busy = new Map<number, Job>();
-let keep = new Set<number>();
+const busy = new Map<string, Job>();
+let keep = new Set<string>();
 let worker: Worker | null = null;
 /** En attente d'une copie (scène affichée sans copie) : prévenues quand elle est prête, ou impossible (null). */
-const waiting = new Map<number, Set<(bitmap: ImageBitmap | null) => void>>();
+const waiting = new Map<string, Set<(bitmap: ImageBitmap | null) => void>>();
 
 /** Taille de la copie : l'image entière dans l'écran (en pixels réels), jamais agrandie. */
 function copySize(item: MediaItem): { w: number; h: number } | null {
@@ -63,12 +65,12 @@ const LIGHT_PIXELS = 3840 * 2160;
 const LIGHT_BYTES = 4 * 1024 * 1024;
 export const isLight = (item: MediaItem) => (item.width ?? 0) * (item.height ?? 0) <= LIGHT_PIXELS && item.size <= LIGHT_BYTES;
 
-function notify(id: number, bitmap: ImageBitmap | null) {
+function notify(id: string, bitmap: ImageBitmap | null) {
   for (const cb of waiting.get(id) ?? []) cb(bitmap);
   waiting.delete(id);
 }
 
-function forget(id: number) {
+function forget(id: string) {
   const e = entries.get(id);
   if (!e) return;
   entries.delete(id);
@@ -97,9 +99,9 @@ export function pauseCopies(on: boolean) {
 function next() {
   while (!paused && busy.size < PARALLEL && queue.length > 0) {
     const job = queue.shift()!;
-    busy.set(job.item.id, job);
+    busy.set(job.item.hash, job);
     worker ??= createWorker();
-    worker.postMessage({ id: job.item.id, url: directUrl(job.item), fallback: mediaUrl(job.item), w: job.w, h: job.h });
+    worker.postMessage({ id: job.item.hash, url: directUrl(job.item), fallback: mediaUrl(job.item), w: job.w, h: job.h });
   }
   clearTimeout(idleTimer);
   if (busy.size === 0 && queue.length === 0) idleTimer = setTimeout(stopWorker, IDLE_MS);
@@ -114,7 +116,7 @@ function stopWorker() {
 
 function createWorker(): Worker {
   const w = new Worker(new URL("./imageCache.worker.ts", import.meta.url), { type: "module" });
-  w.onmessage = (e: MessageEvent<{ id: number; bitmap: ImageBitmap | null }>) => {
+  w.onmessage = (e: MessageEvent<{ id: string; bitmap: ImageBitmap | null }>) => {
     const { id, bitmap } = e.data;
     busy.delete(id);
     if (++done >= RECYCLE) stopWorker();
@@ -134,10 +136,10 @@ function createWorker(): Worker {
 }
 
 /** Copie décodée prête d'une image (à la taille de l'écran), ou null. */
-export const readyBitmap = (id: number): ImageBitmap | null => entries.get(id)?.bitmap ?? null;
+export const readyBitmap = (id: string): ImageBitmap | null => entries.get(id)?.bitmap ?? null;
 
 /** Prévient quand la copie de cette image est prête (ou impossible : null) ; renvoie de quoi se désabonner. */
-export function whenReady(id: number, cb: (bitmap: ImageBitmap | null) => void): () => void {
+export function whenReady(id: string, cb: (bitmap: ImageBitmap | null) => void): () => void {
   const set = waiting.get(id) ?? new Set();
   set.add(cb);
   waiting.set(id, set);
@@ -150,35 +152,35 @@ export function whenReady(id: number, cb: (bitmap: ImageBitmap | null) => void):
  *  gardée) au lieu de relancer le fil à chaque appui. */
 export function warm(items: MediaItem[], burst = false) {
   if (burst) items = items.filter(isLight);
-  keep = new Set(items.map((i) => i.id));
+  keep = new Set(items.map((i) => i.hash));
   const fresh: Job[] = [];
   for (const item of items) {
-    const old = entries.get(item.id);
+    const old = entries.get(item.hash);
     if (old) {
       // Plus récente : remise en fin de liste ; en attente de préparation : reprend sa place dans la file.
-      entries.delete(item.id);
-      entries.set(item.id, old);
-      const queued = queue.find((j) => j.item.id === item.id);
+      entries.delete(item.hash);
+      entries.set(item.hash, old);
+      const queued = queue.find((j) => j.item.hash === item.hash);
       if (queued) fresh.push(queued);
       continue;
     }
     const size = copySize(item);
     if (!size) continue;
-    entries.set(item.id, { bitmap: null, bytes: size.w * size.h * 4 });
+    entries.set(item.hash, { bitmap: null, bytes: size.w * size.h * 4 });
     total += size.w * size.h * 4;
     fresh.push({ item, ...size });
   }
   // Ce qui n'est plus autour du média affiché attendra : oublié s'il n'était pas encore préparé.
-  for (const job of queue) if (!keep.has(job.item.id)) forget(job.item.id);
+  for (const job of queue) if (!keep.has(job.item.hash)) forget(job.item.hash);
   // Copies en cours d'images dépassées : abandonnées (fil relancé) ; celles encore utiles reprennent en tête.
   // Rafale : les copies d'images légères vont au bout.
-  const stale = [...busy.values()].filter((j) => !keep.has(j.item.id));
+  const stale = [...busy.values()].filter((j) => !keep.has(j.item.hash));
   if (stale.length > 0 && (!burst || stale.some((j) => !isLight(j.item)))) {
     worker?.terminate();
     worker = null;
     done = 0;
-    for (const j of stale) forget(j.item.id);
-    const still = [...busy.values()].filter((j) => keep.has(j.item.id));
+    for (const j of stale) forget(j.item.hash);
+    const still = [...busy.values()].filter((j) => keep.has(j.item.hash));
     busy.clear();
     fresh.unshift(...still.filter((j) => !fresh.includes(j)));
   }

@@ -266,10 +266,13 @@ fn run_import(app: &AppHandle, files: Vec<ScanFile>, default_tags: Vec<NewTag>, 
             in_batch += 1;
 
             if in_batch >= COMMIT_EVERY || last_commit.elapsed() >= COMMIT_INTERVAL {
-                conn.execute_batch("COMMIT; BEGIN IMMEDIATE")?;
+                // Miniatures réveillées AVANT de reprendre l'écriture : sinon l'import attendait leur file, tenue par
+                // un fil qui attendait la base, tenue par l'import (5 s perdues à chaque fois, IMP-63).
+                conn.execute_batch("COMMIT")?;
+                state.thumbs.wake();
+                conn.execute_batch("BEGIN IMMEDIATE")?;
                 in_batch = 0;
                 last_commit = Instant::now();
-                state.thumbs.wake();
                 if last_library.elapsed() >= LIBRARY_INTERVAL {
                     let _ = app.emit("library-changed", ());
                     last_library = Instant::now();

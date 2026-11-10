@@ -1731,3 +1731,18 @@ gardées ; image déjà dans la bibliothèque : même fiche, nouveau fichier, ap
   dans la bibliothèque, jamais compressées (sans les WebP animés).
 - Compression faite dans le fil de l'import, un fichier après l'autre (mesuré le 09/11 : 19 fichiers dont 8 compressés,
   photos de 12 Mpx comprises, en 17 s).
+
+## D-062 — Import, miniatures et visionneuse : trois règles tirées des défauts du 10/11 (10/11/2026)
+
+**Import et miniatures (IMP-63).** L'import tient l'écriture dans la base presque sans arrêt (lots validés toutes les
+300 ms ou 200 fichiers, puis reprise aussitôt). Il ne doit jamais attendre le service des miniatures pendant qu'il tient
+cette écriture : un fil des miniatures peut lui-même attendre la base (enregistrement d'une miniature) en tenant la file
+des miniatures. D'où l'ordre : valider, réveiller les miniatures, puis reprendre l'écriture. Mesuré : 21 fichiers d'essai
+avec compression en 2,8 s au lieu de 17,5 s ; « Arrêter » effectif en moins d'une seconde.
+
+**Mémoire d'images de la visionneuse (VIEW-57).** Rangée par empreinte du contenu, jamais par numéro de média : SQLite
+redonne le numéro d'un média supprimé au média importé suivant, et IMP-60 change le fichier d'une fiche sans changer
+son numéro.
+
+**Rotation EXIF (LIB-18).** Les miniatures et les dimensions suivent ce que montre la visionneuse : WebView2 applique la
+rotation EXIF d'un JPEG mais pas celle d'un WebP (mesuré le 10/11) ; MyBoard ne l'applique donc plus pour un WebP.

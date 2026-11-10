@@ -3,6 +3,23 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Phase 4, lot 3 : corrections du 10/11 (10/11/2026) — Backup v117
+
+SPEC : IMP-63, SRCH-30, VIEW-57, LIB-18 (nouveaux, défauts), IMP-60 `[~]` ; IMP-62 décidé (lot 4) ; marques posées.
+Décision D-062. Schéma de la base : 19.
+
+- Import avec compression : plus d'arrêts de 5 s (l'import attendait le service des miniatures, qui attendait
+  l'import) ; « Arrêter » agit en moins d'une seconde ; 21 fichiers d'essai en 2,8 s au lieu de 17,5 s.
+- Recherche par nom : un fichier renommé par la compression (« … (compressé) ») est trouvé aussitôt.
+- Visionneuse : plus jamais l'image d'un autre média à l'ouverture (images gardées rangées par contenu).
+- WebP avec rotation EXIF : miniature et dimensions comme la visionneuse (rotation ignorée, comme WebView2).
+- Pop-in « Compresser aussi » : une ligne vide avant « Les originaux seront toujours disponibles… ».
+
+Vérifié dans la version compilée, sur des copies neuves de la base d'essai : « Arrêter » (clic et commande) pendant
+une compression ; recherche « compressé » avant et après « Compresser aussi » ; dimensions du WebP ; numéro d'un média
+supprimé repris par un autre fichier, visionneuse ouverte à 80, 400 et 1 500 ms ; écart de 20 px dans la pop-in ; zéro
+erreur `tsc` et `clippy`.
+
 ## Phase 4, lot 3 : retouches (10/11/2026) — Backup v116
 
 SPEC : IMP-61 (nouveau, défaut), IMP-30, IMP-59, IMP-60 `[~]` ; IMP-62 (nouveau) `[?]` ; marques du lot 3 posées.
