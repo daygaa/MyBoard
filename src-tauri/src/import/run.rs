@@ -1,6 +1,6 @@
 //! Déroulement d'un import, dans son propre fil (IMP-40, IMP-42, IMP-44) : indexation fichier par fichier, lots
 //! validés en base, progression envoyée à l'interface. Phase 4 : compression et conversion (IMP-20, IMP-21), paires
-//! originaux + versions (IMP-64), « Supprimer les originaux » (IMP-28). Un fichier n'est effacé du disque qu'APRÈS la
+//! originaux + versions (IMP-64, IMP-68), « Supprimer les originaux » (IMP-28). Un fichier n'est effacé du disque qu'APRÈS la
 //! validation du lot qui ne l'utilise plus, et jamais s'il est encore le fichier d'un média : un arrêt brutal ne peut
 //! pas faire perdre à la fois l'original et sa nouvelle version.
 
@@ -14,6 +14,7 @@ use tauri::{AppHandle, Emitter, Manager};
 
 use super::compress::Squeeze;
 use super::index::{Indexer, Outcome};
+use super::pairs::Pair;
 use super::plan::{ImportOptions, PairChoice};
 use super::scan::ScanFile;
 use super::{COMMIT_EVERY, COMMIT_INTERVAL, FileError, ImportResult, LIBRARY_INTERVAL, MAX_LISTED_ERRORS, Phase, Progress};
@@ -48,14 +49,21 @@ pub fn run_import(app: &AppHandle, files: Vec<ScanFile>, default_tags: Vec<NewTa
             found
         };
         let tagger = Tagger::load(&conn)?;
-        // Paires (IMP-64) : une version déjà écrite par MyBoard n'est jamais retraitée ; selon la réponse de la pop-in,
-        // l'un des deux fichiers est écarté.
+        // Paires (IMP-64, IMP-68) : ni la version ni son original ne sont retraités (réponse Q2 du 10/11) ; selon la
+        // réponse de la pop-in, l'un des deux fichiers est écarté.
         let pairs = super::pairs::find(&files, &conn)?;
-        let versions: HashMap<PathBuf, PathBuf> = pairs.iter().map(|p| (p.version.clone(), p.original.clone())).collect();
-        let set_aside: HashSet<PathBuf> = match options.pairs {
+        let versions: HashMap<&Path, &Pair> = pairs.iter().map(|p| (p.version.as_path(), p)).collect();
+        let as_is: HashSet<&Path> = pairs.iter().flat_map(|p| [p.version.as_path(), p.original.as_path()]).collect();
+        let set_aside: HashSet<&Path> = match options.pairs {
             PairChoice::Both => HashSet::new(),
-            PairChoice::Originals => pairs.iter().map(|p| p.version.clone()).collect(),
-            PairChoice::Versions => pairs.iter().map(|p| p.original.clone()).collect(),
+            PairChoice::Originals => pairs.iter().map(|p| p.version.as_path()).collect(),
+            PairChoice::Versions => pairs.iter().map(|p| p.original.as_path()).collect(),
+        };
+        // « Supprimer les originaux », original déjà dans la bibliothèque : sa version prend sa place sur la même fiche ;
+        // il n'est effacé qu'une fois ce changement fait.
+        let replaced: HashSet<&Path> = match options.pairs {
+            PairChoice::Versions => pairs.iter().filter(|p| p.in_library.is_some()).map(|p| p.original.as_path()).collect(),
+            _ => HashSet::new(),
         };
         let mut indexer = Indexer::new();
         // Médias nouveaux dont les données sont en réserve (DEL-05).
@@ -71,14 +79,24 @@ pub fn run_import(app: &AppHandle, files: Vec<ScanFile>, default_tags: Vec<NewTa
                 break;
             }
             progress.current_file = file.path.file_name().map(|n| n.to_string_lossy().into_owned());
-            if set_aside.contains(&file.path) {
+            if set_aside.contains(file.path.as_path()) {
                 progress.set_aside += 1;
-                if options.delete_pair_files {
+                if options.delete_pair_files && !replaced.contains(file.path.as_path()) {
                     to_delete.push(file.path.clone());
                 }
             } else {
-                let version = versions.get(&file.path);
-                let outcome = indexer.index(&conn, file, db::now_ms(), process, version.is_some());
+                let pair = versions.get(file.path.as_path()).copied();
+                let take_place = pair.and_then(|p| p.in_library.as_ref().filter(|_| options.pairs == PairChoice::Versions).map(|m| (p, m)));
+                let outcome = match take_place {
+                    Some((pair, (id, hash))) => {
+                        let outcome = indexer.take_place(&conn, file, *id, hash);
+                        if options.delete_pair_files && matches!(outcome, Ok(Outcome::Updated(_))) {
+                            to_delete.push(pair.original.clone());
+                        }
+                        outcome
+                    }
+                    None => indexer.index(&conn, file, db::now_ms(), process, as_is.contains(file.path.as_path())),
+                };
                 count(&mut progress, &outcome, indexer.squeeze, &mut error_files, file);
                 if options.delete_originals
                     && let Some(original) = indexer.replaced.take()
@@ -95,9 +113,9 @@ pub fn run_import(app: &AppHandle, files: Vec<ScanFile>, default_tags: Vec<NewTa
                 if let Ok(Outcome::Imported(id)) = &outcome {
                     // Seule la version est gardée : elle retient l'empreinte de son original (réimport = doublon).
                     if options.pairs == PairChoice::Versions
-                        && let Some(original) = version
+                        && let Some(pair) = pair
                     {
-                        remember_original(&conn, *id, original)?;
+                        remember_original(&conn, *id, &pair.original)?;
                     }
                     if reserve::has_kept(&conn, *id)? {
                         found.push(*id);
@@ -167,10 +185,13 @@ fn count(progress: &mut Progress, outcome: &anyhow::Result<Outcome>, squeeze: Op
     }
 }
 
-/// La version gardée d'une paire retient l'empreinte de son original écarté (D-058) : un réimport le reconnaît.
+/// La version gardée d'une paire retient l'empreinte de son original écarté (D-058) : un réimport le reconnaît. Notée
+/// aussi dans la table des versions (IMP-68), si elle ne l'était pas (version écrite avant le schéma 20).
 fn remember_original(conn: &Connection, id: i64, original: &Path) -> anyhow::Result<()> {
     let hash = blake3::hash(&std::fs::read(original)?).to_hex().to_string();
     conn.execute("UPDATE media SET original_hash = ?1 WHERE id = ?2 AND original_hash IS NULL", params![hash, id])?;
+    let version: String = conn.query_row("SELECT hash FROM media WHERE id = ?1", [id], |r| r.get(0))?;
+    super::versions::remember(conn, &version, &hash)?;
     Ok(())
 }
 

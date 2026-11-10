@@ -237,8 +237,10 @@ export type ScanPage = { entries: ScanEntry[]; total: number };
 
 /** Format de « Convertir les images en » (IMP-21) ; JFIF = JPEG sous un autre nom. */
 export type ImageTarget = "jpg" | "jfif" | "png" | "webp" | "avif";
-/** Réponse de la pop-in des paires originaux + versions compressées (IMP-64). */
+/** Réponse de la pop-in des paires originaux + versions compressées ou converties (IMP-64, IMP-68). */
 export type PairChoice = "both" | "originals" | "versions";
+/** Paires de la liste ; `inLibrary` : celles dont l'original est déjà dans la bibliothèque (IMP-68). */
+export type PairCount = { total: number; inLibrary: number };
 /** Options de la carte « Options d'import » (IMP-30) envoyées au lancement de l'import. */
 export type ImportOptions = {
   /** Qualité si « Compresser les images » est cochée (IMP-20). */
@@ -277,8 +279,8 @@ export const api = {
   /** Médias de la liste déjà dans la bibliothèque au même endroit, jamais traités, par type (pop-in IMP-60). */
   countCompressibleExisting: (compressQuality: number | null, convertTo: ImageTarget | null) =>
     invoke<KindCounts>("count_compressible_existing", { compressQuality, convertTo }),
-  /** Paires originaux + versions compressées de la liste (pop-in IMP-64). */
-  countPairs: () => invoke<number>("count_pairs"),
+  /** Paires originaux + versions compressées ou converties de la liste (pop-in IMP-64, IMP-68). */
+  countPairs: () => invoke<PairCount>("count_pairs"),
   cancelImport: () => invoke<void>("cancel_import"),
   /** Liste des fichiers avant l'import, par pages (IMP-10 à IMP-12) ; retirer, tout vider (IMP-51, CTX-14). */
   scanFiles: (offset: number, limit: number) => invoke<ScanPage>("scan_files", { offset, limit }),

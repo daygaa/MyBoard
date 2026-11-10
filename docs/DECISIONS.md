@@ -1771,3 +1771,32 @@ rotation EXIF d'un JPEG mais pas celle d'un WebP (mesuré le 10/11) ; MyBoard ne
   deux dans la bibliothèque ; une version reconnue n'est jamais retraitée ; « Supprimer les originaux » : la version
   retient l'empreinte de l'original.
 - Déroulement de l'import déplacé dans `import/run.rs` (fichiers courts).
+
+## D-064 — EXIF des AVIF, table des versions, paires étendues (10/11/2026)
+
+**Contexte.** Lot 4 bis de la phase 4 (IMP-67, IMP-68), réponses de l'utilisateur du 10/11 (SPEC).
+
+**Choix.**
+- AVIF (`import/avif_meta.rs`) : ffmpeg écrit ftyp, meta, mdat ; MyBoard reconstruit meta (élément « Exif » : infe
+  de type 'Exif', entrée iloc, lien iref 'cdsc' vers l'image principale ; profil : colr 'prof' dans ipco, associé
+  dans ipma), décale toutes les positions d'iloc de la croissance de meta et met les données de l'EXIF (4 octets à
+  zéro puis le TIFF) à la fin de mdat. Toute structure inattendue (positions hors du fichier, autre méthode que 0,
+  plusieurs mdat…) : AVIF gardé tel quel. Le fichier enrichi est relu par ffmpeg (`-map 0`, image et transparence) ;
+  une erreur : AVIF sans EXIF (réponse de l'utilisateur). Transparence : le flux alpha reçoit l'espace de couleurs
+  BT.709 (celui de l'entrée RVB, « identité », est refusé par libaom pour une image en niveaux de gris).
+- Table `versions` (schéma 20, `import/versions.rs`) : `hash` (BLOB 32 octets, clé) → `original` (BLOB 32 octets),
+  `WITHOUT ROWID`, sans lien avec `media` : gardée après la suppression des médias. Écrite à chaque version écrite
+  (compression, conversion, IMP-60), et quand une version reconnue dans une paire est gardée seule. Remplie au
+  passage au schéma 20 depuis `media.original_hash`.
+- Paires (`import/pairs.rs`) : d'abord les noms (liste en mémoire, puis bibliothèque par l'index des chemins, de
+  « dossier\nom. » à « dossier\nom/ », sans tenir compte des majuscules comme la colonne) ; un fichier n'est ouvert
+  que s'il a un original possible ; le type (image) est vérifié après la requête : avec « kind = 'image' » dans la
+  requête, SQLite prenait l'index des types et parcourait toutes les images à chaque fichier (2,3 s pour 3 300 fichiers,
+  35 ms sans) ; dimensions égales ou inversées ; conversion seule seulement si la table la
+  confirme (empreinte de la version → empreinte de l'original, ne relit que ces candidats). La version n'est jamais
+  dans la bibliothèque ; l'original peut y être (`in_library`).
+- Import (`import/run.rs`) : fichiers des paires jamais retraités (ni version ni original) ; « Supprimer les
+  originaux » avec l'original dans la bibliothèque : `Indexer::take_place` (même fiche, comme IMP-60 : chemin, nom,
+  empreinte, original_hash, poids, extension, dates, miniature refaite ; compté « modifié ») ; l'original n'est
+  noté pour l'effacement qu'après ce changement (jamais deux fois).
+

@@ -9,6 +9,7 @@
 //! cet état (`import-state`) à chaque changement. Changer de page puis revenir, ou
 //! redémarrer l'interface, ne perd donc jamais la progression.
 
+mod avif_meta;
 mod compress;
 mod convert;
 mod encode;
@@ -21,6 +22,7 @@ pub mod preview;
 mod run;
 mod scan;
 mod state;
+mod versions;
 
 use std::path::PathBuf;
 use std::sync::Mutex;

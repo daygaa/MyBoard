@@ -93,7 +93,8 @@ pub struct KindCounts {
 
 /// Médias de la liste déjà dans la bibliothèque au même endroit et jamais traités (aujourd'hui : des images) que les
 /// options demandées (compression, conversion) changeraient : la pop-in « Compresser aussi » ne s'ouvre que s'il y en
-/// a (IMP-60). Une recherche par chemin (index) par fichier, hors de la fenêtre.
+/// a (IMP-60). Une recherche par chemin (index) par fichier, hors de la fenêtre. L'original d'une paire (IMP-64, IMP-68)
+/// n'est jamais retraité : pas compté (réponse Q2 du 10/11).
 #[tauri::command]
 pub async fn count_compressible_existing(
     app: tauri::AppHandle,
@@ -104,18 +105,21 @@ pub async fn count_compressible_existing(
     use tauri::Manager;
     let counts = tauri::async_runtime::spawn_blocking(move || -> anyhow::Result<KindCounts> {
         let state = app.state::<AppState>();
-        let files: Vec<(String, Kind)> = {
+        let (files, all): (Vec<(String, Kind)>, Vec<ScanFile>) = {
             let inner = state.import.inner.lock().unwrap();
             let process = super::plan::Process { quality: compress_quality, convert: convert_to, existing: true };
             let eligible = |f: &&ScanFile| f.kind == Kind::Image && process.action(&f.ext).is_some();
-            inner.files.iter().filter(eligible).filter_map(|f| Some((f.path.to_str()?.to_owned(), f.kind))).collect()
+            let files = inner.files.iter().filter(eligible).filter_map(|f| Some((f.path.to_str()?.to_owned(), f.kind))).collect();
+            (files, inner.files.clone())
         };
         let conn = crate::db::open(&state.paths.db)?;
+        let paired: std::collections::HashSet<String> =
+            super::pairs::find(&all, &conn)?.into_iter().map(|p| p.original.to_string_lossy().to_lowercase()).collect();
         let mut known = conn.prepare("SELECT 1 FROM media WHERE path = ?1 AND original_hash IS NULL")?;
         let mut counts = KindCounts::default();
         for (path, kind) in &files {
             // Une image animée ne sera jamais traitée : pas comptée (lue seulement si elle est déjà connue).
-            if !known.exists([path])? || super::compress::animated(Path::new(path)) {
+            if paired.contains(&path.to_lowercase()) || !known.exists([path])? || super::compress::animated(Path::new(path)) {
                 continue;
             }
             *match kind {

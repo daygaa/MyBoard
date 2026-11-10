@@ -41,7 +41,7 @@ export function useImportStart() {
     setChecking(true);
     try {
       const pairs = await api.countPairs();
-      if (pairs > 0) {
+      if (pairs.total > 0) {
         const answer = await ask<{ choice: PairChoice; deleteFiles: boolean }>((done) => (
           <PairsDialog count={pairs} onAnswer={(choice, deleteFiles) => done({ choice, deleteFiles })} onCancel={() => done(null)} />
         ));

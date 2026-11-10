@@ -1,9 +1,10 @@
 //! Conversion d'une image dans un autre format (IMP-21) : JPG / JFIF, PNG, WebP, AVIF. Réponses du 10/11 : image
 //! transparente vers JPG sur fond blanc ; AVIF écrit par ffmpeg (libaom). Les pixels sont tournés comme MyBoard affiche
 //! l'image (rotation EXIF, jamais pour un WebP, LIB-18) et l'EXIF recopié est remis « droit ». EXIF et profil de
-//! couleurs gardés, sauf en AVIF (ffmpeg ne sait pas les écrire).
+//! couleurs gardés ; en AVIF, ajoutés par MyBoard (ffmpeg ne sait pas les écrire, IMP-67).
 
 use std::io::{Cursor, Write};
+use std::path::Path;
 use std::process::Stdio;
 use std::sync::OnceLock;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -125,7 +126,9 @@ fn webp(source: Source, quality: u8) -> Vec<u8> {
     super::encode::with_meta(&encoded, w, h, source.meta.icc.as_deref(), source.meta.exif.as_deref(), None)
 }
 
-/// AVIF par ffmpeg (libaom), image fixe ; transparence dans un second flux. Qualité 90 → crf 18, 50 → 38.
+/// AVIF par ffmpeg (libaom), image fixe ; transparence dans un second flux. Qualité 90 → crf 18, 50 → 38. Le flux de
+/// la transparence reçoit un espace de couleurs ordinaire : celui de l'image RVB d'entrée (« identité ») lui est
+/// interdit par libaom, qui refusait toute image transparente (défaut du lot 4, corrigé le 10/11).
 fn avif(source: Source, quality: u8) -> anyhow::Result<Vec<u8>> {
     static FFMPEG: OnceLock<Option<crate::ffmpeg::Ffmpeg>> = OnceLock::new();
     static NEXT: AtomicU64 = AtomicU64::new(0);
@@ -141,7 +144,7 @@ fn avif(source: Source, quality: u8) -> anyhow::Result<Vec<u8>> {
     cmd.args(["-hide_banner", "-loglevel", "error", "-y", "-f", "rawvideo", "-pix_fmt", if alpha { "rgba" } else { "rgb24" }])
         .args(["-s", &size, "-i", "-"]);
     if alpha {
-        cmd.args(["-filter_complex", "[0:v]split[c][a];[a]alphaextract[al];[c]format=yuv420p[co]", "-map", "[co]", "-map", "[al]"]);
+        cmd.args(["-filter_complex", "[0:v]split[c][a];[a]alphaextract,setparams=colorspace=bt709[al];[c]format=yuv420p[co]", "-map", "[co]", "-map", "[al]"]);
     } else {
         cmd.args(["-pix_fmt", "yuv420p"]);
     }
@@ -160,5 +163,25 @@ fn avif(source: Source, quality: u8) -> anyhow::Result<Vec<u8>> {
     if !output.status.success() {
         bail!("ffmpeg (AVIF) : {}", String::from_utf8_lossy(&output.stderr).trim());
     }
-    Ok(result?)
+    Ok(enrich(ff, result?, &source.meta, &tmp))
+}
+
+/// EXIF et profil de couleurs ajoutés par MyBoard (IMP-67), gardés seulement si ffmpeg relit ensuite l'image (et sa
+/// transparence) sans erreur ; sinon l'AVIF est gardé sans eux (choix de l'utilisateur, 10/11).
+fn enrich(ff: &crate::ffmpeg::Ffmpeg, plain: Vec<u8>, meta: &Meta, tmp: &Path) -> Vec<u8> {
+    let Some(enriched) = super::avif_meta::add(&plain, meta.exif.as_deref(), meta.icc.as_deref()) else { return plain };
+    let readable = std::fs::write(tmp, &enriched).is_ok()
+        && crate::ffmpeg::command(&ff.ffmpeg)
+            .args(["-hide_banner", "-loglevel", "error", "-i"])
+            .arg(tmp)
+            .args(["-map", "0", "-f", "null", "-"])
+            .output()
+            .is_ok_and(|o| o.status.success() && o.stderr.is_empty());
+    let _ = std::fs::remove_file(tmp);
+    if readable {
+        enriched
+    } else {
+        eprintln!("[import] AVIF : informations de la photo non ajoutées (fichier relu avec erreur)");
+        plain
+    }
 }

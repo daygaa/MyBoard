@@ -54,9 +54,9 @@ impl Indexer {
         Self { buffer: vec![0; 1 << 20], head: Vec::with_capacity(HEAD_LEN), squeeze: None, replaced: None }
     }
 
-    /// Doit être appelé dans une transaction ouverte (les lots sont validés par l'appelant). `version` : version déjà
-    /// écrite par MyBoard, reconnue dans une paire (IMP-64) : jamais retraitée.
-    pub fn index(&mut self, conn: &Connection, file: &ScanFile, now: i64, process: Option<Process>, version: bool) -> anyhow::Result<Outcome> {
+    /// Doit être appelé dans une transaction ouverte (les lots sont validés par l'appelant). `as_is` : fichier d'une
+    /// paire (IMP-64, IMP-68), version déjà écrite par MyBoard ou son original : jamais retraité.
+    pub fn index(&mut self, conn: &Connection, file: &ScanFile, now: i64, process: Option<Process>, as_is: bool) -> anyhow::Result<Outcome> {
         self.squeeze = None;
         self.replaced = None;
         let meta = std::fs::metadata(&file.path)?;
@@ -64,7 +64,7 @@ impl Indexer {
         let modified = meta.modified().ok().map(to_ms);
         let created = meta.created().ok().map(to_ms);
         let path = file.path.to_str().context("nom de fichier illisible")?;
-        let action = process.filter(|_| file.kind == Kind::Image && !version).and_then(|p| p.action(&file.ext));
+        let action = process.filter(|_| file.kind == Kind::Image && !as_is).and_then(|p| p.action(&file.ext));
         // Traiter aussi l'image déjà dans la bibliothèque à cet endroit (IMP-60), si elle ne l'a jamais été.
         let existing_too = process.is_some_and(|p| p.existing);
         let again = |original: &Option<String>| action.filter(|_| existing_too && original.is_none());
@@ -123,7 +123,7 @@ impl Indexer {
         // Nouveau média : la version compressée, si elle est gardée, prend la place de l'original.
         let mut target = (path.to_owned(), hash.clone(), size, None::<String>, file.ext.clone());
         if let Some(a) = action
-            && let Some((new_path, new_hash, new_size, new_ext)) = self.compress(conn, file, &meta, a)?
+            && let Some((new_path, new_hash, new_size, new_ext)) = self.compress(conn, file, &meta, a, &hash)?
         {
             target = (new_path, new_hash, new_size, Some(hash), new_ext);
         }
@@ -153,9 +153,9 @@ impl Indexer {
         Ok(Outcome::Imported(conn.last_insert_rowid()))
     }
 
-    /// Compresse ou convertit, et écrit à côté de l'original. Un échec n'arrête pas l'import : l'original est importé
-    /// tel quel et c'est compté (`squeeze`).
-    fn compress(&mut self, conn: &Connection, file: &ScanFile, meta: &Metadata, action: Action) -> anyhow::Result<Option<Written>> {
+    /// Compresse ou convertit, et écrit à côté de l'original (noté dans la table des versions, IMP-68). Un échec n'arrête
+    /// pas l'import : l'original est importé tel quel et c'est compté (`squeeze`).
+    fn compress(&mut self, conn: &Connection, file: &ScanFile, meta: &Metadata, action: Action, original_hash: &str) -> anyhow::Result<Option<Written>> {
         let mut animated = false;
         let encoded = match compress::encode(&file.path, action, &mut animated) {
             Ok(Some(encoded)) => encoded,
@@ -172,6 +172,7 @@ impl Indexer {
         let (ext, suffix) = compress::naming(action, &file.path);
         match compress::write_beside(&file.path, meta, &encoded.bytes, &ext, suffix) {
             Ok(written) => {
+                super::versions::remember(conn, &encoded.hash, original_hash)?;
                 let (squeeze, ext) = match action {
                     Action::Compress(_) => (Squeeze::Compressed, file.ext.clone()),
                     Action::Convert { target, .. } => (Squeeze::Converted, target.ext().to_owned()),
@@ -187,7 +188,7 @@ impl Indexer {
 
     /// Image déjà dans la bibliothèque (IMP-60) : même fiche (tags, dossiers, favoris…), seul le fichier change.
     fn recompress(&mut self, conn: &Connection, id: i64, file: &ScanFile, meta: &Metadata, hash: &str, action: Action) -> anyhow::Result<()> {
-        let Some((path, new_hash, size, ext)) = self.compress(conn, file, meta, action)? else { return Ok(()) };
+        let Some((path, new_hash, size, ext)) = self.compress(conn, file, meta, action, hash)? else { return Ok(()) };
         let file_name = file_name_of(&path);
         conn.execute(
             "UPDATE media SET path = ?1, file_name = ?2, name_key = ?3, hash = ?4, original_hash = ?5, size = ?6,
@@ -196,6 +197,40 @@ impl Indexer {
             params![path, file_name, crate::db::name_key::name_key(&file_name), new_hash, hash, size, ext, id],
         )?;
         Ok(())
+    }
+
+    /// « Supprimer les originaux », original déjà dans la bibliothèque (IMP-68) : la version, déjà écrite par MyBoard et
+    /// jamais retraitée, prend sa place sur la même fiche (tags, dossiers, favoris, note), comme IMP-60 ; elle retient
+    /// l'empreinte de l'original (un réimport de l'original compte comme doublon).
+    pub fn take_place(&mut self, conn: &Connection, file: &ScanFile, id: i64, original_hash: &str) -> anyhow::Result<Outcome> {
+        self.squeeze = None;
+        self.replaced = None;
+        let meta = std::fs::metadata(&file.path)?;
+        let hash = self.hash(&file.path)?;
+        if let Some(other) = find_hash(conn, &hash)? {
+            return Ok(Outcome::Duplicate(other));
+        }
+        let path = file.path.to_str().context("nom de fichier illisible")?;
+        let file_name = file_name_of(path);
+        conn.execute(
+            "UPDATE media SET path = ?1, file_name = ?2, name_key = ?3, hash = ?4, original_hash = ?5, size = ?6, ext = ?7,
+                 file_created_at = ?8, file_modified_at = ?9, thumb_status = 0
+             WHERE id = ?10",
+            params![
+                path,
+                file_name,
+                crate::db::name_key::name_key(&file_name),
+                hash,
+                original_hash,
+                meta.len() as i64,
+                file.ext,
+                meta.created().ok().map(to_ms),
+                meta.modified().ok().map(to_ms),
+                id
+            ],
+        )?;
+        super::versions::remember(conn, &hash, original_hash)?;
+        Ok(Outcome::Updated(id))
     }
 
     fn failed<T>(&mut self, file: &ScanFile, error: anyhow::Error) -> Option<T> {

@@ -3,6 +3,24 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Phase 4, lot 4 bis : EXIF des AVIF, paires étendues (10/11/2026) — Backup v121
+
+SPEC : IMP-67, IMP-68 `[~]` ; IMP-21 complété (défaut des AVIF transparents corrigé) ; IMP-28, IMP-64 validés.
+Décision D-064. Schéma de la base : 20.
+
+- AVIF : informations de la photo (EXIF) et profil de couleurs ajoutés par MyBoard, gardés seulement si ffmpeg relit
+  le fichier ; images transparentes de nouveau convertibles en AVIF.
+- Table des versions (schéma 20) : chaque fichier compressé ou converti par MyBoard y est noté, même après la
+  suppression du média.
+- Pop-in des paires : aussi quand l'original est déjà dans la bibliothèque (« Supprimer les originaux » : la version
+  prend sa place sur la même fiche) et pour la conversion seule (« photo.webp » et « photo.jpg ») ; nouveaux textes.
+- L'original d'une paire n'est plus recompressé (plus de 3e fichier « photo_c (1).jpg ») ; la pop-in « Compresser
+  aussi » ne le compte plus.
+
+Vérifié dans la version compilée, sur une copie neuve de la base d'essai : EXIF, profil et transparence relus par
+Pillow (libavif) et par la fenêtre ; 3 paires du dossier d'essai, la fausse paire ignorée, les 3 choix et le stockage ;
+recherche des paires mesurée : 35 à 41 ms pour une liste de 3 300 fichiers (2,3 s avant la correction d'une requête qui prenait le mauvais index), environ 0,5 s pour 10 000 fichiers sur une bibliothèque de 100 000 médias ; zéro erreur `tsc` / `clippy`.
+
 ## Phase 4, lot 4 : retouches (2) (10/11/2026) — Backup v120
 
 SPEC : IMP-28, IMP-64 `[~]` ; IMP-66 validé.
