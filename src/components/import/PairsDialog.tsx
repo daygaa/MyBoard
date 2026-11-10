@@ -19,6 +19,8 @@ import { keepQuoted } from "@/lib/keepWords";
 /** Boutons rouges des suppressions (comme DeleteDialog, DEL-04). */
 const RED = "bg-destructive text-white hover:bg-destructive/90";
 const PLAIN = "border-border text-foreground hover:bg-secondary hover:text-foreground";
+/** Les deux boutons « Supprimer… » sont dorés, puis rouges avec le stockage : même taille dans les deux cas (10/11). */
+const GOLD = "bg-[#d9a94e] text-[#1a1408] hover:bg-[#e3b75f]";
 
 type Props = {
   count: number;
@@ -67,7 +69,7 @@ export function PairsDialog({ count, onAnswer, onCancel }: Props) {
                 : `${formatNumber(count)} images de cette liste ont aussi leur version compressée dans la liste (par exemple « photo.jpg » et « photo_c.jpg »).`,
             )}
           </span>
-          <span className="mt-5 block">Souhaitez-vous importer les originaux ET leurs versions compressées dans la bibliothèque ?</span>
+          <span className="mt-5 block">Souhaitez-vous importer les originaux ET/OU leurs versions compressées dans la bibliothèque ?</span>
         </>
       }
       footer={
@@ -75,10 +77,10 @@ export function PairsDialog({ count, onAnswer, onCancel }: Props) {
           <Button data-zone="import.paires.les-deux" variant="outline" onClick={() => choose("both")} className={PLAIN}>
             Importer les deux
           </Button>
-          <Button data-zone="import.paires.doublons" variant={deleteFiles ? "default" : "outline"} onClick={() => choose("originals")} className={deleteFiles ? RED : PLAIN}>
+          <Button data-zone="import.paires.doublons" onClick={() => choose("originals")} className={deleteFiles ? RED : GOLD}>
             Supprimer les doublons
           </Button>
-          <Button data-zone="import.paires.originaux" onClick={() => choose("versions")} className={deleteFiles ? RED : "bg-[#d9a94e] text-[#1a1408] hover:bg-[#e3b75f]"}>
+          <Button data-zone="import.paires.originaux" onClick={() => choose("versions")} className={deleteFiles ? RED : GOLD}>
             Supprimer les originaux
           </Button>
         </>

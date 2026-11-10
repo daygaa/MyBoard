@@ -3,6 +3,17 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Phase 4, lot 4 : retouches (2) (10/11/2026) — Backup v120
+
+SPEC : IMP-28, IMP-64 `[~]` ; IMP-66 validé.
+
+- « Supprimer les originaux » grisée : son nom l'est aussi.
+- Pop-in des paires : « Supprimer les doublons » doré comme « Supprimer les originaux » (même taille dans les deux
+  états) ; question « …importer les originaux ET/OU leurs versions compressées… ».
+
+Vérifié dans la version compilée : opacité du nom, taille des deux boutons avant et après la case, texte ; zéro erreur
+`tsc`.
+
 ## Phase 4, lot 4 : retouches (10/11/2026) — Backup v119
 
 SPEC : IMP-28, IMP-64, IMP-66 (nouveau) `[~]` ; IMP-67 et IMP-68 décidés (lot 4 bis) ; marques posées.

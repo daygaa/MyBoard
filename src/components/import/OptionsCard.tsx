@@ -10,16 +10,17 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { InfoTip } from "@/components/ui/info-tip";
 import { Slider } from "@/components/ui/slider";
 import { keepQuoted } from "@/lib/keepWords";
+import { cn } from "@/lib/utils";
 import { QUALITY, useImport } from "@/stores/import";
 import { FormatSelect } from "./FormatSelect";
 
-/** Ligne d'une option : case, icône, nom, « ⓘ ». */
+/** Ligne d'une option : case, icône, nom, « ⓘ ». Grisée, le nom l'est aussi (demande du 10/11, IMP-28). */
 function OptionRow(props: { zone: string; checked: boolean; disabled: boolean; onChange: (on: boolean) => void; icon: ReactNode; label: string; info: string[] }) {
   return (
     <div className="flex items-center gap-2">
       <label className="flex cursor-pointer items-center gap-3 has-disabled:cursor-not-allowed">
         <Checkbox checked={props.checked} disabled={props.disabled} onCheckedChange={(c) => props.onChange(c === true)} />
-        <span className="flex items-center gap-2 text-sm font-medium text-foreground">
+        <span className={cn("flex items-center gap-2 text-sm font-medium text-foreground", props.disabled && "opacity-50")}>
           {props.icon}
           {props.label}
         </span>
