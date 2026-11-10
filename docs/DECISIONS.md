@@ -1646,7 +1646,8 @@ convertis y seront alors rangés.
 **Conversions.** Images : JPG, PNG, WebP, AVIF (JFIF = variante du nom de JPG ; HEIF seulement si un moyen fiable de
 l'écrire existe) ; GIF animés jamais convertis ; PNG jamais « compressé » ; résultat plus lourd → original gardé et
 signalé ; informations de la photo (EXIF) gardées. Vidéos : encodeur au choix (carte graphique ou processeur), le
-meilleur par défaut (GTX 1060 pour H.264 et H.265), choix gardé après un redémarrage ; toutes les pistes son et les
+meilleur par défaut (GTX 1060 pour H.264 et H.265), choix gardé après un redémarrage (11/11 : pas de menu dans les options
+d'import ; choix dans les Paramètres, SET-05 ; d'ici là, carte graphique quand c'est possible, sinon processeur) ; toutes les pistes son et les
 sous-titres en texte gardés ; une vidéo déjà au format choisi n'est pas reconvertie. Options : dernier choix retenu
 d'un import à l'autre jusqu'à la page Paramètres (IMP-29).
 
