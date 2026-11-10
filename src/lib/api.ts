@@ -1,6 +1,7 @@
 // Appels au cœur Rust (commandes Tauri) et types échangés.
 // Les noms correspondent aux structures Rust de src-tauri/src (library.rs, import/, tags.rs, media/).
 
+import type { KindCounts } from "./mediaWords";
 import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 
 export type MediaKind = "image" | "video" | "audio" | "document";
@@ -251,8 +252,8 @@ export const api = {
   scanPaths: (paths: string[], recursive: boolean) => invoke<void>("scan_paths", { paths, recursive }),
   supportedExtensions: () => invoke<string[]>("supported_extensions"),
   startImport: (defaultTags: NewTag[], options: ImportOptions) => invoke<void>("start_import", { defaultTags, options }),
-  /** Images de la liste déjà dans la bibliothèque au même endroit, jamais compressées (pop-in IMP-60). */
-  countCompressibleExisting: () => invoke<number>("count_compressible_existing"),
+  /** Médias de la liste déjà dans la bibliothèque au même endroit, jamais compressés, par type (pop-in IMP-60). */
+  countCompressibleExisting: () => invoke<KindCounts>("count_compressible_existing"),
   cancelImport: () => invoke<void>("cancel_import"),
   /** Liste des fichiers avant l'import, par pages (IMP-10 à IMP-12) ; retirer, tout vider (IMP-51, CTX-14). */
   scanFiles: (offset: number, limit: number) => invoke<ScanPage>("scan_files", { offset, limit }),

@@ -1,4 +1,4 @@
-// Miniature d'une ligne de la liste avant l'import (IMP-10, IMP-13) : aperçu de Windows, sinon une icône. Après 1 s
+// Miniature d'une ligne de la liste avant l'import (IMP-10, IMP-13) : aperçu de Windows, sinon une icône. Après 0,5 s
 // de survol, un aperçu agrandi de 256 px (taille du cache de l'Explorateur) s'affiche PAR-DESSUS, centré sur elle et
 // décalé s'il sortait de la zone visible ; il disparaît quand la souris quitte la miniature (IMP-59).
 
@@ -8,7 +8,7 @@ import { File, FileText, Film, Image as ImageIcon, Music } from "lucide-react";
 import { scanPreviewUrl, type ScanEntry } from "@/lib/api";
 import { SCROLLER_ID } from "@/lib/scroller";
 
-const HOVER_DELAY = 1000;
+const HOVER_DELAY = 500;
 const MARGIN = 8;
 
 /** Fichiers qui ont un aperçu (les autres : une icône, comme dans la grille). */

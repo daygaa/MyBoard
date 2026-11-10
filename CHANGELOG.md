@@ -3,6 +3,23 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Phase 4, lot 3 : retouches (10/11/2026) — Backup v116
+
+SPEC : IMP-61 (nouveau, défaut), IMP-30, IMP-59, IMP-60 `[~]` ; IMP-62 (nouveau) `[?]` ; marques du lot 3 posées.
+
+- Miniatures des images compressées : plus vertes, rayées ni étirées. Les JPEG compressés sont maintenant écrits
+  au format standard (couleurs entrelacées), que le décodeur des miniatures lit correctement.
+- Carte « Options d'import » : les textes explicatifs de « Compresser les images » sont dans un « ⓘ » à côté de son
+  nom (règle pour les prochaines options).
+- Aperçu agrandi de la liste : après 0,5 s de survol.
+- Pop-in « Compresser aussi » : nouveau texte, ligne sur les originaux gardés, accords selon les types de médias,
+  pop-in plus large (le bouton « Annuler » reste dans la marge).
+
+Vérifié dans la version compilée, sur une copie neuve de la base d'essai, après avoir effacé les fichiers compressés
+de l'essai de l'utilisateur : 11 images compressées, miniatures relues dans la base des miniatures (couleurs et
+orientation justes) ; bulle « ⓘ » ; pop-in à 3 images et à 1 image (textes, largeur, position du bouton) ; aperçu
+absent à 0,35 s, présent à 0,8 s ; accords vérifiés pour image, vidéo, document, fichier audio et médias mélangés.
+
 ## Phase 4, lot 3 : compression des images, carte d'options, retouches de la page Importer (09/11/2026) — Backup v115
 
 SPEC : IMP-20, IMP-27, IMP-29, IMP-56, IMP-57, IMP-58, IMP-59, IMP-60 (nouveau) `[~]` ; IMP-25 (partie images) et

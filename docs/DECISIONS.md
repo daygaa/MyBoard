@@ -1715,8 +1715,9 @@ gardées ; image déjà dans la bibliothèque : même fiche, nouveau fichier, ap
 - Formats : JPEG (`.jpg`, `.jpeg`, `.jpe`, `.jfif`) et WebP fixes, reconnus par leur contenu ; jamais un WebP animé, un
   PNG, un GIF, un BMP, un TIFF, un AVIF, un HEIC, ni un JPEG en CMJN (profil de couleurs inadapté) ; jamais un fichier
   dont le nom finit par « (compressé) » ou « (compressé N) » (déjà compressé par MyBoard).
-- Encodage (`import/encode.rs`) : JPEG avec le crate `jpeg-encoder` (Rust pur, tables de Huffman optimisées, 4:2:0
-  sous la qualité 90, comme les appareils photo) ; WebP avec perte (`webp`, libwebp). Pixels non tournés, résolution
+- Encodage (`import/encode.rs`) : JPEG avec le crate `jpeg-encoder` (Rust pur, 4:2:0 sous la qualité 90, comme les
+  appareils photo ; tables de Huffman standard : avec les tables optimisées, il écrit les couleurs en passes séparées,
+  que le décodeur des miniatures lit mal, IMP-61, 10/11) ; WebP avec perte (`webp`, libwebp). Pixels non tournés, résolution
   inchangée ; segments recopiés tels quels : EXIF (rotation comprise), XMP, profil de couleurs (ICC), IPTC ; pas les
   segments qui décrivent l'ancien encodage (Adobe) ni les images annexes (MPF). WebP : conteneur « étendu » (VP8X)
   écrit à la main avec les morceaux ICCP, EXIF et XMP de l'original ; transparence gardée.

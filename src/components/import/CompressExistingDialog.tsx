@@ -1,39 +1,76 @@
 // Pop-in « Compresser aussi » (IMP-60) : au clic sur « Importer », « Compresser les images » cochée, quand la liste
-// contient des images déjà dans la bibliothèque au même endroit et jamais compressées. Compressées, elles gardent
-// leur fiche (tags, dossiers, favoris, note) : seul le fichier indiqué change. Entrée : « Compresser aussi ».
+// contient des médias déjà dans la bibliothèque au même endroit et jamais compressés. Compressés, ils gardent leur
+// fiche (tags, dossiers, favoris, note) : seul le fichier indiqué change. Textes accordés selon les types de médias
+// (image, vidéo, document, fichier audio, ou média s'ils sont mélangés). Entrée : « Compresser aussi ».
 
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
 import { formatNumber } from "@/lib/format";
+import { keepQuoted } from "@/lib/keepWords";
+import { mediaWords, type KindCounts } from "@/lib/mediaWords";
 
 type Props = {
-  count: number;
-  /** `true` : les compresser aussi ; `false` : les laisser telles quelles. L'import démarre dans les deux cas. */
+  counts: KindCounts;
+  /** « Supprimer les originaux » cochée (IMP-28, lot 4) : la ligne sur les originaux gardés disparaît. */
+  deleteOriginals?: boolean;
+  /** `true` : les compresser aussi ; `false` : les laisser tels quels. L'import démarre dans les deux cas. */
   onAnswer: (compressExisting: boolean) => void;
   /** Annuler : l'import ne démarre pas. */
   onCancel: () => void;
 };
 
-export function CompressExistingDialog({ count, onAnswer, onCancel }: Props) {
-  const one = count === 1;
+export function CompressExistingDialog({
+  counts,
+  deleteOriginals = false,
+  onAnswer,
+  onCancel,
+}: Props) {
+  const w = mediaWords(counts);
+  const { pick } = w;
+  const tel = (w.feminine ? "telle quelle" : "tel quel").replace(
+    /(\S+)/g,
+    (word) => word + (w.plural ? "s" : ""),
+  );
+  const leave = `${w.it[0].toUpperCase()}${w.it.slice(1)} laisser ${tel}`;
   return (
     <Modal
       open
+      size="lg"
       zone="import.compresser-aussi"
       onClose={onCancel}
       onEnter={() => onAnswer(true)}
-      title={one ? "Compresser aussi l'image déjà dans la bibliothèque ?" : "Compresser aussi les images déjà dans la bibliothèque ?"}
+      title={`Compresser aussi ${w.the}${w.noun} déjà dans la bibliothèque ?`}
       description={
         <>
-          {one
-            ? "1 image de cette liste est déjà dans la bibliothèque. Compressée, elle garde ses tags, dossiers, favoris et note : seul son fichier change."
-            : `${formatNumber(count)} images de cette liste sont déjà dans la bibliothèque. Compressées, elles gardent leurs tags, dossiers, favoris et note : seul leur fichier change.`}{" "}
-          La version compressée (« photo (compressé).jpg ») est écrite à côté de l'original, qui reste sur le disque.
+          <span className="block">
+            {keepQuoted(
+              `${formatNumber(w.total)} ${w.noun} de cette liste ${pick("est", "sont")} déjà dans la bibliothèque sans être ` +
+                `${w.agree("compressé")}, souhaitez-vous ${w.it} remplacer ? (${w.they} ${pick("gardera", "garderont")} ` +
+                `${pick("ses", "leurs")} tags, favoris, dossiers, etc. : ${w.the}${w.noun} ${pick("sera", "seront")} simplement ` +
+                `${w.agree("échangé")} avec ${pick("sa", "leur")} version compressée)`,
+            )}
+          </span>
+          {/* Juste en dessous ; disparaît quand « Supprimer les originaux » est cochée (IMP-28, lot 4). */}
+          {!deleteOriginals && (
+            <span
+              data-zone="import.compresser-aussi.originaux"
+              className="mt-1.5 block"
+            >
+              {pick(
+                "L'original sera toujours disponible à son emplacement actuel.",
+                "Les originaux seront toujours disponibles à leurs emplacements actuels.",
+              )}
+            </span>
+          )}
         </>
       }
       footer={
         <>
-          <Button variant="ghost" onClick={onCancel} className="text-foreground hover:bg-secondary hover:text-foreground">
+          <Button
+            variant="ghost"
+            onClick={onCancel}
+            className="text-foreground hover:bg-secondary hover:text-foreground"
+          >
             Annuler
           </Button>
           <Button
@@ -42,7 +79,7 @@ export function CompressExistingDialog({ count, onAnswer, onCancel }: Props) {
             onClick={() => onAnswer(false)}
             className="border-border text-foreground hover:bg-secondary hover:text-foreground"
           >
-            {one ? "La laisser telle quelle" : "Les laisser telles quelles"}
+            {leave}
           </Button>
           <Button
             data-zone="import.compresser-aussi.oui"

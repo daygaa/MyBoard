@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { useStats } from "@/hooks/useLibraryData";
 import { api, type ImportSnapshot } from "@/lib/api";
 import { formatNumber, plural } from "@/lib/format";
+import type { KindCounts } from "@/lib/mediaWords";
 import { useImport } from "@/stores/import";
 import { goHome } from "@/stores/search";
 import { useViewer } from "@/stores/viewer";
@@ -62,8 +63,8 @@ export function ImportActionBar() {
   const phase = snapshot?.phase ?? "idle";
   const total = snapshot?.scan?.total ?? 0;
   const canImport = phase === "ready" && total > 0;
-  // Images déjà dans la bibliothèque à proposer de compresser aussi (IMP-60) ; vérification en cours.
-  const [ask, setAsk] = useState<number | null>(null);
+  // Médias déjà dans la bibliothèque à proposer de compresser aussi, par type (IMP-60) ; vérification en cours.
+  const [ask, setAsk] = useState<KindCounts | null>(null);
   const [checking, setChecking] = useState(false);
 
   const launch = (compressExisting: boolean) => {
@@ -75,8 +76,8 @@ export function ImportActionBar() {
     if (!useImport.getState().compress) return launch(false);
     setChecking(true);
     try {
-      const count = await api.countCompressibleExisting();
-      if (count > 0) setAsk(count);
+      const counts = await api.countCompressibleExisting();
+      if (counts.images + counts.videos + counts.audio + counts.documents > 0) setAsk(counts);
       else launch(false);
     } catch (error) {
       useViewer.getState().setError({ action: "Importer", code: null, message: String(error) });
@@ -129,7 +130,7 @@ export function ImportActionBar() {
         <ImportProgress progress={snapshot.progress} result={snapshot.result} />
       )}
       <ThumbsPending />
-      {ask !== null && <CompressExistingDialog count={ask} onAnswer={launch} onCancel={() => setAsk(null)} />}
+      {ask !== null && <CompressExistingDialog counts={ask} onAnswer={launch} onCancel={() => setAsk(null)} />}
     </div>
   );
 }

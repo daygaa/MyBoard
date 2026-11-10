@@ -33,7 +33,8 @@ fn jpeg(bytes: &[u8], quality: u8) -> anyhow::Result<Vec<u8>> {
     let (w, h) = (u16::try_from(img.width())?, u16::try_from(img.height())?);
     let mut out = Vec::with_capacity(bytes.len());
     let mut encoder = jpeg_encoder::Encoder::new(&mut out, quality);
-    encoder.set_optimized_huffman_tables(true);
+    // Pas de tables de Huffman optimisées : avec elles, le crate écrit les 3 couleurs en passes séparées (JPEG valide
+    // mais rare), que le décodeur des miniatures lit mal (miniatures vertes et rayées, IMP-61).
     for (marker, data) in segments {
         encoder.add_app_segment(marker - 0xE0, data).context("informations de la photo")?;
     }
