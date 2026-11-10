@@ -1,5 +1,6 @@
 // Pop-in des paires (IMP-64, IMP-68, demandes du 10/11) : la liste contient des versions compressées ou converties par
-// MyBoard (« photo_c.jpg », « photo.webp ») et leurs originaux, dans la liste ou déjà dans la bibliothèque. « Importer
+// MyBoard (« photo_c.jpg », « photo.webp », « video_c.mp4 ») et leurs originaux, dans la liste ou déjà dans la
+// bibliothèque. Textes accordés selon le type (images, vidéos, médias) et « l'originale » (demande du 11/11). « Importer
 // les deux » ; « Supprimer les doublons » : seuls les originaux sont gardés ; « Supprimer les originaux » : seules les
 // versions (un original déjà dans la bibliothèque y est remplacé par sa version, sur la même fiche). Case « Supprimer
 // du stockage » (décochée à chaque ouverture) : les fichiers écartés sont aussi effacés du disque, après une 2e pop-in
@@ -16,6 +17,7 @@ import { Modal } from "@/components/ui/modal";
 import type { PairChoice, PairCount } from "@/lib/api";
 import { formatNumber } from "@/lib/format";
 import { keepQuoted } from "@/lib/keepWords";
+import { mediaWords } from "@/lib/mediaWords";
 
 /** Boutons rouges des suppressions (comme DeleteDialog, DEL-04). */
 const RED = "bg-destructive text-white hover:bg-destructive/90";
@@ -29,13 +31,22 @@ type Props = {
   onCancel: () => void;
 };
 
-/** Originaux déjà dans la bibliothèque (IMP-68) : ce que fait « Supprimer les originaux » (texte reformulé le 10/11). */
-function inLibraryText({ total, inLibrary }: PairCount): string {
-  const replaced = "avec « Supprimer les originaux », il y est remplacé par sa version compressée ou convertie, qui reprend ses tags, ses favoris et ses dossiers.";
-  if (total === 1) return `Son original est déjà dans la bibliothèque : ${replaced}`;
-  if (inLibrary === total)
-    return "Leurs originaux sont déjà dans la bibliothèque : avec « Supprimer les originaux », chacun y est remplacé par sa version compressée ou convertie, qui reprend ses tags, ses favoris et ses dossiers.";
-  return `Pour ${formatNumber(inLibrary)} d'entre elles, l'original est déjà dans la bibliothèque : ${replaced}`;
+/** « image(s) », « vidéo(s) » ou « médias » (IMP-68, 11/11) ; « l'original » s'accorde avec l'image ou la vidéo. */
+function words(count: PairCount) {
+  const w = mediaWords({ images: count.images, videos: count.videos, audio: 0, documents: 0 });
+  const f = w.feminine;
+  return { ...w, original: f ? "originale" : "original", originals: f ? "originales" : "originaux", it: f ? "elle" : "il", e: f ? "e" : "" };
+}
+
+/** Originaux déjà dans la bibliothèque (IMP-68) : ce que fait « Supprimer les originaux » (texte du 10/11, accordé le 11/11). */
+function inLibraryText(count: PairCount): string {
+  const w = words(count);
+  const rest = `par sa version compressée ou convertie, qui reprend ses tags, ses favoris et ses dossiers.`;
+  const replaced = `avec « Supprimer les originaux », ${w.it} y est remplacé${w.e} ${rest}`;
+  if (count.total === 1) return `Son ${w.original} est déjà dans la bibliothèque : ${replaced}`;
+  if (count.inLibrary === count.total)
+    return `Leurs ${w.originals} sont déjà dans la bibliothèque : avec « Supprimer les originaux », chacun${w.e} y est remplacé${w.e} ${rest}`;
+  return `Pour ${formatNumber(count.inLibrary)} d'entre ${w.feminine ? "elles" : "eux"}, l'${w.original} est déjà dans la bibliothèque : ${replaced}`;
 }
 
 export function PairsDialog({ count, onAnswer, onCancel }: Props) {
@@ -81,7 +92,7 @@ export function PairsDialog({ count, onAnswer, onCancel }: Props) {
         <>
           <span className="block">
             {keepQuoted(
-              `Cette liste contient ${formatNumber(total)} ${one ? "image" : "images"} en deux versions : l'original et sa version compressée ou convertie par MyBoard (par exemple « photo.jpg » et « photo_c.jpg », ou « photo.jpg » et « photo.webp »).`,
+              `Cette liste contient ${formatNumber(total)} ${words(count).noun} en deux versions : l'${words(count).original} et sa version compressée ou convertie par MyBoard.`,
             )}
           </span>
           {count.inLibrary > 0 && <span className="mt-3 block">{keepQuoted(inLibraryText(count))}</span>}

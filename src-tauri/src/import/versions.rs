@@ -25,3 +25,10 @@ pub fn original_of(conn: &Connection, version: &str) -> rusqlite::Result<Option<
         .optional()?;
     Ok(found.and_then(|b| <[u8; 32]>::try_from(b.as_slice()).ok()).map(|b| blake3::Hash::from_bytes(b).to_hex().to_string()))
 }
+
+/// Empreinte d'un fichier, lu par blocs (une vidéo peut peser plusieurs Go).
+pub fn hash_file(path: &std::path::Path) -> std::io::Result<String> {
+    let mut hasher = blake3::Hasher::new();
+    std::io::copy(&mut std::fs::File::open(path)?, &mut hasher)?;
+    Ok(hasher.finalize().to_hex().to_string())
+}

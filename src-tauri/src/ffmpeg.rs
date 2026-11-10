@@ -53,6 +53,12 @@ pub fn command(program: &Path) -> Command {
     cmd
 }
 
+/// ffmpeg détecté une fois pour les traitements de l'import (AVIF, vidéos).
+pub fn shared() -> Option<&'static Ffmpeg> {
+    static FOUND: std::sync::OnceLock<Option<Ffmpeg>> = std::sync::OnceLock::new();
+    FOUND.get_or_init(detect).as_ref()
+}
+
 /// Cherche ffmpeg et ffprobe ; `None` s'ils sont introuvables ou inutilisables.
 pub fn detect() -> Option<Ffmpeg> {
     candidates().into_iter().find_map(|exe| validate(&exe))

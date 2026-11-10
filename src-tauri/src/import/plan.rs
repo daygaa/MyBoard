@@ -1,7 +1,10 @@
-//! Options de l'import (carte « Options d'import », IMP-30) et ce qu'elles font d'une image : rien, la compresser
-//! dans son format (IMP-20, IMP-62) ou la convertir (IMP-21). Réponses de l'utilisateur du 10/11 : SPEC IMP-21.
+//! Options de l'import (carte « Options d'import », IMP-30) et ce qu'elles font d'un média : rien, compresser une image
+//! dans son format (IMP-20, IMP-62) ou la convertir (IMP-21) ; compresser ou convertir une vidéo (IMP-69, IMP-22 : ce
+//! qui est fait dépend de son codec, lu par ffprobe, `video::plan`). Réponses de l'utilisateur : SPEC IMP-21, IMP-69.
 
 use serde::Deserialize;
+
+use crate::formats::Kind;
 
 /// Format choisi dans « Convertir les images en » (IMP-21) ; JFIF = JPEG sous un autre nom.
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Deserialize)]
@@ -33,6 +36,24 @@ impl Target {
             Target::Avif => Family::Avif,
         }
     }
+}
+
+/// Format de « Convertir les vidéos en » (IMP-22) : MP4 standard (H.264, défaut), MP4 H.265, WebM (VP9), AV1 (en MP4).
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum VideoTarget {
+    H264,
+    H265,
+    Webm,
+    Av1,
+}
+
+/// Demande pour une vidéo : cran de qualité de « Compresser les vidéos » (0 Minimale … 4 Maximale, IMP-24) et format de
+/// « Convertir les vidéos en ».
+#[derive(Clone, Copy, Debug)]
+pub struct VideoRequest {
+    pub quality: Option<u8>,
+    pub convert: Option<VideoTarget>,
 }
 
 /// Format réel d'une image, d'après son extension (les variantes de JPEG n'en font qu'un).
@@ -67,6 +88,8 @@ pub enum Action {
     Compress(u8),
     /// Autre format ; `compressed` : « Compresser les images » cochée (nom « _c », règles PNG d'IMP-62).
     Convert { target: Target, quality: u8, compressed: bool },
+    /// Vidéo : compresser et / ou convertir, selon son codec (IMP-69, IMP-22).
+    Video(VideoRequest),
 }
 
 /// Qualité d'une conversion sans compression (réponse Q5 du 10/11).
@@ -78,13 +101,22 @@ pub struct Process {
     /// Qualité si « Compresser les images » est cochée (20 à 95).
     pub quality: Option<u8>,
     pub convert: Option<Target>,
-    /// Réponse « Compresser aussi » / « Convertir aussi » de la pop-in : images déjà dans la bibliothèque (IMP-60).
+    /// Réponse « Compresser aussi » / « Convertir aussi » de la pop-in : médias déjà dans la bibliothèque (IMP-60).
     pub existing: bool,
+    pub video: VideoRequest,
 }
 
 impl Process {
-    /// Ce qu'il faut faire d'une image de cette extension ; `None` : rien.
-    pub fn action(&self, ext: &str) -> Option<Action> {
+    /// Ce qu'il faut faire d'un média de ce type et de cette extension ; `None` : rien.
+    pub fn action(&self, kind: Kind, ext: &str) -> Option<Action> {
+        match kind {
+            Kind::Image => self.image_action(ext),
+            Kind::Video => (self.video.quality.is_some() || self.video.convert.is_some()).then_some(Action::Video(self.video)),
+            _ => None,
+        }
+    }
+
+    fn image_action(&self, ext: &str) -> Option<Action> {
         let source = family_of(ext)?;
         match self.convert {
             Some(target) if target.family() != source => Some(Action::Convert {
@@ -124,15 +156,22 @@ pub struct ImportOptions {
     /// « Supprimer du stockage » de la pop-in des paires, confirmé deux fois (IMP-64).
     #[serde(default)]
     pub delete_pair_files: bool,
+    /// Cran de « Compresser les vidéos » si elle est cochée (IMP-69, 0 à 4).
+    #[serde(default)]
+    pub video_quality: Option<u8>,
+    #[serde(default)]
+    pub convert_videos_to: Option<VideoTarget>,
 }
 
 impl ImportOptions {
     pub fn process(&self) -> Option<Process> {
         let quality = self.compress_quality.map(|q| q.clamp(20, 95));
-        (quality.is_some() || self.convert_to.is_some()).then_some(Process {
+        let video = VideoRequest { quality: self.video_quality.map(|q| q.min(4)), convert: self.convert_videos_to };
+        (quality.is_some() || self.convert_to.is_some() || video.quality.is_some() || video.convert.is_some()).then_some(Process {
             quality,
             convert: self.convert_to,
             existing: self.process_existing,
+            video,
         })
     }
 }

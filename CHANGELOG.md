@@ -3,6 +3,25 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Phase 4, lot 5 : compression et conversion des vidéos (11/11/2026) — Backup v122
+
+SPEC : IMP-22, IMP-24, IMP-25, IMP-41, IMP-69 (nouveau), IMP-65, IMP-68 `[~]` ; IMP-23 remplacé par IMP-66 ; IMP-21,
+IMP-67 validés. Décision D-065.
+
+- « Compresser les vidéos » (curseur à 5 crans) et « Convertir les vidéos en » (MP4 H.264, MP4 H.265, WebM, AV1), avec
+  une bulle par format.
+- Carte graphique (NVENC) pour le H.264 et le H.265, sinon processeur ; une échelle de qualité par encodeur.
+- Résolution, images par seconde, pistes son, sous-titres, informations (date, lieu, appareil) et chapitres gardés.
+- Vidéo déjà dans le bon codec : seule l'enveloppe change ; anciens formats jamais compressés, signalés.
+- Barre de progression de la vidéo en cours, avec sa miniature ; « Arrêter » coupe ffmpeg aussitôt.
+- Paires de vidéos ; textes de la pop-in des paires accordés (image, vidéo, média ; « l'originale »).
+- Image seulement convertie dont le nom est pris : « photo (1).webp ».
+- Bulle de « Convertir les images en » : l'EXIF est gardé en AVIF (oubli du lot 4 bis).
+
+Vérifié dans la version compilée, sur une copie neuve de la base d'essai : 5 vidéos compressées (iPhone 4K H.265 10 bits,
+Android H.264, AV1, MKV H.265 à deux pistes son et sous-titres ; AVI signalé), 5 conversions, arrêt en 0,5 s, 7 paires de
+vidéos, 3 accords de la pop-in, règle des noms, interface ; zéro erreur `tsc` / `clippy`.
+
 ## Phase 4, lot 4 bis : EXIF des AVIF, paires étendues (10/11/2026) — Backup v121
 
 SPEC : IMP-67, IMP-68 `[~]` ; IMP-21 complété (défaut des AVIF transparents corrigé) ; IMP-28, IMP-64 validés.

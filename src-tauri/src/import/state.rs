@@ -37,7 +37,14 @@ pub struct Progress {
     /// Fichiers effacés du disque (originaux, IMP-28 ; fichiers écartés, IMP-64) et effacements impossibles.
     pub deleted: u64,
     pub delete_failed: u64,
+    /// Vidéos compressées (IMP-69), converties (IMP-22), et dans un ancien format, jamais compressées.
+    pub videos_compressed: u64,
+    pub videos_converted: u64,
+    pub videos_unsupported: u64,
     pub current_file: Option<String>,
+    /// Vidéo en cours de traitement : son chemin (miniature) et son avancement, de 0 à 1 (IMP-41).
+    pub current_path: Option<String>,
+    pub file_progress: Option<f32>,
 }
 
 #[derive(Clone, Debug, Serialize)]

@@ -100,6 +100,8 @@ pub async fn count_compressible_existing(
     app: tauri::AppHandle,
     compress_quality: Option<u8>,
     convert_to: Option<super::plan::Target>,
+    video_quality: Option<u8>,
+    convert_videos_to: Option<super::plan::VideoTarget>,
 ) -> Result<KindCounts, String> {
     use crate::formats::Kind;
     use tauri::Manager;
@@ -107,8 +109,10 @@ pub async fn count_compressible_existing(
         let state = app.state::<AppState>();
         let (files, all): (Vec<(String, Kind)>, Vec<ScanFile>) = {
             let inner = state.import.inner.lock().unwrap();
-            let process = super::plan::Process { quality: compress_quality, convert: convert_to, existing: true };
-            let eligible = |f: &&ScanFile| f.kind == Kind::Image && process.action(&f.ext).is_some();
+            let video = super::plan::VideoRequest { quality: video_quality, convert: convert_videos_to };
+            let process = super::plan::Process { quality: compress_quality, convert: convert_to, existing: true, video };
+            // Vidéos : comptées d'après leur extension ; celles déjà au bon format seront laissées telles quelles.
+            let eligible = |f: &&ScanFile| process.action(f.kind, &f.ext).is_some();
             let files = inner.files.iter().filter(eligible).filter_map(|f| Some((f.path.to_str()?.to_owned(), f.kind))).collect();
             (files, inner.files.clone())
         };

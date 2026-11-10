@@ -36,8 +36,11 @@ export function useImportStart() {
       deleteOriginals: false,
       pairs: "both",
       deletePairFiles: false,
+      videoQuality: s.compressVideos ? s.videoQuality : null,
+      convertVideosTo: s.convertVideos ? s.videoTarget : null,
     };
-    const processing = options.compressQuality !== null || options.convertTo !== null;
+    const processing =
+      options.compressQuality !== null || options.convertTo !== null || options.videoQuality !== null || options.convertVideosTo !== null;
     setChecking(true);
     try {
       const pairs = await api.countPairs();
@@ -50,12 +53,14 @@ export function useImportStart() {
         options.deletePairFiles = answer.deleteFiles;
       }
       if (processing) {
-        const counts = await api.countCompressibleExisting(options.compressQuality, options.convertTo);
+        const counts = await api.countCompressibleExisting(options);
+        // « Convertir aussi » dès qu'un des types comptés sera converti.
+        const convert = (counts.images > 0 && options.convertTo !== null) || (counts.videos > 0 && options.convertVideosTo !== null);
         if (counts.images + counts.videos + counts.audio + counts.documents > 0) {
           const answer = await ask<boolean>((done) => (
             <CompressExistingDialog
               counts={counts satisfies KindCounts}
-              convert={options.convertTo !== null}
+              convert={convert}
               deleteOriginals={s.deleteOriginals}
               onAnswer={done}
               onCancel={() => done(null)}

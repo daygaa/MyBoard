@@ -3,7 +3,7 @@
 //! « Convertir les images » (IMP-20, IMP-21, IMP-27), le média pointe vers la version écrite à côté, avec sa vraie
 //! extension (IMP-47) ; `original_hash` garde l'empreinte de l'original (D-058). Image déjà dans la bibliothèque au
 //! même endroit : même fiche, nouveau fichier (IMP-60). L'original remplacé est noté (`replaced`) : « Supprimer les
-//! originaux » l'efface une fois l'enregistrement validé (IMP-28).
+//! originaux » l'efface une fois l'enregistrement validé (IMP-28). Vidéos (IMP-69, IMP-22) : `video::process`.
 
 use std::fs::{File, Metadata};
 use std::io::Read;
@@ -16,6 +16,7 @@ use rusqlite::{Connection, OptionalExtension, params};
 use super::compress::{self, Squeeze};
 use super::plan::{Action, Process};
 use super::scan::ScanFile;
+use super::video::{Done, Hooks};
 use crate::formats::Kind;
 
 /// Résultat de l'indexation, avec l'identifiant du média concerné dans la bibliothèque
@@ -54,9 +55,9 @@ impl Indexer {
         Self { buffer: vec![0; 1 << 20], head: Vec::with_capacity(HEAD_LEN), squeeze: None, replaced: None }
     }
 
-    /// Doit être appelé dans une transaction ouverte (les lots sont validés par l'appelant). `as_is` : fichier d'une
-    /// paire (IMP-64, IMP-68), version déjà écrite par MyBoard ou son original : jamais retraité.
-    pub fn index(&mut self, conn: &Connection, file: &ScanFile, now: i64, process: Option<Process>, as_is: bool) -> anyhow::Result<Outcome> {
+    /// Doit être appelé dans une transaction ouverte (les lots sont validés par l'appelant), sauf pour une vidéo à traiter.
+    /// `as_is` : fichier d'une paire (IMP-64, IMP-68), version déjà écrite par MyBoard ou son original : jamais retraité.
+    pub fn index(&mut self, conn: &Connection, file: &ScanFile, now: i64, process: Option<Process>, as_is: bool, hooks: &Hooks) -> anyhow::Result<Outcome> {
         self.squeeze = None;
         self.replaced = None;
         let meta = std::fs::metadata(&file.path)?;
@@ -64,7 +65,7 @@ impl Indexer {
         let modified = meta.modified().ok().map(to_ms);
         let created = meta.created().ok().map(to_ms);
         let path = file.path.to_str().context("nom de fichier illisible")?;
-        let action = process.filter(|_| file.kind == Kind::Image && !as_is).and_then(|p| p.action(&file.ext));
+        let action = process.filter(|_| !as_is).and_then(|p| p.action(file.kind, &file.ext));
         // Traiter aussi l'image déjà dans la bibliothèque à cet endroit (IMP-60), si elle ne l'a jamais été.
         let existing_too = process.is_some_and(|p| p.existing);
         let again = |original: &Option<String>| action.filter(|_| existing_too && original.is_none());
@@ -78,7 +79,7 @@ impl Indexer {
             && *old_modified == modified
         {
             if let Some(a) = again(original) {
-                self.recompress(conn, *id, file, &meta, hash, a)?;
+                self.recompress(conn, *id, file, &meta, hash, a, hooks)?;
             }
             return Ok(Outcome::AlreadyPresent(*id));
         }
@@ -92,7 +93,7 @@ impl Indexer {
                 // Seule la date a changé (fichier touché sans modification du contenu).
                 conn.execute("UPDATE media SET file_modified_at = ?1 WHERE id = ?2", params![modified, other])?;
                 if let Some(a) = again(original) {
-                    self.recompress(conn, other, file, &meta, &hash, a)?;
+                    self.recompress(conn, other, file, &meta, &hash, a, hooks)?;
                 }
                 return Ok(Outcome::AlreadyPresent(other));
             }
@@ -115,15 +116,20 @@ impl Indexer {
                 params![hash, size, width, height, created, modified, thumb_status, id],
             )?;
             if let Some(a) = again(original) {
-                self.recompress(conn, *id, file, &meta, &hash, a)?;
+                self.recompress(conn, *id, file, &meta, &hash, a, hooks)?;
             }
             return Ok(Outcome::Updated(*id));
         }
 
         // Nouveau média : la version compressée, si elle est gardée, prend la place de l'original.
         let mut target = (path.to_owned(), hash.clone(), size, None::<String>, file.ext.clone());
-        if let Some(a) = action
-            && let Some((new_path, new_hash, new_size, new_ext)) = self.compress(conn, file, &meta, a, &hash)?
+        // Une vidéo déjà écrite par MyBoard n'est jamais retraitée (table des versions, IMP-68).
+        let fresh = match action {
+            Some(Action::Video(_)) if super::versions::original_of(conn, &hash)?.is_some() => None,
+            a => a,
+        };
+        if let Some(a) = fresh
+            && let Some((new_path, new_hash, new_size, new_ext)) = self.compress(conn, file, &meta, a, &hash, hooks)?
         {
             target = (new_path, new_hash, new_size, Some(hash), new_ext);
         }
@@ -155,7 +161,23 @@ impl Indexer {
 
     /// Compresse ou convertit, et écrit à côté de l'original (noté dans la table des versions, IMP-68). Un échec n'arrête
     /// pas l'import : l'original est importé tel quel et c'est compté (`squeeze`).
-    fn compress(&mut self, conn: &Connection, file: &ScanFile, meta: &Metadata, action: Action, original_hash: &str) -> anyhow::Result<Option<Written>> {
+    fn compress(&mut self, conn: &Connection, file: &ScanFile, meta: &Metadata, action: Action, original_hash: &str, hooks: &Hooks) -> anyhow::Result<Option<Written>> {
+        if let Action::Video(request) = action {
+            return match super::video::process(conn, &file.path, meta, request, hooks) {
+                Ok(Done::Written { path, hash, size, ext, squeeze }) => {
+                    super::versions::remember(conn, &hash, original_hash)?;
+                    self.squeeze = Some(squeeze);
+                    self.replaced = Some(file.path.clone());
+                    Ok(Some((path, hash, size, ext)))
+                }
+                Ok(Done::Kept(squeeze)) => {
+                    self.squeeze = squeeze;
+                    Ok(None)
+                }
+                Ok(Done::Cancelled) => anyhow::bail!("import arrêté"),
+                Err(e) => Ok(self.failed(file, e)),
+            };
+        }
         let mut animated = false;
         let encoded = match compress::encode(&file.path, action, &mut animated) {
             Ok(Some(encoded)) => encoded,
@@ -176,6 +198,7 @@ impl Indexer {
                 let (squeeze, ext) = match action {
                     Action::Compress(_) => (Squeeze::Compressed, file.ext.clone()),
                     Action::Convert { target, .. } => (Squeeze::Converted, target.ext().to_owned()),
+                    Action::Video(_) => unreachable!("vidéo traitée plus haut"),
                 };
                 self.squeeze = Some(squeeze);
                 self.replaced = Some(file.path.clone());
@@ -187,8 +210,9 @@ impl Indexer {
     }
 
     /// Image déjà dans la bibliothèque (IMP-60) : même fiche (tags, dossiers, favoris…), seul le fichier change.
-    fn recompress(&mut self, conn: &Connection, id: i64, file: &ScanFile, meta: &Metadata, hash: &str, action: Action) -> anyhow::Result<()> {
-        let Some((path, new_hash, size, ext)) = self.compress(conn, file, meta, action, hash)? else { return Ok(()) };
+    #[allow(clippy::too_many_arguments)]
+    fn recompress(&mut self, conn: &Connection, id: i64, file: &ScanFile, meta: &Metadata, hash: &str, action: Action, hooks: &Hooks) -> anyhow::Result<()> {
+        let Some((path, new_hash, size, ext)) = self.compress(conn, file, meta, action, hash, hooks)? else { return Ok(()) };
         let file_name = file_name_of(&path);
         conn.execute(
             "UPDATE media SET path = ?1, file_name = ?2, name_key = ?3, hash = ?4, original_hash = ?5, size = ?6,
@@ -199,9 +223,8 @@ impl Indexer {
         Ok(())
     }
 
-    /// « Supprimer les originaux », original déjà dans la bibliothèque (IMP-68) : la version, déjà écrite par MyBoard et
-    /// jamais retraitée, prend sa place sur la même fiche (tags, dossiers, favoris, note), comme IMP-60 ; elle retient
-    /// l'empreinte de l'original (un réimport de l'original compte comme doublon).
+    /// « Supprimer les originaux », original dans la bibliothèque (IMP-68) : la version (jamais retraitée) prend sa place
+    /// sur la même fiche, comme IMP-60, et retient l'empreinte de l'original (son réimport compte comme doublon).
     pub fn take_place(&mut self, conn: &Connection, file: &ScanFile, id: i64, original_hash: &str) -> anyhow::Result<Outcome> {
         self.squeeze = None;
         self.replaced = None;
@@ -260,7 +283,7 @@ impl Indexer {
 }
 
 /// Média dont le fichier, ou l'original compressé, a cette empreinte.
-fn find_hash(conn: &Connection, hash: &str) -> rusqlite::Result<Option<i64>> {
+pub(super) fn find_hash(conn: &Connection, hash: &str) -> rusqlite::Result<Option<i64>> {
     let found = conn.prepare_cached("SELECT id FROM media WHERE hash = ?1")?.query_row([hash], |r| r.get(0)).optional()?;
     if found.is_some() {
         return Ok(found);

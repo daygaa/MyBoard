@@ -6,7 +6,6 @@
 use std::io::{Cursor, Write};
 use std::path::Path;
 use std::process::Stdio;
-use std::sync::OnceLock;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use anyhow::{Context, bail};
@@ -130,9 +129,8 @@ fn webp(source: Source, quality: u8) -> Vec<u8> {
 /// la transparence reçoit un espace de couleurs ordinaire : celui de l'image RVB d'entrée (« identité ») lui est
 /// interdit par libaom, qui refusait toute image transparente (défaut du lot 4, corrigé le 10/11).
 fn avif(source: Source, quality: u8) -> anyhow::Result<Vec<u8>> {
-    static FFMPEG: OnceLock<Option<crate::ffmpeg::Ffmpeg>> = OnceLock::new();
     static NEXT: AtomicU64 = AtomicU64::new(0);
-    let ff = FFMPEG.get_or_init(crate::ffmpeg::detect).as_ref().context("ffmpeg introuvable : AVIF impossible")?;
+    let ff = crate::ffmpeg::shared().context("ffmpeg introuvable : AVIF impossible")?;
     let img = &source.img;
     let alpha = img.color().has_alpha();
     let pixels = if alpha { img.to_rgba8().into_raw() } else { img.to_rgb8().into_raw() };

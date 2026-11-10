@@ -1801,3 +1801,35 @@ rotation EXIF d'un JPEG mais pas celle d'un WebP (mesuré le 10/11) ; MyBoard ne
   empreinte, original_hash, poids, extension, dates, miniature refaite ; compté « modifié ») ; l'original n'est
   noté pour l'effacement qu'après ce changement (jamais deux fois).
 
+## D-065 — Compression et conversion des vidéos (11/11/2026)
+
+**Contexte.** Lot 5 de la phase 4 (IMP-22, IMP-24, IMP-25, IMP-41, IMP-69), réponses de l'utilisateur du 10/11 et du
+11/11 (SPEC).
+
+**Choix.**
+- Plan (`import/video/streams.rs`) : ffprobe lit les flux ; « Convertir » vers le codec déjà présent dans la bonne
+  enveloppe : seulement la compression si elle est cochée ; même codec, autre enveloppe : recopie des flux sans
+  réencodage (toujours gardée) ; sinon réencodage, à la qualité du curseur ou « Haute ». « Compresser » seule :
+  H.264, H.265, VP8, VP9, AV1 dans leur codec et leur conteneur (MP4, MOV, 3GP, MKV, WebM, AVI, FLV, TS) ; autres :
+  `Squeeze::Unsupported`. Cibles : MP4 (H.264, H.265, AV1), WebM (VP9).
+- Encodeurs (`import/video/encoders.rs`) : NVENC (h264, hevc, av1) essayé une fois par lancement sur une image noire ;
+  sinon libx264 (medium), libx265 (fast), libvpx, libvpx-vp9 (good, cpu-used 4), libaom-av1 (cpu-used 6). Crans :
+  x264 CRF 30/27/23/20/17, NVENC H.264 CQ 33/29/25/22/19, x265 32/29/26/23/20, NVENC H.265 35/31/28/25/22, VP9
+  44/39/34/29/24, VP8 44/36/28/20/12, AV1 46/40/34/28/23. H.264 et VP8 en 8 bits ; H.265, VP9, AV1 gardent les 10 bits.
+  Étiquette « hvc1 » du H.265 en MP4 / MOV. Échec de la carte graphique : nouvel essai au processeur.
+- Flux : son recopié si le conteneur l'accepte (MP4 : AAC, MP3, AC3, E-AC3, ALAC ; WebM : Opus, Vorbis), sinon AAC
+  192 kb/s ou Opus 160 kb/s ; sous-titres recopiés dans le même conteneur, sinon seulement ceux en texte (mov_text,
+  WebVTT) ; couverture et polices (MKV) gardées dans le même conteneur ; flux de données (horloge, métadonnées
+  continues de l'iPhone) jamais repris. `-map_metadata 0 -map_chapters 0`, `-fps_mode passthrough`, MP4 / MOV :
+  `-movflags +faststart+use_metadata_tags` (lieu et appareil d'Apple gardés). Rotation appliquée aux pixels.
+- Écriture (`import/video/mod.rs`) : ffmpeg écrit « nom final.myboard-tmp » (format imposé par `-f`), progression lue
+  sur `-progress pipe:1` toutes les 0,5 s ; règle des 5 % ; empreinte lue par blocs ; même placement que les images
+  (`compress::place` : dates de l'original, lien, jamais un fichier écrasé). Une vidéo déjà écrite par MyBoard (table
+  des versions) n'est jamais retraitée.
+- Déroulement (`import/run.rs`) : avant une vidéo à traiter, le lot en cours est validé ; la vidéo est enregistrée hors
+  transaction, puis l'écriture reprend (un encodage de plusieurs minutes ne bloque ni l'interface ni les miniatures).
+  « Arrêter » tue ffmpeg ; la vidéo en cours n'est ni enregistrée ni comptée.
+- « Compresser aussi » (IMP-60) : vidéos comptées d'après leur extension ; celles déjà au bon format restent telles
+  quelles. Paires de vidéos : toujours confirmées par la table des versions. Noms (IMP-65, 11/11) : une version
+  seulement convertie dont le nom est pris devient « nom (1).ext ».
+

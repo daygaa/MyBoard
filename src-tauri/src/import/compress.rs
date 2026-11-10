@@ -1,7 +1,9 @@
 //! Écriture d'une version compressée ou convertie À CÔTÉ de l'original (IMP-20, IMP-21, IMP-27, IMP-65, D-058), avec
 //! ses dates ; l'original n'est jamais modifié (il n'est effacé que si « Supprimer les originaux » est cochée, IMP-28,
 //! après coup). Version gardée seulement si elle est au moins 5 % plus légère. Noms (réponses du 10/11) : compressée
-//! « photo_c.jpg » ; convertie « photo.webp » ; convertie et compressée « photo_c.webp » ; nom pris : « photo_c (1).webp »…
+//! « photo_c.jpg » ; convertie « photo.webp » ; convertie et compressée « photo_c.webp » ; nom pris : « photo_c (1).jpg »,
+//! ou « photo (1).webp » pour une version seulement convertie (réponse QC du 11/11). Les vidéos (`video`) utilisent les
+//! mêmes noms et le même placement.
 
 use std::fs::{File, FileTimes, Metadata, OpenOptions};
 use std::io::{ErrorKind, Read, Write};
@@ -20,6 +22,8 @@ pub enum Squeeze {
     NotSmaller,
     /// Lecture, encodage ou écriture impossible : l'original est importé tel quel.
     Failed,
+    /// Vidéo dans un ancien format (MPEG-4 / Xvid, WMV…) : jamais compressée, signalée (réponse QB du 11/11).
+    Unsupported,
 }
 
 /// Version prête à écrire.
@@ -64,6 +68,8 @@ pub fn naming(action: Action, original: &Path) -> (String, bool) {
     match action {
         Action::Compress(_) => (original.extension().map(|e| e.to_string_lossy().into_owned()).unwrap_or_default(), true),
         Action::Convert { target, compressed, .. } => (target.ext().to_owned(), compressed),
+        // Le nom d'une vidéo dépend de son codec : décidé par `video::process`.
+        Action::Video(_) => (String::new(), false),
     }
 }
 
@@ -71,35 +77,52 @@ pub fn naming(action: Action, original: &Path) -> (String, bool) {
 /// utilise celle du fichier). D'abord sous un nom provisoire : jamais de fichier à moitié écrit.
 pub fn write_beside(original: &Path, meta: &Metadata, bytes: &[u8], ext: &str, suffix: bool) -> anyhow::Result<PathBuf> {
     let target = free_name(original, ext, suffix)?;
-    let tmp = target.with_file_name(format!("{}.myboard-tmp", target.file_name().unwrap_or_default().to_string_lossy()));
+    let tmp = tmp_of(&target);
     // Reste d'une écriture interrompue de MyBoard (même nom provisoire) : remplacé.
     let _ = std::fs::remove_file(&tmp);
     let written = (|| -> anyhow::Result<()> {
         let mut file = OpenOptions::new().write(true).create_new(true).open(&tmp)?;
         file.write_all(bytes)?;
-        copy_times(meta, &file)?;
-        file.sync_all()?;
         Ok(())
     })();
     if let Err(e) = written {
         let _ = std::fs::remove_file(&tmp);
         return Err(e.context("écriture de la nouvelle version"));
     }
-    // Un lien échoue si le nom a été pris entre-temps, contrairement à un renommage qui écraserait le fichier.
-    let placed = match std::fs::hard_link(&tmp, &target) {
-        Ok(()) => Ok(()),
-        Err(e) if e.kind() == ErrorKind::AlreadyExists => Err(anyhow::Error::from(e)),
-        // Disque sans liens (clé USB en FAT32, exFAT) : renommage, après une dernière vérification.
-        Err(_) if !target.exists() => std::fs::rename(&tmp, &target).map_err(anyhow::Error::from),
-        Err(e) => Err(e.into()),
-    };
-    let _ = std::fs::remove_file(&tmp);
-    placed.with_context(|| format!("placement de {}", target.display()))?;
+    place(&tmp, &target, meta)?;
     Ok(target)
 }
 
-/// « photo_c.jpg » (ou « photo.webp » sans suffixe), sinon « photo_c (1).jpg », « photo_c (2).jpg »…
-fn free_name(original: &Path, ext: &str, suffix: bool) -> anyhow::Result<PathBuf> {
+/// Nom provisoire, à côté du nom final : « video_c.mp4.myboard-tmp ».
+pub fn tmp_of(target: &Path) -> PathBuf {
+    target.with_file_name(format!("{}.myboard-tmp", target.file_name().unwrap_or_default().to_string_lossy()))
+}
+
+/// Donne au fichier provisoire les dates de l'original, l'écrit sur le disque, puis le place sous son nom final.
+pub fn place(tmp: &Path, target: &Path, meta: &Metadata) -> anyhow::Result<()> {
+    let synced = (|| -> std::io::Result<()> {
+        let file = OpenOptions::new().write(true).open(tmp)?;
+        copy_times(meta, &file)?;
+        file.sync_all()
+    })();
+    if let Err(e) = synced {
+        let _ = std::fs::remove_file(tmp);
+        return Err(anyhow::Error::from(e).context("écriture de la nouvelle version"));
+    }
+    // Un lien échoue si le nom a été pris entre-temps, contrairement à un renommage qui écraserait le fichier.
+    let placed = match std::fs::hard_link(tmp, target) {
+        Ok(()) => Ok(()),
+        Err(e) if e.kind() == ErrorKind::AlreadyExists => Err(anyhow::Error::from(e)),
+        // Disque sans liens (clé USB en FAT32, exFAT) : renommage, après une dernière vérification.
+        Err(_) if !target.exists() => std::fs::rename(tmp, target).map_err(anyhow::Error::from),
+        Err(e) => Err(e.into()),
+    };
+    let _ = std::fs::remove_file(tmp);
+    placed.with_context(|| format!("placement de {}", target.display()))
+}
+
+/// « photo_c.jpg » (ou « photo.webp » sans suffixe), sinon « photo_c (1).jpg » (ou « photo (1).webp »)…
+pub fn free_name(original: &Path, ext: &str, suffix: bool) -> anyhow::Result<PathBuf> {
     let stem = original.file_stem().context("nom de fichier vide")?.to_string_lossy();
     let dot = if ext.is_empty() { String::new() } else { format!(".{ext}") };
     let first = original.with_file_name(format!("{stem}{}{dot}", if suffix { "_c" } else { "" }));
@@ -107,7 +130,7 @@ fn free_name(original: &Path, ext: &str, suffix: bool) -> anyhow::Result<PathBuf
         return Ok(first);
     }
     for n in 1..1000 {
-        let candidate = original.with_file_name(format!("{stem}_c ({n}){dot}"));
+        let candidate = original.with_file_name(format!("{stem}{} ({n}){dot}", if suffix { "_c" } else { "" }));
         if free(&candidate, original) {
             return Ok(candidate);
         }

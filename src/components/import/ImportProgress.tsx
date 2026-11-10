@@ -1,10 +1,11 @@
-// Progression et résumé de l'import, affichés DANS la barre d'actions (IMP-40, IMP-41) ; résultat de la compression
-// des images (IMP-20), en attendant la pop-in de bilan (IMP-45).
+// Progression et résumé de l'import, affichés DANS la barre d'actions (IMP-40, IMP-41) ; résultat de la compression et
+// de la conversion des images et des vidéos (IMP-20, IMP-69), en attendant la pop-in de bilan (IMP-45). Pendant le
+// traitement d'une vidéo : sa miniature, son nom et sa propre barre (IMP-41).
 
 import { Check, Loader2, Square } from "lucide-react";
 
 import { Progress } from "@/components/ui/progress";
-import { api, type ImportProgress as ProgressData, type ImportResult } from "@/lib/api";
+import { api, scanPreviewUrl, type ImportProgress as ProgressData, type ImportResult } from "@/lib/api";
 import { openContextMenu, type MenuEntry } from "@/lib/contextMenu";
 import { formatNumber, plural } from "@/lib/format";
 
@@ -48,6 +49,12 @@ function compressionLine(p: ProgressData): string {
     parts.push(
       `${formatNumber(p.compressFailed)} ${plural(p.compressFailed, "compression impossible", "compressions impossibles")} (${plural(p.compressFailed, "importée", "importées")} sans compression)`,
     );
+  if (p.videosCompressed > 0) parts.push(`${formatNumber(p.videosCompressed)} ${plural(p.videosCompressed, "vidéo compressée", "vidéos compressées")}`);
+  if (p.videosConverted > 0) parts.push(`${formatNumber(p.videosConverted)} ${plural(p.videosConverted, "vidéo convertie", "vidéos converties")}`);
+  if (p.videosUnsupported > 0)
+    parts.push(
+      `${formatNumber(p.videosUnsupported)} ${plural(p.videosUnsupported, "vidéo dans un ancien format, non compressée", "vidéos dans un ancien format, non compressées")}`,
+    );
   if (p.setAside > 0) parts.push(`${formatNumber(p.setAside)} ${plural(p.setAside, "fichier écarté", "fichiers écartés")} (paires)`);
   if (p.deleted > 0) parts.push(`${formatNumber(p.deleted)} ${plural(p.deleted, "fichier supprimé", "fichiers supprimés")} du disque`);
   if (p.deleteFailed > 0)
@@ -88,6 +95,19 @@ export function ImportProgress({ progress, result }: { progress: ProgressData; r
           ? `Traitement en cours… (fichier ${formatNumber(Math.min(progress.processed + 1, progress.total))}/${formatNumber(progress.total)})${progress.currentFile ? ` — ${progress.currentFile}` : ""}`
           : resultLine(progress, result)}
       </p>
+
+      {running && progress.fileProgress !== null && progress.currentPath && (
+        <div data-zone="import.progression.fichier" className="flex items-center gap-3">
+          <img src={scanPreviewUrl(progress.currentPath)} alt="" className="h-10 w-10 shrink-0 rounded-md bg-secondary object-cover" />
+          <div className="min-w-0 flex-1 space-y-1">
+            <div className="flex justify-between gap-3 text-[11px] text-muted-foreground">
+              <span className="truncate">Traitement de la vidéo — {progress.currentFile}</span>
+              <span className="tabular-nums">{Math.round(progress.fileProgress * 100)}%</span>
+            </div>
+            <Progress value={progress.fileProgress * 100} className="h-1.5 bg-secondary [&_[data-slot=progress-indicator]]:bg-emerald-400" />
+          </div>
+        </div>
+      )}
 
       {compressionLine(progress) !== "" && (
         <p data-zone="import.compression" className="-mt-1.5 text-[11px] text-muted-foreground">

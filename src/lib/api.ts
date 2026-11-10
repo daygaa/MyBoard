@@ -196,7 +196,14 @@ export type ImportProgress = {
   /** Fichiers effacés du disque (IMP-28, IMP-64) et effacements impossibles. */
   deleted: number;
   deleteFailed: number;
+  /** Vidéos compressées (IMP-69), converties (IMP-22), dans un ancien format (jamais compressées). */
+  videosCompressed: number;
+  videosConverted: number;
+  videosUnsupported: number;
   currentFile: string | null;
+  /** Vidéo en cours de traitement : son chemin (miniature) et son avancement, de 0 à 1 (IMP-41). */
+  currentPath: string | null;
+  fileProgress: number | null;
 };
 
 /** Média réimporté dont les données sont en réserve (DEL-05). */
@@ -237,10 +244,12 @@ export type ScanPage = { entries: ScanEntry[]; total: number };
 
 /** Format de « Convertir les images en » (IMP-21) ; JFIF = JPEG sous un autre nom. */
 export type ImageTarget = "jpg" | "jfif" | "png" | "webp" | "avif";
+/** Format de « Convertir les vidéos en » (IMP-22) : MP4 H.264 (défaut), MP4 H.265, WebM (VP9), AV1. */
+export type VideoTarget = "h264" | "h265" | "webm" | "av1";
 /** Réponse de la pop-in des paires originaux + versions compressées ou converties (IMP-64, IMP-68). */
 export type PairChoice = "both" | "originals" | "versions";
 /** Paires de la liste ; `inLibrary` : celles dont l'original est déjà dans la bibliothèque (IMP-68). */
-export type PairCount = { total: number; inLibrary: number };
+export type PairCount = { total: number; inLibrary: number; images: number; videos: number };
 /** Options de la carte « Options d'import » (IMP-30) envoyées au lancement de l'import. */
 export type ImportOptions = {
   /** Qualité si « Compresser les images » est cochée (IMP-20). */
@@ -253,6 +262,9 @@ export type ImportOptions = {
   pairs: PairChoice;
   /** « Supprimer du stockage » de la pop-in des paires, confirmé deux fois (IMP-64). */
   deletePairFiles: boolean;
+  /** Cran de « Compresser les vidéos » (IMP-69, 0 Minimale … 4 Maximale). */
+  videoQuality: number | null;
+  convertVideosTo: VideoTarget | null;
 };
 
 /** Photo complète de l'état de l'import (événement `import-state`). */
@@ -277,8 +289,8 @@ export const api = {
   supportedExtensions: () => invoke<string[]>("supported_extensions"),
   startImport: (defaultTags: NewTag[], options: ImportOptions) => invoke<void>("start_import", { defaultTags, options }),
   /** Médias de la liste déjà dans la bibliothèque au même endroit, jamais traités, par type (pop-in IMP-60). */
-  countCompressibleExisting: (compressQuality: number | null, convertTo: ImageTarget | null) =>
-    invoke<KindCounts>("count_compressible_existing", { compressQuality, convertTo }),
+  countCompressibleExisting: (o: Pick<ImportOptions, "compressQuality" | "convertTo" | "videoQuality" | "convertVideosTo">) =>
+    invoke<KindCounts>("count_compressible_existing", o),
   /** Paires originaux + versions compressées ou converties de la liste (pop-in IMP-64, IMP-68). */
   countPairs: () => invoke<PairCount>("count_pairs"),
   cancelImport: () => invoke<void>("cancel_import"),

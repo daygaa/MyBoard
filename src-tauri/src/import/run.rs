@@ -1,6 +1,7 @@
 //! Déroulement d'un import, dans son propre fil (IMP-40, IMP-42, IMP-44) : indexation fichier par fichier, lots
 //! validés en base, progression envoyée à l'interface. Phase 4 : compression et conversion (IMP-20, IMP-21), paires
-//! originaux + versions (IMP-64, IMP-68), « Supprimer les originaux » (IMP-28). Un fichier n'est effacé du disque qu'APRÈS la
+//! originaux + versions (IMP-64, IMP-68), « Supprimer les originaux » (IMP-28) ; vidéos (IMP-69, IMP-22), chacune
+//! traitée hors de toute transaction, avec la barre de progression du fichier (IMP-41). Un fichier n'est effacé du disque qu'APRÈS la
 //! validation du lot qui ne l'utilise plus, et jamais s'il est encore le fichier d'un média : un arrêt brutal ne peut
 //! pas faire perdre à la fois l'original et sa nouvelle version.
 
@@ -17,9 +18,11 @@ use super::index::{Indexer, Outcome};
 use super::pairs::Pair;
 use super::plan::{ImportOptions, PairChoice};
 use super::scan::ScanFile;
+use super::video::Hooks;
 use super::{COMMIT_EVERY, COMMIT_INTERVAL, FileError, ImportResult, LIBRARY_INTERVAL, MAX_LISTED_ERRORS, Phase, Progress};
 use crate::reserve;
 use crate::tagging::{Tagger, Target, resolve_or_create};
+use crate::formats::Kind;
 use crate::tags::NewTag;
 use crate::{AppState, db};
 
@@ -66,6 +69,15 @@ pub fn run_import(app: &AppHandle, files: Vec<ScanFile>, default_tags: Vec<NewTa
             _ => HashSet::new(),
         };
         let mut indexer = Indexer::new();
+        // Vidéo en cours de traitement : barre du fichier (IMP-41) ; « Arrêter » coupe ffmpeg.
+        let report = |fraction: Option<f32>| {
+            manager.update(true, |inner| {
+                if let Some(p) = &mut inner.snapshot.progress {
+                    p.file_progress = fraction;
+                }
+            })
+        };
+        let hooks = Hooks { cancel: &manager.cancel, progress: &report };
         // Médias nouveaux dont les données sont en réserve (DEL-05).
         let mut found = Vec::new();
         let mut in_batch = 0;
@@ -87,6 +99,21 @@ pub fn run_import(app: &AppHandle, files: Vec<ScanFile>, default_tags: Vec<NewTa
             } else {
                 let pair = versions.get(file.path.as_path()).copied();
                 let take_place = pair.and_then(|p| p.in_library.as_ref().filter(|_| options.pairs == PairChoice::Versions).map(|m| (p, m)));
+                // Vidéo à traiter : le lot est validé AVANT (un encodage peut durer des minutes, la base ne doit pas rester
+                // bloquée pour l'interface et les miniatures), la vidéo est enregistrée seule, puis l'écriture reprend.
+                let long = take_place.is_none()
+                    && file.kind == Kind::Video
+                    && !as_is.contains(file.path.as_path())
+                    && process.is_some_and(|p| p.action(file.kind, &file.ext).is_some());
+                if long {
+                    conn.execute_batch("COMMIT")?;
+                    delete_files(&conn, &mut to_delete, &mut progress);
+                    state.thumbs.wake();
+                    progress.current_path = Some(file.path.to_string_lossy().into_owned());
+                    progress.file_progress = Some(0.0);
+                    let snapshot = progress.clone();
+                    manager.update(false, |inner| inner.snapshot.progress = Some(snapshot));
+                }
                 let outcome = match take_place {
                     Some((pair, (id, hash))) => {
                         let outcome = indexer.take_place(&conn, file, *id, hash);
@@ -95,8 +122,20 @@ pub fn run_import(app: &AppHandle, files: Vec<ScanFile>, default_tags: Vec<NewTa
                         }
                         outcome
                     }
-                    None => indexer.index(&conn, file, db::now_ms(), process, as_is.contains(file.path.as_path())),
+                    None => indexer.index(&conn, file, db::now_ms(), process, as_is.contains(file.path.as_path()), &hooks),
                 };
+                if long {
+                    conn.execute_batch("BEGIN IMMEDIATE")?;
+                    in_batch = 0;
+                    last_commit = Instant::now();
+                    progress.current_path = None;
+                    progress.file_progress = None;
+                    // « Arrêter » pendant l'encodage : la vidéo n'est pas enregistrée, ni comptée.
+                    if manager.cancel.load(Ordering::SeqCst) && outcome.is_err() {
+                        cancelled = true;
+                        break;
+                    }
+                }
                 count(&mut progress, &outcome, indexer.squeeze, &mut error_files, file);
                 if options.delete_originals
                     && let Some(original) = indexer.replaced.take()
@@ -164,7 +203,11 @@ pub fn run_import(app: &AppHandle, files: Vec<ScanFile>, default_tags: Vec<NewTa
 
 /// Compteurs de la progression pour un fichier.
 fn count(progress: &mut Progress, outcome: &anyhow::Result<Outcome>, squeeze: Option<Squeeze>, errors: &mut Vec<FileError>, file: &ScanFile) {
+    let video = file.kind == Kind::Video;
     match squeeze {
+        Some(Squeeze::Compressed) if video => progress.videos_compressed += 1,
+        Some(Squeeze::Converted) if video => progress.videos_converted += 1,
+        Some(Squeeze::Unsupported) => progress.videos_unsupported += 1,
         Some(Squeeze::Compressed) => progress.compressed += 1,
         Some(Squeeze::Converted) => progress.converted += 1,
         Some(Squeeze::NotSmaller) => progress.not_smaller += 1,
@@ -188,7 +231,7 @@ fn count(progress: &mut Progress, outcome: &anyhow::Result<Outcome>, squeeze: Op
 /// La version gardée d'une paire retient l'empreinte de son original écarté (D-058) : un réimport le reconnaît. Notée
 /// aussi dans la table des versions (IMP-68), si elle ne l'était pas (version écrite avant le schéma 20).
 fn remember_original(conn: &Connection, id: i64, original: &Path) -> anyhow::Result<()> {
-    let hash = blake3::hash(&std::fs::read(original)?).to_hex().to_string();
+    let hash = super::versions::hash_file(original)?;
     conn.execute("UPDATE media SET original_hash = ?1 WHERE id = ?2 AND original_hash IS NULL", params![hash, id])?;
     let version: String = conn.query_row("SELECT hash FROM media WHERE id = ?1", [id], |r| r.get(0))?;
     super::versions::remember(conn, &version, &hash)?;

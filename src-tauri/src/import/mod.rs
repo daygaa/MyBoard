@@ -23,6 +23,7 @@ mod run;
 mod scan;
 mod state;
 mod versions;
+mod video;
 
 use std::path::PathBuf;
 use std::sync::Mutex;

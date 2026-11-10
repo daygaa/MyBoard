@@ -15,6 +15,7 @@ pub fn reencode(bytes: &[u8], action: Action) -> anyhow::Result<Option<Vec<u8>>>
     let quality = match action {
         Action::Convert { target, quality, compressed } => return super::convert::convert(bytes, target, quality, compressed),
         Action::Compress(quality) => quality,
+        Action::Video(_) => anyhow::bail!("vidéo : traitée par ffmpeg"),
     };
     if bytes.starts_with(&[0xFF, 0xD8]) {
         return jpeg(bytes, quality).map(Some);

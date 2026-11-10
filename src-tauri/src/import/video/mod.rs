@@ -1,0 +1,129 @@
+//! Compression (IMP-69) et conversion (IMP-22) des vidéos par ffmpeg, écrites à côté de l'original comme les images
+//! (IMP-27) : « video_c.mp4 » (compressée), « video.mp4 » (convertie), « video (1).mp4 » si le nom est pris (IMP-65).
+//! Résolution et images par seconde gardées (IMP-25) ; version gardée si elle est au moins 5 % plus légère, sauf un
+//! simple changement d'enveloppe (réponses Q2, Q3 du 10/11) ; progression du fichier (IMP-41) ; « Arrêter » coupe ffmpeg
+//! aussitôt. La carte graphique échoue (format de pixels, taille…) : nouvel essai au processeur.
+
+mod encoders;
+mod probe;
+mod streams;
+
+use std::fs::{self, Metadata};
+use std::io::{BufRead, BufReader, Read};
+use std::path::Path;
+use std::process::Stdio;
+use std::sync::atomic::{AtomicBool, Ordering};
+
+use anyhow::{Context, bail};
+use rusqlite::Connection;
+
+use super::compress::{self, Squeeze};
+use super::plan::VideoRequest;
+use streams::{Family, Job};
+
+/// Liens avec le déroulement de l'import : bouton « Arrêter », barre de progression du fichier (0 à 1).
+pub struct Hooks<'a> {
+    pub cancel: &'a AtomicBool,
+    pub progress: &'a dyn Fn(Option<f32>),
+}
+
+pub enum Done {
+    /// Nouvelle version placée à côté de l'original : chemin, empreinte, poids, extension, ce qui a été fait.
+    Written { path: String, hash: String, size: i64, ext: String, squeeze: Squeeze },
+    /// Rien d'écrit : rien à faire (`None`), pas au moins 5 % de gain, ancien format jamais compressé.
+    Kept(Option<Squeeze>),
+    Cancelled,
+}
+
+pub fn process(conn: &Connection, path: &Path, meta: &Metadata, request: VideoRequest, hooks: &Hooks) -> anyhow::Result<Done> {
+    let ff = crate::ffmpeg::shared().context("ffmpeg introuvable : vidéo ni compressée ni convertie")?;
+    let probe = probe::probe(&ff.ffprobe, path)?;
+    let ext = path.extension().map(|e| e.to_string_lossy().to_lowercase()).unwrap_or_default();
+    let job = match streams::plan(&probe, &ext, request) {
+        Ok(job) => job,
+        Err(kept) => return Ok(Done::Kept(kept)),
+    };
+    let (suffix, squeeze, codec) = match &job {
+        Job::Encode { compressed, converted, codec, .. } => (*compressed, if *converted { Squeeze::Converted } else { Squeeze::Compressed }, Some(*codec)),
+        Job::Remux { .. } => (false, Squeeze::Converted, None),
+    };
+    let out = job.out();
+    let target = compress::free_name(path, &out.ext, suffix)?;
+    let tmp = compress::tmp_of(&target);
+    let _ = fs::remove_file(&tmp);
+    let encoder = codec.map(|c| encoders::choose(&ff.ffmpeg, c));
+    let mut result = run(&ff.ffmpeg, path, &probe, &job, encoder, &tmp, hooks);
+    if let (Err(e), Some(codec), Some(used)) = (&result, codec, encoder)
+        && used != codec.cpu()
+        && !hooks.cancel.load(Ordering::SeqCst)
+    {
+        eprintln!("[import] {used} a échoué ({e:#}) : nouvel essai avec {}", codec.cpu());
+        result = run(&ff.ffmpeg, path, &probe, &job, Some(codec.cpu()), &tmp, hooks);
+    }
+    (hooks.progress)(None);
+    if let Err(e) = result {
+        let _ = fs::remove_file(&tmp);
+        return if hooks.cancel.load(Ordering::SeqCst) { Ok(Done::Cancelled) } else { Err(e) };
+    }
+    let size = fs::metadata(&tmp)?.len();
+    if matches!(job, Job::Encode { .. }) && size * 100 > meta.len() * 95 {
+        let _ = fs::remove_file(&tmp);
+        return Ok(Done::Kept(Some(Squeeze::NotSmaller)));
+    }
+    let hash = super::versions::hash_file(&tmp)?;
+    // Contenu déjà connu (cas rare) : rien n'est gardé, l'original est importé tel quel.
+    if super::index::find_hash(conn, &hash)?.is_some() {
+        let _ = fs::remove_file(&tmp);
+        return Ok(Done::Kept(None));
+    }
+    compress::place(&tmp, &target, meta)?;
+    let path = target.to_str().context("nom de fichier illisible")?.to_owned();
+    Ok(Done::Written { path, hash, size: size as i64, ext: out.ext.clone(), squeeze })
+}
+
+/// Lance ffmpeg vers le fichier provisoire et suit sa progression (toutes les 0,5 s).
+fn run(ffmpeg: &Path, input: &Path, probe: &probe::Probe, job: &Job, encoder: Option<&str>, tmp: &Path, hooks: &Hooks) -> anyhow::Result<()> {
+    let out = job.out();
+    let mut cmd = crate::ffmpeg::command(ffmpeg);
+    cmd.args(["-hide_banner", "-loglevel", "error", "-nostats", "-progress", "pipe:1", "-stats_period", "0.5", "-i"]).arg(input);
+    cmd.args(streams::stream_args(probe, job, encoder));
+    cmd.args(["-map_metadata", "0", "-map_chapters", "0", "-max_muxing_queue_size", "4096"]);
+    if out.family == Family::Mp4 {
+        // « faststart » : la lecture démarre sans attendre la fin du fichier (accepté le 11/11) ; informations d'Apple
+        // (lieu, appareil) gardées.
+        cmd.args(["-movflags", "+faststart+use_metadata_tags"]);
+    }
+    cmd.args(["-f", out.muxer]).arg(tmp).stdout(Stdio::piped()).stderr(Stdio::piped());
+    let mut child = cmd.spawn().context("lancement de ffmpeg")?;
+    let mut stderr = child.stderr.take().context("sortie d'erreur de ffmpeg")?;
+    let errors = std::thread::spawn(move || {
+        let mut text = String::new();
+        let _ = stderr.read_to_string(&mut text);
+        text
+    });
+    let duration = probe.duration();
+    let stdout = child.stdout.take().context("sortie de ffmpeg")?;
+    for line in BufReader::new(stdout).lines() {
+        if hooks.cancel.load(Ordering::SeqCst) {
+            let _ = child.kill();
+            break;
+        }
+        let Ok(line) = line else { break };
+        if let (Some(us), Some(total)) = (line.strip_prefix("out_time_us="), duration)
+            && let Ok(us) = us.trim().parse::<f64>()
+        {
+            (hooks.progress)(Some((us / 1e6 / total).clamp(0.0, 1.0) as f32));
+        }
+    }
+    let status = child.wait()?;
+    let errors = errors.join().unwrap_or_default();
+    if hooks.cancel.load(Ordering::SeqCst) {
+        bail!("import arrêté");
+    }
+    if !status.success() {
+        let tail: Vec<&str> = errors.lines().rev().take(3).collect();
+        bail!("ffmpeg ({}) : {}", encoder.unwrap_or("copie"), tail.into_iter().rev().collect::<Vec<_>>().join(" / "));
+    }
+    Ok(())
+}
+
