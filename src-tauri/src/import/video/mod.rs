@@ -4,6 +4,7 @@
 //! légère, une version convertie toujours (IMP-70, 11/11 ; réglage à venir SET-18) ; progression du fichier (IMP-41) ; « Arrêter » coupe ffmpeg
 //! aussitôt. La carte graphique échoue (format de pixels, taille…) : nouvel essai au processeur.
 
+pub mod control;
 mod encoders;
 mod probe;
 mod streams;
@@ -21,10 +22,12 @@ use super::compress::{self, Squeeze};
 use super::plan::VideoRequest;
 use streams::{Family, Job};
 
-/// Liens avec le déroulement de l'import : bouton « Arrêter », barre de progression du fichier (0 à 1).
+/// Liens avec le déroulement de l'import : arrêt (« Terminer ici », « Annuler l'import », « Annuler » de la
+/// visionneuse), barre de progression du fichier (0 à 1), pause (IMP-42 ; aucune dans la visionneuse).
 pub struct Hooks<'a> {
     pub cancel: &'a AtomicBool,
     pub progress: &'a dyn Fn(Option<f32>),
+    pub gate: Option<&'a super::pause::Gate>,
 }
 
 pub enum Done {
@@ -51,36 +54,45 @@ pub fn process(conn: &Connection, path: &Path, meta: &Metadata, request: VideoRe
     let target = compress::free_name(path, &out.ext, suffix)?;
     let tmp = compress::tmp_of(&target);
     let _ = fs::remove_file(&tmp);
-    let encoder = codec.map(|c| encoders::choose(&ff.ffmpeg, c));
-    let playable = request.playable;
-    let lost_subtitles = streams::stream_args(&probe, &job, encoder, playable).1;
-    let mut result = run(&ff.ffmpeg, path, &probe, &job, encoder, playable, &tmp, hooks);
-    if let (Err(e), Some(codec), Some(used)) = (&result, codec, encoder)
-        && used != codec.cpu()
-        && !hooks.cancel.load(Ordering::SeqCst)
-    {
-        eprintln!("[import] {used} a échoué ({e:#}) : nouvel essai avec {}", codec.cpu());
-        result = run(&ff.ffmpeg, path, &probe, &job, Some(codec.cpu()), playable, &tmp, hooks);
+    // Noté AVANT l'écriture (journal, IMP-42) ; retiré ici si rien n'est gardé, sinon par l'appelant une fois la
+    // version enregistrée en base.
+    super::journal::add(&target);
+    let done = (|| -> anyhow::Result<Done> {
+        let encoder = codec.map(|c| encoders::choose(&ff.ffmpeg, c));
+        let playable = request.playable;
+        let lost_subtitles = streams::stream_args(&probe, &job, encoder, playable).1;
+        let mut result = run(&ff.ffmpeg, path, &probe, &job, encoder, playable, &tmp, hooks);
+        if let (Err(e), Some(codec), Some(used)) = (&result, codec, encoder)
+            && used != codec.cpu()
+            && !hooks.cancel.load(Ordering::SeqCst)
+        {
+            eprintln!("[import] {used} a échoué ({e:#}) : nouvel essai avec {}", codec.cpu());
+            result = run(&ff.ffmpeg, path, &probe, &job, Some(codec.cpu()), playable, &tmp, hooks);
+        }
+        (hooks.progress)(None);
+        if let Err(e) = result {
+            let _ = fs::remove_file(&tmp);
+            return if hooks.cancel.load(Ordering::SeqCst) { Ok(Done::Cancelled) } else { Err(e) };
+        }
+        let size = fs::metadata(&tmp)?.len();
+        if matches!(job, Job::Encode { converted: false, .. }) && size * 100 > meta.len() * 95 {
+            let _ = fs::remove_file(&tmp);
+            return Ok(Done::Kept(Some(Squeeze::NotSmaller)));
+        }
+        let hash = super::versions::hash_file(&tmp)?;
+        // Contenu déjà connu (cas rare) : rien n'est gardé, l'original est importé tel quel.
+        if super::index::find_hash(conn, &hash)?.is_some() {
+            let _ = fs::remove_file(&tmp);
+            return Ok(Done::Kept(None));
+        }
+        compress::place(&tmp, &target, meta)?;
+        let path = target.to_str().context("nom de fichier illisible")?.to_owned();
+        Ok(Done::Written { path, hash, size: size as i64, ext: out.ext.clone(), squeeze, lost_subtitles })
+    })();
+    if !matches!(done, Ok(Done::Written { .. })) {
+        super::journal::remove(&[target]);
     }
-    (hooks.progress)(None);
-    if let Err(e) = result {
-        let _ = fs::remove_file(&tmp);
-        return if hooks.cancel.load(Ordering::SeqCst) { Ok(Done::Cancelled) } else { Err(e) };
-    }
-    let size = fs::metadata(&tmp)?.len();
-    if matches!(job, Job::Encode { converted: false, .. }) && size * 100 > meta.len() * 95 {
-        let _ = fs::remove_file(&tmp);
-        return Ok(Done::Kept(Some(Squeeze::NotSmaller)));
-    }
-    let hash = super::versions::hash_file(&tmp)?;
-    // Contenu déjà connu (cas rare) : rien n'est gardé, l'original est importé tel quel.
-    if super::index::find_hash(conn, &hash)?.is_some() {
-        let _ = fs::remove_file(&tmp);
-        return Ok(Done::Kept(None));
-    }
-    compress::place(&tmp, &target, meta)?;
-    let path = target.to_str().context("nom de fichier illisible")?.to_owned();
-    Ok(Done::Written { path, hash, size: size as i64, ext: out.ext.clone(), squeeze, lost_subtitles })
+    done
 }
 
 /// Lance ffmpeg vers le fichier provisoire et suit sa progression (toutes les 0,5 s).
@@ -99,6 +111,7 @@ fn run(ffmpeg: &Path, input: &Path, probe: &probe::Probe, job: &Job, encoder: Op
     }
     cmd.args(["-f", out.muxer]).arg(tmp).stdout(Stdio::piped()).stderr(Stdio::piped());
     let mut child = cmd.spawn().context("lancement de ffmpeg")?;
+    control::bind(&child);
     let mut stderr = child.stderr.take().context("sortie d'erreur de ffmpeg")?;
     let errors = std::thread::spawn(move || {
         let mut text = String::new();
@@ -108,6 +121,15 @@ fn run(ffmpeg: &Path, input: &Path, probe: &probe::Probe, job: &Job, encoder: Op
     let duration = probe.duration();
     let stdout = child.stdout.take().context("sortie de ffmpeg")?;
     for line in BufReader::new(stdout).lines() {
+        // Pause (IMP-42) : ffmpeg est figé tel quel, puis repart ; arrêté s'il le faut.
+        if let Some(gate) = hooks.gate
+            && gate.is_paused()
+            && !hooks.cancel.load(Ordering::SeqCst)
+        {
+            control::suspend(&child, true);
+            gate.wait(hooks.cancel);
+            control::suspend(&child, false);
+        }
         if hooks.cancel.load(Ordering::SeqCst) {
             let _ = child.kill();
             break;

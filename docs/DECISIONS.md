@@ -1857,3 +1857,42 @@ rotation EXIF d'un JPEG mais pas celle d'un WebP (mesuré le 10/11) ; MyBoard ne
   retirés des fichiers « tels quels » et comptés par « Compresser aussi » (`count_compressible_existing` reçoit le
   choix des paires). `Indexer::take_place` déplacé dans `pairs.rs`.
 
+
+## D-067 — Pause, fin anticipée et annulation de l'import ; bilan ; fichiers disparus et emplacements inaccessibles (11/11/2026)
+
+**Contexte.** Lots 7 et 8 de la phase 4 (IMP-42, IMP-43, IMP-45, IMP-76, IMP-54, LIB-05, LIB-14), faits ensemble (réponse
+Q7 A), réponses de l'utilisateur du 09/11 et du 11/11 (Q1 à Q13, SPEC).
+
+**Choix.**
+- Pause (`import/pause.rs`) : « Arrêter » lève une pause (`Gate`) ; le fil de l'import la voit entre deux fichiers (le lot
+  en cours est d'abord validé : la base reste libre) ; pendant une vidéo, ffmpeg est figé tel quel (`NtSuspendProcess`,
+  `video/control.rs`) puis relancé (`NtResumeProcess`). « Terminer ici » et « Annuler l'import » lèvent `cancel` (ffmpeg
+  coupé, fichier provisoire effacé). ffmpeg est rattaché à un « job » Windows fermé avec MyBoard
+  (`JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE`) : une fermeture ou un plantage l'arrête aussitôt.
+- Journal (`import/journal.rs`) : fichier texte `ecritures-en-cours.txt` du dossier des données (réponse Q13 A), une ligne
+  par version en cours d'écriture (import et visionneuse), ajoutée avant l'écriture, retirée après la validation en base
+  (ou l'abandon) ; écrit à côté puis remplacé (jamais à moitié écrit) ; à l'ouverture : provisoire et fichier final
+  effacés s'ils ne sont le fichier d'aucun média. Un nom du journal est toujours un nom choisi libre par MyBoard.
+- Annulation (`import/undo.rs`) : liste en mémoire pendant l'import (médias ajoutés, tags par défaut posés sur des médias
+  déjà présents, tags créés, fiches changées avec leur état d'avant `relocate::Before`, fichiers écrits) ; une
+  transaction : fiches remises, tags retirés avec leurs parents (`remove_cascade`, `restore_justified`), médias ajoutés
+  marqués `pending_delete = 4` (`deletion::UNDONE` : retirés sans réserve, sans toucher à une réserve DEL-05), tags créés
+  effacés s'ils ne servent plus ; puis fichiers écrits effacés. Impossible (bouton grisé, commande refusée) avec
+  « Supprimer les originaux » ou « Supprimer du stockage… » (`ImportOptions::undoable`).
+- Bilan (`ImportReport.tsx`) : `Progress` compte aussi `relocated`, `vanished` et les poids avant / après des versions
+  gardées (images, vidéos) ; `ImportResult.reported` : bilan fermé, la restauration DEL-05 vient ensuite.
+- Vérification de l'ouverture (`library_check.rs`) : fil en priorité basse, lecture de tous les chemins puis
+  `fs::metadata` ; « inaccessible » = racine (`D:\`, `\\serveur\partage\`) injoignable ; « disparu » = `NotFound` sur une
+  racine joignable ; autre erreur = présent. Les racines inaccessibles sont gardées en mémoire (`OFFLINE`, marque des
+  vignettes dans `library::media_from_row`) et revérifiées toutes les 5 s. `media.missing_since`
+  (« Conserver la miniature », colonne prévue dès le schéma 1 : schéma toujours 20), effacée dès que le fichier est revu (vérification, réimport).
+  Une racine revenue : bandeau et marques retirés aussitôt, puis ses fichiers vérifiés. La liste complète des médias
+  disparus reste dans le cœur Rust ; l'interface reçoit les 500 premiers et le total (100 000 envoyés d'un coup
+  figeaient la fenêtre ~2 s), et « Supprimer de la bibliothèque » / « Conserver la miniature » règlent toute la liste
+  côté Rust (`settle_missing`). L'interface relit l'état une fois son écoute en place (une vérification rapide finissait
+  avant elle).
+- Média retrouvé (`import/relocate.rs`) : même empreinte qu'un média dont le fichier manque sur une racine joignable →
+  le média prend le nouveau chemin (`Outcome::Relocated`), jamais pour l'original d'une version compressée.
+- IMP-54 : fichier en erreur absent à la fin de son traitement : racine injoignable → pause automatique (le fichier est
+  repris après « Reprendre ») ; sinon compté « disparu » ; une compression impossible parce que le fichier a disparu
+  n'enregistre rien.

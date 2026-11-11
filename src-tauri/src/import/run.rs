@@ -1,28 +1,30 @@
 //! Déroulement d'un import, dans son propre fil (IMP-40, IMP-42, IMP-44) : indexation fichier par fichier, lots
 //! validés en base, progression envoyée à l'interface. Phase 4 : compression et conversion (IMP-20, IMP-21), paires
 //! originaux + versions (IMP-64, IMP-68), « Supprimer les originaux » (IMP-28) ; vidéos (IMP-69, IMP-22), chacune
-//! traitée hors de toute transaction, avec la barre de progression du fichier (IMP-41). Un fichier n'est effacé du disque qu'APRÈS la
-//! validation du lot qui ne l'utilise plus, et jamais s'il est encore le fichier d'un média : un arrêt brutal ne peut
-//! pas faire perdre à la fois l'original et sa nouvelle version.
+//! traitée hors de toute transaction, avec la barre de progression du fichier (IMP-41). Pause, « Terminer ici » et
+//! « Annuler l'import » (IMP-42, IMP-43, `undo.rs`) ; fichier disparu ou emplacement débranché pendant l'import (IMP-54).
+//! Un fichier n'est effacé du disque qu'APRÈS la validation du lot qui ne l'utilise plus, et jamais s'il est encore le
+//! fichier d'un média : un arrêt brutal ne peut pas faire perdre à la fois l'original et sa nouvelle version.
 
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::Ordering;
 use std::time::Instant;
 
-use rusqlite::{Connection, params};
 use tauri::{AppHandle, Emitter, Manager};
 
-use super::compress::Squeeze;
 use super::index::{Indexer, Outcome};
 use super::pairs::Pair;
 use super::plan::{ImportOptions, PairChoice};
 use super::scan::ScanFile;
+use super::tally::{after_commit, count, delete_files, remember_original};
+use super::undo::Changes;
 use super::video::Hooks;
-use super::{COMMIT_EVERY, COMMIT_INTERVAL, FileError, ImportResult, LIBRARY_INTERVAL, MAX_LISTED_ERRORS, Phase, Progress};
+use super::{COMMIT_EVERY, COMMIT_INTERVAL, ImportResult, LIBRARY_INTERVAL, MAX_LISTED_ERRORS, Phase, Progress};
+use crate::formats::Kind;
+use crate::library_check::{Presence, presence, root_of};
 use crate::reserve;
 use crate::tagging::{Tagger, Target, resolve_or_create};
-use crate::formats::Kind;
 use crate::tags::NewTag;
 use crate::{AppState, db};
 
@@ -33,10 +35,16 @@ pub fn run_import(app: &AppHandle, files: Vec<ScanFile>, default_tags: Vec<NewTa
     let process = options.process();
     let mut progress = Progress { total: files.len() as u64, ..Progress::default() };
     let mut error_files = Vec::new();
+    let mut vanished_files = Vec::new();
     let mut cancelled = false;
+    let mut undone = None;
     let mut restorable = Vec::new();
     // Fichiers à effacer une fois leur lot validé : originaux remplacés (IMP-28), fichiers écartés d'une paire (IMP-64).
     let mut to_delete: Vec<PathBuf> = Vec::new();
+    // Versions écrites depuis la dernière validation : elles sortent du journal une fois enregistrées (IMP-42).
+    let mut unsaved: Vec<PathBuf> = Vec::new();
+    // Ce que l'import change, pour « Annuler l'import » (IMP-43).
+    let mut changes = Changes::default();
 
     let fatal = (|| -> anyhow::Result<()> {
         let mut conn = db::open(&state.paths.db)?;
@@ -44,11 +52,13 @@ pub fn run_import(app: &AppHandle, files: Vec<ScanFile>, default_tags: Vec<NewTa
         // synonyme donne son tag principal, TAGM-15). Les parents suivent à chaque média (TAGM-16).
         let targets: Vec<Target> = {
             let tx = conn.transaction()?;
+            let newest: i64 = tx.query_row("SELECT COALESCE(MAX(id), 0) FROM tags", [], |r| r.get(0))?;
             let mut found = Vec::new();
             for tag in &default_tags {
                 found.extend(resolve_or_create(&tx, tag, db::now_ms())?);
             }
             tx.commit()?;
+            changes.created_tags = found.iter().map(|t| t.tag_id).filter(|&id| id > newest).collect();
             found
         };
         let tagger = Tagger::load(&conn)?;
@@ -77,7 +87,7 @@ pub fn run_import(app: &AppHandle, files: Vec<ScanFile>, default_tags: Vec<NewTa
             delete_files(&conn, &mut early, &mut progress);
         }
         let mut indexer = Indexer::new();
-        // Vidéo en cours de traitement : barre du fichier (IMP-41) ; « Arrêter » coupe ffmpeg.
+        // Vidéo en cours de traitement : barre du fichier (IMP-41) ; pause et arrêt passent jusqu'à ffmpeg.
         let report = |fraction: Option<f32>| {
             manager.update(true, |inner| {
                 if let Some(p) = &mut inner.snapshot.progress {
@@ -85,19 +95,36 @@ pub fn run_import(app: &AppHandle, files: Vec<ScanFile>, default_tags: Vec<NewTa
                 }
             })
         };
-        let hooks = Hooks { cancel: &manager.cancel, progress: &report };
+        let hooks = Hooks { cancel: &manager.cancel, progress: &report, gate: Some(&manager.gate) };
         // Médias nouveaux dont les données sont en réserve (DEL-05).
         let mut found = Vec::new();
         let mut in_batch = 0;
         let mut last_commit = Instant::now();
         let mut last_library = Instant::now();
+        let stopped = || manager.cancel.load(Ordering::SeqCst);
         conn.execute_batch("BEGIN IMMEDIATE")?;
 
-        for file in &files {
-            if manager.cancel.load(Ordering::SeqCst) {
+        let mut i = 0;
+        while i < files.len() {
+            // Pause (IMP-42) : le lot en cours est validé (la base reste libre pour l'interface et les miniatures), puis
+            // l'import attend « Reprendre », « Terminer ici » ou « Annuler l'import ».
+            if manager.gate.is_paused() && !stopped() {
+                conn.execute_batch("COMMIT")?;
+                after_commit(&conn, &mut to_delete, &mut unsaved, &mut progress);
+                state.thumbs.wake();
+                let _ = app.emit("library-changed", ());
+                // Compteurs exacts pendant la pause (l'envoi normal est limité à 10 par seconde).
+                let snapshot = progress.clone();
+                manager.update(false, |inner| inner.snapshot.progress = Some(snapshot));
+                manager.gate.wait(&manager.cancel);
+                conn.execute_batch("BEGIN IMMEDIATE")?;
+                (in_batch, last_commit) = (0, Instant::now());
+            }
+            if stopped() {
                 cancelled = true;
                 break;
             }
+            let file = &files[i];
             progress.current_file = file.path.file_name().map(|n| n.to_string_lossy().into_owned());
             if set_aside.contains(file.path.as_path()) {
                 progress.set_aside += 1;
@@ -115,7 +142,7 @@ pub fn run_import(app: &AppHandle, files: Vec<ScanFile>, default_tags: Vec<NewTa
                     && process.is_some_and(|p| p.action(file.kind, &file.ext).is_some());
                 if long {
                     conn.execute_batch("COMMIT")?;
-                    delete_files(&conn, &mut to_delete, &mut progress);
+                    after_commit(&conn, &mut to_delete, &mut unsaved, &mut progress);
                     state.thumbs.wake();
                     progress.current_path = Some(file.path.to_string_lossy().into_owned());
                     progress.file_progress = Some(0.0);
@@ -134,17 +161,44 @@ pub fn run_import(app: &AppHandle, files: Vec<ScanFile>, default_tags: Vec<NewTa
                 };
                 if long {
                     conn.execute_batch("BEGIN IMMEDIATE")?;
-                    in_batch = 0;
-                    last_commit = Instant::now();
+                    (in_batch, last_commit) = (0, Instant::now());
                     progress.current_path = None;
                     progress.file_progress = None;
-                    // « Arrêter » pendant l'encodage : la vidéo n'est pas enregistrée, ni comptée.
-                    if manager.cancel.load(Ordering::SeqCst) && outcome.is_err() {
+                    // « Terminer ici » ou « Annuler l'import » pendant l'encodage : la vidéo n'est ni enregistrée ni comptée.
+                    if stopped() && outcome.is_err() {
                         cancelled = true;
                         break;
                     }
                 }
-                count(&mut progress, &outcome, indexer.squeeze, &mut error_files, file);
+                // Version écrite : notée pour le journal et l'annulation ; effacée aussitôt si le fichier n'a pas été
+                // enregistré.
+                if let Some(written) = indexer.written.take() {
+                    if outcome.is_ok() {
+                        unsaved.push(written.clone());
+                        changes.written.push(written);
+                    } else {
+                        let _ = std::fs::remove_file(&written);
+                        super::journal::remove(&[written]);
+                    }
+                }
+                if let Some(before) = indexer.before.take() {
+                    changes.before.push(before);
+                }
+                // Fichier disparu pendant l'import (IMP-54) : emplacement débranché, l'import se met en pause et
+                // reprendra ce fichier (réponse Q10 A) ; fichier effacé, compté à part.
+                match if outcome.is_err() { presence(&file.path) } else { Presence::Present } {
+                    Presence::Offline => {
+                        manager.pause(Some(root_of(&file.path).display().to_string()));
+                        continue;
+                    }
+                    Presence::Missing => {
+                        progress.vanished += 1;
+                        if vanished_files.len() < MAX_LISTED_ERRORS {
+                            vanished_files.push(file.path.display().to_string());
+                        }
+                    }
+                    Presence::Present => count(&mut progress, &outcome, &indexer, &mut error_files, file),
+                }
                 if indexer.lost_subtitles {
                     progress.videos_subtitles_lost += 1;
                 }
@@ -153,14 +207,18 @@ pub fn run_import(app: &AppHandle, files: Vec<ScanFile>, default_tags: Vec<NewTa
                 {
                     to_delete.push(original);
                 }
-                if let Ok(Outcome::Imported(id) | Outcome::Updated(id) | Outcome::AlreadyPresent(id) | Outcome::Duplicate(id)) =
+                if let Ok(Outcome::Imported(id) | Outcome::Updated(id) | Outcome::AlreadyPresent(id) | Outcome::Duplicate(id) | Outcome::Relocated(id)) =
                     &outcome
                 {
+                    let new = matches!(outcome, Ok(Outcome::Imported(_)));
                     for target in &targets {
-                        tagger.attach(&conn, *id, *target)?;
+                        if tagger.attach(&conn, *id, *target)? && !new {
+                            changes.tags.push((*id, target.tag_id));
+                        }
                     }
                 }
                 if let Ok(Outcome::Imported(id)) = &outcome {
+                    changes.added.push(*id);
                     // Seule la version est gardée : elle retient l'empreinte de son original (réimport = doublon).
                     if options.pairs == PairChoice::Versions
                         && let Some(pair) = pair
@@ -174,16 +232,16 @@ pub fn run_import(app: &AppHandle, files: Vec<ScanFile>, default_tags: Vec<NewTa
             }
             progress.processed += 1;
             in_batch += 1;
+            i += 1;
 
             if in_batch >= COMMIT_EVERY || last_commit.elapsed() >= COMMIT_INTERVAL {
                 // Miniatures réveillées AVANT de reprendre l'écriture : sinon l'import attendait leur file, tenue par
                 // un fil qui attendait la base, tenue par l'import (5 s perdues à chaque fois, IMP-63).
                 conn.execute_batch("COMMIT")?;
-                delete_files(&conn, &mut to_delete, &mut progress);
+                after_commit(&conn, &mut to_delete, &mut unsaved, &mut progress);
                 state.thumbs.wake();
                 conn.execute_batch("BEGIN IMMEDIATE")?;
-                in_batch = 0;
-                last_commit = Instant::now();
+                (in_batch, last_commit) = (0, Instant::now());
                 if last_library.elapsed() >= LIBRARY_INTERVAL {
                     let _ = app.emit("library-changed", ());
                     last_library = Instant::now();
@@ -193,78 +251,37 @@ pub fn run_import(app: &AppHandle, files: Vec<ScanFile>, default_tags: Vec<NewTa
             manager.update(true, |inner| inner.snapshot.progress = Some(snapshot));
         }
         conn.execute_batch("COMMIT")?;
-        delete_files(&conn, &mut to_delete, &mut progress);
-        restorable = reserve::candidates(&conn, &found)?;
+        after_commit(&conn, &mut to_delete, &mut unsaved, &mut progress);
+        if manager.undo.load(Ordering::SeqCst) && options.undoable() {
+            undone = Some(changes.undo(&mut conn)?);
+            state.deletion.wake();
+        } else {
+            restorable = reserve::candidates(&conn, &found)?;
+        }
         Ok(())
     })()
     .err()
     .map(|e| format!("{e:#}"));
 
+    manager.gate.set(false);
     state.thumbs.wake();
     let _ = app.emit("library-changed", ());
     progress.current_file = None;
-    let result = ImportResult { cancelled, fatal, error_files, elapsed_ms: start.elapsed().as_millis() as u64, restorable };
+    let result = ImportResult {
+        cancelled,
+        fatal,
+        error_files,
+        vanished_files,
+        undone,
+        elapsed_ms: start.elapsed().as_millis() as u64,
+        restorable,
+        reported: false,
+    };
     manager.update(false, |inner| {
         inner.files.clear();
         inner.snapshot.phase = Phase::Finished;
+        inner.snapshot.paused = None;
         inner.snapshot.progress = Some(progress);
         inner.snapshot.result = Some(result);
     });
-}
-
-/// Compteurs de la progression pour un fichier.
-fn count(progress: &mut Progress, outcome: &anyhow::Result<Outcome>, squeeze: Option<Squeeze>, errors: &mut Vec<FileError>, file: &ScanFile) {
-    let video = file.kind == Kind::Video;
-    match squeeze {
-        Some(Squeeze::Compressed) if video => progress.videos_compressed += 1,
-        Some(Squeeze::Converted) if video => progress.videos_converted += 1,
-        Some(Squeeze::Unsupported) => progress.videos_unsupported += 1,
-        Some(Squeeze::Compressed) => progress.compressed += 1,
-        Some(Squeeze::Converted) => progress.converted += 1,
-        Some(Squeeze::NotSmaller) => progress.not_smaller += 1,
-        Some(Squeeze::Failed) => progress.compress_failed += 1,
-        None => {}
-    }
-    match outcome {
-        Ok(Outcome::Imported(_)) => progress.imported += 1,
-        Ok(Outcome::Updated(_)) => progress.updated += 1,
-        Ok(Outcome::AlreadyPresent(_)) => progress.already_present += 1,
-        Ok(Outcome::Duplicate(_)) => progress.duplicates += 1,
-        Err(e) => {
-            progress.errors += 1;
-            if errors.len() < MAX_LISTED_ERRORS {
-                errors.push(FileError { path: file.path.display().to_string(), message: format!("{e:#}") });
-            }
-        }
-    }
-}
-
-/// La version gardée d'une paire retient l'empreinte de son original écarté (D-058) : un réimport le reconnaît. Notée
-/// aussi dans la table des versions (IMP-68), si elle ne l'était pas (version écrite avant le schéma 20).
-fn remember_original(conn: &Connection, id: i64, original: &Path) -> anyhow::Result<()> {
-    let hash = super::versions::hash_file(original)?;
-    conn.execute("UPDATE media SET original_hash = ?1 WHERE id = ?2 AND original_hash IS NULL", params![hash, id])?;
-    let version: String = conn.query_row("SELECT hash FROM media WHERE id = ?1", [id], |r| r.get(0))?;
-    super::versions::remember(conn, &version, &hash)?;
-    Ok(())
-}
-
-/// Efface définitivement les fichiers notés (sans Corbeille, comme DEL-04) ; jamais un fichier qu'un média utilise.
-fn delete_files(conn: &Connection, list: &mut Vec<PathBuf>, progress: &mut Progress) {
-    for path in list.drain(..) {
-        let used = conn
-            .prepare_cached("SELECT 1 FROM media WHERE path = ?1")
-            .and_then(|mut s| s.exists([path.to_string_lossy()]))
-            .unwrap_or(true);
-        if used {
-            continue;
-        }
-        match std::fs::remove_file(&path) {
-            Ok(()) => progress.deleted += 1,
-            Err(e) => {
-                progress.delete_failed += 1;
-                eprintln!("[import] effacement de {} : {e}", path.display());
-            }
-        }
-    }
 }

@@ -3,6 +3,26 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Phase 4, lots 7 et 8 : pause et annulation de l'import, bilan, fichiers disparus (11/11/2026) — Backup v124
+
+SPEC : IMP-42, IMP-43, IMP-45, IMP-54, IMP-76, LIB-05, LIB-14 `[~]`. Décision D-067. Schéma toujours 20.
+
+- Import : « Arrêter » met en pause (vidéo comprise) ; « Reprendre », « Terminer ici », « Annuler l'import » (tout est
+  défait ; grisé quand l'import efface des fichiers).
+- Les fichiers à moitié écrits sont effacés à l'ouverture suivante après une fermeture ou un plantage ; ffmpeg s'arrête
+  avec MyBoard.
+- Bilan à la fin de chaque import (chiffres, erreurs, fichiers disparus, gain de la compression).
+- Résumé de l'import en cours dans l'en-tête, hors de la page Importer.
+- Bordure rouge sur les 2es confirmations d'un effacement définitif ; mention de l'annulation impossible.
+- À l'ouverture : fichiers supprimés ou déplacés hors de MyBoard signalés (« Supprimer de la bibliothèque » /
+  « Conserver la miniature ») ; fichier déplacé puis réimporté : il retrouve sa fiche.
+- Disque, clé ou dossier réseau débranché : bandeau et marque, jamais pris pour une suppression ; rebranché, tout revient.
+- Fichier qui disparaît pendant l'import signalé ; clé débranchée pendant l'import : pause automatique.
+
+Vérifié dans la version compilée, sur une copie neuve de la base d'essai et sur la bibliothèque de 100 000 : pause,
+reprise, « Terminer ici », « Annuler l'import », pause et arrêt de ffmpeg, fermeture forcée, pop-ins, bilan, en-tête,
+fichiers disparus, lecteur virtuel débranché et rebranché ; zéro erreur `tsc` / `clippy`.
+
 ## Phase 4, lot 6 : vidéo illisible convertie depuis la visionneuse, corrections (11/11/2026) — Backup v123
 
 SPEC : VIEW-25, IMP-70 à IMP-75 `[~]` ; SET-19 (nouveau, à venir) ; IMP-25, IMP-41, IMP-65, IMP-69 validés. Décision D-066.

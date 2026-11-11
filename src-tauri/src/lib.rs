@@ -18,6 +18,7 @@ pub mod fullscreen;
 pub mod import;
 pub mod import_groups;
 pub mod library;
+pub mod library_check;
 pub mod media;
 pub mod parents;
 pub mod paths;
@@ -85,12 +86,16 @@ pub fn run() {
             // Vidéos des GIF d'une session précédente (fermeture forcée…) : effacées (VIEW-54).
             media::gif::clear_cache(&paths.root);
             let db = db::open_and_migrate(&paths.db)?;
+            // Restes d'une écriture interrompue (fermeture, plantage) : effacés (journal, IMP-42).
+            import::journal::init(&paths.root, &db);
             // Disques des médias, confiés à la fenêtre avant le chargement de la page (VIEW-53, D-053).
             let drives = media::direct::media_drives(&db);
             let search = SearchIndex::open(&paths.db)?;
             let thumbs = ThumbService::start(handle.clone(), &paths.db, &paths.thumbs_db)?;
             let previews = PreviewService::start(handle.clone(), thumbs.clone(), &paths.db, &paths.thumbs_db)?;
             let deletion = DeletionService::start(handle.clone(), &paths.db, &paths.thumbs_db, previews.clone())?;
+            // Fichiers disparus et emplacements inaccessibles, vérifiés en arrière-plan à chaque ouverture (LIB-05, LIB-14).
+            library_check::start(handle.clone(), paths.db.clone());
             app.manage(AppState {
                 paths,
                 db: Mutex::new(db),
@@ -122,7 +127,13 @@ pub fn run() {
             import::scan_paths,
             formats::supported_extensions,
             import::start_import,
-            import::cancel_import,
+            import::pause_import,
+            import::resume_import,
+            import::finish_import,
+            import::undo_import,
+            import::import_report_seen,
+            library_check::library_check_state,
+            library_check::settle_missing,
             import::list::scan_files,
             import::list::remove_scan_file,
             import::list::clear_scan,

@@ -3,7 +3,8 @@
 // clic sur le fond annulent.
 // Utilisée par les menus du clic droit (CTX-02) et par les boutons qui demandent confirmation
 // (« Effacer la note », VIEW-45). `confirmLabel` remplace « Oui » ; `children` : contenu sous le
-// texte (une case à cocher…).
+// texte (une case à cocher…). `dangerBorder` : bordure rouge, 2e confirmation d'un effacement définitif du disque
+// (réponse Q8 A du 11/11, comme DEL-04).
 
 import type { ReactNode } from "react";
 
@@ -16,6 +17,7 @@ type Props = {
   subtitle?: ReactNode;
   message: ReactNode;
   danger?: boolean;
+  dangerBorder?: boolean;
   zone: string;
   onCancel: () => void;
   onConfirm: () => void;
@@ -25,11 +27,13 @@ type Props = {
   children?: ReactNode;
 };
 
-export function ConfirmDialog({ title, subtitle, message, danger = false, zone, onCancel, onConfirm, confirmLabel = "Oui", cancelLabel = "Annuler", children }: Props) {
+export function ConfirmDialog(props: Props) {
+  const { title, subtitle, message, danger = false, dangerBorder = false, zone, onCancel, onConfirm, confirmLabel = "Oui", cancelLabel = "Annuler", children } = props;
   return (
     <Modal
       open
       even
+      danger={dangerBorder}
       onEnter={onConfirm}
       onClose={onCancel}
       zone={zone}

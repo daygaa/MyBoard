@@ -1,5 +1,6 @@
 // En-tête collé en haut : menu burger à gauche, logo au centre exact (NAV-01 ; un clic : retour complet
-// à l'accueil, NAV-08), statistiques (NAV-03) et bouton Importer à droite.
+// à l'accueil, NAV-08), statistiques (NAV-03) et bouton Importer à droite ; entre le logo et les statistiques, le
+// résumé de l'import en cours hors de la page Importer (IMP-76).
 // Fond opaque (la v8 utilisait un flou d'arrière-plan, coûteux pendant le défilement : D-008).
 
 import { useEffect, useState } from "react";
@@ -12,6 +13,7 @@ import { navigate } from "@/lib/router";
 import { scroller } from "@/lib/scroller";
 import { goHome } from "@/stores/search";
 import { useUI } from "@/stores/ui";
+import { ImportBadge } from "./ImportBadge";
 
 /** Largeur réservée à la barre de défilement (index.css) : l'en-tête s'arrête avant elle,
  *  le logo doit donc être décalé de la moitié pour être au centre de la FENÊTRE (NAV-01). */
@@ -71,6 +73,7 @@ export function Header() {
         </button>
 
         <div className="flex items-center justify-end gap-3 sm:gap-4">
+          <ImportBadge />
           <div data-zone="entete.stats" className="hidden select-text items-center gap-3 text-xs text-muted-foreground lg:flex">
             <span className="inline-flex items-center gap-1.5" title="Images">
               <ImageIcon className="h-3.5 w-3.5 text-[#d9a94e]/80" />

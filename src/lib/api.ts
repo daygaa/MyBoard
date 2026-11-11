@@ -26,6 +26,10 @@ export type MediaItem = {
   folders: number[];
   /** Image ou vidéo lue directement sur le disque par la fenêtre (VIEW-53, VIEW-55) ; absente : `media://`. */
   fileUrl?: string | null;
+  /** « Fichier introuvable » (LIB-05) ; emplacement inaccessible (LIB-14) ; leur dernier chemin connu. */
+  missing?: boolean;
+  offline?: boolean;
+  lastPath?: string | null;
 };
 
 /** Dossier manuel (FOLD-01) ; masqué : absent des listes (FOLD-02). */
@@ -184,7 +188,11 @@ export type ImportProgress = {
   updated: number;
   alreadyPresent: number;
   duplicates: number;
+  /** Médias dont le fichier avait disparu, retrouvés à un autre endroit (LIB-05). */
+  relocated: number;
   errors: number;
+  /** Fichiers effacés pendant l'import (IMP-54). */
+  vanished: number;
   /** Compression des images (IMP-20) : gardées compressées · originaux gardés (moins de 5 % de gain) · impossibles. */
   compressed: number;
   /** Converties dans le format choisi (IMP-21). */
@@ -202,6 +210,11 @@ export type ImportProgress = {
   videosUnsupported: number;
   /** Vidéos converties sans leurs sous-titres en images (non acceptés par le format choisi, IMP-73). */
   videosSubtitlesLost: number;
+  /** Poids en octets des originaux et de leurs versions gardées (bilan, IMP-45). */
+  imagesBefore: number;
+  imagesAfter: number;
+  videosBefore: number;
+  videosAfter: number;
   currentFile: string | null;
   /** Vidéo en cours de traitement : son chemin (miniature) et son avancement, de 0 à 1 (IMP-41). */
   currentPath: string | null;
@@ -222,12 +235,19 @@ export type RestoreCandidate = {
 };
 
 export type ImportResult = {
+  /** « Terminer ici » (IMP-42). */
   cancelled: boolean;
   fatal: string | null;
   errorFiles: { path: string; message: string }[];
+  /** Fichiers effacés pendant l'import (IMP-54). */
+  vanishedFiles: string[];
+  /** « Annuler l'import » (IMP-43) : ce qui a été défait. */
+  undone: { removed: number; restored: number; erased: number } | null;
   elapsedMs: number;
   /** Pop-in de fin d'import (DEL-05) ; vide une fois réglée. */
   restorable: RestoreCandidate[];
+  /** Bilan fermé (IMP-45). */
+  reported: boolean;
 };
 
 /** Fichier qui n'a pas pu être effacé (DEL-04) : son média est revenu dans la bibliothèque. */
@@ -278,6 +298,10 @@ export type ImportSnapshot = {
   scan: ScanSummary | null;
   progress: ImportProgress | null;
   result: ImportResult | null;
+  /** Pause (IMP-42) ; `offline` : emplacement devenu inaccessible (IMP-54). */
+  paused: { offline: string | null } | null;
+  /** « Annuler l'import » possible (grisé avec « Supprimer les originaux » ou « Supprimer du stockage… »). */
+  undoable: boolean;
 };
 
 export const api = {
@@ -295,7 +319,12 @@ export const api = {
     invoke<KindCounts>("count_compressible_existing", o),
   /** Paires originaux + versions compressées ou converties de la liste (pop-in IMP-64, IMP-68). */
   countPairs: () => invoke<PairCount>("count_pairs"),
-  cancelImport: () => invoke<void>("cancel_import"),
+  /** « Arrêter » (pause), « Reprendre », « Terminer ici », « Annuler l'import » (IMP-42, IMP-43), bilan fermé (IMP-45). */
+  pauseImport: () => invoke<void>("pause_import"),
+  resumeImport: () => invoke<void>("resume_import"),
+  finishImport: () => invoke<void>("finish_import"),
+  undoImport: () => invoke<void>("undo_import"),
+  importReportSeen: () => invoke<void>("import_report_seen"),
   /** Liste des fichiers avant l'import, par pages (IMP-10 à IMP-12) ; retirer, tout vider (IMP-51, CTX-14). */
   scanFiles: (offset: number, limit: number) => invoke<ScanPage>("scan_files", { offset, limit }),
   removeScanFile: (path: string) => invoke<void>("remove_scan_file", { path }),
@@ -412,6 +441,8 @@ export const EVENTS = {
   mediaDeleted: "media-deleted",
   /** Fichiers impossibles à effacer (DEL-04). */
   deletionFailed: "deletion-failed",
+  /** Fichiers disparus et emplacements inaccessibles (LIB-05, LIB-14). */
+  libraryCheck: "library-check",
 } as const;
 
 /** Tailles servies par le protocole `thumb://` : 320 px, 128 px (LIB-12), aperçus 640 px (LIB-09)

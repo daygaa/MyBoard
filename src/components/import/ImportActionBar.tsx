@@ -1,17 +1,18 @@
-// Barre d'actions de l'import (apparence v8) : état, bouton Importer, bouton Arrêter
-// (IMP-42), progression intégrée (IMP-40). Le bouton Importer reste bloqué après un
+// Barre d'actions de l'import (apparence v8) : état, bouton Importer, boutons de l'import en cours (pause,
+// « Terminer ici », « Annuler l'import » : ImportControls.tsx, IMP-42, IMP-43), progression intégrée (IMP-40). Le bouton Importer reste bloqué après un
 // import terminé, jusqu'au choix d'un nouveau dossier (IMP-44). Elle reste collée sous l'en-tête quand la page
 // défile (IMP-56). Avant de démarrer, les pop-ins des paires, de « Compresser aussi » et de la suppression des
 // originaux peuvent s'ouvrir (useImportStart.tsx : IMP-64, IMP-60, IMP-28).
 
-import { Eye, Loader2, Play, Square, Upload } from "lucide-react";
+import { Eye, Loader2, Pause, Play, Upload } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { useStats } from "@/hooks/useLibraryData";
-import { api, type ImportSnapshot } from "@/lib/api";
+import type { ImportSnapshot } from "@/lib/api";
 import { formatNumber, plural } from "@/lib/format";
 import { useImport } from "@/stores/import";
 import { goHome } from "@/stores/search";
+import { ImportControls } from "./ImportControls";
 import { ImportProgress } from "./ImportProgress";
 import { useImportStart } from "./useImportStart";
 
@@ -30,6 +31,14 @@ function StatusText({ snapshot }: { snapshot: ImportSnapshot | null }) {
         <span>Aucun fichier à importer dans cette sélection</span>
       );
     case "importing":
+      if (snapshot.paused) {
+        return (
+          <span className="inline-flex items-center gap-2 text-amber-300">
+            <Pause className="h-4 w-4" />
+            Import en pause
+          </span>
+        );
+      }
       return (
         <span className="inline-flex items-center gap-2 text-[#d9a94e]">
           <Play className="h-4 w-4" />
@@ -73,18 +82,7 @@ export function ImportActionBar() {
       </div>
 
       <div className="flex items-center gap-2">
-        {phase === "importing" && (
-          <Button
-            data-zone="import.arreter"
-            variant="outline"
-            size="sm"
-            onClick={() => void api.cancelImport()}
-            className="border-rose-500/40 text-rose-300 hover:bg-rose-500/10 hover:text-rose-200"
-          >
-            <Square className="h-4 w-4" />
-            Arrêter
-          </Button>
-        )}
+        {phase === "importing" && snapshot && <ImportControls snapshot={snapshot} />}
         {phase === "finished" && (
           // Retour complet à l'accueil, comme le logo (IMP-58, NAV-08).
           <Button size="sm" onClick={goHome} className="gap-1.5 bg-[#d9a94e] text-[#1a1408] hover:bg-[#e3b75f]">
@@ -104,7 +102,7 @@ export function ImportActionBar() {
       </div>
 
       {snapshot?.progress && (phase === "importing" || phase === "finished") && (
-        <ImportProgress progress={snapshot.progress} result={snapshot.result} />
+        <ImportProgress progress={snapshot.progress} result={snapshot.result} paused={snapshot.paused} />
       )}
       <ThumbsPending />
       {dialog}

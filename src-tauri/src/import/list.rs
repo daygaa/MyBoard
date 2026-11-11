@@ -63,7 +63,8 @@ pub fn clear_scan(state: State<'_, AppState>) -> Result<(), String> {
     manager.update(false, |inner| {
         inner.files.clear();
         let recursive = inner.snapshot.recursive;
-        inner.snapshot = Snapshot { phase: Phase::Idle, sources: Vec::new(), recursive, scan: None, progress: None, result: None };
+        inner.snapshot =
+            Snapshot { phase: Phase::Idle, sources: Vec::new(), recursive, scan: None, progress: None, result: None, paused: None, undoable: false };
     });
     Ok(())
 }

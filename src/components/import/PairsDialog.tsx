@@ -72,9 +72,16 @@ export function PairsDialog({ count, onAnswer, onCancel }: Props) {
     return (
       <ConfirmDialog
         danger
+        dangerBorder
         zone="import.paires.confirmation"
         title="Êtes-vous sûr de vouloir supprimer ces fichiers de votre stockage ?"
-        message={`${what[0].toUpperCase()}${what.slice(1)} (${formatNumber(total)}) ${erased} définitivement du disque, sans passer par la Corbeille.`}
+        message={
+          <>
+            <span className="block">{`${what[0].toUpperCase()}${what.slice(1)} (${formatNumber(total)}) ${erased} définitivement du disque, sans passer par la Corbeille.`}</span>
+            {/* IMP-43, réponse Q3 B du 11/11 : des fichiers effacés, l'import ne peut plus être annulé. */}
+            <span className="mt-4 block">{keepQuoted("« Annuler l'import » ne pourra pas défaire cet import.")}</span>
+          </>
+        }
         confirmLabel={confirm === "originals" ? "Supprimer les doublons" : "Supprimer les originaux"}
         onCancel={() => setConfirm(null)}
         onConfirm={() => onAnswer(confirm, true)}

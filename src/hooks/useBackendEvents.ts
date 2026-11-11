@@ -5,10 +5,12 @@ import { useEffect } from "react";
 import { listen } from "@tauri-apps/api/event";
 
 import { EVENTS, api, type FailedFile, type ImportSnapshot, type PreviewKey, type ThumbUpdate } from "@/lib/api";
+import { checkApi, type CheckState } from "@/lib/libraryCheck";
 import { addFailures, settleFailures } from "@/stores/deleteFailures";
 import { refreshLibrary, settleDeletion } from "@/stores/deletion";
 import { forgetFavorites } from "@/stores/favorites";
 import { useImport } from "@/stores/import";
+import { useLibraryCheck } from "@/stores/libraryCheck";
 import { usePreviews } from "@/stores/previews";
 import { removeFromSelection, settleSelectionDeletion } from "@/stores/selection";
 import { useThumbs } from "@/stores/thumbs";
@@ -42,6 +44,11 @@ export function useBackendEvents() {
       listen<PreviewKey[]>(EVENTS.previewsReady, (event) => usePreviews.getState().markReady(event.payload)),
       listen<ImportSnapshot>(EVENTS.importState, (event) => useImport.getState().setSnapshot(event.payload)),
     ];
+    // Fichiers disparus, emplacements inaccessibles (LIB-05, LIB-14) : l'état est relu une fois l'écoute en place (une
+    // vérification rapide peut finir avant elle : son message serait perdu).
+    const check = listen<CheckState>(EVENTS.libraryCheck, (event) => useLibraryCheck.getState().setCheck(event.payload));
+    void check.then(() => checkApi.state()).then((state) => useLibraryCheck.getState().setCheck(state));
+    unlisteners.push(check);
     // État de l'import au démarrage (un import peut déjà tourner).
     void api.importSnapshot().then((snapshot) => useImport.getState().setSnapshot(snapshot));
     return () => unlisteners.forEach((p) => void p.then((unlisten) => unlisten()));

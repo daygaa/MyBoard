@@ -29,10 +29,13 @@ use crate::{AppState, db, reserve};
 /// Médias traités par passage : un lot = une transaction.
 const BATCH: usize = 500;
 /// Sortes de suppression (`media.pending_delete`).
-const LIBRARY_ONLY: i64 = 1;
+pub const LIBRARY_ONLY: i64 = 1;
 const WITH_FILE: i64 = 2;
 /** Fichier aussi, même en lecture seule (« Supprimer quand même », DEL-08). */
 const FORCED: i64 = 3;
+/// Média ajouté par un import annulé (IMP-43) : retiré sans réserve (il vient d'arriver), sans toucher à son fichier
+/// ni à une réserve qui attendrait encore sa restauration (DEL-05).
+pub const UNDONE: i64 = 4;
 /// Le fil se réveille au moins une fois par heure pour vider la réserve des données trop anciennes.
 const PURGE_EVERY: Duration = Duration::from_secs(3600);
 
@@ -145,7 +148,7 @@ impl DeletionService {
         Ok(Self { inner })
     }
 
-    fn wake(&self) {
+    pub fn wake(&self) {
         *self.inner.work.lock().unwrap() = true;
         self.inner.wake.notify_all();
     }
@@ -224,7 +227,7 @@ fn process_batch(inner: &Inner) -> anyhow::Result<bool> {
         for item in &removed {
             if item.mode == LIBRARY_ONLY {
                 reserve::keep(&tx, item.id, now)?;
-            } else {
+            } else if item.mode != UNDONE {
                 tx.execute("DELETE FROM media_reserve WHERE hash = ?1", [&item.hash])?;
             }
             tx.execute("DELETE FROM media WHERE id = ?1", [item.id])?;

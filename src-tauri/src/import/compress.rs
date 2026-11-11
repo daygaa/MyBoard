@@ -81,16 +81,22 @@ pub fn write_beside(original: &Path, meta: &Metadata, bytes: &[u8], ext: &str, s
     let tmp = tmp_of(&target);
     // Reste d'une écriture interrompue de MyBoard (même nom provisoire) : remplacé.
     let _ = std::fs::remove_file(&tmp);
+    // Journal (IMP-42) : la ligne reste jusqu'à l'enregistrement en base (`run.rs`) ; retirée ici en cas d'échec.
+    super::journal::add(&target);
     let written = (|| -> anyhow::Result<()> {
         let mut file = OpenOptions::new().write(true).create_new(true).open(&tmp)?;
         file.write_all(bytes)?;
         Ok(())
-    })();
-    if let Err(e) = written {
+    })()
+    .map_err(|e| {
         let _ = std::fs::remove_file(&tmp);
-        return Err(e.context("écriture de la nouvelle version"));
+        e.context("écriture de la nouvelle version")
+    })
+    .and_then(|()| place(&tmp, &target, meta));
+    if let Err(e) = written {
+        super::journal::remove(&[target]);
+        return Err(e);
     }
-    place(&tmp, &target, meta)?;
     Ok(target)
 }
 

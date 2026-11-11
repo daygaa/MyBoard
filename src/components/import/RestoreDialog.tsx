@@ -79,7 +79,8 @@ function Row({ item, checked, onToggle }: { item: RestoreCandidate; checked: boo
 const NONE: RestoreCandidate[] = [];
 
 export function RestoreDialog() {
-  const candidates = useImport((s) => s.snapshot?.result?.restorable ?? NONE);
+  // Après le bilan de l'import (IMP-45, choix du 09/11).
+  const candidates = useImport((s) => (s.snapshot?.result?.reported ? s.snapshot.result.restorable : NONE));
   const [unchecked, setUnchecked] = useState<Set<number>>(new Set());
   const [busy, setBusy] = useState(false);
   if (candidates.length === 0) return null;

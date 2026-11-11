@@ -1,5 +1,6 @@
 //! Import sur place de fichiers et de dossiers (IMP-01, IMP-02, IMP-03, IMP-04, IMP-40,
-//! IMP-41, IMP-42 « Arrêter », IMP-44), avec tags par défaut (IMP-30, IMP-31). Un fichier supprimé
+//! IMP-41, IMP-44), avec tags par défaut (IMP-30, IMP-31). Pause, « Reprendre », « Terminer ici » (IMP-42, `pause.rs`),
+//! « Annuler l'import » (IMP-43, `undo.rs`), journal des fichiers en cours d'écriture (`journal.rs`), bilan (IMP-45). Un fichier supprimé
 //! de la bibliothèque il y a moins d'un mois et réimporté : la fin de l'import propose de remettre
 //! ses données (DEL-05, `reserve.rs`).
 //!
@@ -14,15 +15,20 @@ mod compress;
 mod convert;
 mod encode;
 mod index;
+pub mod journal;
 pub mod list;
 pub mod pairs;
+mod pause;
 mod plan;
 mod png_out;
 pub mod preview;
 pub mod reconvert;
+mod relocate;
 mod run;
 mod scan;
 mod state;
+mod tally;
+mod undo;
 mod versions;
 mod video;
 
@@ -38,7 +44,7 @@ use crate::tags::NewTag;
 pub use plan::ImportOptions;
 pub use scan::ScanSummary;
 use scan::ScanFile;
-pub use state::{FileError, ImportResult, Phase, Progress, Snapshot};
+pub use state::{FileError, ImportResult, Paused, Phase, Progress, Snapshot};
 
 /// Un lot de fichiers est validé en base toutes les 200 entrées ou 300 ms.
 const COMMIT_EVERY: usize = 200;
@@ -58,7 +64,10 @@ struct Inner {
 pub struct ImportManager {
     app: AppHandle,
     inner: Mutex<Inner>,
+    /// Arrêt de l'import : « Terminer ici » (IMP-42) ou « Annuler l'import » (IMP-43, avec `undo`).
     cancel: AtomicBool,
+    undo: AtomicBool,
+    gate: pause::Gate,
     /// Numéro du parcours en cours : un parcours remplacé par un autre s'arrête.
     generation: AtomicU64,
 }
@@ -75,11 +84,15 @@ impl ImportManager {
                     scan: None,
                     progress: None,
                     result: None,
+                    paused: None,
+                    undoable: false,
                 },
                 files: Vec::new(),
                 last_emit: Instant::now(),
             }),
             cancel: AtomicBool::new(false),
+            undo: AtomicBool::new(false),
+            gate: pause::Gate::new(),
             generation: AtomicU64::new(0),
         }
     }
@@ -93,6 +106,21 @@ impl ImportManager {
         self.update(false, |inner| {
             if let Some(result) = &mut inner.snapshot.result {
                 result.restorable.clear();
+            }
+        });
+    }
+
+    /// Met l'import en pause (« Arrêter », ou emplacement devenu inaccessible : `offline`, IMP-54).
+    fn pause(&self, offline: Option<String>) {
+        self.gate.set(true);
+        self.update(false, |inner| inner.snapshot.paused = Some(Paused { offline }));
+    }
+
+    /// Bilan fermé (IMP-45).
+    pub fn set_reported(&self) {
+        self.update(false, |inner| {
+            if let Some(result) = &mut inner.snapshot.result {
+                result.reported = true;
             }
         });
     }
@@ -137,6 +165,8 @@ pub fn scan_paths(app: AppHandle, state: State<'_, AppState>, paths: Vec<String>
             scan: Some(ScanSummary::default()),
             progress: None,
             result: None,
+            paused: None,
+            undoable: false,
         };
     });
 
@@ -182,9 +212,14 @@ pub fn start_import(
         inner.files.clone()
     };
     manager.cancel.store(false, Ordering::SeqCst);
+    manager.undo.store(false, Ordering::SeqCst);
+    manager.gate.set(false);
     let total = files.len() as u64;
+    let undoable = options.undoable();
     manager.update(false, |inner| {
         inner.snapshot.phase = Phase::Importing;
+        inner.snapshot.paused = None;
+        inner.snapshot.undoable = undoable;
         inner.snapshot.progress = Some(Progress { total, ..Progress::default() });
     });
 
@@ -195,8 +230,47 @@ pub fn start_import(
     Ok(())
 }
 
-/// Bouton « Arrêter » : l'import s'arrête proprement après le fichier en cours.
+/// « Arrêter » : pause immédiate, ffmpeg compris (IMP-42).
 #[tauri::command]
-pub fn cancel_import(state: State<'_, AppState>) {
-    state.import.cancel.store(true, Ordering::SeqCst);
+pub fn pause_import(state: State<'_, AppState>) {
+    let manager = &state.import;
+    if manager.snapshot().phase == Phase::Importing && !manager.gate.is_paused() {
+        manager.pause(None);
+    }
+}
+
+/// « Reprendre » : l'import repart du fichier où il s'était arrêté.
+#[tauri::command]
+pub fn resume_import(state: State<'_, AppState>) {
+    let manager = &state.import;
+    manager.update(false, |inner| inner.snapshot.paused = None);
+    manager.gate.set(false);
+}
+
+/// « Terminer ici » (réponse A du 11/11) : ce qui est fait est gardé, le fichier à moitié écrit est effacé, le reste
+/// de la liste est abandonné, puis le bilan s'ouvre.
+#[tauri::command]
+pub fn finish_import(state: State<'_, AppState>) {
+    let manager = &state.import;
+    manager.cancel.store(true, Ordering::SeqCst);
+    manager.gate.set(false);
+}
+
+/// « Annuler l'import » (IMP-43) : tout l'import en cours est défait (`undo.rs`) ; refusé s'il a effacé des fichiers.
+#[tauri::command]
+pub fn undo_import(state: State<'_, AppState>) -> Result<(), String> {
+    let manager = &state.import;
+    if !manager.snapshot().undoable {
+        return Err("Cet import ne peut pas être annulé : des fichiers ont été effacés du disque.".into());
+    }
+    manager.undo.store(true, Ordering::SeqCst);
+    manager.cancel.store(true, Ordering::SeqCst);
+    manager.gate.set(false);
+    Ok(())
+}
+
+/// Bilan de fin d'import fermé (IMP-45) : la restauration (DEL-05) peut suivre.
+#[tauri::command]
+pub fn import_report_seen(state: State<'_, AppState>) {
+    state.import.set_reported();
 }

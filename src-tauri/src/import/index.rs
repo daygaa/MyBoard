@@ -15,6 +15,7 @@ use rusqlite::{Connection, OptionalExtension, params};
 
 use super::compress::{self, Squeeze};
 use super::plan::{Action, Process};
+use super::relocate::{Before, found_again, relocate};
 use super::scan::ScanFile;
 use super::video::{Done, Hooks};
 use crate::formats::Kind;
@@ -29,6 +30,8 @@ pub enum Outcome {
     Updated(i64),
     /// Contenu identique à un média déjà présent (fichier copié ou renommé), ou à l'original d'une image compressée.
     Duplicate(i64),
+    /// Média dont le fichier avait disparu, retrouvé ailleurs : il prend ce chemin (LIB-05).
+    Relocated(i64),
 }
 
 /// Début du fichier conservé pour lire les dimensions d'une image sans la décoder.
@@ -48,12 +51,19 @@ pub struct Indexer {
     pub replaced: Option<PathBuf>,
     /// Vidéo convertie sans ses sous-titres en images (le format choisi ne les accepte pas, IMP-73).
     pub lost_subtitles: bool,
+    /// Nouvelle version écrite pour ce fichier (journal des écritures, « Annuler l'import ») et poids avant / après
+    /// (bilan, IMP-45).
+    pub written: Option<PathBuf>,
+    pub sizes: Option<(u64, u64)>,
+    /// Fiche existante changée par ce fichier (nouvelle version, nouveau chemin) : son état d'avant (IMP-43).
+    pub before: Option<Before>,
 }
 
 impl Indexer {
     pub fn new() -> Self {
         // Lecture par blocs de 1 Mo : efficace sur SSD comme sur disque dur.
-        Self { buffer: vec![0; 1 << 20], head: Vec::with_capacity(HEAD_LEN), squeeze: None, replaced: None, lost_subtitles: false }
+        let (squeeze, replaced, written, sizes, before) = (None, None, None, None, None);
+        Self { buffer: vec![0; 1 << 20], head: Vec::with_capacity(HEAD_LEN), squeeze, replaced, lost_subtitles: false, written, sizes, before }
     }
 
     /// Doit être appelé dans une transaction ouverte (les lots sont validés par l'appelant), sauf pour une vidéo à traiter.
@@ -62,6 +72,9 @@ impl Indexer {
         self.squeeze = None;
         self.replaced = None;
         self.lost_subtitles = false;
+        self.written = None;
+        self.sizes = None;
+        self.before = None;
         let meta = std::fs::metadata(&file.path)?;
         let size = meta.len() as i64;
         let modified = meta.modified().ok().map(to_ms);
@@ -80,6 +93,7 @@ impl Indexer {
             && *old_size == size
             && *old_modified == modified
         {
+            found_again(conn, *id)?;
             if let Some(a) = again(original) {
                 self.recompress(conn, *id, file, &meta, hash, a, hooks)?;
             }
@@ -93,11 +107,15 @@ impl Indexer {
                 && *id == other
             {
                 // Seule la date a changé (fichier touché sans modification du contenu).
-                conn.execute("UPDATE media SET file_modified_at = ?1 WHERE id = ?2", params![modified, other])?;
+                conn.execute("UPDATE media SET file_modified_at = ?1, missing_since = NULL WHERE id = ?2", params![modified, other])?;
                 if let Some(a) = again(original) {
                     self.recompress(conn, other, file, &meta, &hash, a, hooks)?;
                 }
                 return Ok(Outcome::AlreadyPresent(other));
+            }
+            if let Some(before) = relocate(conn, other, file, &meta, path, &hash)? {
+                self.before = Some(before);
+                return Ok(Outcome::Relocated(other));
             }
             return Ok(Outcome::Duplicate(other));
         }
@@ -117,6 +135,7 @@ impl Indexer {
                  WHERE id = ?8",
                 params![hash, size, width, height, created, modified, thumb_status, id],
             )?;
+            found_again(conn, *id)?;
             if let Some(a) = again(original) {
                 self.recompress(conn, *id, file, &meta, &hash, a, hooks)?;
             }
@@ -134,6 +153,10 @@ impl Indexer {
             && let Some((new_path, new_hash, new_size, new_ext)) = self.compress(conn, file, &meta, a, &hash, hooks)?
         {
             target = (new_path, new_hash, new_size, Some(hash), new_ext);
+        }
+        // Traitement impossible parce que le fichier a disparu entre-temps (IMP-54) : rien n'est enregistré.
+        if matches!(self.squeeze, Some(Squeeze::Failed)) && !file.path.exists() {
+            anyhow::bail!("le fichier a disparu pendant l'import");
         }
         let (path, hash, size, original_hash, ext) = target;
         let file_name = file_name_of(&path);
@@ -171,6 +194,8 @@ impl Indexer {
                     self.lost_subtitles = lost_subtitles;
                     self.squeeze = Some(squeeze);
                     self.replaced = Some(file.path.clone());
+                    self.written = Some(PathBuf::from(&path));
+                    self.sizes = Some((meta.len(), size as u64));
                     Ok(Some((path, hash, size, ext)))
                 }
                 Ok(Done::Kept(squeeze)) => {
@@ -205,7 +230,9 @@ impl Indexer {
                 };
                 self.squeeze = Some(squeeze);
                 self.replaced = Some(file.path.clone());
+                self.sizes = Some((meta.len(), encoded.bytes.len() as u64));
                 let path = written.to_str().context("nom de fichier illisible")?.to_owned();
+                self.written = Some(written);
                 Ok(Some((path, encoded.hash, encoded.bytes.len() as i64, ext)))
             }
             Err(e) => Ok(self.failed(file, e)),
@@ -216,6 +243,7 @@ impl Indexer {
     #[allow(clippy::too_many_arguments)]
     fn recompress(&mut self, conn: &Connection, id: i64, file: &ScanFile, meta: &Metadata, hash: &str, action: Action, hooks: &Hooks) -> anyhow::Result<()> {
         let Some((path, new_hash, size, ext)) = self.compress(conn, file, meta, action, hash, hooks)? else { return Ok(()) };
+        self.before = Some(Before::read(conn, id)?);
         let file_name = file_name_of(&path);
         conn.execute(
             "UPDATE media SET path = ?1, file_name = ?2, name_key = ?3, hash = ?4, original_hash = ?5, size = ?6,

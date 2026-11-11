@@ -17,7 +17,7 @@ pub const KINDS: [&str; 4] = ["image", "video", "audio", "document"];
 /// Colonnes d'un média de la grille, dans l'ordre lu par `media_from_row` (préfixées : la requête
 /// peut joindre les favoris ou un dossier).
 const MEDIA_COLUMNS: &str = "media.id, media.hash, media.file_name, media.ext, media.kind, media.size, media.width,      media.height, media.duration_ms, media.thumb_status, EXISTS (SELECT 1 FROM favorites f WHERE f.media_id = media.id), \
-     (SELECT group_concat(fm.folder_id) FROM folder_media fm WHERE fm.media_id = media.id), media.path";
+     (SELECT group_concat(fm.folder_id) FROM folder_media fm WHERE fm.media_id = media.id), media.path, media.missing_since IS NOT NULL";
 
 /// Demande d'une page de la grille. Filtres et tri sont indépendants des tags (FILT-02).
 #[derive(Debug, Deserialize)]
@@ -74,6 +74,10 @@ pub struct MediaItem {
     pub folders: Vec<i64>,
     /// Image lue directement par WebView2 sur le disque (VIEW-53, `media/direct.rs`) ; sinon `media://`.
     pub file_url: Option<String>,
+    /// « Fichier introuvable » (LIB-05) ; emplacement inaccessible (LIB-14) ; leur dernier chemin connu (visionneuse).
+    pub missing: bool,
+    pub offline: bool,
+    pub last_path: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -132,9 +136,14 @@ pub fn ids_of(list: Option<String>) -> Vec<i64> {
 }
 
 fn media_from_row(r: &rusqlite::Row) -> rusqlite::Result<MediaItem> {
-    let (kind, ext): (String, String) = (r.get(4)?, r.get(3)?);
+    let (kind, ext, path): (String, String, String) = (r.get(4)?, r.get(3)?, r.get(12)?);
+    let offline = crate::library_check::is_offline(&path);
+    let missing = !offline && r.get::<_, bool>(13)?;
     Ok(MediaItem {
-        file_url: crate::media::direct::file_url(&r.get::<_, String>(12)?, &kind, &ext),
+        file_url: crate::media::direct::file_url(&path, &kind, &ext),
+        missing,
+        offline,
+        last_path: (missing || offline).then_some(path),
         id: r.get(0)?,
         hash: r.get(1)?,
         file_name: r.get(2)?,

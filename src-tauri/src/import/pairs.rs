@@ -202,6 +202,7 @@ impl Indexer {
     pub fn take_place(&mut self, conn: &Connection, file: &ScanFile, id: i64, original_hash: &str) -> anyhow::Result<Outcome> {
         self.squeeze = None;
         self.replaced = None;
+        (self.written, self.sizes, self.before) = (None, None, None);
         let meta = std::fs::metadata(&file.path)?;
         let hash = self.hash(&file.path)?;
         if let Some(other) = super::index::find_hash(conn, &hash)? {
@@ -209,6 +210,8 @@ impl Indexer {
         }
         let path = file.path.to_str().context("nom de fichier illisible")?;
         let file_name = super::index::file_name_of(path);
+        // État d'avant, pour « Annuler l'import » (IMP-43).
+        self.before = Some(super::relocate::Before::read(conn, id)?);
         conn.execute(
             "UPDATE media SET path = ?1, file_name = ?2, name_key = ?3, hash = ?4, original_hash = ?5, size = ?6, ext = ?7,
                  file_created_at = ?8, file_modified_at = ?9, thumb_status = 0

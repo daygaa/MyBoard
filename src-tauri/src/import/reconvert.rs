@@ -83,17 +83,20 @@ fn convert(app: &AppHandle, id: i64, target: VideoTarget, quality: u8, delete_or
             let _ = app.emit("video-conversion-progress", Progress { id, fraction });
         }
     };
-    let hooks = Hooks { cancel: &CANCEL, progress: &report };
+    let hooks = Hooks { cancel: &CANCEL, progress: &report, gate: None };
     let request = VideoRequest { quality: (quality < 4).then_some(quality), convert: Some(target), playable: true };
     let (new_path, new_hash, size, ext, lost) = match video::process(&conn, &path, &meta, request, &hooks)? {
         Done::Cancelled => return Ok(None),
         Done::Kept(_) => bail!("rien à convertir : cette vidéo est déjà dans ce format"),
         Done::Written { path, hash, size, ext, lost_subtitles, .. } => (path, hash, size, ext, lost_subtitles),
     };
-    if let Err(e) = take_place(&conn, id, &new_path, &new_hash, &hash, size, &ext) {
+    let placed = take_place(&conn, id, &new_path, &new_hash, &hash, size, &ext);
+    if placed.is_err() {
         let _ = std::fs::remove_file(&new_path);
-        return Err(e);
     }
+    // Enregistrée en base (ou effacée) : elle sort du journal des écritures (IMP-42).
+    super::journal::remove(&[PathBuf::from(&new_path)]);
+    placed?;
     if delete_original && !used(&conn, &path)? {
         std::fs::remove_file(&path).with_context(|| format!("la vidéo est convertie, mais l'original n'a pas pu être effacé ({})", path.display()))?;
     }

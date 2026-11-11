@@ -166,6 +166,11 @@ pub struct ImportOptions {
 }
 
 impl ImportOptions {
+    /// « Annuler l'import » possible : aucun fichier n'est effacé du disque pendant cet import (réponses Q2, Q3 du 11/11).
+    pub fn undoable(&self) -> bool {
+        !self.delete_originals && !self.delete_pair_files
+    }
+
     pub fn process(&self) -> Option<Process> {
         let quality = self.compress_quality.map(|q| q.clamp(20, 95));
         let video = VideoRequest { quality: self.video_quality.map(|q| q.min(4)), convert: self.convert_videos_to, playable: false };

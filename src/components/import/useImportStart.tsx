@@ -6,6 +6,7 @@ import { useState, type ReactNode } from "react";
 
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { api, type ImportOptions, type PairChoice } from "@/lib/api";
+import { keepQuoted } from "@/lib/keepWords";
 import type { KindCounts } from "@/lib/mediaWords";
 import { useImport } from "@/stores/import";
 import { useViewer } from "@/stores/viewer";
@@ -75,7 +76,16 @@ export function useImportStart() {
           <ConfirmDialog
             zone="import.suppression-originaux"
             title="Supprimer les originaux ?"
-            message="Après leur compression ou leur conversion, les originaux seront effacés définitivement du disque, sans passer par la Corbeille. Un original n'est effacé qu'une fois sa nouvelle version enregistrée."
+            message={
+              <>
+                <span className="block">
+                  Après leur compression ou leur conversion, les originaux seront effacés définitivement du disque, sans passer par la
+                  Corbeille. Un original n'est effacé qu'une fois sa nouvelle version enregistrée.
+                </span>
+                {/* IMP-43, réponse Q2 B du 11/11 : la mention ici, la bordure rouge sur la 2e pop-in seulement. */}
+                <span className="mt-4 block">{keepQuoted("« Annuler l'import » ne pourra pas défaire cet import.")}</span>
+              </>
+            }
             confirmLabel="Continuer"
             onCancel={() => done(null)}
             onConfirm={() => done(true)}
@@ -85,6 +95,7 @@ export function useImportStart() {
         const second = await ask<true>((done) => (
           <ConfirmDialog
             danger
+            dangerBorder
             zone="import.suppression-originaux.confirmation"
             title="Êtes-vous sûr de vouloir supprimer les originaux de votre stockage ?"
             message="Cette suppression est définitive."

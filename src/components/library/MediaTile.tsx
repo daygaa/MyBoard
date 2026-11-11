@@ -5,7 +5,8 @@
 // SEL-05) : case dans le coin opposé, contour doré si cochée ; un clic coche ou décoche, Maj + clic
 // coche toute la rangée (SEL-10) ; clic droit d'une vignette cochée : menu de la sélection (SEL-08). Vignettes de
 // moins de ~2,2 cm : nom seul, agrandi, sans l'étoile (GRID-11, GRID-08, index.css). Un média supprimé
-// disparaît à l'instant du clic (DEL-01).
+// disparaît à l'instant du clic (DEL-01). Fichier introuvable (LIB-05) ou emplacement inaccessible (LIB-14) : petite
+// marque sous l'étoile, réduite et masquée comme elle (mêmes règles de densité, précision du 11/11, `.tile-mark`).
 // Hors sélection : clic = visionneuse plein écran (VIEW-01) ; Ctrl + clic = coche la vignette et passe en mode
 // sélection (SEL-11) ; clic droit = menu de la vignette (CTX-05). `data-media` : média sous la souris pour la
 // touche Suppr (GRID-13, MediaGrid).
@@ -17,7 +18,7 @@
 // change ; aucun flou ni animation permanente.
 
 import { memo, useRef, useState } from "react";
-import { Check, File, FileSpreadsheet, FileText, Film, Image as ImageIcon, Music, Play, Star } from "lucide-react";
+import { Check, File, FileSpreadsheet, FileText, FileX, Film, Image as ImageIcon, Music, Play, Star, Unplug } from "lucide-react";
 
 import { usePreview } from "@/hooks/usePreview";
 import { THUMB, thumbUrl, type MediaItem, type PreviewSize } from "@/lib/api";
@@ -106,6 +107,19 @@ function FavoriteStar({ id, favorite }: { id: number; favorite: boolean }) {
     >
       <Star className={cn(favorite && "fill-[#d9a94e]")} />
     </button>
+  );
+}
+
+/** Marque « fichier introuvable » / « emplacement inaccessible » (LIB-05, LIB-14) : simple information. */
+function LostMark({ offline }: { offline: boolean }) {
+  return (
+    <span
+      data-zone="grille.vignette.introuvable"
+      title={offline ? "Emplacement inaccessible (disque ou dossier réseau débranché)" : "Fichier introuvable"}
+      className="tile-mark absolute z-10 grid place-items-center bg-black/60 text-amber-300"
+    >
+      {offline ? <Unplug /> : <FileX />}
+    </span>
   );
 }
 
@@ -240,6 +254,7 @@ export const MediaTile = memo(function MediaTile({ item, index, pageSize, compac
 
       {/* Badges et infos réduits avec la vignette quand elle est étroite (GRID-10). */}
       <FavoriteStar id={item.id} favorite={favorite} />
+      {(item.missing || item.offline) && <LostMark offline={item.offline === true} />}
       {selecting && <SelectBox checked={checked} />}
       <div className="tile-overlay">
         {/* Badge en bas à droite ; au survol, il remonte sur la ligne du nom (GRID-09). */}

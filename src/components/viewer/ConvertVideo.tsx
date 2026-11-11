@@ -37,6 +37,7 @@ function ConvertDialog({ onConvert, onCancel }: { onConvert: (c: Choice) => void
     return (
       <ConfirmDialog
         danger
+        dangerBorder
         zone="visionneuse.convertir.confirmation"
         title="Êtes-vous sûr de vouloir supprimer l'original de votre stockage ?"
         message="Une fois la vidéo convertie, l'original sera effacé définitivement du disque, sans passer par la Corbeille."
