@@ -1,6 +1,6 @@
-// Résumé de l'import en cours dans l'en-tête (IMP-76, réponse Q1 A du 11/11), entre le logo et le compteur de médias,
-// quand on a quitté la page Importer : icône qui tourne, « Import 120 / 500 » et une mini barre ; « En pause » pendant
-// une pause. Un clic ouvre la page Importer ; il disparaît à la fin de l'import (le bilan s'ouvre, IMP-45).
+// Résumé de l'import en cours dans l'en-tête (IMP-76, réponse Q1 A du 11/11), juste à gauche du compteur de médias
+// (retour du 11/11), quand on a quitté la page Importer : icône qui tourne et « Import 120 / 500 », la mini barre
+// dessous, de l'icône à la fin du texte ; « En pause » pendant une pause. Un clic ouvre la page Importer ; il disparaît à la fin de l'import (le bilan s'ouvre, IMP-45).
 
 import { Loader2, Pause } from "lucide-react";
 
@@ -21,13 +21,15 @@ export function ImportBadge() {
       data-zone="entete.import"
       onClick={() => navigate("import")}
       title="Ouvrir la page Importer"
-      className="mr-auto flex items-center gap-2 rounded-md px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+      className="flex flex-col gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
     >
-      {paused ? <Pause className="h-3.5 w-3.5 text-amber-300" /> : <Loader2 className="h-3.5 w-3.5 animate-spin text-[#d9a94e]" />}
-      <span className="tabular-nums whitespace-nowrap">
-        {paused ? "En pause" : "Import"} {formatNumber(progress.processed)} / {formatNumber(progress.total)}
+      <span className="flex items-center gap-2">
+        {paused ? <Pause className="h-3.5 w-3.5 text-amber-300" /> : <Loader2 className="h-3.5 w-3.5 animate-spin text-[#d9a94e]" />}
+        <span className="tabular-nums whitespace-nowrap">
+          {paused ? "En pause" : "Import"} {formatNumber(progress.processed)} / {formatNumber(progress.total)}
+        </span>
       </span>
-      <span className="hidden h-1 w-14 overflow-hidden rounded-full bg-secondary sm:block">
+      <span className="block h-1 w-full overflow-hidden rounded-full bg-secondary">
         <span className={`block h-full ${paused ? "bg-amber-300" : "bg-[#d9a94e]"}`} style={{ width: `${pct}%` }} />
       </span>
     </button>

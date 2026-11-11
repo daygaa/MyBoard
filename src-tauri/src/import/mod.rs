@@ -28,7 +28,7 @@ mod run;
 mod scan;
 mod state;
 mod tally;
-mod undo;
+pub mod undo;
 mod versions;
 mod video;
 
@@ -68,6 +68,8 @@ pub struct ImportManager {
     cancel: AtomicBool,
     undo: AtomicBool,
     gate: pause::Gate,
+    /// Changements du dernier import terminé : « Annuler l'import » après la fin (retour du 11/11).
+    last: Mutex<Option<undo::Changes>>,
     /// Numéro du parcours en cours : un parcours remplacé par un autre s'arrête.
     generation: AtomicU64,
 }
@@ -93,6 +95,7 @@ impl ImportManager {
             cancel: AtomicBool::new(false),
             undo: AtomicBool::new(false),
             gate: pause::Gate::new(),
+            last: Mutex::new(None),
             generation: AtomicU64::new(0),
         }
     }
@@ -156,6 +159,7 @@ pub fn scan_paths(app: AppHandle, state: State<'_, AppState>, paths: Vec<String>
         return Err("Aucun fichier choisi.".into());
     }
     let generation = manager.generation.fetch_add(1, Ordering::SeqCst) + 1;
+    *manager.last.lock().unwrap() = None;
     manager.update(false, |inner| {
         inner.files.clear();
         inner.snapshot = Snapshot {
@@ -254,19 +258,6 @@ pub fn finish_import(state: State<'_, AppState>) {
     let manager = &state.import;
     manager.cancel.store(true, Ordering::SeqCst);
     manager.gate.set(false);
-}
-
-/// « Annuler l'import » (IMP-43) : tout l'import en cours est défait (`undo.rs`) ; refusé s'il a effacé des fichiers.
-#[tauri::command]
-pub fn undo_import(state: State<'_, AppState>) -> Result<(), String> {
-    let manager = &state.import;
-    if !manager.snapshot().undoable {
-        return Err("Cet import ne peut pas être annulé : des fichiers ont été effacés du disque.".into());
-    }
-    manager.undo.store(true, Ordering::SeqCst);
-    manager.cancel.store(true, Ordering::SeqCst);
-    manager.gate.set(false);
-    Ok(())
 }
 
 /// Bilan de fin d'import fermé (IMP-45) : la restauration (DEL-05) peut suivre.

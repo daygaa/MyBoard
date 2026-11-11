@@ -6,10 +6,12 @@ import { useEffect, type RefObject } from "react";
 
 import type { PreviewSize } from "@/lib/api";
 import { PREVIEW_DELAY_MS } from "@/lib/grid";
-import { cancelPreview, usePreviewReady, wantPreview } from "@/stores/previews";
+import { cancelPreview, usePreviewReady, usePreviews, wantPreview } from "@/stores/previews";
 
 export function usePreview(ref: RefObject<HTMLElement | null>, id: number, size: PreviewSize | null): boolean {
   const ready = usePreviewReady(id, size ?? 640) && size !== null;
+  // Fichiers revus : nouvelle demande des aperçus pas encore prêts.
+  const retry = usePreviews((s) => s.retry);
 
   useEffect(() => {
     const el = ref.current;
@@ -35,7 +37,7 @@ export function usePreview(ref: RefObject<HTMLElement | null>, id: number, size:
       clearTimeout(timer);
       if (requested) cancelPreview(key);
     };
-  }, [ref, id, size, ready]);
+  }, [ref, id, size, ready, retry]);
 
   return ready;
 }

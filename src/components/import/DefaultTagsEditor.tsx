@@ -3,6 +3,7 @@
 // un tag existant (choisi dans les suggestions ou tapé en entier) garde sa catégorie.
 // Ces tags sont ajoutés à TOUS les fichiers de l'import, y compris ceux déjà dans la
 // bibliothèque (D-016). En phase 2, la carte est placée sous l'encadré de dépôt.
+// Clic droit sur une pastille : « Copier le tag », « Retirer » (CTX-15).
 
 import { useState } from "react";
 import { Plus, Tag } from "lucide-react";
@@ -12,6 +13,7 @@ import { TagInput } from "@/components/tags/TagInput";
 import { TagPill } from "@/components/tags/TagPill";
 import { useCategories } from "@/hooks/useCategories";
 import { api } from "@/lib/api";
+import { openContextMenu } from "@/lib/contextMenu";
 import { displayTag, normalizeTag } from "@/lib/tags";
 import { useImport } from "@/stores/import";
 
@@ -80,6 +82,13 @@ export function DefaultTagsEditor() {
               color={color(t.categoryId ?? -1)}
               onRemove={busy ? undefined : () => removeDefaultTag(t.name)}
               removeLabel={`Retirer « ${displayTag(t.name)} »`}
+              // Clic droit (CTX-15, choix du 09/11) : ces tags ne sont pas encore posés sur des médias.
+              onContextMenu={(e) =>
+                openContextMenu(e, () => [
+                  { label: "Copier le tag", run: () => void api.writeClipboardText(t.name) },
+                  { label: "Retirer", disabled: busy, run: () => removeDefaultTag(t.name) },
+                ])
+              }
             >
               {displayTag(t.name)}
             </TagPill>

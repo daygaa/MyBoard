@@ -8,6 +8,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
 import type { ImageTarget, ImportSnapshot, NewTag, VideoTarget } from "@/lib/api";
+import { usePreviews } from "./previews";
 
 /** Qualité de compression : 20 à 95, 85 par défaut (comme la v8, IMP-20). */
 export const QUALITY = { min: 20, max: 95, initial: 85 } as const;
@@ -72,6 +73,8 @@ export const useImport = create<ImportState>()(
         // (comme l'encadré de dépôt, IMP-50).
         const finished = snapshot.phase === "finished" && get().snapshot?.phase === "importing";
         set(finished ? { snapshot, defaultTags: [] } : { snapshot });
+        // Fichiers réimportés : leurs aperçus ratés sont redemandés (LIB-05).
+        if (finished) usePreviews.getState().bumpRetry();
       },
       setRecursive: (recursive) => set({ recursive }),
       setCompress: (compress) => set({ compress, deleteOriginals: get().deleteOriginals && processing({ ...get(), compress }) }),

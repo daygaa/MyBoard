@@ -3,28 +3,32 @@
 //! qu'on utilise MyBoard ; à la fin, l'interface reçoit les médias disparus (pop-in « Supprimer de la bibliothèque » /
 //! « Conserver la miniature ») et les emplacements inaccessibles (bandeau, marque sur les vignettes). Un disque débranché,
 //! un dossier réseau injoignable n'est jamais pris pour une suppression : seul un fichier absent d'un emplacement
-//! accessible est « disparu ». Une erreur d'accès (droits, réseau lent) compte comme présent. Les emplacements
-//! inaccessibles sont revérifiés toutes les 5 s (réponse Q11 A) : rebranchés, leurs médias sont vérifiés à leur tour.
+//! accessible est « disparu ». Une erreur d'accès (droits, réseau lent) compte comme présent. Tous les emplacements de
+//! la bibliothèque (et ceux des imports suivants) sont ensuite surveillés toutes les 5 s pendant toute la séance (réponse
+//! Q11 A ; retour du 11/11 : un débranchement doit aussi se voir) : débranché, bandeau et marques ; rebranché, ils partent
+//! et ses médias sont vérifiés à leur tour. Un fichier revu fait réessayer ses grands aperçus et ses miniatures ratés.
 //! Rien n'est écrit en base, sauf la marque « fichier introuvable » (`media.missing_since`, colonne prévue dès le
 //! schéma 1 pour cette question Q-01), posée par « Conserver la miniature » et effacée dès que le fichier est revu.
 
-use std::collections::HashMap;
+use std::collections::HashSet;
 use std::path::{Component, Path, PathBuf};
 use std::sync::{Mutex, RwLock};
 use std::time::Duration;
 
-use rusqlite::{Connection, params};
+use rusqlite::params;
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, State};
 
 use crate::{AppState, db};
+
+mod watch;
 
 /// Événement envoyé à l'interface à chaque changement (`CheckState`).
 const EVENT: &str = "library-check";
 /// Médias disparus envoyés à l'interface (la pop-in en montre autant) ; la liste complète reste ici : 100 000 médias
 /// envoyés d'un coup figeaient la fenêtre ~2 s (mesuré le 11/11).
 const SHOWN: usize = 500;
-const RECHECK_EVERY: Duration = Duration::from_secs(5);
+pub(super) const RECHECK_EVERY: Duration = Duration::from_secs(5);
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Presence {
@@ -65,14 +69,14 @@ pub struct CheckState {
     pub offline: Vec<OfflineRoot>,
 }
 
-struct Inner {
+pub(super) struct Inner {
     state: CheckState,
     all: Vec<MissingMedia>,
 }
 
-struct Row {
-    item: MissingMedia,
-    marked: bool,
+pub(super) struct Row {
+    pub(super) item: MissingMedia,
+    pub(super) marked: bool,
 }
 
 static STATE: Mutex<Inner> = Mutex::new(Inner {
@@ -80,14 +84,22 @@ static STATE: Mutex<Inner> = Mutex::new(Inner {
     all: Vec::new(),
 });
 /// Emplacements inaccessibles, en minuscules (marque des vignettes, `library::media_from_row`).
-static OFFLINE: RwLock<Vec<String>> = RwLock::new(Vec::new());
+pub(super) static OFFLINE: RwLock<Vec<String>> = RwLock::new(Vec::new());
+/// Emplacements des imports de la séance, à surveiller aussi.
+pub(super) static NEW_ROOTS: Mutex<Vec<PathBuf>> = Mutex::new(Vec::new());
+
+/// Après un import : les emplacements de ses fichiers sont surveillés à leur tour (débranchement, LIB-14).
+pub fn watch_roots<'a>(paths: impl Iterator<Item = &'a Path>) {
+    let roots: HashSet<PathBuf> = paths.map(root_of).collect();
+    NEW_ROOTS.lock().unwrap().extend(roots);
+}
 
 /// Disque ou partage réseau du chemin : « D:\ », « \\serveur\partage\ ».
 pub fn root_of(path: &Path) -> PathBuf {
     path.components().take_while(|c| matches!(c, Component::Prefix(_) | Component::RootDir)).map(|c| c.as_os_str()).collect()
 }
 
-fn reachable(root: &Path) -> bool {
+pub(super) fn reachable(root: &Path) -> bool {
     root.as_os_str().is_empty() || std::fs::metadata(root).is_ok()
 }
 
@@ -112,7 +124,7 @@ pub fn is_offline(path: &str) -> bool {
 pub fn start(app: AppHandle, db_path: PathBuf) {
     let spawned = std::thread::Builder::new().name("verification-fichiers".into()).spawn(move || {
         crate::thumbs::lower_thread_priority();
-        if let Err(e) = check(&app, &db_path) {
+        if let Err(e) = watch::check(&app, &db_path) {
             eprintln!("[vérification] {e:#}");
             update(&app, |s| s.state.running = false);
         }
@@ -122,94 +134,14 @@ pub fn start(app: AppHandle, db_path: PathBuf) {
     }
 }
 
-fn check(app: &AppHandle, db_path: &Path) -> anyhow::Result<()> {
-    update(app, |s| s.state.running = true);
-    let mut conn = db::open(db_path)?;
-    let rows: Vec<Row> = conn
-        .prepare("SELECT id, hash, file_name, path, kind, missing_since IS NOT NULL FROM media WHERE pending_delete = 0 ORDER BY path")?
-        .query_map([], |r| {
-            Ok(Row { item: MissingMedia { id: r.get(0)?, hash: r.get(1)?, file_name: r.get(2)?, path: r.get(3)?, kind: r.get(4)? }, marked: r.get(5)? })
-        })?
-        .collect::<rusqlite::Result<_>>()?;
-    let mut roots: HashMap<PathBuf, bool> = HashMap::new();
-    let mut away: HashMap<PathBuf, Vec<Row>> = HashMap::new();
-    let mut present = Vec::new();
-    for row in rows {
-        let root = root_of(Path::new(&row.item.path));
-        if !*roots.entry(root.clone()).or_insert_with(|| reachable(&root)) {
-            away.entry(root).or_default().push(row);
-            continue;
-        }
-        present.push(row);
-    }
-    let missing = sort(&mut conn, present)?;
-    set_offline(&away);
-    update(app, |s| {
-        s.state.running = false;
-        add(s, missing);
-        s.state.offline = offline_list(&away);
-    });
-    let _ = app.emit("library-changed", ());
-    // Emplacements inaccessibles : revérifiés jusqu'à ce qu'ils reviennent tous.
-    while !away.is_empty() {
-        std::thread::sleep(RECHECK_EVERY);
-        let back: Vec<PathBuf> = away.keys().filter(|r| reachable(r)).cloned().collect();
-        if back.is_empty() {
-            continue;
-        }
-        // Bandeau et marques retirés aussitôt, puis les fichiers revenus sont vérifiés (100 000 : ~10 s).
-        let rows: Vec<Row> = back.iter().flat_map(|root| away.remove(root).unwrap_or_default()).collect();
-        set_offline(&away);
-        update(app, |s| s.state.offline = offline_list(&away));
-        let _ = app.emit("library-changed", ());
-        let found = sort(&mut conn, rows)?;
-        if !found.is_empty() {
-            update(app, |s| add(s, found));
-            let _ = app.emit("library-changed", ());
-        }
-    }
-    Ok(())
-}
-
-/// Fichiers d'emplacements accessibles : renvoie les disparus pas encore réglés ; ceux revus perdent leur marque.
-fn sort(conn: &mut Connection, rows: Vec<Row>) -> anyhow::Result<Vec<MissingMedia>> {
-    let mut missing = Vec::new();
-    let mut seen_again = Vec::new();
-    for row in rows {
-        match (presence(Path::new(&row.item.path)), row.marked) {
-            (Presence::Missing, false) => missing.push(row.item),
-            (Presence::Present, true) => seen_again.push(row.item.id),
-            _ => {}
-        }
-    }
-    if !seen_again.is_empty() {
-        let tx = conn.transaction()?;
-        for id in seen_again {
-            tx.execute("UPDATE media SET missing_since = NULL WHERE id = ?1", [id])?;
-        }
-        tx.commit()?;
-    }
-    Ok(missing)
-}
-
-fn set_offline(away: &HashMap<PathBuf, Vec<Row>>) {
-    *OFFLINE.write().unwrap() = away.keys().map(|r| r.to_string_lossy().to_lowercase()).collect();
-}
-
-fn offline_list(away: &HashMap<PathBuf, Vec<Row>>) -> Vec<OfflineRoot> {
-    let mut list: Vec<OfflineRoot> = away.iter().map(|(r, rows)| OfflineRoot { root: r.display().to_string(), count: rows.len() as u64 }).collect();
-    list.sort_by(|a, b| a.root.cmp(&b.root));
-    list
-}
-
-fn add(inner: &mut Inner, found: Vec<MissingMedia>) {
+pub(super) fn add(inner: &mut Inner, found: Vec<MissingMedia>) {
     if !found.is_empty() {
         inner.all.extend(found);
         inner.state.missing_version += 1;
     }
 }
 
-fn update(app: &AppHandle, change: impl FnOnce(&mut Inner)) {
+pub(super) fn update(app: &AppHandle, change: impl FnOnce(&mut Inner)) {
     let snapshot = {
         let mut inner = STATE.lock().unwrap();
         change(&mut inner);

@@ -3,7 +3,7 @@
 
 import { invoke } from "@tauri-apps/api/core";
 
-import type { MediaKind } from "./api";
+import type { MediaKind, ThumbTier } from "./api";
 
 export type MissingMedia = { id: number; hash: string; fileName: string; path: string; kind: MediaKind };
 export type OfflineRoot = { root: string; count: number };
@@ -15,4 +15,6 @@ export const checkApi = {
   state: () => invoke<CheckState>("library_check_state"),
   /** Réponse pour toute la liste : « Conserver la miniature » (`keep`) ou « Supprimer de la bibliothèque ». */
   settle: (keep: boolean) => invoke<void>("settle_missing", { keep }),
+  /** Plus grande miniature déjà faite d'un média introuvable ou inaccessible (« large », « preview », « normal », « small »). */
+  bestThumb: (hash: string) => invoke<ThumbTier | null>("best_thumb", { hash }),
 };

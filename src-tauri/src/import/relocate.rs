@@ -9,6 +9,7 @@ use rusqlite::{Connection, OptionalExtension, params};
 
 use super::index::{file_name_of, to_ms};
 use super::scan::ScanFile;
+use crate::thumbs::status::ERROR;
 
 /// Fiche d'un média avant son changement par l'import (nouvelle version d'IMP-60, nouveau chemin de LIB-05).
 pub struct Before {
@@ -82,14 +83,21 @@ pub fn relocate(conn: &Connection, other: i64, file: &ScanFile, meta: &Metadata,
     let before = Before::read(conn, other)?;
     let file_name = file_name_of(path);
     conn.execute(
-        "UPDATE media SET path = ?1, file_name = ?2, name_key = ?3, ext = ?4, file_modified_at = ?5, missing_since = NULL WHERE id = ?6",
-        params![path, file_name, crate::db::name_key::name_key(&file_name), file.ext, meta.modified().ok().map(to_ms), other],
+        "UPDATE media SET path = ?1, file_name = ?2, name_key = ?3, ext = ?4, file_modified_at = ?5, missing_since = NULL,
+             thumb_status = CASE WHEN thumb_status = ?6 THEN 0 ELSE thumb_status END
+         WHERE id = ?7",
+        params![path, file_name, crate::db::name_key::name_key(&file_name), file.ext, meta.modified().ok().map(to_ms), ERROR, other],
     )?;
     Ok(Some(before))
 }
 
-/// Fichier revu à son chemin : la marque « fichier introuvable » disparaît (LIB-05).
+/// Fichier revu à son chemin : la marque « fichier introuvable » disparaît (LIB-05) ; une miniature ratée pendant son
+/// absence est refaite.
 pub fn found_again(conn: &Connection, id: i64) -> rusqlite::Result<()> {
-    conn.prepare_cached("UPDATE media SET missing_since = NULL WHERE id = ?1 AND missing_since IS NOT NULL")?.execute([id])?;
+    conn.prepare_cached(
+        "UPDATE media SET missing_since = NULL, thumb_status = CASE WHEN thumb_status = ?1 THEN 0 ELSE thumb_status END
+         WHERE id = ?2 AND missing_since IS NOT NULL",
+    )?
+    .execute(params![ERROR, id])?;
     Ok(())
 }

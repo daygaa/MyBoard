@@ -3,6 +3,23 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Phase 4, lots 9 et 10, retouches des lots 7 et 8 (11/11/2026) — Backup v125
+
+SPEC : LIB-05, LIB-14, IMP-42, IMP-76 (retouches), IMP-06 et LIB-07 (mesures), CTX-15, IMP-55 `[~]` ; IMP-43, IMP-45,
+IMP-54 validés. Décision D-068.
+
+- Clé ou disque débranché pendant que MyBoard est ouvert : bandeau et marques (avant : seulement au lancement).
+- Visionneuse d'un média introuvable ou débranché : sa plus grande miniature, avec un bandeau et le dernier chemin.
+- Grands aperçus d'un fichier retrouvé refaits aussitôt (avant : petite résolution jusqu'au lancement suivant).
+- Résumé de l'import dans l'en-tête : à droite, barre dessous.
+- Boutons de la pause dans un nouvel ordre ; « Annuler l'import » aussi après la fin de l'import.
+- Clic droit sur les tags par défaut : « Copier le tag », « Retirer ».
+- Mesures : lecture en parallèle (SSD, disque dur), données de MyBoard sur un disque dur.
+
+Vérifié dans la version compilée, sur une copie neuve de la base d'essai : clé d'essai branchée puis débranchée,
+visionneuse, aperçus après réimport, ordre des boutons, annulation après la fin, en-tête, menu des tags par défaut ;
+zéro erreur `tsc` / `clippy`.
+
 ## Phase 4, lots 7 et 8 : pause et annulation de l'import, bilan, fichiers disparus (11/11/2026) — Backup v124
 
 SPEC : IMP-42, IMP-43, IMP-45, IMP-54, IMP-76, LIB-05, LIB-14 `[~]`. Décision D-067. Schéma toujours 20.

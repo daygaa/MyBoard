@@ -21,7 +21,8 @@ export const useLibraryCheck = create<State>()((set, get) => ({
   check: { running: false, missing: [], missingTotal: 0, missingVersion: 0, offline: [] },
   dismissedVersion: 0,
   closedRoots: new Set(),
-  setCheck: (check) => set({ check }),
+  // Un emplacement revenu sort des bandeaux fermés : débranché de nouveau, son bandeau réapparaît.
+  setCheck: (check) => set({ check, closedRoots: new Set([...get().closedRoots].filter((r) => check.offline.some((o) => o.root === r))) }),
   dismissDialog: () => set({ dismissedVersion: get().check.missingVersion }),
   closeBanner: () => set({ closedRoots: new Set(get().check.offline.map((o) => o.root)) }),
 }));

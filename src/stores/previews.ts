@@ -10,6 +10,10 @@ const BIT: Record<PreviewSize, number> = { 640: 1, 1280: 2 };
 
 type PreviewsState = {
   ready: Record<number, number>;
+  /** Change quand des fichiers sont revus (fin d'un import, emplacement rebranché : LIB-05, LIB-14) : les vignettes
+   *  visibles redemandent leur aperçu, que le cœur Rust réessaie (sinon elles restaient en 320 px, retour du 11/11). */
+  retry: number;
+  bumpRetry: () => void;
   markReady: (keys: PreviewKey[]) => void;
   /** Médias supprimés (DEL-02) : un nouveau média peut reprendre leur numéro. */
   forget: (ids: number[]) => void;
@@ -17,6 +21,8 @@ type PreviewsState = {
 
 export const usePreviews = create<PreviewsState>()((set) => ({
   ready: {},
+  retry: 0,
+  bumpRetry: () => set((state) => ({ retry: state.retry + 1 })),
   markReady: (keys) =>
     set((state) => {
       const ready = { ...state.ready };

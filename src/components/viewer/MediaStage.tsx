@@ -3,14 +3,15 @@
 // Format que le lecteur intégré ne sait pas lire : message clair + « Ouvrir avec
 // l'application par défaut » (VIEW-24) ; vidéo : aussi « Convertir » (VIEW-25, ConvertVideo.tsx) ;
 // pareil pour un son illisible (.wma : trouvé en testant tous les formats, IMP-05). Fichier introuvable (LIB-05) ou
-// emplacement inaccessible (LIB-14) : carte avec le dernier chemin connu (réponse Q5 A du 11/11).
+// emplacement inaccessible (LIB-14) : sa plus grande miniature et un bandeau (LostStage.tsx, retour du 11/11).
 
 import { useState, type ReactNode } from "react";
-import { File, FileSpreadsheet, FileX, Music, Unplug } from "lucide-react";
+import { File, FileSpreadsheet, Music } from "lucide-react";
 
 import { mediaUrl, type MediaItem } from "@/lib/api";
 import { UnplayableVideo } from "./ConvertVideo";
 import { ImageStage } from "./ImageStage";
+import { LostStage } from "./LostStage";
 import { VideoStage } from "./VideoStage";
 import { OpenExternally } from "./OpenExternally";
 
@@ -24,24 +25,6 @@ function Card({ item, icon, message }: { item: MediaItem; icon: ReactNode; messa
       <p className="mt-4 font-medium break-all text-foreground">{item.fileName}</p>
       {message && <p className="mt-2 text-sm text-muted-foreground">{message}</p>}
       <OpenExternally item={item} />
-    </div>
-  );
-}
-
-/** Fichier disparu ou sur un emplacement débranché : rien à lire, son dernier chemin connu. */
-function LostCard({ item }: { item: MediaItem }) {
-  const Icon = item.offline ? Unplug : FileX;
-  return (
-    <div data-zone="visionneuse.introuvable" className="flex max-w-lg flex-col items-center rounded-xl border border-border bg-card px-8 py-12 text-center">
-      <Icon className="h-12 w-12 text-amber-300/80" />
-      <p className="mt-4 font-medium text-foreground">{item.offline ? "Emplacement inaccessible" : "Fichier introuvable"}</p>
-      <p className="mt-2 text-sm text-muted-foreground">
-        {item.offline
-          ? "Le disque, la clé ou le dossier réseau de ce média n'est pas accessible : rebranchez-le pour l'ouvrir."
-          : "Ce fichier a été supprimé, déplacé ou renommé en dehors de MyBoard. Réimporté depuis son nouvel emplacement, il retrouvera cette fiche."}
-      </p>
-      <p className="mt-4 text-xs text-muted-foreground">Dernier chemin connu</p>
-      <p className="mt-1 text-sm break-all text-foreground select-text">{item.lastPath}</p>
     </div>
   );
 }
@@ -82,13 +65,7 @@ function AudioStage({ item, onClose }: { item: MediaItem; onClose: () => void })
 
 /** `opening` : média ouvert depuis la grille, aucune flèche encore (image : original demandé aussitôt, VIEW-53). */
 export function MediaStage({ item, onClose, opening }: { item: MediaItem; onClose: () => void; opening: boolean }) {
-  if (item.missing || item.offline) {
-    return (
-      <Centered onClose={onClose}>
-        <LostCard item={item} />
-      </Centered>
-    );
-  }
+  if (item.missing || item.offline) return <LostStage key={item.id} item={item} onClose={onClose} />;
   // GIF animé : lecteur vidéo (VIEW-54) ; s'il ne peut pas être converti (ffmpeg absent…), comme une image.
   if (item.kind === "image" && item.ext === "gif") return <VideoStage item={item} onClose={onClose} fallback={<ImageStage item={item} onClose={onClose} />} />;
   if (item.kind === "image") return <ImageStage item={item} onClose={onClose} opening={opening} />;

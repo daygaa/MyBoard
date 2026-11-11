@@ -253,7 +253,7 @@ pub fn run_import(app: &AppHandle, files: Vec<ScanFile>, default_tags: Vec<NewTa
         conn.execute_batch("COMMIT")?;
         after_commit(&conn, &mut to_delete, &mut unsaved, &mut progress);
         if manager.undo.load(Ordering::SeqCst) && options.undoable() {
-            undone = Some(changes.undo(&mut conn)?);
+            undone = Some(changes.undo(&mut conn, crate::deletion::UNDONE)?);
             state.deletion.wake();
         } else {
             restorable = reserve::candidates(&conn, &found)?;
@@ -264,6 +264,12 @@ pub fn run_import(app: &AppHandle, files: Vec<ScanFile>, default_tags: Vec<NewTa
     .map(|e| format!("{e:#}"));
 
     manager.gate.set(false);
+    // Fichiers revus (réimport, LIB-05) : grands aperçus ratés réessayés ; emplacements de l'import surveillés (LIB-14).
+    state.previews.retry_failed();
+    crate::library_check::watch_roots(files.iter().map(|f| f.path.as_path()));
+    // « Annuler l'import » reste possible après la fin (retour du 11/11), jusqu'au prochain choix de fichiers.
+    let undoable = options.undoable() && undone.is_none();
+    *manager.last.lock().unwrap() = undoable.then_some(changes);
     state.thumbs.wake();
     let _ = app.emit("library-changed", ());
     progress.current_file = None;
@@ -281,6 +287,7 @@ pub fn run_import(app: &AppHandle, files: Vec<ScanFile>, default_tags: Vec<NewTa
         inner.files.clear();
         inner.snapshot.phase = Phase::Finished;
         inner.snapshot.paused = None;
+        inner.snapshot.undoable = undoable;
         inner.snapshot.progress = Some(progress);
         inner.snapshot.result = Some(result);
     });

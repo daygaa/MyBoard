@@ -46,7 +46,11 @@ export function useBackendEvents() {
     ];
     // Fichiers disparus, emplacements inaccessibles (LIB-05, LIB-14) : l'état est relu une fois l'écoute en place (une
     // vérification rapide peut finir avant elle : son message serait perdu).
-    const check = listen<CheckState>(EVENTS.libraryCheck, (event) => useLibraryCheck.getState().setCheck(event.payload));
+    const check = listen<CheckState>(EVENTS.libraryCheck, (event) => {
+      useLibraryCheck.getState().setCheck(event.payload);
+      // Emplacement rebranché ou fichiers revus : aperçus redemandés.
+      usePreviews.getState().bumpRetry();
+    });
     void check.then(() => checkApi.state()).then((state) => useLibraryCheck.getState().setCheck(state));
     unlisteners.push(check);
     // État de l'import au démarrage (un import peut déjà tourner).

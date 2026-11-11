@@ -1,6 +1,6 @@
 // En-tête collé en haut : menu burger à gauche, logo au centre exact (NAV-01 ; un clic : retour complet
 // à l'accueil, NAV-08), statistiques (NAV-03) et bouton Importer à droite ; entre le logo et les statistiques, le
-// résumé de l'import en cours hors de la page Importer (IMP-76).
+// résumé de l'import en cours hors de la page Importer, juste à gauche des statistiques (IMP-76).
 // Fond opaque (la v8 utilisait un flou d'arrière-plan, coûteux pendant le défilement : D-008).
 
 import { useEffect, useState } from "react";

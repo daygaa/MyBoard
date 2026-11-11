@@ -1896,3 +1896,24 @@ Q7 A), réponses de l'utilisateur du 09/11 et du 11/11 (Q1 à Q13, SPEC).
 - IMP-54 : fichier en erreur absent à la fin de son traitement : racine injoignable → pause automatique (le fichier est
   repris après « Reprendre ») ; sinon compté « disparu » ; une compression impossible parce que le fichier a disparu
   n'enregistre rien.
+
+## D-068 — Emplacements surveillés pendant la séance ; aperçus réessayés ; annulation après l'import ; mesures du lot 9 (11/11/2026)
+
+**Contexte.** Retours de l'utilisateur sur les lots 7 et 8, lots 9 (IMP-06, LIB-07) et 10 (CTX-15, IMP-55), 11/11.
+
+**Choix.**
+- `library_check/` (découpé : `mod.rs` état et commandes, `watch.rs` vérification et surveillance) : après la
+  vérification de l'ouverture, une boucle sans fin (toutes les 5 s) teste chaque racine connue (celles de la
+  bibliothèque, puis celles des imports, `watch_roots`) : une racine qui disparaît charge ses médias (`substr(path) =
+  racine COLLATE NOCASE`) et passe « inaccessible » ; une racine qui revient remet ses miniatures en erreur à faire.
+- Aperçus : `PreviewService::retry_failed` vide la liste des aperçus ratés (fin d'import, racine revenue) ;
+  l'interface incrémente `usePreviews.retry`, une dépendance de `usePreview` : les vignettes visibles redemandent.
+  `best_thumb` : plus grande image en cache (`previews_large`, `previews`, `thumbs`, `thumbs_small`) pour la
+  visionneuse d'un média introuvable (`LostStage.tsx`).
+- Annulation après la fin : `ImportManager.last` garde les `Changes` du dernier import terminé, oubliés au prochain
+  parcours ; `undo_import` (`import/undo.rs`) les défait dans un fil, médias ajoutés en `LIBRARY_ONLY` (réserve DEL-05),
+  pas `UNDONE` : l'utilisateur a pu les modifier depuis.
+- Mesures IMP-06 : sur le disque dur, la lecture un fichier à la fois (fonctionnement actuel) est la plus rapide ; sur le
+  SSD, 4 fils lisent ×2,5 plus vite. Décision de l'utilisateur attendue (lecture en parallèle sur SSD ou statu quo).
+- LIB-07 : base et miniatures sur un disque dur restent utilisables (page suivante ≤ 0,15 s sur 100 000 médias).
+

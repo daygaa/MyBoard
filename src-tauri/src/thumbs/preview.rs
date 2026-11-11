@@ -96,6 +96,28 @@ impl PreviewService {
         *size = (*size - bytes).max(0);
     }
 
+    /// Fichiers revus (réimportés, emplacement rebranché, LIB-05, LIB-14) : les aperçus ratés seront réessayés.
+    pub fn retry_failed(&self) {
+        self.inner.queue.lock().unwrap().failed.clear();
+    }
+
+    /// Plus grande image déjà faite pour ce média (visionneuse d'un fichier introuvable, retour du 11/11) : 1 280,
+    /// 640, 320 ou 128 px (un grand aperçu montré est marqué comme utilisé : il reste en cache).
+    pub fn best(&self, hash: &str) -> anyhow::Result<Option<&'static str>> {
+        let store = self.inner.store.lock().unwrap();
+        for (tier, name) in [(Tier::Large, "large"), (Tier::Preview, "preview")] {
+            if store::touch_preview(&store, tier, hash, db::now_ms())? {
+                return Ok(Some(name));
+            }
+        }
+        for (tier, name) in [(Tier::Normal, "normal"), (Tier::Small, "small")] {
+            if store::get(&store, tier, hash)?.is_some() {
+                return Ok(Some(name));
+            }
+        }
+        Ok(None)
+    }
+
     /// `want` : vignettes visibles depuis ~150 ms ; `cancel` : vignettes sorties de l'écran.
     pub fn request(&self, want: &[PreviewKey], cancel: &[PreviewKey]) -> anyhow::Result<()> {
         let inner = &self.inner;
@@ -149,6 +171,12 @@ impl PreviewService {
         }
         Ok(())
     }
+}
+
+/// Plus grande miniature d'un média introuvable ou inaccessible (`PreviewService::best`) : sa taille pour `thumb://`.
+#[tauri::command]
+pub fn best_thumb(state: tauri::State<'_, crate::AppState>, hash: String) -> Result<Option<String>, String> {
+    state.previews.best(&hash).map(|t| t.map(str::to_owned)).map_err(|e| format!("{e:#}"))
 }
 
 fn worker_loop(inner: &Inner) {

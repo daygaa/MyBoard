@@ -60,6 +60,7 @@ pub fn clear_scan(state: State<'_, AppState>) -> Result<(), String> {
         return Err("Rien à vider pendant un import.".into());
     }
     manager.generation.fetch_add(1, Ordering::SeqCst);
+    *manager.last.lock().unwrap() = None;
     manager.update(false, |inner| {
         inner.files.clear();
         let recursive = inner.snapshot.recursive;

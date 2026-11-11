@@ -9,11 +9,16 @@
 
 use std::path::PathBuf;
 
+use std::sync::atomic::Ordering;
+
 use rusqlite::{Connection, TransactionBehavior, params};
 use serde::Serialize;
+use tauri::{AppHandle, Emitter, Manager, State};
 
 use super::relocate::Before;
+use super::Phase;
 use crate::tagging::{remove_cascade, restore_justified};
+use crate::{AppState, db};
 
 #[derive(Default)]
 pub struct Changes {
@@ -40,7 +45,9 @@ pub struct Undone {
 
 impl Changes {
     /// Une transaction pour la base ; les fichiers sont effacés ensuite, s'ils ne sont plus le fichier d'aucun média.
-    pub fn undo(&self, conn: &mut Connection) -> anyhow::Result<Undone> {
+    /// `mode` des médias ajoutés : `UNDONE` pendant l'import (sans réserve) ; après la fin (retour du 11/11),
+    /// `LIBRARY_ONLY` : leurs données (tags posés depuis, restauration DEL-05…) sont gardées un mois en réserve.
+    pub fn undo(&self, conn: &mut Connection, mode: i64) -> anyhow::Result<Undone> {
         let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
         for before in self.before.iter().rev() {
             before.restore(&tx)?;
@@ -52,7 +59,7 @@ impl Changes {
         {
             let mut stmt = tx.prepare_cached("UPDATE media SET pending_delete = ?1 WHERE id = ?2 AND pending_delete = 0")?;
             for id in &self.added {
-                stmt.execute(params![crate::deletion::UNDONE, id])?;
+                stmt.execute(params![mode, id])?;
             }
         }
         for tag in &self.created_tags {
@@ -76,4 +83,44 @@ impl Changes {
         super::journal::remove(&self.written);
         Ok(Undone { removed: self.added.len() as u64, restored: self.before.len() as u64, erased })
     }
+}
+
+/// « Annuler l'import » (IMP-43) : tout l'import en cours, ou le dernier import terminé (retour du 11/11), est défait
+/// (`undo.rs`) ; refusé s'il a effacé des fichiers.
+#[tauri::command]
+pub fn undo_import(app: AppHandle, state: State<'_, AppState>) -> Result<(), String> {
+    let manager = &state.import;
+    let snapshot = manager.snapshot();
+    if !snapshot.undoable {
+        return Err("Cet import ne peut pas être annulé : des fichiers ont été effacés du disque.".into());
+    }
+    if snapshot.phase == Phase::Importing {
+        manager.undo.store(true, Ordering::SeqCst);
+        manager.cancel.store(true, Ordering::SeqCst);
+        manager.gate.set(false);
+        return Ok(());
+    }
+    let changes = manager.last.lock().unwrap().take().ok_or("Rien à annuler.")?;
+    manager.update(false, |inner| inner.snapshot.undoable = false);
+    std::thread::Builder::new()
+        .name("annulation-import".into())
+        .spawn(move || {
+            let state = app.state::<AppState>();
+            let done = db::open(&state.paths.db).and_then(|mut conn| changes.undo(&mut conn, crate::deletion::LIBRARY_ONLY));
+            state.deletion.wake();
+            state.thumbs.wake();
+            let _ = app.emit("library-changed", ());
+            state.import.update(false, |inner| {
+                if let Some(result) = &mut inner.snapshot.result {
+                    match done {
+                        Ok(undone) => result.undone = Some(undone),
+                        Err(e) => result.fatal = Some(format!("Annulation impossible : {e:#}")),
+                    }
+                    // Le bilan « Import annulé » s'ouvre (réponse Q12 A).
+                    result.reported = false;
+                }
+            });
+        })
+        .map_err(|e| e.to_string())?;
+    Ok(())
 }

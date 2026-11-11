@@ -12,7 +12,7 @@ import type { ImportSnapshot } from "@/lib/api";
 import { formatNumber, plural } from "@/lib/format";
 import { useImport } from "@/stores/import";
 import { goHome } from "@/stores/search";
-import { ImportControls } from "./ImportControls";
+import { ImportControls, UndoButton } from "./ImportControls";
 import { ImportProgress } from "./ImportProgress";
 import { useImportStart } from "./useImportStart";
 
@@ -83,6 +83,8 @@ export function ImportActionBar() {
 
       <div className="flex items-center gap-2">
         {phase === "importing" && snapshot && <ImportControls snapshot={snapshot} />}
+        {/* Après la fin : « Annuler l'import » reste possible (retour du 11/11, IMP-42). */}
+        {phase === "finished" && snapshot && <UndoButton snapshot={snapshot} />}
         {phase === "finished" && (
           // Retour complet à l'accueil, comme le logo (IMP-58, NAV-08).
           <Button size="sm" onClick={goHome} className="gap-1.5 bg-[#d9a94e] text-[#1a1408] hover:bg-[#e3b75f]">
