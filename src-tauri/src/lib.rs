@@ -129,6 +129,8 @@ pub fn run() {
             import::list::reveal_scan_file,
             import::list::count_compressible_existing,
             import::pairs::count_pairs,
+            import::reconvert::convert_video,
+            import::reconvert::cancel_video_conversion,
             tags::tag_categories,
             tags::autocomplete_tags,
             tags::find_tag,

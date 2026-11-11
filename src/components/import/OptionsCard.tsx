@@ -8,23 +8,25 @@ import { Image as ImageIcon, SlidersHorizontal, Trash2, Wand2 } from "lucide-rea
 import { Slider } from "@/components/ui/slider";
 import { processing, QUALITY, useImport } from "@/stores/import";
 import { FormatSelect, IMAGE_FORMATS } from "./FormatSelect";
-import { OptionRow } from "./OptionRow";
+import { OptionRow, withOriginals } from "./OptionRow";
 import { VideoOptions } from "./VideoOptions";
 
 
+// Textes des « ⓘ » : ceux de l'utilisateur (IMP-71, 11/11), une ligne par retour à la ligne.
 const COMPRESS_INFO = [
-  "Réencode les JPEG, WebP et PNG à la qualité choisie. La version compressée est écrite à côté de l'original (« photo_c.jpg ») et n'est gardée que si elle est au moins 5 % plus légère ; l'original n'est jamais modifié.",
-  "PNG : optimisation sans perte dès que la case est cochée, même à 95 ; à 75 ou moins, 16 bits par couleur ramenés à 8 ; à 50 ou moins, réduction à 256 couleurs.",
-  "Résolution, informations de la photo (EXIF) et dates du fichier gardées. Les GIF, BMP, TIFF et images animées ne sont jamais compressés.",
+  "Réencode les JPEG, WebP et PNG à la qualité choisie.",
+  "La version compressée est enregistrée à côté de l'original et n'est conservée que si elle est au moins 5 % plus légère ; l'original n'est jamais modifié.",
+  "PNG : optimisation lossless si la case est activée, peu importe la qualité ; de 16 à 8 bits de profondeur par couleur à 75 ou moins ; réduction à 256 couleurs à 50 ou moins.",
+  "Les métadonnées sont conservées. Les GIF, BMP, TIFF et autres images animées ne sont jamais compressés.",
 ];
 const CONVERT_INFO = [
-  "Écrit chaque image dans le format choisi, à côté de l'original (« photo.webp » ; « photo_c.webp » si elle est aussi compressée). La qualité de compression s'applique au format choisi ; sans compression : qualité 90.",
-  "La version convertie n'est gardée que si elle est au moins 5 % plus légère. En JPG, la transparence est remplacée par un fond blanc. GIF et WebP animés : jamais convertis.",
-  "AVIF : écrit par ffmpeg, quelques secondes par photo ; informations de la photo (EXIF) et profil de couleurs gardés.",
+  "Réencode chaque image dans le format choisi, à côté de l'original.",
+  "Si la compression est activée, elle s'applique au format choisi ; sans compression : qualité maximale.",
+  "En JPG, la transparence est remplacée par un fond blanc. Les GIF et WebP animés ne sont jamais convertis.",
+  "Les métadonnées sont conservées, y compris pour les AVIF (traitement via MyBoard).",
 ];
 const DELETE_INFO = [
   "Une fois sa nouvelle version enregistrée, l'original est effacé définitivement du disque, sans passer par la Corbeille. Deux confirmations sont demandées au lancement de l'import.",
-  "Case décochée à chaque ouverture de MyBoard.",
 ];
 
 export function OptionsCard() {
@@ -47,7 +49,7 @@ export function OptionsCard() {
             onChange={s.setCompress}
             icon={<ImageIcon className="h-4 w-4 text-emerald-400" />}
             label="Compresser les images"
-            info={COMPRESS_INFO}
+            info={withOriginals(COMPRESS_INFO, s.deleteOriginals)}
           />
           <div className="pl-7">
             <div className="mb-2 flex items-center justify-between text-xs">

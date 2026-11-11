@@ -1,6 +1,8 @@
 // Pop-in des paires (IMP-64, IMP-68, demandes du 10/11) : la liste contient des versions compressées ou converties par
 // MyBoard (« photo_c.jpg », « photo.webp », « video_c.mp4 ») et leurs originaux, dans la liste ou déjà dans la
-// bibliothèque. Textes accordés selon le type (images, vidéos, médias) et « l'originale » (demande du 11/11). « Importer
+// bibliothèque. Textes accordés selon le type (images, vidéos, médias) et « l'originale » (demande du 11/11). Boutons
+// renommés le 11/11 (IMP-75) : « Importer les originaux » (ancien « Supprimer les doublons ») et « Importer les
+// doublons » (ancien « Supprimer les originaux »), mêmes places, même fonctionnement ; la 2e confirmation garde « Supprimer… ». « Importer
 // les deux » ; « Supprimer les doublons » : seuls les originaux sont gardés ; « Supprimer les originaux » : seules les
 // versions (un original déjà dans la bibliothèque y est remplacé par sa version, sur la même fiche). Case « Supprimer
 // du stockage » (décochée à chaque ouverture) : les fichiers écartés sont aussi effacés du disque, après une 2e pop-in
@@ -42,10 +44,10 @@ function words(count: PairCount) {
 function inLibraryText(count: PairCount): string {
   const w = words(count);
   const rest = `par sa version compressée ou convertie, qui reprend ses tags, ses favoris et ses dossiers.`;
-  const replaced = `avec « Supprimer les originaux », ${w.it} y est remplacé${w.e} ${rest}`;
+  const replaced = `avec « Importer les doublons », ${w.it} y est remplacé${w.e} ${rest}`;
   if (count.total === 1) return `Son ${w.original} est déjà dans la bibliothèque : ${replaced}`;
   if (count.inLibrary === count.total)
-    return `Leurs ${w.originals} sont déjà dans la bibliothèque : avec « Supprimer les originaux », chacun${w.e} y est remplacé${w.e} ${rest}`;
+    return `Leurs ${w.originals} sont déjà dans la bibliothèque : avec « Importer les doublons », chacun${w.e} y est remplacé${w.e} ${rest}`;
   return `Pour ${formatNumber(count.inLibrary)} d'entre ${w.feminine ? "elles" : "eux"}, l'${w.original} est déjà dans la bibliothèque : ${replaced}`;
 }
 
@@ -104,18 +106,18 @@ export function PairsDialog({ count, onAnswer, onCancel }: Props) {
           <Button data-zone="import.paires.les-deux" variant="outline" onClick={() => choose("both")} className={PLAIN}>
             Importer les deux
           </Button>
-          <Button data-zone="import.paires.doublons" onClick={() => choose("originals")} className={deleteFiles ? RED : GOLD}>
-            Supprimer les doublons
+          <Button data-zone="import.paires.importer-originaux" onClick={() => choose("originals")} className={deleteFiles ? RED : GOLD}>
+            Importer les originaux
           </Button>
-          <Button data-zone="import.paires.originaux" onClick={() => choose("versions")} className={deleteFiles ? RED : GOLD}>
-            Supprimer les originaux
+          <Button data-zone="import.paires.importer-doublons" onClick={() => choose("versions")} className={deleteFiles ? RED : GOLD}>
+            Importer les doublons
           </Button>
         </>
       }
     >
       <label className="flex w-fit cursor-pointer items-center gap-2 text-sm text-foreground">
         <Checkbox data-principale data-zone="import.paires.stockage" checked={deleteFiles} onCheckedChange={(c) => setDeleteFiles(c === true)} />
-        Supprimer du stockage
+        Supprimer du stockage la version non importée
       </label>
     </Modal>
   );

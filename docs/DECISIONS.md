@@ -1833,3 +1833,27 @@ rotation EXIF d'un JPEG mais pas celle d'un WebP (mesuré le 10/11) ; MyBoard ne
   quelles. Paires de vidéos : toujours confirmées par la table des versions. Noms (IMP-65, 11/11) : une version
   seulement convertie dont le nom est pris devient « nom (1).ext ».
 
+## D-066 — Vidéo illisible convertie depuis la visionneuse ; règles de conversion revues (11/11/2026)
+
+**Contexte.** Lot 6 de la phase 4 (VIEW-25) et corrections IMP-70 à IMP-75, réponses de l'utilisateur du 11/11 (SPEC).
+
+**Choix.**
+- VIEW-25 (`import/reconvert.rs`, `components/viewer/ConvertVideo.tsx`) : commandes `convert_video` (une à la fois,
+  dans son fil) et `cancel_video_conversion` ; `video::process` avec `VideoRequest.playable` (son AAC / MP3 en MP4,
+  vidéo toujours réécrite, H.264 10 bits réencodé) ; cran « Maximale » = sans compression (nom sans « _c ») ; la fiche
+  passe à la copie dans une transaction (empreinte, original_hash, table des versions), original effacé ensuite s'il
+  n'est plus le fichier d'un média ; événements `video-conversion-progress` et `video-converted` (fiche à jour) ; la
+  visionneuse remplace son média et le lecteur repart (clé `id:empreinte`).
+- IMP-70 : la règle des 5 % ne vaut que pour la compression (`Action::Compress`, `Job::Encode { converted: false }`) ;
+  conversion sans compression : qualité 100 (images), cran 4 (vidéos).
+- IMP-72 : encodeurs essayés dans l'ordre NVENC, Quick Sync, AMF (H.264, H.265 ; AV1 : NVENC seulement) ; Quick Sync :
+  `global_quality` (ICQ) ; AMF : `rc cqp`, `qp_i` / `qp_p` (/ `qp_b` en H.264) ; mêmes crans que x264 / NVENC.
+- IMP-73 : pochette recopiée en MP4 et MKV (`-disposition attached_pic`) ; `use_metadata_tags` (informations d'Apple)
+  seulement si la vidéo a des informations à nom complet (« com.apple… ») : avec cette option, le MP4 n'écrit plus la
+  pochette (essai du 11/11) ; sous-titres DVD gardés en MP4, autres sous-titres en images laissés et comptés
+  (`videos_subtitles_lost`).
+- IMP-74 : tout fichier dont l'empreinte est dans la table des versions est importé tel quel (images comme vidéos).
+- IMP-75 : « Importer les originaux » avec « Supprimer du stockage… » : versions effacées avant la boucle, originaux
+  retirés des fichiers « tels quels » et comptés par « Compresser aussi » (`count_compressible_existing` reçoit le
+  choix des paires). `Indexer::take_place` déplacé dans `pairs.rs`.
+

@@ -54,6 +54,8 @@ pub enum VideoTarget {
 pub struct VideoRequest {
     pub quality: Option<u8>,
     pub convert: Option<VideoTarget>,
+    /// Conversion d'une vidéo illisible depuis la visionneuse (VIEW-25) : le résultat doit être lu par MyBoard.
+    pub playable: bool,
 }
 
 /// Format réel d'une image, d'après son extension (les variantes de JPEG n'en font qu'un).
@@ -92,8 +94,8 @@ pub enum Action {
     Video(VideoRequest),
 }
 
-/// Qualité d'une conversion sans compression (réponse Q5 du 10/11).
-const CONVERT_QUALITY: u8 = 90;
+/// Qualité d'une conversion sans compression : la plus haute (IMP-70, réponse Q1 du 11/11 ; 90 jusqu'au lot 5).
+const CONVERT_QUALITY: u8 = 100;
 
 /// Traitement demandé pour l'import.
 #[derive(Clone, Copy)]
@@ -166,7 +168,7 @@ pub struct ImportOptions {
 impl ImportOptions {
     pub fn process(&self) -> Option<Process> {
         let quality = self.compress_quality.map(|q| q.clamp(20, 95));
-        let video = VideoRequest { quality: self.video_quality.map(|q| q.min(4)), convert: self.convert_videos_to };
+        let video = VideoRequest { quality: self.video_quality.map(|q| q.min(4)), convert: self.convert_videos_to, playable: false };
         (quality.is_some() || self.convert_to.is_some() || video.quality.is_some() || video.convert.is_some()).then_some(Process {
             quality,
             convert: self.convert_to,

@@ -41,6 +41,8 @@ pub struct Progress {
     pub videos_compressed: u64,
     pub videos_converted: u64,
     pub videos_unsupported: u64,
+    /// Vidéos converties sans leurs sous-titres en images (non acceptés par le format choisi, IMP-73).
+    pub videos_subtitles_lost: u64,
     pub current_file: Option<String>,
     /// Vidéo en cours de traitement : son chemin (miniature) et son avancement, de 0 à 1 (IMP-41).
     pub current_path: Option<String>,

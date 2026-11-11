@@ -3,6 +3,25 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Phase 4, lot 6 : vidéo illisible convertie depuis la visionneuse, corrections (11/11/2026) — Backup v123
+
+SPEC : VIEW-25, IMP-70 à IMP-75 `[~]` ; SET-19 (nouveau, à venir) ; IMP-25, IMP-41, IMP-65, IMP-69 validés. Décision D-066.
+
+- Visionneuse : « Vidéo illisible dans MyBoard » → « Convertir » (format, qualité, « Supprimer l'original ») ; la copie
+  est écrite à côté de l'original, la fiche passe à la copie et la vidéo se lit aussitôt ; « Annuler » pendant la
+  conversion.
+- Versions converties toujours gardées, quel que soit leur poids ; sans compression : qualité maximale.
+- Textes des « ⓘ » des options d'import (textes de l'utilisateur).
+- Cartes graphiques Intel et AMD pour le H.264 et le H.265 (non testées ici).
+- Pochette gardée ; sous-titres en images impossibles à garder : signalés.
+- Une image déjà écrite par MyBoard n'est jamais recompressée.
+- Pop-in des paires : « Importer les originaux », « Importer les doublons », « Supprimer du stockage la version non
+  importée » ; avec cette case, les versions sont effacées au début et les originaux de nouveau compressés.
+
+Vérifié dans la version compilée, sur une copie neuve de la base d'essai : conversion d'un AVI dans la visionneuse
+(lecture, fiche, original gardé ou effacé, « Annuler »), conversions gardées, bulles, paires, pochette, informations
+(Android, iPhone) ; zéro erreur `tsc` / `clippy`.
+
 ## Phase 4, lot 5 : compression et conversion des vidéos (11/11/2026) — Backup v122
 
 SPEC : IMP-22, IMP-24, IMP-25, IMP-41, IMP-69 (nouveau), IMP-65, IMP-68 `[~]` ; IMP-23 remplacé par IMP-66 ; IMP-21,

@@ -16,6 +16,9 @@ use std::path::{Path, PathBuf};
 use rusqlite::{Connection, OptionalExtension, params};
 use serde::Serialize;
 
+use anyhow::Context;
+
+use super::index::{Indexer, Outcome};
 use super::scan::ScanFile;
 use super::versions;
 use crate::formats::Kind;
@@ -191,6 +194,42 @@ pub fn find(files: &[ScanFile], conn: &Connection) -> rusqlite::Result<Vec<Pair>
         }
     }
     Ok(pairs)
+}
+
+impl Indexer {
+    /// « Supprimer les originaux », original dans la bibliothèque (IMP-68) : la version (jamais retraitée) prend sa place
+    /// sur la même fiche, comme IMP-60, et retient l'empreinte de l'original (son réimport compte comme doublon).
+    pub fn take_place(&mut self, conn: &Connection, file: &ScanFile, id: i64, original_hash: &str) -> anyhow::Result<Outcome> {
+        self.squeeze = None;
+        self.replaced = None;
+        let meta = std::fs::metadata(&file.path)?;
+        let hash = self.hash(&file.path)?;
+        if let Some(other) = super::index::find_hash(conn, &hash)? {
+            return Ok(Outcome::Duplicate(other));
+        }
+        let path = file.path.to_str().context("nom de fichier illisible")?;
+        let file_name = super::index::file_name_of(path);
+        conn.execute(
+            "UPDATE media SET path = ?1, file_name = ?2, name_key = ?3, hash = ?4, original_hash = ?5, size = ?6, ext = ?7,
+                 file_created_at = ?8, file_modified_at = ?9, thumb_status = 0
+             WHERE id = ?10",
+            params![
+                path,
+                file_name,
+                crate::db::name_key::name_key(&file_name),
+                hash,
+                original_hash,
+                meta.len() as i64,
+                file.ext,
+                meta.created().ok().map(super::index::to_ms),
+                meta.modified().ok().map(super::index::to_ms),
+                id
+            ],
+        )?;
+        super::versions::remember(conn, &hash, original_hash)?;
+        Ok(Outcome::Updated(id))
+    }
+
 }
 
 /// Paires de la liste en cours : la pop-in d'IMP-64 ne s'ouvre que s'il y en a ; son texte dit combien d'originaux

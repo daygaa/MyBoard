@@ -56,7 +56,11 @@ pub fn run_import(app: &AppHandle, files: Vec<ScanFile>, default_tags: Vec<NewTa
         // réponse de la pop-in, l'un des deux fichiers est écarté.
         let pairs = super::pairs::find(&files, &conn)?;
         let versions: HashMap<&Path, &Pair> = pairs.iter().map(|p| (p.version.as_path(), p)).collect();
-        let as_is: HashSet<&Path> = pairs.iter().flat_map(|p| [p.version.as_path(), p.original.as_path()]).collect();
+        // « Importer les originaux » avec « Supprimer du stockage… » (IMP-75) : les versions sont effacées dès le départ,
+        // puis les originaux traités selon les options (sinon une nouvelle version prendrait le nom « _c (1) »).
+        let refresh = options.pairs == PairChoice::Originals && options.delete_pair_files;
+        let as_is: HashSet<&Path> =
+            pairs.iter().flat_map(|p| if refresh { vec![p.version.as_path()] } else { vec![p.version.as_path(), p.original.as_path()] }).collect();
         let set_aside: HashSet<&Path> = match options.pairs {
             PairChoice::Both => HashSet::new(),
             PairChoice::Originals => pairs.iter().map(|p| p.version.as_path()).collect(),
@@ -68,6 +72,10 @@ pub fn run_import(app: &AppHandle, files: Vec<ScanFile>, default_tags: Vec<NewTa
             PairChoice::Versions => pairs.iter().filter(|p| p.in_library.is_some()).map(|p| p.original.as_path()).collect(),
             _ => HashSet::new(),
         };
+        if refresh {
+            let mut early: Vec<PathBuf> = pairs.iter().map(|p| p.version.clone()).collect();
+            delete_files(&conn, &mut early, &mut progress);
+        }
         let mut indexer = Indexer::new();
         // Vidéo en cours de traitement : barre du fichier (IMP-41) ; « Arrêter » coupe ffmpeg.
         let report = |fraction: Option<f32>| {
@@ -93,7 +101,7 @@ pub fn run_import(app: &AppHandle, files: Vec<ScanFile>, default_tags: Vec<NewTa
             progress.current_file = file.path.file_name().map(|n| n.to_string_lossy().into_owned());
             if set_aside.contains(file.path.as_path()) {
                 progress.set_aside += 1;
-                if options.delete_pair_files && !replaced.contains(file.path.as_path()) {
+                if options.delete_pair_files && !replaced.contains(file.path.as_path()) && !refresh {
                     to_delete.push(file.path.clone());
                 }
             } else {
@@ -137,6 +145,9 @@ pub fn run_import(app: &AppHandle, files: Vec<ScanFile>, default_tags: Vec<NewTa
                     }
                 }
                 count(&mut progress, &outcome, indexer.squeeze, &mut error_files, file);
+                if indexer.lost_subtitles {
+                    progress.videos_subtitles_lost += 1;
+                }
                 if options.delete_originals
                     && let Some(original) = indexer.replaced.take()
                 {

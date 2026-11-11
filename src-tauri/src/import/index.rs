@@ -1,5 +1,5 @@
-//! Indexation d'un fichier : empreinte, détection des doublons, enregistrement (LIB-01, LIB-03).
-//! Les fichiers de l'utilisateur sont uniquement LUS, jamais modifiés ni déplacés. Avec « Compresser les images » ou
+//! Indexation d'un fichier : empreinte, détection des doublons, enregistrement (LIB-01, LIB-03). Les fichiers de
+//! l'utilisateur sont uniquement LUS, jamais modifiés ni déplacés. Avec « Compresser les images » ou
 //! « Convertir les images » (IMP-20, IMP-21, IMP-27), le média pointe vers la version écrite à côté, avec sa vraie
 //! extension (IMP-47) ; `original_hash` garde l'empreinte de l'original (D-058). Image déjà dans la bibliothèque au
 //! même endroit : même fiche, nouveau fichier (IMP-60). L'original remplacé est noté (`replaced`) : « Supprimer les
@@ -19,9 +19,8 @@ use super::scan::ScanFile;
 use super::video::{Done, Hooks};
 use crate::formats::Kind;
 
-/// Résultat de l'indexation, avec l'identifiant du média concerné dans la bibliothèque
-/// (celui du média existant pour un doublon) : les tags par défaut de l'import y sont
-/// ajoutés dans tous les cas (IMP-30).
+/// Résultat de l'indexation, avec l'identifiant du média concerné (celui du média existant pour un doublon) : les tags
+/// par défaut de l'import y sont ajoutés dans tous les cas (IMP-30).
 pub enum Outcome {
     Imported(i64),
     /// Même chemin, même taille, même date de modification : rien à faire.
@@ -47,12 +46,14 @@ pub struct Indexer {
     pub squeeze: Option<Squeeze>,
     /// Original dont une nouvelle version vient de prendre la place dans la bibliothèque (IMP-28).
     pub replaced: Option<PathBuf>,
+    /// Vidéo convertie sans ses sous-titres en images (le format choisi ne les accepte pas, IMP-73).
+    pub lost_subtitles: bool,
 }
 
 impl Indexer {
     pub fn new() -> Self {
         // Lecture par blocs de 1 Mo : efficace sur SSD comme sur disque dur.
-        Self { buffer: vec![0; 1 << 20], head: Vec::with_capacity(HEAD_LEN), squeeze: None, replaced: None }
+        Self { buffer: vec![0; 1 << 20], head: Vec::with_capacity(HEAD_LEN), squeeze: None, replaced: None, lost_subtitles: false }
     }
 
     /// Doit être appelé dans une transaction ouverte (les lots sont validés par l'appelant), sauf pour une vidéo à traiter.
@@ -60,6 +61,7 @@ impl Indexer {
     pub fn index(&mut self, conn: &Connection, file: &ScanFile, now: i64, process: Option<Process>, as_is: bool, hooks: &Hooks) -> anyhow::Result<Outcome> {
         self.squeeze = None;
         self.replaced = None;
+        self.lost_subtitles = false;
         let meta = std::fs::metadata(&file.path)?;
         let size = meta.len() as i64;
         let modified = meta.modified().ok().map(to_ms);
@@ -123,9 +125,9 @@ impl Indexer {
 
         // Nouveau média : la version compressée, si elle est gardée, prend la place de l'original.
         let mut target = (path.to_owned(), hash.clone(), size, None::<String>, file.ext.clone());
-        // Une vidéo déjà écrite par MyBoard n'est jamais retraitée (table des versions, IMP-68).
+        // Un fichier déjà écrit par MyBoard n'est jamais retraité (table des versions ; images : IMP-74, 11/11).
         let fresh = match action {
-            Some(Action::Video(_)) if super::versions::original_of(conn, &hash)?.is_some() => None,
+            Some(_) if super::versions::original_of(conn, &hash)?.is_some() => None,
             a => a,
         };
         if let Some(a) = fresh
@@ -164,8 +166,9 @@ impl Indexer {
     fn compress(&mut self, conn: &Connection, file: &ScanFile, meta: &Metadata, action: Action, original_hash: &str, hooks: &Hooks) -> anyhow::Result<Option<Written>> {
         if let Action::Video(request) = action {
             return match super::video::process(conn, &file.path, meta, request, hooks) {
-                Ok(Done::Written { path, hash, size, ext, squeeze }) => {
+                Ok(Done::Written { path, hash, size, ext, squeeze, lost_subtitles }) => {
                     super::versions::remember(conn, &hash, original_hash)?;
+                    self.lost_subtitles = lost_subtitles;
                     self.squeeze = Some(squeeze);
                     self.replaced = Some(file.path.clone());
                     Ok(Some((path, hash, size, ext)))
@@ -223,39 +226,6 @@ impl Indexer {
         Ok(())
     }
 
-    /// « Supprimer les originaux », original dans la bibliothèque (IMP-68) : la version (jamais retraitée) prend sa place
-    /// sur la même fiche, comme IMP-60, et retient l'empreinte de l'original (son réimport compte comme doublon).
-    pub fn take_place(&mut self, conn: &Connection, file: &ScanFile, id: i64, original_hash: &str) -> anyhow::Result<Outcome> {
-        self.squeeze = None;
-        self.replaced = None;
-        let meta = std::fs::metadata(&file.path)?;
-        let hash = self.hash(&file.path)?;
-        if let Some(other) = find_hash(conn, &hash)? {
-            return Ok(Outcome::Duplicate(other));
-        }
-        let path = file.path.to_str().context("nom de fichier illisible")?;
-        let file_name = file_name_of(path);
-        conn.execute(
-            "UPDATE media SET path = ?1, file_name = ?2, name_key = ?3, hash = ?4, original_hash = ?5, size = ?6, ext = ?7,
-                 file_created_at = ?8, file_modified_at = ?9, thumb_status = 0
-             WHERE id = ?10",
-            params![
-                path,
-                file_name,
-                crate::db::name_key::name_key(&file_name),
-                hash,
-                original_hash,
-                meta.len() as i64,
-                file.ext,
-                meta.created().ok().map(to_ms),
-                meta.modified().ok().map(to_ms),
-                id
-            ],
-        )?;
-        super::versions::remember(conn, &hash, original_hash)?;
-        Ok(Outcome::Updated(id))
-    }
-
     fn failed<T>(&mut self, file: &ScanFile, error: anyhow::Error) -> Option<T> {
         eprintln!("[import] compression ou conversion de {} : {error:#}", file.path.display());
         self.squeeze = Some(Squeeze::Failed);
@@ -263,7 +233,7 @@ impl Indexer {
     }
 
     /// Empreinte BLAKE3 du contenu complet ; garde le début du fichier dans `head`.
-    fn hash(&mut self, path: &Path) -> anyhow::Result<String> {
+    pub(super) fn hash(&mut self, path: &Path) -> anyhow::Result<String> {
         let mut reader = File::open(path)?;
         let mut hasher = blake3::Hasher::new();
         self.head.clear();
@@ -291,10 +261,10 @@ pub(super) fn find_hash(conn: &Connection, hash: &str) -> rusqlite::Result<Optio
     conn.prepare_cached("SELECT id FROM media WHERE original_hash = ?1")?.query_row([hash], |r| r.get(0)).optional()
 }
 
-fn file_name_of(path: &str) -> String {
+pub(super) fn file_name_of(path: &str) -> String {
     Path::new(path).file_name().and_then(|n| n.to_str()).unwrap_or(path).to_owned()
 }
 
-fn to_ms(time: SystemTime) -> i64 {
+pub(super) fn to_ms(time: SystemTime) -> i64 {
     time.duration_since(SystemTime::UNIX_EPOCH).map(|d| d.as_millis() as i64).unwrap_or(0)
 }

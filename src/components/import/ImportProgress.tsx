@@ -55,6 +55,10 @@ function compressionLine(p: ProgressData): string {
     parts.push(
       `${formatNumber(p.videosUnsupported)} ${plural(p.videosUnsupported, "vidéo dans un ancien format, non compressée", "vidéos dans un ancien format, non compressées")}`,
     );
+  if (p.videosSubtitlesLost > 0)
+    parts.push(
+      `${formatNumber(p.videosSubtitlesLost)} ${plural(p.videosSubtitlesLost, "vidéo convertie sans ses sous-titres en images", "vidéos converties sans leurs sous-titres en images")} (non acceptés par le format choisi)`,
+    );
   if (p.setAside > 0) parts.push(`${formatNumber(p.setAside)} ${plural(p.setAside, "fichier écarté", "fichiers écartés")} (paires)`);
   if (p.deleted > 0) parts.push(`${formatNumber(p.deleted)} ${plural(p.deleted, "fichier supprimé", "fichiers supprimés")} du disque`);
   if (p.deleteFailed > 0)

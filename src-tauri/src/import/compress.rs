@@ -56,7 +56,8 @@ pub fn encode(path: &Path, action: Action, animated: &mut bool) -> anyhow::Resul
         *animated = true;
         return Ok(None);
     };
-    if bytes.len() as u64 * 100 > original.len() as u64 * 95 {
+    // Seule une compression doit faire gagner au moins 5 % ; une conversion est toujours gardée (IMP-70, 11/11).
+    if matches!(action, Action::Compress(_)) && bytes.len() as u64 * 100 > original.len() as u64 * 95 {
         return Ok(None);
     }
     let hash = blake3::hash(&bytes).to_hex().to_string();

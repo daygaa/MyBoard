@@ -1,32 +1,19 @@
 // Contenu de la visionneuse selon le type de média : image zoomable, vidéo (lecteur
 // personnalisé, VIEW-29 ; aussi les GIF animés, VIEW-54), son, document.
 // Format que le lecteur intégré ne sait pas lire : message clair + « Ouvrir avec
-// l'application par défaut » (VIEW-24), en attendant la conversion à la volée (VIEW-25) ;
+// l'application par défaut » (VIEW-24) ; vidéo : aussi « Convertir » (VIEW-25, ConvertVideo.tsx) ;
 // pareil pour un son illisible (.wma : trouvé en testant tous les formats, IMP-05).
 
 import { useState, type ReactNode } from "react";
-import { ExternalLink, File, FileSpreadsheet, Film, Music } from "lucide-react";
+import { File, FileSpreadsheet, Music } from "lucide-react";
 
-import { api, mediaUrl, type MediaItem } from "@/lib/api";
+import { mediaUrl, type MediaItem } from "@/lib/api";
+import { UnplayableVideo } from "./ConvertVideo";
 import { ImageStage } from "./ImageStage";
 import { VideoStage } from "./VideoStage";
-import { runExternal } from "./externalOpen";
+import { OpenExternally } from "./OpenExternally";
 
 const SHEETS = ["xls", "xlsx", "xlsm", "ods", "csv"];
-
-function OpenExternally({ item }: { item: MediaItem }) {
-  return (
-    <button
-      type="button"
-      data-zone="visionneuse.ouvrir-externe"
-      onClick={() => void runExternal("Ouvrir avec l'application par défaut", () => api.openMedia(item.id))}
-      className="mt-4 inline-flex items-center gap-2 rounded-lg bg-[#d9a94e] px-4 py-2 text-sm font-medium text-[#1a1408] transition hover:bg-[#e3b75f]"
-    >
-      <ExternalLink className="h-4 w-4" />
-      Ouvrir avec l'application par défaut
-    </button>
-  );
-}
 
 /** Carte centrée : icône, nom, message, bouton d'ouverture externe. */
 function Card({ item, icon, message }: { item: MediaItem; icon: ReactNode; message?: string }) {
@@ -82,11 +69,7 @@ export function MediaStage({ item, onClose, opening }: { item: MediaItem; onClos
   if (item.kind === "video") {
     const unplayable = (
       <Centered onClose={onClose}>
-        <Card
-          item={item}
-          icon={<Film className="h-12 w-12 text-muted-foreground" />}
-          message="Cette vidéo ne peut pas être lue dans MyBoard : son format n'est pas pris en charge par le lecteur intégré."
-        />
+        <UnplayableVideo item={item} />
       </Centered>
     );
     return <VideoStage item={item} onClose={onClose} fallback={unplayable} />;

@@ -102,6 +102,8 @@ pub async fn count_compressible_existing(
     convert_to: Option<super::plan::Target>,
     video_quality: Option<u8>,
     convert_videos_to: Option<super::plan::VideoTarget>,
+    pairs: Option<super::plan::PairChoice>,
+    delete_pair_files: Option<bool>,
 ) -> Result<KindCounts, String> {
     use crate::formats::Kind;
     use tauri::Manager;
@@ -109,7 +111,7 @@ pub async fn count_compressible_existing(
         let state = app.state::<AppState>();
         let (files, all): (Vec<(String, Kind)>, Vec<ScanFile>) = {
             let inner = state.import.inner.lock().unwrap();
-            let video = super::plan::VideoRequest { quality: video_quality, convert: convert_videos_to };
+            let video = super::plan::VideoRequest { quality: video_quality, convert: convert_videos_to, playable: false };
             let process = super::plan::Process { quality: compress_quality, convert: convert_to, existing: true, video };
             // Vidéos : comptées d'après leur extension ; celles déjà au bon format seront laissées telles quelles.
             let eligible = |f: &&ScanFile| process.action(f.kind, &f.ext).is_some();
@@ -117,8 +119,14 @@ pub async fn count_compressible_existing(
             (files, inner.files.clone())
         };
         let conn = crate::db::open(&state.paths.db)?;
-        let paired: std::collections::HashSet<String> =
-            super::pairs::find(&all, &conn)?.into_iter().map(|p| p.original.to_string_lossy().to_lowercase()).collect();
+        // L'original d'une paire reste tel quel, sauf si ses versions sont effacées (« Importer les originaux » et
+        // « Supprimer du stockage… », IMP-75) : il est alors traité comme les autres.
+        let reprocessed = pairs == Some(super::plan::PairChoice::Originals) && delete_pair_files == Some(true);
+        let paired: std::collections::HashSet<String> = if reprocessed {
+            Default::default()
+        } else {
+            super::pairs::find(&all, &conn)?.into_iter().map(|p| p.original.to_string_lossy().to_lowercase()).collect()
+        };
         let mut known = conn.prepare("SELECT 1 FROM media WHERE path = ?1 AND original_hash IS NULL")?;
         let mut counts = KindCounts::default();
         for (path, kind) in &files {

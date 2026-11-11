@@ -19,6 +19,7 @@ pub mod pairs;
 mod plan;
 mod png_out;
 pub mod preview;
+pub mod reconvert;
 mod run;
 mod scan;
 mod state;

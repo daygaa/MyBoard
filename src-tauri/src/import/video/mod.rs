@@ -1,7 +1,7 @@
 //! Compression (IMP-69) et conversion (IMP-22) des vidéos par ffmpeg, écrites à côté de l'original comme les images
 //! (IMP-27) : « video_c.mp4 » (compressée), « video.mp4 » (convertie), « video (1).mp4 » si le nom est pris (IMP-65).
-//! Résolution et images par seconde gardées (IMP-25) ; version gardée si elle est au moins 5 % plus légère, sauf un
-//! simple changement d'enveloppe (réponses Q2, Q3 du 10/11) ; progression du fichier (IMP-41) ; « Arrêter » coupe ffmpeg
+//! Résolution et images par seconde gardées (IMP-25) ; une version compressée est gardée si elle est au moins 5 % plus
+//! légère, une version convertie toujours (IMP-70, 11/11 ; réglage à venir SET-18) ; progression du fichier (IMP-41) ; « Arrêter » coupe ffmpeg
 //! aussitôt. La carte graphique échoue (format de pixels, taille…) : nouvel essai au processeur.
 
 mod encoders;
@@ -29,7 +29,7 @@ pub struct Hooks<'a> {
 
 pub enum Done {
     /// Nouvelle version placée à côté de l'original : chemin, empreinte, poids, extension, ce qui a été fait.
-    Written { path: String, hash: String, size: i64, ext: String, squeeze: Squeeze },
+    Written { path: String, hash: String, size: i64, ext: String, squeeze: Squeeze, lost_subtitles: bool },
     /// Rien d'écrit : rien à faire (`None`), pas au moins 5 % de gain, ancien format jamais compressé.
     Kept(Option<Squeeze>),
     Cancelled,
@@ -52,13 +52,15 @@ pub fn process(conn: &Connection, path: &Path, meta: &Metadata, request: VideoRe
     let tmp = compress::tmp_of(&target);
     let _ = fs::remove_file(&tmp);
     let encoder = codec.map(|c| encoders::choose(&ff.ffmpeg, c));
-    let mut result = run(&ff.ffmpeg, path, &probe, &job, encoder, &tmp, hooks);
+    let playable = request.playable;
+    let lost_subtitles = streams::stream_args(&probe, &job, encoder, playable).1;
+    let mut result = run(&ff.ffmpeg, path, &probe, &job, encoder, playable, &tmp, hooks);
     if let (Err(e), Some(codec), Some(used)) = (&result, codec, encoder)
         && used != codec.cpu()
         && !hooks.cancel.load(Ordering::SeqCst)
     {
         eprintln!("[import] {used} a échoué ({e:#}) : nouvel essai avec {}", codec.cpu());
-        result = run(&ff.ffmpeg, path, &probe, &job, Some(codec.cpu()), &tmp, hooks);
+        result = run(&ff.ffmpeg, path, &probe, &job, Some(codec.cpu()), playable, &tmp, hooks);
     }
     (hooks.progress)(None);
     if let Err(e) = result {
@@ -66,7 +68,7 @@ pub fn process(conn: &Connection, path: &Path, meta: &Metadata, request: VideoRe
         return if hooks.cancel.load(Ordering::SeqCst) { Ok(Done::Cancelled) } else { Err(e) };
     }
     let size = fs::metadata(&tmp)?.len();
-    if matches!(job, Job::Encode { .. }) && size * 100 > meta.len() * 95 {
+    if matches!(job, Job::Encode { converted: false, .. }) && size * 100 > meta.len() * 95 {
         let _ = fs::remove_file(&tmp);
         return Ok(Done::Kept(Some(Squeeze::NotSmaller)));
     }
@@ -78,20 +80,22 @@ pub fn process(conn: &Connection, path: &Path, meta: &Metadata, request: VideoRe
     }
     compress::place(&tmp, &target, meta)?;
     let path = target.to_str().context("nom de fichier illisible")?.to_owned();
-    Ok(Done::Written { path, hash, size: size as i64, ext: out.ext.clone(), squeeze })
+    Ok(Done::Written { path, hash, size: size as i64, ext: out.ext.clone(), squeeze, lost_subtitles })
 }
 
 /// Lance ffmpeg vers le fichier provisoire et suit sa progression (toutes les 0,5 s).
-fn run(ffmpeg: &Path, input: &Path, probe: &probe::Probe, job: &Job, encoder: Option<&str>, tmp: &Path, hooks: &Hooks) -> anyhow::Result<()> {
+#[allow(clippy::too_many_arguments)]
+fn run(ffmpeg: &Path, input: &Path, probe: &probe::Probe, job: &Job, encoder: Option<&str>, playable: bool, tmp: &Path, hooks: &Hooks) -> anyhow::Result<()> {
     let out = job.out();
     let mut cmd = crate::ffmpeg::command(ffmpeg);
     cmd.args(["-hide_banner", "-loglevel", "error", "-nostats", "-progress", "pipe:1", "-stats_period", "0.5", "-i"]).arg(input);
-    cmd.args(streams::stream_args(probe, job, encoder));
+    cmd.args(streams::stream_args(probe, job, encoder, playable).0);
     cmd.args(["-map_metadata", "0", "-map_chapters", "0", "-max_muxing_queue_size", "4096"]);
     if out.family == Family::Mp4 {
-        // « faststart » : la lecture démarre sans attendre la fin du fichier (accepté le 11/11) ; informations d'Apple
-        // (lieu, appareil) gardées.
-        cmd.args(["-movflags", "+faststart+use_metadata_tags"]);
+        // « faststart » : la lecture démarre sans attendre la fin du fichier (accepté le 11/11). Informations d'Apple
+        // (lieu, appareil) : gardées par `use_metadata_tags`, qui empêche en revanche d'écrire une pochette (essai du
+        // 11/11) : seulement pour les vidéos qui en ont (iPhone).
+        cmd.args(["-movflags", if probe.named_tags() { "+faststart+use_metadata_tags" } else { "+faststart" }]);
     }
     cmd.args(["-f", out.muxer]).arg(tmp).stdout(Stdio::piped()).stderr(Stdio::piped());
     let mut child = cmd.spawn().context("lancement de ffmpeg")?;

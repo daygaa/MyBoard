@@ -220,7 +220,8 @@ function ViewerOverlay({ base }: { base: ListBase }) {
               se voit plus derrière). Ce cadre n'est pas recréé d'un média à l'autre : l'effet ne
               joue qu'à l'ouverture. */}
           <div className="mb-zoom-in absolute inset-0">
-            <MediaStage key={item.id} item={item} onClose={() => close()} opening={!navigated} />
+            {/* Clé avec l'empreinte : la fiche qui passe à un autre fichier (VIEW-25, IMP-60) reçoit un nouveau lecteur. */}
+            <MediaStage key={`${item.id}:${item.hash}`} item={item} onClose={() => close()} opening={!navigated} />
           </div>
           <NotesButton key={`note-${infoItem.id}`} mediaId={infoItem.id} />
         </ViewerChrome.Provider>

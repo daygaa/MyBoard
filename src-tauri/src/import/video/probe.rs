@@ -1,6 +1,7 @@
 //! Lecture d'une vidéo par ffprobe (IMP-69, IMP-22) : ses flux (type, codec, format des pixels, image de couverture) et
 //! sa durée (barre de progression du fichier, IMP-41).
 
+use std::collections::HashMap;
 use std::path::Path;
 
 use anyhow::bail;
@@ -17,6 +18,8 @@ pub struct Probe {
 #[derive(Deserialize, Default)]
 struct Format {
     duration: Option<String>,
+    #[serde(default)]
+    tags: HashMap<String, String>,
 }
 
 #[derive(Deserialize)]
@@ -53,6 +56,12 @@ impl Stream {
 impl Probe {
     pub fn duration(&self) -> Option<f64> {
         self.format.duration.as_deref()?.parse().ok().filter(|d: &f64| *d > 0.0)
+    }
+
+    /// Informations rangées sous des noms complets (« com.apple.quicktime.location.ISO6709 » : lieu, appareil de
+    /// l'iPhone…), que le MP4 ne garde qu'avec l'option `use_metadata_tags`.
+    pub fn named_tags(&self) -> bool {
+        self.format.tags.keys().any(|k| k.contains('.'))
     }
 
     /// Flux vidéo principal (pas une image de couverture).

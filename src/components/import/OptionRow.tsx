@@ -10,6 +10,11 @@ import { cn } from "@/lib/utils";
 
 type Props = { zone: string; checked: boolean; disabled: boolean; onChange: (on: boolean) => void; icon: ReactNode; label: string; info: string[] };
 
+const NEVER_CHANGED = " ; l'original n'est jamais modifié";
+/** « ; l'original n'est jamais modifié » retiré quand « Supprimer les originaux » est cochée (IMP-71, 11/11). */
+export const withOriginals = (lines: string[], deleteOriginals: boolean) =>
+  deleteOriginals ? lines.map((line) => line.replace(NEVER_CHANGED, "")) : lines;
+
 export function OptionRow(props: Props) {
   return (
     <div className="flex items-center gap-2">

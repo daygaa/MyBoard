@@ -1,16 +1,17 @@
 //! Ce que devient une vidéo (IMP-69, IMP-22) et la liste de ses flux dans la nouvelle version : vidéo réencodée ou
 //! recopiée ; pistes son recopiées, ou adaptées si le conteneur ne les accepte pas ; sous-titres en texte gardés
-//! (réponse du 09/11), adaptés au conteneur ; image de couverture et polices (MKV) gardées dans le même conteneur. Les
-//! flux de données (horloge, géolocalisation continue) ne sont pas repris ; les informations de la vidéo (date, lieu,
-//! appareil) et les chapitres le sont (arguments dans `mod.rs`).
+//! (réponse du 09/11), adaptés au conteneur ; sous-titres en images que le format choisi ne peut pas contenir : perdus et
+//! signalés (réponse Q4 du 11/11, réglage à venir SET-19) ; pochette gardée en MP4 et MKV, polices en MKV (IMP-73). Les
+//! flux de données (réglages internes de l'appareil photo) ne sont pas repris : ffmpeg ne sait pas les recopier proprement
+//! (essai du 11/11) ; les informations de la vidéo (date, lieu, appareil) et les chapitres le sont (`mod.rs`).
 
 use super::encoders::{self, Codec};
 use super::probe::{Probe, Stream};
 use crate::import::compress::Squeeze;
 use crate::import::plan::{VideoRequest, VideoTarget};
 
-/// Cran « Haute » : qualité d'une conversion sans « Compresser les vidéos » (réponse QA du 11/11).
-const HIGH: u8 = 3;
+/// Cran « Maximale » : qualité d'une conversion sans « Compresser les vidéos » (IMP-70, réponse Q1 du 11/11).
+const HIGH: u8 = 4;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Family {
@@ -76,14 +77,17 @@ pub fn plan(probe: &Probe, ext: &str, request: VideoRequest) -> Result<Job, Opti
             VideoTarget::Av1 => (Codec::Av1, "mp4"),
         };
         let same_box = matches!((ext, box_ext), ("mp4" | "m4v", "mp4") | ("webm", "webm"));
-        if source == Some(codec) && same_box {
+        // Lecture dans MyBoard (VIEW-25) : la vidéo est toujours réécrite (son adapté) ; un H.264 en 10 bits, que le
+        // lecteur ne sait pas lire, est réencodé.
+        let readable = !(request.playable && codec == Codec::H264 && main.ten_bit());
+        if source == Some(codec) && same_box && !request.playable {
             // Déjà dans le format choisi : seulement la compression, si elle est demandée.
             let notch = request.quality.ok_or(None)?;
             let out = container_of(ext).ok_or(None)?;
             return Ok(Job::Encode { codec, out, notch, compressed: true, converted: false });
         }
         let out = container_of(box_ext).ok_or(None)?;
-        if source == Some(codec) && request.quality.is_none() {
+        if source == Some(codec) && request.quality.is_none() && readable {
             return Ok(Job::Remux { out });
         }
         let notch = request.quality.unwrap_or(HIGH);
@@ -108,10 +112,12 @@ fn codec(n: usize, name: &str, bitrate: Option<&str>) -> Vec<String> {
     a
 }
 
-/// Son : recopié si le conteneur l'accepte (MP4 : le plus compatible ; WebM : Opus, Vorbis), sinon réencodé.
-fn audio(s: &Stream, family: Family, moved: bool, n: usize) -> Vec<String> {
+/// Son : recopié si le conteneur l'accepte (MP4 : le plus compatible ; WebM : Opus, Vorbis), sinon réencodé. Pour une
+/// lecture dans MyBoard (`playable`) : seulement AAC et MP3 en MP4, que le lecteur sait lire.
+fn audio(s: &Stream, family: Family, moved: bool, playable: bool, n: usize) -> Vec<String> {
     let fits = !moved
         || match family {
+            Family::Mp4 if playable => matches!(s.codec_name.as_str(), "aac" | "mp3"),
             Family::Mp4 => matches!(s.codec_name.as_str(), "aac" | "mp3" | "ac3" | "eac3" | "alac"),
             Family::Webm => matches!(s.codec_name.as_str(), "opus" | "vorbis"),
             _ => true,
@@ -123,8 +129,8 @@ fn audio(s: &Stream, family: Family, moved: bool, n: usize) -> Vec<String> {
     }
 }
 
-/// Sous-titres : recopiés dans le même conteneur ; ailleurs, seulement ceux en texte (les sous-titres en images ne vont
-/// ni en MP4 ni en WebM).
+/// Sous-titres : recopiés dans le même conteneur ; ailleurs, ceux en texte adaptés (mov_text, WebVTT), ceux des DVD
+/// gardés en MP4 ; les autres sous-titres en images (Blu-ray…) ne peuvent pas y aller.
 fn subtitle(s: &Stream, family: Family, moved: bool, n: usize) -> Option<Vec<String>> {
     if !moved || family == Family::Matroska {
         return Some(copy(n));
@@ -132,26 +138,44 @@ fn subtitle(s: &Stream, family: Family, moved: bool, n: usize) -> Option<Vec<Str
     let text = matches!(s.codec_name.as_str(), "subrip" | "ass" | "ssa" | "webvtt" | "mov_text" | "text");
     match family {
         Family::Mp4 if text => Some(codec(n, "mov_text", None)),
+        Family::Mp4 if s.codec_name == "dvd_subtitle" => Some(copy(n)),
         Family::Webm if text => Some(codec(n, "webvtt", None)),
         _ => None,
     }
 }
 
-/// Arguments ffmpeg, après l'entrée : flux repris (`-map`) et leur traitement ; `encoder` : pour un réencodage.
-pub fn stream_args(probe: &Probe, job: &Job, encoder: Option<&str>) -> Vec<String> {
+/// Sous-titres en images (DVD, Blu-ray, TNT).
+fn image_subtitle(s: &Stream) -> bool {
+    matches!(s.codec_name.as_str(), "hdmv_pgs_subtitle" | "dvd_subtitle" | "dvb_subtitle" | "xsub")
+}
+
+/// Arguments ffmpeg, après l'entrée : flux repris (`-map`) et leur traitement ; `encoder` : pour un réencodage. Aussi :
+/// des sous-titres en images ont-ils été laissés (signalé dans le bilan) ?
+pub fn stream_args(probe: &Probe, job: &Job, encoder: Option<&str>, playable: bool) -> (Vec<String>, bool) {
     let family = job.out().family;
     let moved = job.moved();
     let mut args = Vec::new();
+    let mut lost = false;
     let mut n = 0;
     for s in &probe.streams {
+        let pictures = matches!(family, Family::Mp4 | Family::Matroska);
         let what = match s.codec_type.as_str() {
-            "video" if s.is_cover() => (!moved && matches!(family, Family::Mp4 | Family::Matroska)).then(|| copy(n)),
+            // Pochette : gardée en MP4 et en MKV (une image JPEG ou PNG ailleurs que dans son conteneur d'origine).
+            "video" if s.is_cover() => (pictures && (!moved || matches!(s.codec_name.as_str(), "mjpeg" | "png"))).then(|| {
+                let mut a = copy(n);
+                a.extend([format!("-disposition:{n}"), "attached_pic".into()]);
+                a
+            }),
             "video" => Some(match (job, encoder) {
                 (Job::Encode { codec, notch, .. }, Some(enc)) => encoders::video_args(enc, *codec, *notch, s.ten_bit(), n, family == Family::Mp4),
                 _ => copy(n),
             }),
-            "audio" => Some(audio(s, family, moved, n)),
-            "subtitle" => subtitle(s, family, moved, n),
+            "audio" => Some(audio(s, family, moved, playable, n)),
+            "subtitle" => {
+                let kept = subtitle(s, family, moved, n);
+                lost |= kept.is_none() && image_subtitle(s);
+                kept
+            }
             "attachment" if family == Family::Matroska => Some(copy(n)),
             _ => None,
         };
@@ -161,5 +185,5 @@ pub fn stream_args(probe: &Probe, job: &Job, encoder: Option<&str>) -> Vec<Strin
             n += 1;
         }
     }
-    args
+    (args, lost)
 }

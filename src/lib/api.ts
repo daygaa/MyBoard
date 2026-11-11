@@ -200,6 +200,8 @@ export type ImportProgress = {
   videosCompressed: number;
   videosConverted: number;
   videosUnsupported: number;
+  /** Vidéos converties sans leurs sous-titres en images (non acceptés par le format choisi, IMP-73). */
+  videosSubtitlesLost: number;
   currentFile: string | null;
   /** Vidéo en cours de traitement : son chemin (miniature) et son avancement, de 0 à 1 (IMP-41). */
   currentPath: string | null;
@@ -289,7 +291,7 @@ export const api = {
   supportedExtensions: () => invoke<string[]>("supported_extensions"),
   startImport: (defaultTags: NewTag[], options: ImportOptions) => invoke<void>("start_import", { defaultTags, options }),
   /** Médias de la liste déjà dans la bibliothèque au même endroit, jamais traités, par type (pop-in IMP-60). */
-  countCompressibleExisting: (o: Pick<ImportOptions, "compressQuality" | "convertTo" | "videoQuality" | "convertVideosTo">) =>
+  countCompressibleExisting: (o: Pick<ImportOptions, "compressQuality" | "convertTo" | "videoQuality" | "convertVideosTo" | "pairs" | "deletePairFiles">) =>
     invoke<KindCounts>("count_compressible_existing", o),
   /** Paires originaux + versions compressées ou converties de la liste (pop-in IMP-64, IMP-68). */
   countPairs: () => invoke<PairCount>("count_pairs"),
@@ -311,6 +313,10 @@ export const api = {
   mediaDetail: (id: number) => invoke<MediaDetail | null>("media_detail", { id }),
   revealMedia: (id: number) => invoke<void>("reveal_media", { id }),
   openMedia: (id: number) => invoke<void>("open_media", { id }),
+  /** Vidéo illisible : copie convertie à côté de l'original, la fiche passe à la copie (VIEW-25) ; cran 0 à 4. */
+  convertVideo: (id: number, target: VideoTarget, quality: number, deleteOriginal: boolean) =>
+    invoke<void>("convert_video", { id, target, quality, deleteOriginal }),
+  cancelVideoConversion: () => invoke<void>("cancel_video_conversion"),
   copyMedia: (id: number) => invoke<void>("copy_media", { id }),
   screenDpi: () => invoke<number | null>("screen_dpi"),
   setViewerFullscreen: (on: boolean) => invoke<void>("set_viewer_fullscreen", { on }),
@@ -386,6 +392,9 @@ export const api = {
 /** Ce que contient une sélection : favoris, et nombre de ses médias dans chaque dossier (SEL-08). */
 export type SelectionInfo = { favorites: number; folders: { id: number; count: number }[] };
 
+/** Fin de la conversion d'une vidéo illisible (VIEW-25) ; `item` : la fiche à jour (absente : annulée ou échouée). */
+export type VideoConverted = { id: number; item: MediaItem | null; error: string | null; cancelled: boolean; lostSubtitles: boolean };
+
 export type WindowCommand = "restore" | "move" | "size" | "minimize" | "maximize" | "close";
 
 /** Événements émis par le cœur Rust. */
@@ -396,6 +405,9 @@ export const EVENTS = {
   importState: "import-state",
   /** Alt + Espace : ouvrir le menu de la fenêtre de MyBoard (CTX-13). */
   windowMenu: "menu-fenetre",
+  /** Conversion d'une vidéo illisible (VIEW-25) : avancement, puis fin. */
+  videoConversionProgress: "video-conversion-progress",
+  videoConverted: "video-converted",
   /** Médias réellement supprimés (DEL-02). */
   mediaDeleted: "media-deleted",
   /** Fichiers impossibles à effacer (DEL-04). */
