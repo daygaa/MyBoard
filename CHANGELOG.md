@@ -3,6 +3,17 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Refonte du workflow : rangement, inventaires, sous-agents, mesure du contexte (12/11/2026) — Backup v130
+
+SPEC : DEV-08 `[~]`. Décision D-072. Aucun code de l'application modifié.
+
+- `CLAUDE.md` du Workspace renommé `docs/DEV.md` (partie technique) ; les règles de travail sont dans un seul
+  `CLAUDE.md`, hors dépôt. README réécrit (état après la phase 4). `docs/suivi/` ajouté au `.gitignore`.
+- Fichiers déplacés hors du Workspace (les anciennes entrées de ce journal gardent leurs anciens chemins) :
+  `docs/reference-ui` → `new V2/Archives/phase-1-2/reference-ui` ; « Explications plein écran » et « Explications
+  étoile » → `Archives/phase-1-2/explications_*` ; anciens suivis de `txt post-test` → `Archives/phase-3` et
+  `Archives/phase-4` (`<type>_<sujet>`) ; retours des phases 1 et 2 → `Archives/phase-1-2/retours`.
+
 ## Aperçus de la liste avant l'import par ffmpeg (12/11/2026) — Backup v128
 
 SPEC : IMP-78 `[~]` (nouveau, réponse Q3 A) ; réponses Q1 B, Q2 B, Q4 A notées ; nouvel ID DEV-08 (refonte du workflow

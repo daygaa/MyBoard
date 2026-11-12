@@ -1000,7 +1000,7 @@ de plus de 34 ms par image (une image lente ne fait pas sauter la glissade) ; la
 TAGM-15.13, TAGM-16.1, TAGM-16.4, TAGM-11.2) : un « synonyme » était en fait une fusion (il retaggait des
 milliers de médias), décocher et supprimer faisaient presque la même chose, un synonyme décoché ne servait à rien,
 les règles de parents avaient deux réglages et des médias « sautés ». Toutes les décisions ont été prises AVANT de
-coder (document `txt post-test\Refonte synonymes et parents - décisions.md`, décisions D1 à D15 ; SPEC TAGM-20).
+coder (document `Archives\phase-3\decisions_refonte-synonymes-parents.md`, décisions D1 à D15 ; SPEC TAGM-20).
 
 **Le modèle.**
 - **Groupe de synonymes** : un ensemble de noms reliés avec un tag principal ; un nom appartient à un seul groupe
@@ -1992,3 +1992,22 @@ icône et le 3GP n'avait pas d'aperçu agrandi, car D-060 réservait le secours 
 - Charge limitée comme avant : seules les lignes visibles demandent leur aperçu, deux fils au plus, ffmpeg en priorité
   basse.
 - Code : `thumbs/list.rs` (aperçus de la liste, sortis de `thumbs/mod.rs`, trop long), `video::list_frame`.
+
+## D-072 — Organisation du suivi et économie de jetons (DEV-08, 12/11/2026)
+
+**Contexte.** Mesure du 12/11 dans les journaux des sessions : le contexte (relu en entier à chaque appel) retombait à
+≈ 80 000 jetons après un compactage puis montait jusqu'à 530 000 – 840 000 avant le suivant (compactage automatique à
+97 % d'un million) ; partie fixe ≈ 49 000 par appel. Les fichiers de suivi s'entassaient dans `txt post-test`, les
+outils de test vivaient dans un dossier temporaire qui change à chaque session, deux `CLAUDE.md` se recoupaient.
+
+**Choix.**
+- Un seul `CLAUDE.md` court dans `new V2` (dossier de lancement) ; la partie technique dans `docs/DEV.md` (public).
+- Suivi en cours dans `docs/suivi/` (hors dépôt public : chemins et fichiers de l'utilisateur ; sauvegardé par
+  `backup.ps1`), noms fixes ; anciens suivis dans `new V2\Archives\phase-N\<type>_<sujet>`.
+- Outils de test dans un dossier fixe et visible (`new V2\Outils de test`), inventoriés avec les données d'essai.
+- Compacter tôt : seuil 250 000 jetons (200 000 si de grosses retouches sont attendues, 350 000 s'il n'en reste que
+  de petites), mesuré par un crochet de Claude Code qui lit le journal de la session ; filet automatique à 45 %.
+  Un compactage coûte à peu près une relecture complète : il est remboursé en 5 à 10 appels.
+- Travail lourd en tokens délégué : `test-runner` (compilations, Sonnet, effort bas) et `ui-tester` (essais
+  d'interface, même modèle que la session, captures et journaux gardés chez lui). Pas d'agent Explore maison : celui
+  intégré suffit et nos recherches sont des `grep` ciblés.

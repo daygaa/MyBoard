@@ -28,6 +28,10 @@ ffmpeg-*.zip
 # Captures de référence de l'ancienne interface (contiennent des images tierces)
 docs/reference-ui/
 
+# Suivi privé du travail avec Claude (passation, plan de phase, inventaires des données et des outils de test :
+# chemins et fichiers de l'utilisateur) — sauvegardé par backup.ps1, jamais dans le dépôt public (DEV-08)
+docs/suivi/
+
 # Secrets
 .env
 .env.*
