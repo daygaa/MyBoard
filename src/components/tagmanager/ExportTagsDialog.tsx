@@ -1,6 +1,7 @@
 // Pop-in « Exporter des tags » (TAGM-10, TAGM-18 ; retour T3, points TAGM-18.3 et TAGM-18.8 ; lot R8-1), à la place du
 // petit menu « Exporter ▾ » : les tags à exporter (« Tags du filtre », grisé sans filtre ; « Tous les tags » ; « Tags
-// sélectionnés », grisé sans sélection), puis « Recréer les synonymes » et « Recréer les règles de parents », cochées,
+// sélectionnés », grisé sans sélection), puis « Inclure les tags masqués », décochée (TAGM-21, réponses Q1 B du 12/11 et
+// Q4 A : sans elle, aucun tag masqué ne part et les nombres les excluent), puis « Recréer les synonymes » et « Recréer les règles de parents », cochées,
 // chacune avec dessous une option plus petite, décochée, et sa bulle Windows (textes de l'utilisateur, 04/11) ; le
 // nombre de tags du code ; « Copier le code » met le code dans le presse-papiers. Ce qui part : exportSelection.ts.
 
@@ -11,7 +12,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Modal } from "@/components/ui/modal";
 import type { RulesIndex } from "@/hooks/useTagRules";
 import { api, type Category, type ManagedTag } from "@/lib/api";
-import { exportSelection, type ExportOptions } from "@/lib/exportSelection";
+import { exportSelection, exportable, type ExportOptions } from "@/lib/exportSelection";
 import { formatNumber, plural } from "@/lib/format";
 import { encodeTags } from "@/lib/shareCode";
 import { cn } from "@/lib/utils";
@@ -54,7 +55,7 @@ export function ExportTagsDialog({ visible, filtered, all, checked, categories, 
 }) {
   // D'office : la sélection s'il y en a une, sinon le filtre s'il y en a un, sinon tous les tags (réponse 1 du 04/11).
   const [which, setWhich] = useState<Which>(() => (checked.length ? "checked" : filtered ? "filter" : "all"));
-  const [options, setOptions] = useState<ExportOptions>({ groups: true, fullGroups: false, parents: true, wholeChains: false });
+  const [options, setOptions] = useState<ExportOptions>({ hidden: false, groups: true, fullGroups: false, parents: true, wholeChains: false });
   const set = (patch: Partial<ExportOptions>) => setOptions((o) => ({ ...o, ...patch }));
   const chosen = which === "checked" ? checked : which === "filter" ? visible : all;
   const selection = useMemo(() => exportSelection(chosen, tagOf, rules, options), [chosen, tagOf, rules, options]);
@@ -70,9 +71,9 @@ export function ExportTagsDialog({ visible, filtered, all, checked, categories, 
   };
 
   const choices: { key: Which; label: string; n: number; disabled: boolean }[] = [
-    { key: "filter", label: "Tags du filtre", n: visible.length, disabled: !filtered },
-    { key: "all", label: "Tous les tags", n: all.length, disabled: false },
-    { key: "checked", label: "Tags sélectionnés", n: checked.length, disabled: checked.length === 0 },
+    { key: "filter", label: "Tags du filtre", n: exportable(visible, options.hidden).length, disabled: !filtered },
+    { key: "all", label: "Tous les tags", n: exportable(all, options.hidden).length, disabled: false },
+    { key: "checked", label: "Tags sélectionnés", n: exportable(checked, options.hidden).length, disabled: checked.length === 0 },
   ];
   return (
     <Modal
@@ -105,6 +106,9 @@ export function ExportTagsDialog({ visible, filtered, all, checked, categories, 
           </label>
         ))}
       </div>
+      <ShareOption zone="export-tags.masques" on={options.hidden} onChange={(hidden) => set({ hidden })}>
+        Inclure les tags masqués
+      </ShareOption>
       <ShareOption zone="export-tags.synonymes" on={options.groups} onChange={(groups) => set({ groups })}>
         Recréer les synonymes{options.groups && ` (${count(selection.groups.length, "groupe")})`}
       </ShareOption>

@@ -44,6 +44,7 @@ import { SimilarTagsDialog, type SimilarSnapshot } from "./SimilarTagsDialog";
 import { ExportTagsDialog } from "./ExportTagsDialog";
 import { ImportTagsDialog } from "./ImportTagsDialog";
 import { NewTagButton } from "./NewTagButton";
+import { NoTags } from "./NoTags";
 import { TagTrashDialog } from "./TagTrashDialog";
 import { RulesTab } from "./RulesTab";
 import { TagFilters } from "./TagFilters";
@@ -144,6 +145,17 @@ function ManagerPage({ tab, store }: { tab: TagTab; store: StoreApi<TagsTabState
     </Button>
   );
 
+  const creating = {
+    tags: all,
+    rules,
+    tagOf,
+    onCreated: (name: string, restored?: boolean) => {
+      // Le filtre montre le nouveau tag (choix de l'utilisateur), sinon il pourrait tomber après les 100 premiers.
+      setFilters({ ...NO_FILTERS, text: displayTag(name) });
+      showGridBadge(`Tag « ${displayTag(name)} » ${restored ? "restauré" : "créé"}`);
+    },
+  };
+
   return (
     <>
       {/* Haut fixe, sans trait dessous (choix de l'utilisateur), collé sous l'en-tête de 57 px (bordure
@@ -168,16 +180,7 @@ function ManagerPage({ tab, store }: { tab: TagTab; store: StoreApi<TagsTabState
               </div>
             </div>
             <div className={cn("ml-auto flex flex-wrap items-center gap-2", tab !== "tags" && "hidden")}>
-              <NewTagButton
-                tags={all}
-                rules={rules}
-                tagOf={tagOf}
-                onCreated={(name, restored) => {
-                  // Le filtre montre le nouveau tag (choix de l'utilisateur), sinon il pourrait tomber après les 100 premiers.
-                  setFilters({ ...NO_FILTERS, text: displayTag(name) });
-                  showGridBadge(`Tag « ${displayTag(name)} » ${restored ? "restauré" : "créé"}`);
-                }}
-              />
+              <NewTagButton {...creating} />
               {tab === "tags" && similarButton}
               {/* Pop-in d'export à la place du petit menu (retour T3, point TAGM-18.8, lot R8-1). */}
               <Button data-zone="gestionnaire-tags.exporter" variant="outline" size="sm" onClick={() => setDialog("export")} className={TOOL}>
@@ -218,6 +221,8 @@ function ManagerPage({ tab, store }: { tab: TagTab; store: StoreApi<TagsTabState
       >
         {tab === "rules" ? (
           <RulesTab tags={all} rules={rules} />
+        ) : data && all.length === 0 ? (
+          <NoTags {...creating} />
         ) : (
           <>
             <TagTable

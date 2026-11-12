@@ -7,6 +7,7 @@ use serde_json::{Map, Value};
 
 use super::{Cx, Found, Miss, sql};
 use crate::trash_journal::{Role, Table, role};
+use crate::db::Cached;
 
 impl Cx<'_> {
     pub(super) fn tag(&self, old: i64) -> Found<i64> {
@@ -14,11 +15,11 @@ impl Cx<'_> {
             return Ok(id);
         }
         let Some(name) = self.j.tags.get(&old) else { return Err(Miss::Drop) };
-        let same: Option<i64> = self.db.query_row("SELECT id FROM tags WHERE id = ?1 AND name = ?2", params![old, name], |r| r.get(0)).optional().ok().flatten();
-        let by_name = || self.db.query_row("SELECT id FROM tags WHERE name = ?1", [name], |r| r.get(0)).optional().ok().flatten();
+        let same: Option<i64> = self.db.row("SELECT id FROM tags WHERE id = ?1 AND name = ?2", params![old, name], |r| r.get(0)).optional().ok().flatten();
+        let by_name = || self.db.row("SELECT id FROM tags WHERE name = ?1", [name], |r| r.get(0)).optional().ok().flatten();
         match same.or_else(by_name) {
             Some(id) => Ok(id),
-            None if self.trash.contains(name) => Err(Miss::Wait(name.clone())),
+            None if self.trash.get(name).is_some_and(|&n| n > 0) => Err(Miss::Wait(name.clone())),
             None => Err(Miss::Drop),
         }
     }
@@ -35,7 +36,7 @@ impl Cx<'_> {
             return Err(m);
         }
         let principal = self.tag(*self.j.groups.get(&old).ok_or(Miss::Drop)?)?;
-        self.db.query_row("SELECT id FROM tag_groups WHERE principal_id = ?1", [principal], |r| r.get(0)).optional().ok().flatten().ok_or(Miss::Drop)
+        self.db.row("SELECT id FROM tag_groups WHERE principal_id = ?1", [principal], |r| r.get(0)).optional().ok().flatten().ok_or(Miss::Drop)
     }
 
     /// Groupe d'un nom qui revient : son principal est là mais le groupe a disparu (vidé par la suppression d'un autre
@@ -64,7 +65,7 @@ impl Cx<'_> {
             return Err(m);
         }
         let tag = self.tag(*self.j.names.get(&old).ok_or(Miss::Drop)?)?;
-        self.db.query_row("SELECT id FROM tag_group_names WHERE tag_id = ?1", [tag], |r| r.get(0)).optional().ok().flatten().ok_or(Miss::Drop)
+        self.db.row("SELECT id FROM tag_group_names WHERE tag_id = ?1", [tag], |r| r.get(0)).optional().ok().flatten().ok_or(Miss::Drop)
     }
 
     pub(super) fn rule(&self, old: i64) -> Found<i64> {
@@ -76,12 +77,12 @@ impl Cx<'_> {
         }
         let &(c, p) = self.j.rules.get(&old).ok_or(Miss::Drop)?;
         let (c, p) = (self.tag(c)?, self.tag(p)?);
-        self.db.query_row("SELECT id FROM tag_parents WHERE child_id = ?1 AND parent_id = ?2", [c, p], |r| r.get(0)).optional().ok().flatten().ok_or(Miss::Drop)
+        self.db.row("SELECT id FROM tag_parents WHERE child_id = ?1 AND parent_id = ?2", [c, p], |r| r.get(0)).optional().ok().flatten().ok_or(Miss::Drop)
     }
 
     pub(super) fn media(&self, old: i64) -> Found<i64> {
         let hash = self.j.media.get(&old).ok_or(Miss::Drop)?;
-        self.db.query_row("SELECT id FROM media WHERE hash = ?1", [hash], |r| r.get(0)).optional().ok().flatten().ok_or(Miss::Drop)
+        self.db.row("SELECT id FROM media WHERE hash = ?1", [hash], |r| r.get(0)).optional().ok().flatten().ok_or(Miss::Drop)
     }
 
     /// La ligne avec ses références traduites (sa propre clé `id` reste l'ancienne).
@@ -103,7 +104,7 @@ impl Cx<'_> {
                 Role::Rule => self.rule(old)?,
                 Role::Media => self.media(old)?,
                 Role::Ignore => {
-                    let exists: bool = self.db.query_row("SELECT EXISTS (SELECT 1 FROM tag_similar_ignores WHERE id = ?1)", [old], |r| r.get(0)).unwrap_or(false);
+                    let exists: bool = self.db.row("SELECT EXISTS (SELECT 1 FROM tag_similar_ignores WHERE id = ?1)", [old], |r| r.get(0)).unwrap_or(false);
                     if !exists {
                         return Err(Miss::Drop);
                     }
@@ -120,7 +121,7 @@ impl Cx<'_> {
         let cond: Vec<String> = key.iter().enumerate().map(|(i, (c, _))| format!("{c} = ?{}", i + 1)).collect();
         let cols: Vec<String> = t.cols.iter().map(|c| format!("'{c}', {c}")).collect();
         let sql_text = format!("SELECT json_object({}) FROM {} WHERE {}", cols.join(", "), t.name, cond.join(" AND "));
-        let text: Option<String> = self.db.query_row(&sql_text, params_from_iter(key.iter().map(|(_, v)| sql(v))), |r| r.get(0)).optional().ok().flatten();
+        let text: Option<String> = self.db.row(&sql_text, params_from_iter(key.iter().map(|(_, v)| sql(v))), |r| r.get(0)).optional().ok().flatten();
         text.and_then(|s| serde_json::from_str(&s).ok())
     }
 
@@ -129,6 +130,6 @@ impl Cx<'_> {
     }
 
     pub(super) fn exists(&self, sql_text: &str, id: i64) -> bool {
-        self.db.query_row(&format!("SELECT EXISTS ({sql_text})"), [id], |r| r.get(0)).unwrap_or(true)
+        self.db.row(&format!("SELECT EXISTS ({sql_text})"), [id], |r| r.get(0)).unwrap_or(true)
     }
 }

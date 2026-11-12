@@ -1917,3 +1917,39 @@ Q7 A), réponses de l'utilisateur du 09/11 et du 11/11 (Q1 à Q13, SPEC).
   SSD, 4 fils lisent ×2,5 plus vite. Décision de l'utilisateur attendue (lecture en parallèle sur SSD ou statu quo).
 - LIB-07 : base et miniatures sur un disque dur restent utilisables (page suivante ≤ 0,15 s sur 100 000 médias).
 
+## D-069 — Annulation après l'import sans réserve ; lecture en parallèle sur SSD ; travail des tags en arrière-plan (12/11/2026)
+
+**Contexte.** Prochain lot choisi par l'utilisateur le 12/11 (retouche d'IMP-42, IMP-06 réponse B, TAGM-21, TAGM-23,
+TAGM-24) ; réponses Q1 à Q8 du 12/11 (SPEC).
+
+**Choix.**
+- IMP-42 : `undo_import` après la fin marque les médias ajoutés `UNDONE` (plus `LIBRARY_ONLY`). `restore_media_data`
+  lit d'abord les lignes de la réserve qu'elle remet ou refuse (`undo::Reserved`) et note les tags qu'elle recrée ;
+  `ImportManager::note_reserve` les ajoute aux `Changes` du dernier import ; l'annulation les remet en réserve (`INSERT
+  OR REPLACE`) et efface ces tags s'ils ne servent plus (réponse Q2 A).
+- IMP-06 : `import/disk.rs` demande, par dossier, le volume (`GetVolumePathNameW`, `GetVolumeNameForVolumeMountPointW`), son
+  type (`GetDriveTypeW` : fixe seulement) et la pénalité de déplacement (`IOCTL_STORAGE_QUERY_PROPERTY`,
+  `StorageDeviceSeekPenaltyProperty`) : sans pénalité = SSD, interne ou externe (réponse Q3 B) ; toute autre réponse ou
+  erreur = un fichier à la fois. `import/prefetch.rs` : 4 fils, au plus 16 fichiers d'avance, chacun avec sa connexion
+  en lecture (un fichier déjà dans la bibliothèque, même poids et même date, n'est pas lu) ; l'import prend le résultat
+  (`Indexer.ready`) s'il vaut encore pour ce fichier (même poids, même date), sinon il le lit lui-même ; une reprise
+  après pause relit le fichier. La base reste écrite par le seul fil de l'import. Fonctions Windows de `windows-sys`
+  (déjà utilisé) : `Win32_Security`, `Win32_Storage_FileSystem`, `Win32_System_IO`, `Win32_System_Ioctl`.
+- TAGM-23 : table `tag_jobs` (schéma 21), une ligne par tag en attente (corbeille, définitif, restauration), avec, pour la
+  corbeille, ce à quoi le tag est lié relevé à la demande (comme avant : avant toute suppression) et dans l'ordre d'avant
+  (noms puis principaux). `tag_jobs.rs` : un fil avec sa connexion ; paquets d'au plus 150 ms (une transaction chacun,
+  lignes de la file retirées dans la même transaction : reprise exacte au lancement, réponse Q6 A) ; suppression
+  définitive d'une demande en une transaction (ses tags se répondent) ; restauration : noms de la corbeille comptés une
+  fois par paquet (`TrashNames`) au lieu d'être relus à chaque tag. Un paquet en erreur : son premier travail est
+  abandonné (la file ne bloque jamais). `TagJobs::hold` : les 25 commandes qui modifient des tags, et la création des
+  tags par défaut d'un import, attendent la fin du travail (choix accepté le 12/11). `trash_restore` avec `now` : tout
+  de suite, pour « Voulez-vous restaurer … ? ». `db::Cached::row` (requêtes gardées prêtes, cache de 128 requêtes par
+  connexion) dans la corbeille et la suppression des tags.
+- TAGM-23, interface : `stores/tagJobs.ts` (tags et lignes en attente, avancement) ; les réponses de l'API qui montrent
+  des tags les écartent (`withoutPending`), et ce qui est déjà affiché est filtré au clic (`lib/tagJobs.ts`,
+  `filterShown`) ; à la fin, plus rien n'est caché puis tout est relu. Badge `TagJobBadge` (même apparence que
+  `GridBadge`, sous lui s'il y en a un), au-delà d'une demi-seconde. Pop-in de la corbeille : liste virtuelle (sa zone
+  qui défile est celle de la pop-in).
+- TAGM-21 : `exportable` écarte les masqués de la sélection, puis de tout ce que les options ajoutent.
+- TAGM-24 : `NoTags.tsx` réutilise `NewTagButton` (taille `big`).
+

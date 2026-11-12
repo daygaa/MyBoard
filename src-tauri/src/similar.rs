@@ -93,17 +93,20 @@ fn write<T>(state: &State<'_, AppState>, f: impl FnOnce(&Connection, i64) -> any
 /// « Ignorer » un bloc (`kept` vide) ou écarter des tags décochés.
 #[tauri::command]
 pub async fn ignore_similar(state: State<'_, AppState>, apart: Vec<i64>, kept: Vec<i64>) -> Result<(), String> {
+    let _hold = state.tag_jobs.hold(); // après le travail sur les tags en arrière-plan (TAGM-23)
     write(&state, |db, now| Ok(ignore(db, &apart, &kept, now)?))
 }
 
 /// « Ne plus ignorer » (D8.3).
 #[tauri::command]
 pub async fn unignore_similar(state: State<'_, AppState>, id: i64) -> Result<(), String> {
+    let _hold = state.tag_jobs.hold(); // après le travail sur les tags en arrière-plan (TAGM-23)
     write(&state, |db, _| Ok(db.execute("DELETE FROM tag_similar_ignores WHERE id = ?1", [id]).map(|_| ())?))
 }
 
 /// « Créer des synonymes pour tous » (retour T3, point TAGM-13.3 ; D8.2).
 #[tauri::command]
 pub async fn create_similar_groups(state: State<'_, AppState>, items: Vec<GroupItem>, extend: Vec<i64>) -> Result<(), String> {
+    let _hold = state.tag_jobs.hold(); // après le travail sur les tags en arrière-plan (TAGM-23)
     write(&state, |db, now| create_all(db, &items, &extend, now))
 }

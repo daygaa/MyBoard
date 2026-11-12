@@ -2,7 +2,7 @@
 // page courante, pied de page) ; menu burger, visionneuse, menu du clic droit (CTX-01) et message
 // d'échec d'une action lancée de la grille (CTX-19) et restauration des données en fin d'import
 // (DEL-05) par-dessus ; bilan de l'import (IMP-45), fichiers disparus (LIB-05), bandeau des emplacements inaccessibles
-// sous l'en-tête (LIB-14).
+// sous l'en-tête (LIB-14) ; badge du travail sur les tags en arrière-plan (TAGM-23).
 
 import { useEffect, useRef } from "react";
 
@@ -12,6 +12,7 @@ import { RestoreDialog } from "@/components/import/RestoreDialog";
 import { BurgerMenu } from "@/components/layout/BurgerMenu";
 import { Footer } from "@/components/layout/Footer";
 import { Header } from "@/components/layout/Header";
+import { TagJobBadge } from "@/components/layout/TagJobBadge";
 import { TitleBar } from "@/components/layout/TitleBar";
 import { DeleteFailedDialog } from "@/components/library/DeleteFailedDialog";
 import { LibraryPage } from "@/components/library/LibraryPage";
@@ -65,6 +66,8 @@ export function App() {
       <ImportReport />
       <RestoreDialog />
       <MissingDialog />
+      {/* Avancement de la corbeille des tags en arrière-plan (TAGM-23). */}
+      <TagJobBadge />
     </div>
   );
 }

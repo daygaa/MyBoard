@@ -16,6 +16,7 @@ use tauri::{AppHandle, Emitter, Manager};
 use super::index::{Indexer, Outcome};
 use super::pairs::Pair;
 use super::plan::{ImportOptions, PairChoice};
+use super::prefetch::Prefetch;
 use super::scan::ScanFile;
 use super::tally::{after_commit, count, delete_files, remember_original};
 use super::undo::Changes;
@@ -51,6 +52,7 @@ pub fn run_import(app: &AppHandle, files: Vec<ScanFile>, default_tags: Vec<NewTa
         // Tags par défaut : créés une fois au départ (ceux qui existent gardent leur catégorie ; un
         // synonyme donne son tag principal, TAGM-15). Les parents suivent à chaque média (TAGM-16).
         let targets: Vec<Target> = {
+            let _hold = state.tag_jobs.hold(); // après le travail sur les tags en arrière-plan (TAGM-23)
             let tx = conn.transaction()?;
             let newest: i64 = tx.query_row("SELECT COALESCE(MAX(id), 0) FROM tags", [], |r| r.get(0))?;
             let mut found = Vec::new();
@@ -87,6 +89,8 @@ pub fn run_import(app: &AppHandle, files: Vec<ScanFile>, default_tags: Vec<NewTa
             delete_files(&conn, &mut early, &mut progress);
         }
         let mut indexer = Indexer::new();
+        // Sur un SSD, les fichiers suivants sont lus d'avance par 4 fils (IMP-06) ; sur un disque dur, un à la fois.
+        let prefetch = Prefetch::start(&state.paths.db, &files, |p| set_aside.contains(p));
         // Vidéo en cours de traitement : barre du fichier (IMP-41) ; pause et arrêt passent jusqu'à ffmpeg.
         let report = |fraction: Option<f32>| {
             manager.update(true, |inner| {
@@ -149,6 +153,7 @@ pub fn run_import(app: &AppHandle, files: Vec<ScanFile>, default_tags: Vec<NewTa
                     let snapshot = progress.clone();
                     manager.update(false, |inner| inner.snapshot.progress = Some(snapshot));
                 }
+                indexer.ready = prefetch.as_ref().and_then(|p| p.take(i));
                 let outcome = match take_place {
                     Some((pair, (id, hash))) => {
                         let outcome = indexer.take_place(&conn, file, *id, hash);
@@ -250,10 +255,11 @@ pub fn run_import(app: &AppHandle, files: Vec<ScanFile>, default_tags: Vec<NewTa
             let snapshot = progress.clone();
             manager.update(true, |inner| inner.snapshot.progress = Some(snapshot));
         }
+        drop(prefetch);
         conn.execute_batch("COMMIT")?;
         after_commit(&conn, &mut to_delete, &mut unsaved, &mut progress);
         if manager.undo.load(Ordering::SeqCst) && options.undoable() {
-            undone = Some(changes.undo(&mut conn, crate::deletion::UNDONE)?);
+            undone = Some(changes.undo(&mut conn)?);
             state.deletion.wake();
         } else {
             restorable = reserve::candidates(&conn, &found)?;

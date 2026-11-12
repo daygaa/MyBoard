@@ -6,7 +6,7 @@
 //! ligne qui désigne un autre tag de la corbeille (son groupe, une règle vers lui) attend ce tag : elle est remise avec
 //! lui (chaque tag de la corbeille est indépendant, réponse du 05/11).
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 use rusqlite::types::Value as Sql;
 use rusqlite::{Connection, OptionalExtension, params, params_from_iter};
@@ -15,8 +15,12 @@ use serde_json::{Map, Value};
 use crate::parents::reaches;
 use crate::tags::DEFAULT_CATEGORY;
 use crate::trash_journal::{Change, Journal, TABLES, Table};
+use crate::db::Cached;
 
 mod resolve;
+
+/// Noms des tags de la corbeille, et combien de lignes portent chacun (0 : plus aucune).
+pub type TrashNames = HashMap<String, usize>;
 
 /// Pourquoi une référence ne se retrouve pas : sautée, ou en attente d'un tag de la corbeille (son nom).
 enum Miss {
@@ -30,7 +34,7 @@ struct Cx<'a> {
     db: &'a Connection,
     j: &'a Journal,
     /// Noms des autres tags de la corbeille.
-    trash: &'a HashSet<String>,
+    trash: &'a TrashNames,
     /// Ancien identifiant → actuel, pour ce que cette restauration a remis ou retrouvé.
     found: HashMap<(&'static str, i64), i64>,
     /// Lignes mises en attente (table, ancien identifiant) → nom du tag attendu : leurs lignes filles attendent aussi.
@@ -70,16 +74,16 @@ impl Cx<'_> {
     /// Tag supprimé : recréé avec ses réglages, ou réuni au tag qui porte maintenant son nom (réponse 3).
     fn revive(&mut self, before: &Map<String, Value>) -> rusqlite::Result<()> {
         let (Some(old), Some(name)) = (int(before, "id"), before.get("name").and_then(Value::as_str)) else { return Ok(()) };
-        if let Some(id) = self.db.query_row("SELECT id FROM tags WHERE name = ?1", [name], |r| r.get(0)).optional()? {
+        if let Some(id) = self.db.row("SELECT id FROM tags WHERE name = ?1", [name], |r| r.get(0)).optional()? {
             self.found.insert(("tags", old), id);
             return Ok(());
         }
-        let category: Option<i64> = self.db.query_row("SELECT id FROM tag_categories WHERE id = ?1", [int(before, "category_id")], |r| r.get(0)).optional()?;
+        let category: Option<i64> = self.db.row("SELECT id FROM tag_categories WHERE id = ?1", [int(before, "category_id")], |r| r.get(0)).optional()?;
         let category = match category {
             Some(c) => c,
-            None => self.db.query_row("SELECT id FROM tag_categories WHERE key = ?1", [DEFAULT_CATEGORY], |r| r.get(0))?,
+            None => self.db.row("SELECT id FROM tag_categories WHERE key = ?1", [DEFAULT_CATEGORY], |r| r.get(0))?,
         };
-        let free: bool = self.db.query_row("SELECT NOT EXISTS (SELECT 1 FROM tags WHERE id = ?1)", [old], |r| r.get(0))?;
+        let free: bool = self.db.row("SELECT NOT EXISTS (SELECT 1 FROM tags WHERE id = ?1)", [old], |r| r.get(0))?;
         let get = |c: &str| before.get(c).map(sql).unwrap_or(Sql::Null);
         self.db.execute(
             "INSERT INTO tags (id, name, category_id, hidden, created_at, description) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
@@ -185,7 +189,7 @@ impl Cx<'_> {
 }
 
 /// Rejoue le journal à l'envers ; renvoie les lignes qui attendent d'autres tags de la corbeille (nom → journal).
-pub fn restore(db: &Connection, j: &Journal, trash: &HashSet<String>) -> rusqlite::Result<Vec<(String, Journal)>> {
+pub fn restore(db: &Connection, j: &Journal, trash: &TrashNames) -> rusqlite::Result<Vec<(String, Journal)>> {
     let mut cx = Cx { db, j, trash, found: HashMap::new(), waiting: HashMap::new(), pending: HashMap::new() };
     let of = |name: &'static str| j.changes.iter().filter(move |c| c.t == name);
     // 1. Ce que la suppression a ajouté (les tables filles d'abord).

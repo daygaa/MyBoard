@@ -6,6 +6,8 @@ import { listen } from "@tauri-apps/api/event";
 
 import { EVENTS, api, type FailedFile, type ImportSnapshot, type PreviewKey, type ThumbUpdate } from "@/lib/api";
 import { checkApi, type CheckState } from "@/lib/libraryCheck";
+import { watchTagJobs } from "@/lib/tagJobs";
+import { refreshTags } from "@/lib/tagManager";
 import { addFailures, settleFailures } from "@/stores/deleteFailures";
 import { refreshLibrary, settleDeletion } from "@/stores/deletion";
 import { forgetFavorites } from "@/stores/favorites";
@@ -53,6 +55,8 @@ export function useBackendEvents() {
     });
     void check.then(() => checkApi.state()).then((state) => useLibraryCheck.getState().setCheck(state));
     unlisteners.push(check);
+    // Corbeille des tags en arrière-plan (TAGM-23) : avancement, fin, travail repris au lancement.
+    unlisteners.push(watchTagJobs(refreshTags));
     // État de l'import au démarrage (un import peut déjà tourner).
     void api.importSnapshot().then((snapshot) => useImport.getState().setSnapshot(snapshot));
     return () => unlisteners.forEach((p) => void p.then((unlisten) => unlisten()));

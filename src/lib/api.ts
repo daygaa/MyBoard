@@ -3,6 +3,7 @@
 
 import type { KindCounts } from "./mediaWords";
 import { convertFileSrc, invoke } from "@tauri-apps/api/core";
+import { type TagJobProgress, withoutPending, withoutPendingNames, withoutRestoring } from "@/stores/tagJobs";
 
 export type MediaKind = "image" | "video" | "audio" | "document";
 
@@ -115,6 +116,9 @@ export type DeletePreview = {
 };
 
 /** Un tag de la corbeille (TAGM-19) : ce à quoi il était lié au moment de sa suppression. */
+/** Tag mis en attente d'un travail en arrière-plan (TAGM-23). */
+export type PendingTag = { id: number; name: string };
+export type TagJobsState = { tags: PendingTag[]; trash: number[]; progress: TagJobProgress | null };
 export type TrashTag = { id: number; name: string; categoryId: number | null; hidden: boolean; media: number; rules: number; synonyms: number; deletedAt: number };
 
 /** Autre nom relié du groupe d'un tag ; les tags fusionnés n'y sont pas (ils n'ont aucun média). */
@@ -331,15 +335,16 @@ export const api = {
   clearScan: () => invoke<void>("clear_scan"),
   revealScanFile: (path: string) => invoke<void>("reveal_scan_file", { path }),
   tagCategories: () => invoke<Category[]>("tag_categories"),
-  autocompleteTags: (text: string) => invoke<TagInfo[]>("autocomplete_tags", { text }),
-  findTag: (name: string) => invoke<TagInfo | null>("find_tag", { name }),
-  pageTags: (ids: number[]) => invoke<TagInfo[]>("page_tags", { ids }),
+  // Les tags en cours de suppression en arrière-plan sont déjà cachés (TAGM-23, stores/tagJobs.ts).
+  autocompleteTags: (text: string) => invoke<TagInfo[]>("autocomplete_tags", { text }).then(withoutPending),
+  findTag: (name: string) => invoke<TagInfo | null>("find_tag", { name }).then((t) => (t && withoutPending([t]).length ? t : null)),
+  pageTags: (ids: number[]) => invoke<TagInfo[]>("page_tags", { ids }).then(withoutPending),
   addMediaTag: (mediaId: number, tag: NewTag) => invoke<void>("add_media_tag", { mediaId, tag }),
   removeMediaTag: (mediaId: number, tagId: number) => invoke<void>("remove_media_tag", { mediaId, tagId }),
   /** Parents que la chaîne des tags retirés avait posés et qui partiraient (TAGM-22) ; sans rien changer. */
   chainParents: (media: number[], tags: number[]) => invoke<ChainParents>("chain_parents", { media, tags }),
   removeChainParents: (media: number[], tags: number[]) => invoke<ChainParents>("remove_chain_parents", { media, tags }),
-  mediaDetail: (id: number) => invoke<MediaDetail | null>("media_detail", { id }),
+  mediaDetail: (id: number) => invoke<MediaDetail | null>("media_detail", { id }).then((d) => d && { ...d, tags: withoutPending(d.tags) }),
   revealMedia: (id: number) => invoke<void>("reveal_media", { id }),
   openMedia: (id: number) => invoke<void>("open_media", { id }),
   /** Vidéo illisible : copie convertie à côté de l'original, la fiche passe à la copie (VIEW-25) ; cran 0 à 4. */
@@ -391,22 +396,23 @@ export const api = {
   resultIds: (query: ListQuery) => invoke<number[]>("result_ids", { query }),
   selectionInfo: (ids: number[]) => invoke<SelectionInfo>("selection_info", { ids }),
   /** Tags présents sur la sélection (champ « Retirer des tags », SEL-07). */
-  selectionTags: (ids: number[]) => invoke<TagInfo[]>("selection_tags", { ids }),
-  selectionCommonTags: (ids: number[]) => invoke<string[]>("selection_common_tags", { ids }),
+  selectionTags: (ids: number[]) => invoke<TagInfo[]>("selection_tags", { ids }).then(withoutPending),
+  selectionCommonTags: (ids: number[]) => invoke<string[]>("selection_common_tags", { ids }).then(withoutPendingNames),
   editSelectionTags: (ids: number[], add: NewTag[], remove: number[]) => invoke<void>("edit_selection_tags", { ids, add, remove }),
   // Gestionnaire de tags (TAGM-04 et suivants) et menus des tags (CTX-04, CTX-12).
-  listManagedTags: () => invoke<TagManagerData>("list_managed_tags"),
+  listManagedTags: () => invoke<TagManagerData>("list_managed_tags").then((d) => ({ ...d, tags: withoutPending(d.tags) })),
   renameTag: (id: number, name: string) => invoke<Renamed>("rename_tag", { id, name }),
   setTagsCategory: (ids: number[], categoryId: number) => invoke<number>("set_tags_category", { ids, categoryId }),
   setTagsHidden: (ids: number[], hidden: boolean) => invoke<number>("set_tags_hidden", { ids, hidden }),
   /** `withMerged`, `strip` : les cases de la pop-in de suppression (retour T3, point TAGM-15.28) ; `permanent` : sans
-   *  passer par la corbeille (TAGM-19). */
+   *  passer par la corbeille (TAGM-19). Le travail se fait en arrière-plan (TAGM-23) : renvoie les tags concernés. */
   deleteTags: (ids: number[], withMerged = false, strip = false, removePosed = false, permanent = false) =>
-    invoke<number>("delete_tags", { ids, withMerged, strip, removePosed, permanent }),
-  /** Corbeille des tags (TAGM-19). */
-  trashList: () => invoke<TrashTag[]>("trash_list"),
+    invoke<PendingTag[]>("delete_tags", { ids, withMerged, strip, removePosed, permanent }),
+  /** Corbeille des tags (TAGM-19) ; restauration en arrière-plan, ou tout de suite avec `now` (TAGM-23). */
+  trashList: () => invoke<TrashTag[]>("trash_list").then(withoutRestoring),
   trashFind: (name: string) => invoke<TrashTag | null>("trash_find", { name }),
-  trashRestore: (ids: number[]) => invoke<number>("trash_restore", { ids }),
+  trashRestore: (ids: number[], now = false) => invoke<number[]>("trash_restore", { ids, now }),
+  tagJobsState: () => invoke<TagJobsState>("tag_jobs_state"),
   trashDelete: (ids: number[]) => invoke<number>("trash_delete", { ids }),
   deletePreview: (ids: number[]) => invoke<DeletePreview>("delete_preview", { ids }),
   setTagDescription: (id: number, text: string) => invoke<void>("set_tag_description", { id, text }),

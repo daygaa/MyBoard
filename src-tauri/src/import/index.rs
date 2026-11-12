@@ -5,8 +5,7 @@
 //! même endroit : même fiche, nouveau fichier (IMP-60). L'original remplacé est noté (`replaced`) : « Supprimer les
 //! originaux » l'efface une fois l'enregistrement validé (IMP-28). Vidéos (IMP-69, IMP-22) : `video::process`.
 
-use std::fs::{File, Metadata};
-use std::io::Read;
+use std::fs::Metadata;
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 
@@ -15,6 +14,7 @@ use rusqlite::{Connection, OptionalExtension, params};
 
 use super::compress::{self, Squeeze};
 use super::plan::{Action, Process};
+use super::prefetch::{HEAD_LEN, Hashed, hash_file};
 use super::relocate::{Before, found_again, relocate};
 use super::scan::ScanFile;
 use super::video::{Done, Hooks};
@@ -33,9 +33,6 @@ pub enum Outcome {
     /// Média dont le fichier avait disparu, retrouvé ailleurs : il prend ce chemin (LIB-05).
     Relocated(i64),
 }
-
-/// Début du fichier conservé pour lire les dimensions d'une image sans la décoder.
-const HEAD_LEN: usize = 256 * 1024;
 
 /// Fichier écrit : chemin, empreinte, poids, extension.
 type Written = (String, String, i64, String);
@@ -57,13 +54,15 @@ pub struct Indexer {
     pub sizes: Option<(u64, u64)>,
     /// Fiche existante changée par ce fichier (nouvelle version, nouveau chemin) : son état d'avant (IMP-43).
     pub before: Option<Before>,
+    /// Le fichier en cours, lu d'avance sur un SSD (IMP-06, `prefetch.rs`).
+    pub ready: Option<Hashed>,
 }
 
 impl Indexer {
     pub fn new() -> Self {
         // Lecture par blocs de 1 Mo : efficace sur SSD comme sur disque dur.
         let (squeeze, replaced, written, sizes, before) = (None, None, None, None, None);
-        Self { buffer: vec![0; 1 << 20], head: Vec::with_capacity(HEAD_LEN), squeeze, replaced, lost_subtitles: false, written, sizes, before }
+        Self { buffer: vec![0; 1 << 20], head: Vec::with_capacity(HEAD_LEN), squeeze, replaced, lost_subtitles: false, written, sizes, before, ready: None }
     }
 
     /// Doit être appelé dans une transaction ouverte (les lots sont validés par l'appelant), sauf pour une vidéo à traiter.
@@ -260,23 +259,14 @@ impl Indexer {
         None
     }
 
-    /// Empreinte BLAKE3 du contenu complet ; garde le début du fichier dans `head`.
+    /// Empreinte BLAKE3 du contenu complet ; garde le début du fichier dans `head`. Déjà lu d'avance (IMP-06) et
+    /// inchangé depuis : rien n'est relu.
     pub(super) fn hash(&mut self, path: &Path) -> anyhow::Result<String> {
-        let mut reader = File::open(path)?;
-        let mut hasher = blake3::Hasher::new();
-        self.head.clear();
-        loop {
-            let n = reader.read(&mut self.buffer)?;
-            if n == 0 {
-                break;
-            }
-            if self.head.len() < HEAD_LEN {
-                let take = n.min(HEAD_LEN - self.head.len());
-                self.head.extend_from_slice(&self.buffer[..take]);
-            }
-            hasher.update(&self.buffer[..n]);
+        if let Some(ready) = self.ready.take().filter(|r| r.fits(path)) {
+            self.head = ready.head;
+            return Ok(ready.hash);
         }
-        Ok(hasher.finalize().to_hex().to_string())
+        hash_file(path, &mut self.buffer, &mut self.head, &|| false)
     }
 }
 

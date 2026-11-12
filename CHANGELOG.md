@@ -3,6 +3,22 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Phase 4, lot 11 et retouches : annulation de l'import, lecture en parallèle, corbeille des tags rapide (12/11/2026) — Backup v126
+
+SPEC : IMP-42 (retouche), IMP-06, TAGM-21, TAGM-23, TAGM-24 `[~]`. Schéma 21 (table `tag_jobs`). Décision D-069.
+
+- « Annuler l'import » après la fin : rien n'est gardé en réserve ; les données remises à la fin de l'import y retournent.
+- Import depuis un SSD : 4 fichiers lus en même temps (2 à 3 fois plus rapide) ; disque dur, clé, réseau : inchangé.
+- Export des tags : case « Inclure les tags masqués », décochée.
+- Corbeille des tags : mettre à la corbeille, supprimer, restaurer sont immédiats à l'écran, le travail se fait ensuite en
+  arrière-plan (badge d'avancement, reprise au lancement) ; la corbeille s'ouvre aussitôt ; « Tout restaurer » 5 fois
+  plus rapide.
+- Gestionnaire de tags vide : texte et bouton « Créer un tag ».
+
+Vérifié dans la version compilée, sur des copies neuves de la base d'essai (13 159 tags) : mesures avant / après, base
+identique après « tout à la corbeille » puis « tout restaurer », fermeture forcée pendant le travail, annulations de
+l'import, empreintes identiques à la v125 ; zéro erreur `tsc` / `clippy`.
+
 ## Phase 4, lots 9 et 10, retouches des lots 7 et 8 (11/11/2026) — Backup v125
 
 SPEC : LIB-05, LIB-14, IMP-42, IMP-76 (retouches), IMP-06 et LIB-07 (mesures), CTX-15, IMP-55 `[~]` ; IMP-43, IMP-45,

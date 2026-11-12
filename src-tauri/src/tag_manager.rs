@@ -12,6 +12,7 @@ use serde::Serialize;
 use tauri::State;
 
 use crate::tag_delete::{self, DeletePreview};
+use crate::tag_jobs::PendingTag;
 use crate::tags::normalize;
 use crate::{AppState, similar};
 
@@ -129,16 +130,19 @@ pub async fn list_managed_tags(state: State<'_, AppState>) -> Result<TagManagerD
 
 #[tauri::command]
 pub async fn rename_tag(state: State<'_, AppState>, id: i64, name: String) -> Result<Renamed, String> {
+    let _hold = state.tag_jobs.hold(); // après le travail sur les tags en arrière-plan (TAGM-23)
     rename(&state.db.lock().unwrap(), id, &name).map_err(err)
 }
 
 #[tauri::command]
 pub async fn set_tags_category(state: State<'_, AppState>, ids: Vec<i64>, category_id: i64) -> Result<usize, String> {
+    let _hold = state.tag_jobs.hold(); // après le travail sur les tags en arrière-plan (TAGM-23)
     update_many(&mut state.db.lock().unwrap(), "UPDATE tags SET category_id = ?1 WHERE id = ?2", &category_id, &ids).map_err(err)
 }
 
 #[tauri::command]
 pub async fn set_tags_hidden(state: State<'_, AppState>, ids: Vec<i64>, hidden: bool) -> Result<usize, String> {
+    let _hold = state.tag_jobs.hold(); // après le travail sur les tags en arrière-plan (TAGM-23)
     update_many(&mut state.db.lock().unwrap(), "UPDATE tags SET hidden = ?1 WHERE id = ?2", &hidden, &ids).map_err(err)
 }
 
@@ -147,17 +151,21 @@ pub async fn set_tags_hidden(state: State<'_, AppState>, ids: Vec<i64>, hidden: 
 /// (`with_merged` : case « Supprimer aussi » ; `strip` : case « Supprimer « principal » de ces médias » ; `remove_posed` :
 /// case « Retirer … aux médias les ayant obtenus par ces règles »).
 #[tauri::command]
-pub async fn delete_tags(state: State<'_, AppState>, ids: Vec<i64>, with_merged: bool, strip: bool, remove_posed: bool, permanent: bool) -> Result<usize, String> {
-    let mut conn = state.db.lock().unwrap();
-    (|| -> anyhow::Result<usize> {
-        let tx = conn.transaction()?;
-        // À la corbeille (TAGM-19), sauf avec la case « Supprimer définitivement ».
-        let deleted =
-            if permanent { tag_delete::delete(&tx, &ids, with_merged, strip, remove_posed)? } else { crate::tag_trash::delete(&tx, &ids, with_merged, strip, remove_posed)? };
-        tx.commit()?;
-        Ok(deleted)
-    })()
-    .map_err(|e| format!("{e:#}"))
+pub async fn delete_tags(state: State<'_, AppState>, ids: Vec<i64>, with_merged: bool, strip: bool, remove_posed: bool, permanent: bool) -> Result<Vec<PendingTag>, String> {
+    let pending = {
+        let mut conn = state.db.lock().unwrap();
+        (|| -> anyhow::Result<Vec<PendingTag>> {
+            let tx = conn.transaction()?;
+            // À la corbeille (TAGM-19), sauf avec la case « Supprimer définitivement » ; le travail se fait ensuite en
+            // arrière-plan (TAGM-23) : l'interface cache aussitôt les tags renvoyés.
+            let pending = crate::tag_jobs::enqueue_delete(&tx, &ids, with_merged, strip, remove_posed, permanent)?;
+            tx.commit()?;
+            Ok(pending)
+        })()
+        .map_err(|e| format!("{e:#}"))?
+    };
+    state.tag_jobs.wake();
+    Ok(pending)
 }
 
 /// Pop-in « Supprimer… » : ce qui arrivera aux groupes de synonymes des tags.
@@ -169,6 +177,7 @@ pub async fn delete_preview(state: State<'_, AppState>, ids: Vec<i64>) -> Result
 /// Description d'un tag (TAGM-14) ; texte vide = aucune.
 #[tauri::command]
 pub async fn set_tag_description(state: State<'_, AppState>, id: i64, text: String) -> Result<(), String> {
+    let _hold = state.tag_jobs.hold(); // après le travail sur les tags en arrière-plan (TAGM-23)
     let text = text.trim();
     let value = (!text.is_empty()).then_some(text);
     state.db.lock().unwrap().execute("UPDATE tags SET description = ?1 WHERE id = ?2", params![value, id]).map(|_| ()).map_err(err)

@@ -2,8 +2,12 @@
 // En haut, « Tout restaurer » et « Tout supprimer », chacun avec sa confirmation ; dessous, un tableau, les tags les
 // plus récemment supprimés d'abord : le tag dans une pastille (celle de la recherche, un peu plus grande, sans croix),
 // son nombre de médias, « Restaurer » et « Supprimer » (bordure rouge, fond rouge au survol), sans confirmation.
+// TAGM-23 : seules les lignes visibles sont dessinées (13 000 lignes d'un coup prenaient 3,5 s à l'ouverture) ; les
+// lignes restaurées ou supprimées partent au clic.
 
+import { useLayoutEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useVirtualizer } from "@tanstack/react-virtual";
 
 import { TagPill } from "@/components/tags/TagPill";
 import { Button } from "@/components/ui/button";
@@ -22,6 +26,8 @@ const TOOL = "h-8 border-border bg-card/60 text-xs hover:bg-secondary hover:text
 const DELETE = "h-8 border border-destructive bg-transparent text-xs text-rose-300 hover:bg-destructive hover:text-white";
 /** Tag · médias · deux boutons (largeur fixe : la ligne des titres, sans boutons, garde les mêmes colonnes). */
 const COLUMNS = "grid grid-cols-[minmax(0,1fr)_5rem_11rem] items-center gap-3";
+/** Hauteur d'une ligne (boutons de 32 px, 8 px au-dessus et dessous, trait de 1 px) ; mesurée ensuite. */
+const ROW = 49;
 
 export function TagTrashDialog({ onClose }: { onClose: () => void }) {
   const { data } = useQuery({ queryKey: ["tag-trash"], queryFn: api.trashList });
@@ -29,6 +35,17 @@ export function TagTrashDialog({ onClose }: { onClose: () => void }) {
   const tags = data ?? [];
   const n = tags.length;
   const ids = tags.map((t) => t.id);
+  // La liste défile avec le contenu de la pop-in : seules les lignes visibles sont dessinées.
+  const listRef = useRef<HTMLDivElement>(null);
+  const [area, setArea] = useState<{ scroller: HTMLElement; margin: number } | null>(null);
+  const shown = n > 0;
+  useLayoutEffect(() => {
+    const list = listRef.current;
+    const scroller = list?.closest<HTMLElement>(".overflow-y-auto");
+    if (!list || !scroller) return setArea(null);
+    setArea({ scroller, margin: list.getBoundingClientRect().top - scroller.getBoundingClientRect().top + scroller.scrollTop });
+  }, [shown]);
+  const virtualizer = useVirtualizer({ count: n, getScrollElement: () => area?.scroller ?? null, estimateSize: () => ROW, overscan: 12, scrollMargin: area?.margin ?? 0 });
   const restoreAll = () =>
     void ask({
       title: "Tout restaurer ?",
@@ -80,26 +97,38 @@ export function TagTrashDialog({ onClose }: { onClose: () => void }) {
             <span className="text-right">Médias</span>
             <span />
           </div>
-          {tags.map((t) => (
-            <div key={t.id} data-zone="tags-corbeille.ligne" className={`${COLUMNS} border-b border-border/50 py-2`}>
-              <span className="min-w-0">
-                {/* 1 px de plus en haut : avec la police plus grande, le texte (remonté de 2 px comme toutes les pastilles) était
-                    0,5 px trop haut ; il tombe ainsi au centre, comme dans la recherche (mesuré le 05/11). */}
-                <TagPill color={t.hidden ? HIDDEN_COLOR : color(t.categoryId ?? 0)} fullTitleIfCut className="px-2.5 pt-[5px] pb-1 text-sm">
-                  {displayTag(t.name)}
-                </TagPill>
-              </span>
-              <span className="text-right text-sm text-foreground tabular-nums">{formatNumber(t.media)}</span>
-              <span className="flex justify-end gap-2">
-                <Button data-zone="tags-corbeille.restaurer" variant="outline" size="sm" onClick={() => void restoreTrash([t.id])} className={TOOL}>
-                  Restaurer
-                </Button>
-                <Button data-zone="tags-corbeille.supprimer" size="sm" onClick={() => void deleteTrash([t.id])} className={DELETE}>
-                  Supprimer
-                </Button>
-              </span>
-            </div>
-          ))}
+          <div ref={listRef} className="relative" style={{ height: virtualizer.getTotalSize() }}>
+            {virtualizer.getVirtualItems().map((row) => {
+              const t = tags[row.index];
+              return (
+                <div
+                  key={t.id}
+                  ref={virtualizer.measureElement}
+                  data-index={row.index}
+                  data-zone="tags-corbeille.ligne"
+                  className={`${COLUMNS} absolute inset-x-0 top-0 border-b border-border/50 py-2`}
+                  style={{ transform: `translateY(${row.start - virtualizer.options.scrollMargin}px)` }}
+                >
+                  <span className="min-w-0">
+                    {/* 1 px de plus en haut : avec la police plus grande, le texte (remonté de 2 px comme toutes les pastilles) était
+                        0,5 px trop haut ; il tombe ainsi au centre, comme dans la recherche (mesuré le 05/11). */}
+                    <TagPill color={t.hidden ? HIDDEN_COLOR : color(t.categoryId ?? 0)} fullTitleIfCut className="px-2.5 pt-[5px] pb-1 text-sm">
+                      {displayTag(t.name)}
+                    </TagPill>
+                  </span>
+                  <span className="text-right text-sm text-foreground tabular-nums">{formatNumber(t.media)}</span>
+                  <span className="flex justify-end gap-2">
+                    <Button data-zone="tags-corbeille.restaurer" variant="outline" size="sm" onClick={() => void restoreTrash([t.id])} className={TOOL}>
+                      Restaurer
+                    </Button>
+                    <Button data-zone="tags-corbeille.supprimer" size="sm" onClick={() => void deleteTrash([t.id])} className={DELETE}>
+                      Supprimer
+                    </Button>
+                  </span>
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
     </Modal>

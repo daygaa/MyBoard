@@ -29,6 +29,7 @@ const MIGRATIONS: &[&str] = &[
     include_str!("schema_v18.sql"),
     include_str!("schema_v19.sql"),
     include_str!("schema_v20.sql"),
+    include_str!("schema_v21.sql"),
 ];
 
 /// Ouvre une connexion avec les réglages communs à toute l'application.
@@ -43,7 +44,21 @@ pub fn open(path: &Path) -> anyhow::Result<Connection> {
     conn.pragma_update(None, "busy_timeout", 5000)?;
     conn.pragma_update(None, "temp_store", "MEMORY")?;
     conn.pragma_update(None, "cache_size", -32000)?; // 32 Mo
+    // Requêtes gardées prêtes (`prepare_cached`, `Cached::row`) : assez de place pour celles de la corbeille des tags.
+    conn.set_prepared_statement_cache_capacity(128);
     Ok(conn)
+}
+
+/// `query_row` avec la requête gardée prête dans le cache de la connexion : la corbeille des tags (TAGM-23) passe les
+/// mêmes petites requêtes des milliers de fois, et les recompiler à chaque fois coûtait une bonne part du temps.
+pub trait Cached {
+    fn row<T, P: rusqlite::Params, F: FnOnce(&rusqlite::Row<'_>) -> rusqlite::Result<T>>(&self, sql: &str, params: P, f: F) -> rusqlite::Result<T>;
+}
+
+impl Cached for Connection {
+    fn row<T, P: rusqlite::Params, F: FnOnce(&rusqlite::Row<'_>) -> rusqlite::Result<T>>(&self, sql: &str, params: P, f: F) -> rusqlite::Result<T> {
+        self.prepare_cached(sql)?.query_row(params, f)
+    }
 }
 
 /// Amène le schéma à la dernière version, chaque migration dans sa propre transaction.

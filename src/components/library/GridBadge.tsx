@@ -9,11 +9,15 @@ import { useGridBadge } from "@/stores/badge";
 /** Hauteur du badge au-dessus du haut de la zone qui défile, sans ligne des filtres visible. */
 const TOP_GAP = 40;
 
-function badgeTop(): number {
+export function badgeTop(): number {
   const area = scroller().getBoundingClientRect();
   const row = document.querySelector('[data-zone="grille.filtres"]')?.getBoundingClientRect();
   return row && row.bottom > area.top && row.top < area.bottom ? row.top + row.height / 2 : area.top + TOP_GAP;
 }
+
+/** Apparence commune aux badges (aussi celui du travail sur les tags, TAGM-23). */
+export const BADGE =
+  "pointer-events-none fixed left-1/2 z-[200] -translate-x-1/2 -translate-y-1/2 rounded-md border border-[#d9a94e] bg-black/80 px-4 py-2 text-sm font-medium whitespace-nowrap text-white shadow-lg";
 
 export function GridBadge() {
   const text = useGridBadge((s) => s.text);
@@ -21,7 +25,7 @@ export function GridBadge() {
   return (
     <div
       data-zone="grille.badge"
-      className="pointer-events-none fixed left-1/2 z-[200] -translate-x-1/2 -translate-y-1/2 rounded-md border border-[#d9a94e] bg-black/80 px-4 py-2 text-sm font-medium whitespace-nowrap text-white shadow-lg"
+      className={BADGE}
       style={{ top: badgeTop() }}
     >
       {text}

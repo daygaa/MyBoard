@@ -33,7 +33,9 @@ export function UnusedTagsDialog({ tags, onClose }: { tags: ManagedTag[]; onClos
   const setPermanent = useUI((s) => s.setUnusedPermanent);
   const confirm = () => {
     if (n === 0) return;
-    void deleteTags(doomed.map((t) => t.id), false, false, false, permanent).then(onClose);
+    // Fermée au clic : les tags disparaissent aussitôt, le travail se fait en arrière-plan (TAGM-23).
+    onClose();
+    void deleteTags(doomed.map((t) => t.id), false, false, false, permanent);
   };
   const fate = permanent
     ? n > 1

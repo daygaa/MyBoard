@@ -15,6 +15,7 @@ use crate::groups::{principal, unmerge};
 use crate::parents::{Chain, tag_chains};
 use crate::tag_manager::marks;
 use crate::tagging::{remove_cascade, restore_justified};
+use crate::db::Cached;
 
 /// Un nom d'un groupe : sa ligne, son tag, son nom, fusionné ou non, et ses médias (notés à la fusion pour un
 /// tag fusionné : il les retrouve s'il est défusionné).
@@ -27,7 +28,7 @@ struct Name {
 }
 
 fn names_of(db: &Connection, group: i64) -> rusqlite::Result<Vec<Name>> {
-    db.prepare(
+    db.prepare_cached(
         "SELECT n.id, n.tag_id, t.name, n.merged,
                 CASE WHEN n.merged THEN (SELECT COUNT(*) FROM tag_group_media m WHERE m.name_id = n.id) ELSE t.media_count END
            FROM tag_group_names n JOIN tags t ON t.id = n.tag_id WHERE n.group_id = ?1 ORDER BY t.name",
@@ -64,7 +65,7 @@ fn groups_of(db: &Connection, ids: &[i64]) -> rusqlite::Result<Vec<i64>> {
 /// Médias qui n'ont reçu le principal que par ce tag fusionné : ils ne l'avaient pas avant, et aucun autre tag
 /// fusionné gardé du groupe ne les note (même règle que la défusion).
 fn only_through(db: &Connection, row: i64, group: i64, doomed: &HashSet<i64>) -> rusqlite::Result<Vec<i64>> {
-    let mut stmt = db.prepare(
+    let mut stmt = db.prepare_cached(
         "SELECT m.media_id, (SELECT group_concat(n.tag_id) FROM tag_group_media o JOIN tag_group_names n ON n.id = o.name_id
                               WHERE n.group_id = ?2 AND o.media_id = m.media_id AND o.name_id != ?1)
            FROM tag_group_media m WHERE m.name_id = ?1 AND m.had_principal = 0",
@@ -114,7 +115,7 @@ pub struct RuleName {
 /// Règles qui touchent ces tags (enfant ou parent) : identifiant, enfant, parent.
 fn rules_of(db: &Connection, ids: &[i64]) -> rusqlite::Result<Vec<(i64, String, String)>> {
     let marks = marks(ids.len());
-    db.prepare(&format!(
+    db.prepare_cached(&format!(
         "SELECT r.id, c.name, p.name FROM tag_parents r JOIN tags c ON c.id = r.child_id JOIN tags p ON p.id = r.parent_id
           WHERE r.child_id IN ({marks}) OR r.parent_id IN ({marks}) ORDER BY c.name, p.name"
     ))?
@@ -165,7 +166,7 @@ pub struct LinkedFate {
 }
 
 fn tag_name(db: &Connection, id: i64) -> rusqlite::Result<String> {
-    db.query_row("SELECT name FROM tags WHERE id = ?1", [id], |r| r.get(0))
+    db.row("SELECT name FROM tags WHERE id = ?1", [id], |r| r.get(0))
 }
 
 pub fn preview(db: &Connection, ids: &[i64]) -> rusqlite::Result<DeletePreview> {
@@ -217,7 +218,7 @@ pub fn preview(db: &Connection, ids: &[i64]) -> rusqlite::Result<DeletePreview> 
     if let [tag] = ids {
         out.chains = tag_chains(db, *tag)?;
     }
-    out.media = db.query_row(&format!("SELECT COUNT(DISTINCT media_id) FROM media_tags WHERE tag_id IN ({marks})"), rusqlite::params_from_iter(ids), |r| r.get(0))?;
+    out.media = db.row(&format!("SELECT COUNT(DISTINCT media_id) FROM media_tags WHERE tag_id IN ({marks})"), rusqlite::params_from_iter(ids), |r| r.get(0))?;
     Ok(out)
 }
 

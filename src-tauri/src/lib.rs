@@ -32,6 +32,7 @@ pub mod similar;
 pub mod system_menu;
 pub mod tag_delete;
 pub mod tag_import;
+pub mod tag_jobs;
 pub mod tag_manager;
 pub mod tag_trash;
 pub mod tag_rules;
@@ -51,6 +52,7 @@ use tauri::Manager;
 
 use deletion::DeletionService;
 use import::ImportManager;
+use tag_jobs::TagJobs;
 use paths::DataPaths;
 use search::SearchIndex;
 use thumbs::ThumbService;
@@ -68,6 +70,8 @@ pub struct AppState {
     pub search: SearchIndex,
     /// Suppression en arrière-plan (DEL-02, DEL-03).
     pub deletion: DeletionService,
+    /// Corbeille des tags en arrière-plan (TAGM-23).
+    pub tag_jobs: TagJobs,
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -94,6 +98,8 @@ pub fn run() {
             let thumbs = ThumbService::start(handle.clone(), &paths.db, &paths.thumbs_db)?;
             let previews = PreviewService::start(handle.clone(), thumbs.clone(), &paths.db, &paths.thumbs_db)?;
             let deletion = DeletionService::start(handle.clone(), &paths.db, &paths.thumbs_db, previews.clone())?;
+            // Tags à la corbeille, supprimés ou restaurés en arrière-plan ; un travail interrompu reprend (TAGM-23).
+            let tag_jobs = TagJobs::start(handle.clone(), &paths.db)?;
             // Fichiers disparus et emplacements inaccessibles, vérifiés en arrière-plan à chaque ouverture (LIB-05, LIB-14).
             library_check::start(handle.clone(), paths.db.clone());
             app.manage(AppState {
@@ -104,6 +110,7 @@ pub fn run() {
                 import: ImportManager::new(handle),
                 search,
                 deletion,
+                tag_jobs,
             });
             if let Some(window) = app.get_webview_window("main") {
                 fullscreen::install(&window)?;
@@ -202,6 +209,7 @@ pub fn run() {
             tag_trash::trash_find,
             tag_trash::trash_restore,
             tag_trash::trash_delete,
+            tag_jobs::tag_jobs_state,
             similar::ignore_similar,
             similar::unignore_similar,
             similar::create_similar_groups,

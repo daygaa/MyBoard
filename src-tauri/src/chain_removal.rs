@@ -131,5 +131,6 @@ pub async fn chain_parents(state: State<'_, AppState>, media: Vec<i64>, tags: Ve
 /// « Oui » : retire ces parents.
 #[tauri::command]
 pub async fn remove_chain_parents(state: State<'_, AppState>, media: Vec<i64>, tags: Vec<i64>) -> Result<ChainParents, String> {
+    let _hold = state.tag_jobs.hold(); // après le travail sur les tags en arrière-plan (TAGM-23)
     with_tx(&state, true, |db| run(db, &media, &tags))
 }

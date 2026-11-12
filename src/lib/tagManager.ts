@@ -5,8 +5,9 @@
 
 import { currentTerms, renameSearchTag } from "@/stores/search";
 import { useViewer } from "@/stores/viewer";
-import { api } from "./api";
+import { api, type TrashTag } from "./api";
 import { queryClient } from "./queryClient";
+import { hidePending, hideTags, hideTrash, queueTagJob } from "./tagJobs";
 
 export function refreshTags(): Promise<unknown> {
   // Aperçu du formulaire des synonymes compris : une fusion changée dans la liste s'y voit tout de suite.
@@ -29,11 +30,19 @@ export async function runTagAction<T>(action: string, call: () => Promise<T>): P
 export const setTagsCategory = (ids: number[], categoryId: number) => runTagAction("Changer de catégorie", () => api.setTagsCategory(ids, categoryId));
 export const setTagsHidden = (ids: number[], hidden: boolean) =>
   runTagAction(hidden ? "Masquer de la recherche" : "Ne plus masquer de la recherche", () => api.setTagsHidden(ids, hidden));
+/** Supprimer (corbeille ou définitif) : les tags disparaissent au clic, le travail se fait en arrière-plan (TAGM-23). */
 export const deleteTags = (ids: number[], withMerged = false, strip = false, removePosed = false, permanent = false) =>
-  runTagAction("Supprimer le tag", () => api.deleteTags(ids, withMerged, strip, removePosed, permanent));
-/** Corbeille des tags (TAGM-19) : « Restaurer » / « Tout restaurer », « Supprimer » / « Tout supprimer ». */
-export const restoreTrash = (ids: number[]) => runTagAction("Restaurer", () => api.trashRestore(ids));
-export const deleteTrash = (ids: number[]) => runTagAction("Supprimer de la corbeille", () => api.trashDelete(ids));
+  runTagAction("Supprimer le tag", () => queueTagJob(() => hideTags(ids), () => api.deleteTags(ids, withMerged, strip, removePosed, permanent), hidePending));
+/** Corbeille des tags (TAGM-19) : « Restaurer » / « Tout restaurer » (les lignes partent au clic, la restauration se fait
+ *  en arrière-plan, TAGM-23 ; `now` : tout de suite, pour « Voulez-vous restaurer … ? »), « Supprimer » / « Tout
+ *  supprimer » (les lignes partent au clic). */
+export const restoreTrash = (ids: number[], now = false) =>
+  runTagAction("Restaurer", () => (now ? api.trashRestore(ids, true) : queueTagJob(() => hideTrash(ids), () => api.trashRestore(ids), () => undefined)));
+export function deleteTrash(ids: number[]) {
+  const gone = new Set(ids);
+  queryClient.setQueriesData<TrashTag[]>({ queryKey: ["tag-trash"] }, (d) => d?.filter((t) => !gone.has(t.id)));
+  return runTagAction("Supprimer de la corbeille", () => api.trashDelete(ids));
+}
 /** Tag renommé ou fusionné (SRCH-27) : la recherche en cours (et celle de la visionneuse ouverte)
  *  prend le nouveau nom. */
 export function followRename(from: string, to: string) {

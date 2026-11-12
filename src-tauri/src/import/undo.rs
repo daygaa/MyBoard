@@ -5,13 +5,15 @@
 //! présents (avec les parents qu'ils avaient posés), tags créés par l'import effacés s'ils ne servent plus, fichiers
 //! écrits par l'import effacés. Un fichier modifié au même endroit (fiche mise à jour) reste à jour. Les fichiers de
 //! l'utilisateur ne sont jamais touchés ; impossible avec « Supprimer les originaux » ou « Supprimer du stockage… »
-//! (réponses du 11/11 : bouton grisé).
+//! (réponses du 11/11 : bouton grisé). Après la fin de l'import aussi, tout se passe comme si ces fichiers n'avaient
+//! jamais été ajoutés (retour du 12/11) : rien n'est gardé en réserve, et les données de la réserve remises ou refusées
+//! à la fin de l'import y retournent (réponse Q2 A du 12/11).
 
 use std::path::PathBuf;
 
 use std::sync::atomic::Ordering;
 
-use rusqlite::{Connection, TransactionBehavior, params};
+use rusqlite::{Connection, OptionalExtension, TransactionBehavior, params};
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager, State};
 
@@ -32,6 +34,52 @@ pub struct Changes {
     pub before: Vec<Before>,
     /// Fichiers écrits par l'import (versions compressées ou converties).
     pub written: Vec<PathBuf>,
+    /// Données de la réserve (DEL-05) des médias ajoutés, remises ou refusées à la fin de l'import.
+    pub reserve: Vec<Reserved>,
+}
+
+/// Une ligne de la réserve des médias (DEL-05), telle qu'avant l'import.
+pub struct Reserved {
+    hash: String,
+    file_name: String,
+    path: String,
+    deleted_at: i64,
+    favorite_at: Option<i64>,
+    notes: Option<String>,
+    tags: String,
+    folders: String,
+}
+
+impl Reserved {
+    /// La réserve d'un média qui vient d'être importé (même empreinte), s'il en a une.
+    pub fn read(conn: &Connection, media_id: i64) -> rusqlite::Result<Option<Self>> {
+        conn.prepare_cached(
+            "SELECT r.hash, r.file_name, r.path, r.deleted_at, r.favorite_at, r.notes, r.tags, r.folders
+               FROM media_reserve r JOIN media m ON m.hash = r.hash WHERE m.id = ?1",
+        )?
+        .query_row([media_id], |r| {
+            Ok(Self {
+                hash: r.get(0)?,
+                file_name: r.get(1)?,
+                path: r.get(2)?,
+                deleted_at: r.get(3)?,
+                favorite_at: r.get(4)?,
+                notes: r.get(5)?,
+                tags: r.get(6)?,
+                folders: r.get(7)?,
+            })
+        })
+        .optional()
+    }
+
+    fn put_back(&self, tx: &Connection) -> rusqlite::Result<()> {
+        tx.prepare_cached(
+            "INSERT OR REPLACE INTO media_reserve (hash, file_name, path, deleted_at, favorite_at, notes, tags, folders)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+        )?
+        .execute(params![self.hash, self.file_name, self.path, self.deleted_at, self.favorite_at, self.notes, self.tags, self.folders])?;
+        Ok(())
+    }
 }
 
 /// Ce que l'annulation a défait (bilan « Import annulé », réponse Q12 A).
@@ -45,9 +93,8 @@ pub struct Undone {
 
 impl Changes {
     /// Une transaction pour la base ; les fichiers sont effacés ensuite, s'ils ne sont plus le fichier d'aucun média.
-    /// `mode` des médias ajoutés : `UNDONE` pendant l'import (sans réserve) ; après la fin (retour du 11/11),
-    /// `LIBRARY_ONLY` : leurs données (tags posés depuis, restauration DEL-05…) sont gardées un mois en réserve.
-    pub fn undo(&self, conn: &mut Connection, mode: i64) -> anyhow::Result<Undone> {
+    /// Les médias ajoutés sont retirés sans réserve (`UNDONE`), pendant l'import comme après sa fin (retour du 12/11).
+    pub fn undo(&self, conn: &mut Connection) -> anyhow::Result<Undone> {
         let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
         for before in self.before.iter().rev() {
             before.restore(&tx)?;
@@ -59,8 +106,11 @@ impl Changes {
         {
             let mut stmt = tx.prepare_cached("UPDATE media SET pending_delete = ?1 WHERE id = ?2 AND pending_delete = 0")?;
             for id in &self.added {
-                stmt.execute(params![mode, id])?;
+                stmt.execute(params![crate::deletion::UNDONE, id])?;
             }
+        }
+        for row in &self.reserve {
+            row.put_back(&tx)?;
         }
         for tag in &self.created_tags {
             tx.execute(
@@ -106,7 +156,7 @@ pub fn undo_import(app: AppHandle, state: State<'_, AppState>) -> Result<(), Str
         .name("annulation-import".into())
         .spawn(move || {
             let state = app.state::<AppState>();
-            let done = db::open(&state.paths.db).and_then(|mut conn| changes.undo(&mut conn, crate::deletion::LIBRARY_ONLY));
+            let done = db::open(&state.paths.db).and_then(|mut conn| changes.undo(&mut conn));
             state.deletion.wake();
             state.thumbs.wake();
             let _ = app.emit("library-changed", ());

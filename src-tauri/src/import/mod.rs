@@ -13,6 +13,7 @@
 mod avif_meta;
 mod compress;
 mod convert;
+mod disk;
 mod encode;
 mod index;
 pub mod journal;
@@ -21,6 +22,7 @@ pub mod pairs;
 mod pause;
 mod plan;
 mod png_out;
+mod prefetch;
 pub mod preview;
 pub mod reconvert;
 mod relocate;
@@ -111,6 +113,15 @@ impl ImportManager {
                 result.restorable.clear();
             }
         });
+    }
+
+    /// Réponse à la pop-in de restauration (DEL-05) : réserve d'avant l'import et tags recréés par la restauration,
+    /// notés pour « Annuler l'import » après la fin (réponse Q2 A du 12/11 : la réserve redevient celle d'avant).
+    pub fn note_reserve(&self, rows: Vec<undo::Reserved>, created_tags: Vec<i64>) {
+        if let Some(changes) = self.last.lock().unwrap().as_mut() {
+            changes.reserve.extend(rows);
+            changes.created_tags.extend(created_tags);
+        }
     }
 
     /// Met l'import en pause (« Arrêter », ou emplacement devenu inaccessible : `offline`, IMP-54).

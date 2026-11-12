@@ -14,6 +14,7 @@ use rusqlite::{Connection, OptionalExtension, TransactionBehavior, params};
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, State};
 
+use crate::import::undo::Reserved;
 use crate::tagging::{Tagger, resolve, resolve_or_create};
 use crate::tags::NewTag;
 use crate::{AppState, db};
@@ -240,11 +241,18 @@ fn forget(tx: &Connection, media_id: i64) -> rusqlite::Result<()> {
 /// `discard` = les autres (leur réserve est effacée). Une seule transaction.
 #[tauri::command]
 pub async fn restore_media_data(app: AppHandle, state: State<'_, AppState>, restore: Vec<i64>, discard: Vec<i64>) -> Result<(), String> {
+    let _hold = state.tag_jobs.hold(); // après le travail sur les tags en arrière-plan (TAGM-23)
     {
         let mut conn = state.db.lock().unwrap();
-        (|| -> anyhow::Result<()> {
+        let (kept, created) = (|| -> anyhow::Result<_> {
             let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
             let now = db::now_ms();
+            // Réserve telle qu'avant, et tags recréés : « Annuler l'import » remet tout (IMP-42, réponse Q2 A du 12/11).
+            let mut kept = Vec::new();
+            for &id in restore.iter().chain(&discard) {
+                kept.extend(Reserved::read(&tx, id)?);
+            }
+            let newest: i64 = tx.query_row("SELECT COALESCE(MAX(id), 0) FROM tags", [], |r| r.get(0))?;
             for &id in &restore {
                 restore_one(&tx, id, now)?;
                 forget(&tx, id)?;
@@ -252,10 +260,12 @@ pub async fn restore_media_data(app: AppHandle, state: State<'_, AppState>, rest
             for &id in &discard {
                 forget(&tx, id)?;
             }
+            let created = tx.prepare("SELECT id FROM tags WHERE id > ?1")?.query_map([newest], |r| r.get(0))?.collect::<rusqlite::Result<Vec<i64>>>()?;
             tx.commit()?;
-            Ok(())
+            Ok((kept, created))
         })()
         .map_err(|e| format!("{e:#}"))?;
+        state.import.note_reserve(kept, created);
     }
     state.import.clear_restorable();
     let _ = app.emit("library-changed", ());

@@ -126,6 +126,7 @@ pub async fn group_preview(state: State<'_, AppState>, principal: String, names:
 /// groupe.
 #[tauri::command]
 pub async fn create_group(state: State<'_, AppState>, principal: i64, names: Vec<String>, merge: bool, new_tags: Vec<NewTag>, extend: Vec<i64>, promote: bool) -> Result<i64, String> {
+    let _hold = state.tag_jobs.hold(); // après le travail sur les tags en arrière-plan (TAGM-23)
     write(&state, |db, now| {
         if promote {
             group_create::promote(db, principal)?;
@@ -137,21 +138,25 @@ pub async fn create_group(state: State<'_, AppState>, principal: i64, names: Vec
 /// Les quatre commandes suivantes renvoient les règles restées sur le principal (défusion).
 #[tauri::command]
 pub async fn set_name_merged(state: State<'_, AppState>, id: i64, merged: bool, extend: Vec<i64>) -> Result<Vec<RuleName>, String> {
+    let _hold = state.tag_jobs.hold(); // après le travail sur les tags en arrière-plan (TAGM-23)
     write(&state, |db, _| names(db, groups::set_merged(db, id, merged, &extend)?))
 }
 
 #[tauri::command]
 pub async fn set_group_merged(state: State<'_, AppState>, id: i64, merged: bool, extend: Vec<i64>) -> Result<Vec<RuleName>, String> {
+    let _hold = state.tag_jobs.hold(); // après le travail sur les tags en arrière-plan (TAGM-23)
     write(&state, |db, _| names(db, groups::set_group_merged(db, id, merged, &extend)?))
 }
 
 #[tauri::command]
 pub async fn remove_group_name(state: State<'_, AppState>, id: i64) -> Result<Vec<RuleName>, String> {
+    let _hold = state.tag_jobs.hold(); // après le travail sur les tags en arrière-plan (TAGM-23)
     write(&state, |db, _| names(db, groups::remove_name(db, id)?))
 }
 
 #[tauri::command]
 pub async fn delete_group(state: State<'_, AppState>, id: i64) -> Result<Vec<RuleName>, String> {
+    let _hold = state.tag_jobs.hold(); // après le travail sur les tags en arrière-plan (TAGM-23)
     write(&state, |db, _| names(db, groups::delete_group(db, id)?))
 }
 
@@ -215,6 +220,7 @@ pub async fn principal_check(state: State<'_, AppState>, group: i64, name: i64) 
 
 #[tauri::command]
 pub async fn set_group_principal(state: State<'_, AppState>, group: i64, name: i64) -> Result<(), String> {
+    let _hold = state.tag_jobs.hold(); // après le travail sur les tags en arrière-plan (TAGM-23)
     write(&state, |db, _| groups::set_principal(db, group, name))
 }
 
@@ -234,6 +240,7 @@ pub async fn parent_check(state: State<'_, AppState>, child: i64, parent: Option
 /// TAGM-15.24 : rien n'est créé si la règle ne l'est pas).
 #[tauri::command]
 pub async fn create_parent(state: State<'_, AppState>, child: i64, parent: Option<i64>, new_parent: Option<NewTag>, apply: bool) -> Result<usize, String> {
+    let _hold = state.tag_jobs.hold(); // après le travail sur les tags en arrière-plan (TAGM-23)
     write(&state, |db, now| {
         let parent = match (parent, new_parent) {
             (Some(parent), _) => parent,
@@ -246,6 +253,7 @@ pub async fn create_parent(state: State<'_, AppState>, child: i64, parent: Optio
 
 #[tauri::command]
 pub async fn set_parent_enabled(state: State<'_, AppState>, id: i64, enabled: bool) -> Result<(), String> {
+    let _hold = state.tag_jobs.hold(); // après le travail sur les tags en arrière-plan (TAGM-23)
     write(&state, |db, _| Ok(parents::set_enabled(db, id, enabled)?))
 }
 
@@ -258,6 +266,7 @@ pub async fn parent_delete_check(state: State<'_, AppState>, id: i64) -> Result<
 /// `remove` : la case de retrait du parent (et de la suite de la chaîne).
 #[tauri::command]
 pub async fn delete_parent(state: State<'_, AppState>, id: i64, remove: bool) -> Result<(), String> {
+    let _hold = state.tag_jobs.hold(); // après le travail sur les tags en arrière-plan (TAGM-23)
     write(&state, |db, _| parents::delete(db, id, remove))
 }
 
@@ -265,6 +274,7 @@ pub async fn delete_parent(state: State<'_, AppState>, id: i64, remove: bool) ->
 /// dans la pop-in « Créer un nouveau tag ». Un nom fusionné donne son principal.
 #[tauri::command]
 pub async fn create_tag(state: State<'_, AppState>, name: String, category_id: i64) -> Result<i64, String> {
+    let _hold = state.tag_jobs.hold(); // après le travail sur les tags en arrière-plan (TAGM-23)
     write(&state, |db, now| {
         let target = resolve_or_create(db, &NewTag { name, category_id: Some(category_id) }, now)?;
         target.map(|t| t.tag_id).ok_or_else(|| anyhow::anyhow!("nom de tag vide"))

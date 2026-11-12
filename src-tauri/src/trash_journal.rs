@@ -10,6 +10,7 @@ use std::collections::{HashMap, HashSet};
 use rusqlite::{Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
+use crate::db::Cached;
 
 /// Une table suivie : ses colonnes, sa clé, les opérations notées.
 pub struct Table {
@@ -163,7 +164,7 @@ fn int(row: &Map<String, Value>, col: &str) -> Option<i64> {
 /// Le journal de ce qui a été noté depuis le dernier appel (puis le registre est vidé).
 pub fn take(db: &Connection) -> rusqlite::Result<Journal> {
     let rows: Vec<(String, Option<String>, Option<String>)> =
-        db.prepare("SELECT tab, old, new FROM temp.trash_log ORDER BY seq")?.query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?.collect::<rusqlite::Result<_>>()?;
+        db.prepare_cached("SELECT tab, old, new FROM temp.trash_log ORDER BY seq")?.query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?.collect::<rusqlite::Result<_>>()?;
     db.execute("DELETE FROM temp.trash_log", [])?;
     let parse = |s: Option<String>| s.and_then(|s| serde_json::from_str::<Map<String, Value>>(&s).ok());
     let mut order: Vec<(String, String)> = Vec::new();
@@ -252,7 +253,7 @@ fn landmarks(db: &Connection, j: &mut Journal) -> rusqlite::Result<()> {
     }
     for g in groups {
         if !j.groups.contains_key(&g)
-            && let Some((p, at)) = db.query_row("SELECT principal_id, created_at FROM tag_groups WHERE id = ?1", [g], |r| Ok((r.get(0)?, r.get(1)?))).optional()?
+            && let Some((p, at)) = db.row("SELECT principal_id, created_at FROM tag_groups WHERE id = ?1", [g], |r| Ok((r.get(0)?, r.get(1)?))).optional()?
         {
             j.groups.insert(g, p);
             j.groups_at.insert(g, at);
@@ -260,14 +261,14 @@ fn landmarks(db: &Connection, j: &mut Journal) -> rusqlite::Result<()> {
     }
     for n in names {
         if !j.names.contains_key(&n)
-            && let Some(t) = db.query_row("SELECT tag_id FROM tag_group_names WHERE id = ?1", [n], |r| r.get::<_, Option<i64>>(0)).optional()?.flatten()
+            && let Some(t) = db.row("SELECT tag_id FROM tag_group_names WHERE id = ?1", [n], |r| r.get::<_, Option<i64>>(0)).optional()?.flatten()
         {
             j.names.insert(n, t);
         }
     }
     for r in rules {
         if !j.rules.contains_key(&r)
-            && let Some(pair) = db.query_row("SELECT child_id, parent_id FROM tag_parents WHERE id = ?1", [r], |r| Ok((r.get(0)?, r.get(1)?))).optional()?
+            && let Some(pair) = db.row("SELECT child_id, parent_id FROM tag_parents WHERE id = ?1", [r], |r| Ok((r.get(0)?, r.get(1)?))).optional()?
         {
             j.rules.insert(r, pair);
         }
@@ -277,13 +278,13 @@ fn landmarks(db: &Connection, j: &mut Journal) -> rusqlite::Result<()> {
     tags.extend(j.rules.values().flat_map(|&(c, p)| [c, p]));
     for t in tags {
         if !j.tags.contains_key(&t)
-            && let Some(name) = db.query_row("SELECT name FROM tags WHERE id = ?1", [t], |r| r.get::<_, String>(0)).optional()?
+            && let Some(name) = db.row("SELECT name FROM tags WHERE id = ?1", [t], |r| r.get::<_, String>(0)).optional()?
         {
             j.tags.insert(t, name);
         }
     }
     for m in media {
-        if let Some(hash) = db.query_row("SELECT hash FROM media WHERE id = ?1", [m], |r| r.get::<_, String>(0)).optional()? {
+        if let Some(hash) = db.row("SELECT hash FROM media WHERE id = ?1", [m], |r| r.get::<_, String>(0)).optional()? {
             j.media.insert(m, hash);
         }
     }

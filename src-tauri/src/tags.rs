@@ -231,6 +231,7 @@ pub async fn page_tags(state: State<'_, AppState>, ids: Vec<i64>) -> Result<Vec<
 /// principal (TAGM-15) ; les parents suivent (TAGM-16).
 #[tauri::command]
 pub async fn add_media_tag(state: State<'_, AppState>, media_id: i64, tag: NewTag) -> Result<(), String> {
+    let _hold = state.tag_jobs.hold(); // après le travail sur les tags en arrière-plan (TAGM-23)
     let mut conn = state.db.lock().unwrap();
     (|| -> anyhow::Result<()> {
         let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
@@ -245,6 +246,7 @@ pub async fn add_media_tag(state: State<'_, AppState>, media_id: i64, tag: NewTa
 /// Retire un tag d'un média (VIEW-23) ; le compteur baisse aussitôt (SRCH-14).
 #[tauri::command]
 pub async fn remove_media_tag(state: State<'_, AppState>, media_id: i64, tag_id: i64) -> Result<(), String> {
+    let _hold = state.tag_jobs.hold(); // après le travail sur les tags en arrière-plan (TAGM-23)
     let db = state.db.lock().unwrap();
     db.execute("DELETE FROM media_tags WHERE media_id = ?1 AND tag_id = ?2", params![media_id, tag_id])
         .map(|_| ())

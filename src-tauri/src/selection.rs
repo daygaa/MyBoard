@@ -127,5 +127,6 @@ fn common_tags(db: &Connection, ids: &str) -> rusqlite::Result<Vec<String>> {
 /// Barre du bas de la sélection (SEL-07) : « Appliquer ».
 #[tauri::command]
 pub async fn edit_selection_tags(state: State<'_, AppState>, ids: Vec<i64>, add: Vec<NewTag>, remove: Vec<i64>) -> Result<(), String> {
+    let _hold = state.tag_jobs.hold(); // après le travail sur les tags en arrière-plan (TAGM-23)
     edit_tags(&mut state.db.lock().unwrap(), &json(&ids), &add, &remove).map_err(|e| format!("{e:#}"))
 }

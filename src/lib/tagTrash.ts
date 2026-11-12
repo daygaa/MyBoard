@@ -24,5 +24,5 @@ export async function offerRestore(name: string): Promise<TrashOffer> {
     run: () => Promise.resolve(),
   });
   if (!yes) return "declined";
-  return (await restoreTrash([found.id])) !== undefined ? "restored" : "declined";
+  return (await restoreTrash([found.id], true)) !== undefined ? "restored" : "declined";
 }

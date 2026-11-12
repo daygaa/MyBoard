@@ -184,11 +184,13 @@ fn with_tx<T>(state: &State<'_, AppState>, commit: bool, f: impl FnOnce(&Connect
 /// Aperçu exact : l'import est fait puis annulé.
 #[tauri::command]
 pub async fn preview_tag_import(state: State<'_, AppState>, list: SharedList, options: ImportOptions) -> Result<ImportReport, String> {
+    let _hold = state.tag_jobs.hold(); // après le travail sur les tags en arrière-plan (TAGM-23)
     with_tx(&state, false, |db, now| run(db, &list, &options, now))
 }
 
 #[tauri::command]
 pub async fn import_tags(state: State<'_, AppState>, list: SharedList, options: ImportOptions) -> Result<ImportReport, String> {
+    let _hold = state.tag_jobs.hold(); // après le travail sur les tags en arrière-plan (TAGM-23)
     with_tx(&state, true, |db, now| run(db, &list, &options, now))
 }
 
@@ -196,6 +198,7 @@ pub async fn import_tags(state: State<'_, AppState>, list: SharedList, options: 
 /// groupes remis comme avant (import_groups.rs) et les tags créés supprimés.
 #[tauri::command]
 pub async fn undo_tag_import(state: State<'_, AppState>, tags: Vec<i64>, names: Vec<i64>, fused: Vec<i64>, joined: Vec<JoinedGroup>, parents: Vec<i64>) -> Result<(), String> {
+    let _hold = state.tag_jobs.hold(); // après le travail sur les tags en arrière-plan (TAGM-23)
     with_tx(&state, true, |db, now| {
         for id in parents {
             parents::delete(db, id, true)?;

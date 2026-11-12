@@ -2,16 +2,17 @@
 //! sa suppression (`trash_journal.rs`), puis effacé au lancement de MyBoard. Les tags d'une même suppression y vont un
 //! par un, chacun avec son journal (ils sont indépendants : restaurer « kitty » seul le remet sans « chat ») : les
 //! noms d'abord, les tags principaux ensuite, pour qu'un nom garde sa place dans son groupe jusqu'à sa propre
-//! suppression. « Restaurer » rejoue le journal à l'envers (`trash_restore.rs`), les plus récents d'abord.
-
-use std::collections::HashSet;
+//! suppression. « Restaurer » rejoue le journal à l'envers (`trash_restore.rs`), les plus récents d'abord. Mettre à la
+//! corbeille et restaurer se font en arrière-plan, tag par tag (TAGM-23, `tag_jobs.rs`) : ce fichier fait un tag.
 
 use rusqlite::{Connection, OptionalExtension, TransactionBehavior, params};
 use serde::Serialize;
 use tauri::State;
 
+use crate::db::Cached;
 use crate::trash_journal::{self, Journal};
-use crate::{AppState, db, tag_delete, trash_restore};
+use crate::trash_restore::{self, TrashNames};
+use crate::{AppState, db, tag_delete, tag_jobs};
 
 /// 30 jours, comme la réserve des médias (DEL-05).
 const KEEP_MS: i64 = 30 * 24 * 3600 * 1000;
@@ -46,24 +47,24 @@ fn row(r: &rusqlite::Row) -> rusqlite::Result<TrashTag> {
 }
 
 fn is_principal(db: &Connection, tag: i64) -> rusqlite::Result<bool> {
-    db.query_row("SELECT EXISTS (SELECT 1 FROM tag_groups WHERE principal_id = ?1)", [tag], |r| r.get(0))
+    db.row("SELECT EXISTS (SELECT 1 FROM tag_groups WHERE principal_id = ?1)", [tag], |r| r.get(0))
 }
 
 /// Ce à quoi un tag est lié : ses médias (un tag fusionné : ceux notés pour sa défusion), ses règles de parents, ses
 /// synonymes (les autres tags de son groupe : un principal, les noms du groupe ; un nom, les autres noms et le
 /// principal, soit autant que de noms).
-struct Info {
-    name: String,
-    category: i64,
-    hidden: bool,
-    media: i64,
-    rules: i64,
-    synonyms: i64,
+pub struct Info {
+    pub name: String,
+    pub category: i64,
+    pub hidden: bool,
+    pub media: i64,
+    pub rules: i64,
+    pub synonyms: i64,
 }
 
 fn info(db: &Connection, tag: i64) -> rusqlite::Result<Option<Info>> {
     let Some((name, category, hidden, media)) = db
-        .query_row(
+        .row(
             "SELECT name, category_id, hidden, media_count + (SELECT COUNT(*) FROM tag_group_media m JOIN tag_group_names n ON n.id = m.name_id
                                                                WHERE n.tag_id = tags.id AND n.merged = 1)
                FROM tags WHERE id = ?1",
@@ -74,8 +75,8 @@ fn info(db: &Connection, tag: i64) -> rusqlite::Result<Option<Info>> {
     else {
         return Ok(None);
     };
-    let rules = db.query_row("SELECT COUNT(*) FROM tag_parents WHERE child_id = ?1 OR parent_id = ?1", [tag], |r| r.get(0))?;
-    let synonyms = db.query_row(
+    let rules = db.row("SELECT COUNT(*) FROM tag_parents WHERE child_id = ?1 OR parent_id = ?1", [tag], |r| r.get(0))?;
+    let synonyms = db.row(
         "SELECT COUNT(*) FROM tag_group_names n
           WHERE n.group_id IN (SELECT id FROM tag_groups WHERE principal_id = ?1 UNION SELECT group_id FROM tag_group_names WHERE tag_id = ?1)",
         [tag],
@@ -84,75 +85,81 @@ fn info(db: &Connection, tag: i64) -> rusqlite::Result<Option<Info>> {
     Ok(Some(Info { name, category, hidden, media, rules, synonyms }))
 }
 
-/// Supprime les tags en les mettant à la corbeille (transaction de l'appelant) ; mêmes cases que la suppression
-/// définitive (`tag_delete::delete`).
-pub fn delete(db: &Connection, ids: &[i64], with_merged: bool, strip: bool, remove_posed: bool) -> anyhow::Result<usize> {
-    let mut order = tag_delete::expand(db, ids, with_merged)?;
+/// Les tags qui partent à la corbeille, dans l'ordre (les noms d'abord, les principaux ensuite), avec ce à quoi chacun
+/// est lié, relevé avant toute suppression (pop-in « Voulez-vous restaurer… ? »).
+pub fn plan(db: &Connection, ids: &[i64], with_merged: bool) -> anyhow::Result<Vec<(i64, Info)>> {
+    let order = tag_delete::expand(db, ids, with_merged)?;
     let mut principal = Vec::with_capacity(order.len());
     for &t in &order {
         principal.push((t, is_principal(db, t)?));
     }
-    order = principal.iter().filter(|p| !p.1).chain(principal.iter().filter(|p| p.1)).map(|p| p.0).collect();
-    // Ce à quoi chacun est lié, relevé avant toute suppression (pop-in « Voulez-vous restaurer… ? »).
-    let mut infos = Vec::with_capacity(order.len());
-    for &tag in &order {
+    let mut out = Vec::with_capacity(order.len());
+    for &(tag, _) in principal.iter().filter(|p| !p.1).chain(principal.iter().filter(|p| p.1)) {
         if let Some(info) = info(db, tag)? {
-            infos.push((tag, info));
+            out.push((tag, info));
         }
     }
-    trash_journal::start(db)?;
-    let done = (|| -> anyhow::Result<usize> {
-        let now = db::now_ms();
-        let mut deleted = 0;
-        for (tag, i) in infos {
-            deleted += tag_delete::delete(db, &[tag], false, strip, remove_posed)?;
-            let journal = trash_journal::take(db)?;
-            db.execute(
-                "INSERT INTO tag_trash (name, category_id, hidden, media, rules, synonyms, deleted_at, journal) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
-                params![i.name, i.category, i.hidden, i.media, i.rules, i.synonyms, now, serde_json::to_string(&journal)?],
-            )?;
-        }
-        Ok(deleted)
-    })();
-    trash_journal::stop(db)?;
-    done
+    Ok(out)
+}
+
+/// Met un tag à la corbeille, avec le journal de sa suppression (transaction et déclencheurs du journal posés par
+/// l'appelant) ; un tag déjà parti entre-temps est laissé.
+pub fn trash_one(db: &Connection, tag: i64, i: &Info, at: i64, strip: bool, remove_posed: bool) -> anyhow::Result<()> {
+    let deleted = tag_delete::delete(db, &[tag], false, strip, remove_posed)?;
+    let journal = trash_journal::take(db)?;
+    if deleted == 0 {
+        return Ok(());
+    }
+    db.prepare_cached("INSERT INTO tag_trash (name, category_id, hidden, media, rules, synonyms, deleted_at, journal) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)")?
+        .execute(params![i.name, i.category, i.hidden, i.media, i.rules, i.synonyms, at, serde_json::to_string(&journal)?])?;
+    Ok(())
 }
 
 fn load(db: &Connection, id: i64) -> anyhow::Result<Option<Journal>> {
-    let text: Option<String> = db.query_row("SELECT journal FROM tag_trash WHERE id = ?1", [id], |r| r.get(0)).optional()?;
+    let text: Option<String> = db.row("SELECT journal FROM tag_trash WHERE id = ?1", [id], |r| r.get(0)).optional()?;
     Ok(match text {
         Some(t) => Some(serde_json::from_str(&t)?),
         None => None,
     })
 }
 
-/// Restaure ces tags, les plus récemment supprimés d'abord (l'ordre inverse de leurs suppressions).
-fn restore(db: &Connection, ids: &[i64]) -> anyhow::Result<usize> {
+/// Ces lignes de la corbeille, les plus récemment supprimées d'abord (l'ordre inverse de leurs suppressions).
+pub fn by_recent(db: &Connection, ids: &[i64]) -> rusqlite::Result<Vec<i64>> {
     let mut ordered: Vec<(i64, i64)> = Vec::new();
     for &id in ids {
-        if let Some(at) = db.query_row("SELECT deleted_at FROM tag_trash WHERE id = ?1", [id], |r| r.get(0)).optional()? {
+        if let Some(at) = db.row("SELECT deleted_at FROM tag_trash WHERE id = ?1", [id], |r| r.get(0)).optional()? {
             ordered.push((id, at));
         }
     }
     ordered.sort_by(|a, b| b.1.cmp(&a.1).then(b.0.cmp(&a.0)));
-    let mut restored = 0;
-    for (id, _) in ordered {
-        let Some(journal) = load(db, id)? else { continue };
-        db.execute("DELETE FROM tag_trash WHERE id = ?1", [id])?;
-        let trash: HashSet<String> = db.prepare("SELECT DISTINCT name FROM tag_trash")?.query_map([], |r| r.get(0))?.collect::<rusqlite::Result<_>>()?;
-        for (name, waiting) in trash_restore::restore(db, &journal, &trash)? {
-            // Lignes qui attendent un autre tag de la corbeille : rangées avec lui (le plus récent de ce nom).
-            let target: Option<i64> = db.query_row("SELECT id FROM tag_trash WHERE name = ?1 ORDER BY deleted_at DESC, id DESC LIMIT 1", [&name], |r| r.get(0)).optional()?;
-            if let Some(target) = target
-                && let Some(mut other) = load(db, target)?
-            {
-                other.carried.push(waiting);
-                db.execute("UPDATE tag_trash SET journal = ?2 WHERE id = ?1", params![target, serde_json::to_string(&other)?])?;
-            }
-        }
-        restored += 1;
+    Ok(ordered.into_iter().map(|(id, _)| id).collect())
+}
+
+/// Noms de la corbeille, et combien de lignes portent chacun (relu une fois par paquet : le relire à chaque tag
+/// restauré rendait « Tout restaurer » très lent, TAGM-23).
+pub fn trash_names(db: &Connection) -> rusqlite::Result<TrashNames> {
+    db.prepare_cached("SELECT name, COUNT(*) FROM tag_trash GROUP BY name")?.query_map([], |r| Ok((r.get(0)?, r.get::<_, i64>(1)? as usize)))?.collect()
+}
+
+/// Restaure une ligne de la corbeille ; `names` suit les lignes qui y restent.
+pub fn restore_one(db: &Connection, id: i64, names: &mut TrashNames) -> anyhow::Result<bool> {
+    let Some(journal) = load(db, id)? else { return Ok(false) };
+    let name: String = db.row("SELECT name FROM tag_trash WHERE id = ?1", [id], |r| r.get(0))?;
+    db.execute("DELETE FROM tag_trash WHERE id = ?1", [id])?;
+    if let Some(n) = names.get_mut(&name) {
+        *n = n.saturating_sub(1);
     }
-    Ok(restored)
+    for (name, waiting) in trash_restore::restore(db, &journal, names)? {
+        // Lignes qui attendent un autre tag de la corbeille : rangées avec lui (le plus récent de ce nom).
+        let target: Option<i64> = db.row("SELECT id FROM tag_trash WHERE name = ?1 ORDER BY deleted_at DESC, id DESC LIMIT 1", [&name], |r| r.get(0)).optional()?;
+        if let Some(target) = target
+            && let Some(mut other) = load(db, target)?
+        {
+            other.carried.push(waiting);
+            db.execute("UPDATE tag_trash SET journal = ?2 WHERE id = ?1", params![target, serde_json::to_string(&other)?])?;
+        }
+    }
+    Ok(true)
 }
 
 /// Efface ce qui est à la corbeille depuis plus de 30 jours.
@@ -175,7 +182,7 @@ fn with_tx<T>(state: &State<'_, AppState>, f: impl FnOnce(&Connection) -> anyhow
 #[tauri::command]
 pub async fn trash_list(state: State<'_, AppState>) -> Result<Vec<TrashTag>, String> {
     let db = state.db.lock().unwrap();
-    (|| -> rusqlite::Result<Vec<TrashTag>> { db.prepare(&format!("SELECT {COLUMNS} FROM tag_trash ORDER BY deleted_at DESC, id DESC"))?.query_map([], row)?.collect() })()
+    (|| -> rusqlite::Result<Vec<TrashTag>> { db.prepare_cached(&format!("SELECT {COLUMNS} FROM tag_trash ORDER BY deleted_at DESC, id DESC"))?.query_map([], row)?.collect() })()
         .map_err(|e| e.to_string())
 }
 
@@ -184,24 +191,42 @@ pub async fn trash_list(state: State<'_, AppState>) -> Result<Vec<TrashTag>, Str
 pub async fn trash_find(state: State<'_, AppState>, name: String) -> Result<Option<TrashTag>, String> {
     let name = crate::tags::normalize(&name).unwrap_or(name);
     let db = state.db.lock().unwrap();
-    db.query_row(&format!("SELECT {COLUMNS} FROM tag_trash WHERE name = ?1 ORDER BY deleted_at DESC, id DESC LIMIT 1"), [name], row)
+    db.row(&format!("SELECT {COLUMNS} FROM tag_trash WHERE name = ?1 ORDER BY deleted_at DESC, id DESC LIMIT 1"), [name], row)
         .optional()
         .map_err(|e| e.to_string())
 }
 
-/// « Restaurer », « Tout restaurer ».
+/// « Restaurer », « Tout restaurer » : en arrière-plan (TAGM-23, réponse Q7 B), renvoie les lignes à restaurer ;
+/// `now` : tout de suite, pour « Voulez-vous restaurer … ? » (le tag recréé doit être là aussitôt).
 #[tauri::command]
-pub async fn trash_restore(state: State<'_, AppState>, ids: Vec<i64>) -> Result<usize, String> {
-    with_tx(&state, |db| restore(db, &ids))
+pub async fn trash_restore(state: State<'_, AppState>, ids: Vec<i64>, now: Option<bool>) -> Result<Vec<i64>, String> {
+    if now == Some(true) {
+        let _hold = state.tag_jobs.hold();
+        return with_tx(&state, |db| {
+            let mut names = trash_names(db)?;
+            let mut done = Vec::new();
+            for id in by_recent(db, &ids)? {
+                if restore_one(db, id, &mut names)? {
+                    done.push(id);
+                }
+            }
+            Ok(done)
+        });
+    }
+    let ids = with_tx(&state, |db| tag_jobs::enqueue_restore(db, &ids))?;
+    state.tag_jobs.wake();
+    Ok(ids)
 }
 
-/// « Supprimer », « Tout supprimer » : effacés pour de bon.
+/// « Supprimer », « Tout supprimer » : effacés pour de bon (rapide : rien d'autre que ces lignes).
 #[tauri::command]
 pub async fn trash_delete(state: State<'_, AppState>, ids: Vec<i64>) -> Result<usize, String> {
+    let _hold = state.tag_jobs.hold();
     with_tx(&state, |db| {
         let mut n = 0;
+        let mut delete = db.prepare_cached("DELETE FROM tag_trash WHERE id = ?1")?;
         for id in ids {
-            n += db.execute("DELETE FROM tag_trash WHERE id = ?1", [id])?;
+            n += delete.execute([id])?;
         }
         Ok(n)
     })
