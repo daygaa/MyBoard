@@ -1953,7 +1953,7 @@ TAGM-24) ; réponses Q1 à Q8 du 12/11 (SPEC).
 - TAGM-21 : `exportable` écarte les masqués de la sélection, puis de tout ce que les options ajoutent.
 - TAGM-24 : `NoTags.tsx` réutilise `NewTagButton` (taille `big`).
 
-## D-070 — ffmpeg fourni à côté de MyBoard ; recherche unique ; revérification de l'import (13/11/2026)
+## D-070 — ffmpeg fourni à côté de MyBoard ; recherche unique ; revérification de l'import (12/11/2026)
 
 **Contexte.** Lot 12 (IMP-49, IMP-53) ; réponses Q1 à Q6 du 12/11 (SPEC). Complète D-007 et D-012 : ffmpeg est fourni
 avec MyBoard, celui du PC reste pris d'abord s'il est complet ; l'installateur qui ne télécharge ffmpeg que s'il manque

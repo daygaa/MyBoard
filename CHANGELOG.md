@@ -3,7 +3,7 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
-## Phase 4, lot 12 : ffmpeg fourni avec MyBoard, revérification de l'import (13/11/2026) — Backup v127
+## Phase 4, lot 12 : ffmpeg fourni avec MyBoard, revérification de l'import (12/11/2026) — Backup v127
 
 SPEC : IMP-49, IMP-53 `[~]` ; note d'IMP-48. Décision D-070.
 
