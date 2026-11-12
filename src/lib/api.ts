@@ -74,8 +74,6 @@ export type Stats = {
   favorites: number;
 };
 
-export type FfmpegStatus = { found: boolean; path: string | null; version: string | null };
-
 /** Catégorie de tags (TAGM-01) : nom, couleur et ordre viennent de la base. */
 export type Category = { id: number; key: string; name: string; color: string; sortOrder: number };
 
@@ -313,7 +311,6 @@ export const api = {
   stats: () => invoke<Stats>("library_stats"),
   prioritizeThumbs: (ids: number[]) => invoke<void>("prioritize_thumbs", { ids }),
   requestPreviews: (want: PreviewKey[], cancel: PreviewKey[]) => invoke<void>("request_previews", { want, cancel }),
-  ffmpegStatus: () => invoke<FfmpegStatus>("ffmpeg_status"),
   importSnapshot: () => invoke<ImportSnapshot>("import_snapshot"),
   scanPaths: (paths: string[], recursive: boolean) => invoke<void>("scan_paths", { paths, recursive }),
   supportedExtensions: () => invoke<string[]>("supported_extensions"),

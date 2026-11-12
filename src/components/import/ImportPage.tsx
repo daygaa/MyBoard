@@ -2,42 +2,15 @@
 // Fichiers et tags par défaut dessous (IMP-30, disposition v8). La page passe toujours SOUS l'en-tête (IMP-57) : ses
 // listes et aperçus (suggestions des tags, aperçu agrandi) restent sous le logo, le menu burger et « Importer ».
 
-import { useQuery } from "@tanstack/react-query";
-import { AlertTriangle, ArrowLeft, Upload } from "lucide-react";
+import { ArrowLeft, Upload } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { api } from "@/lib/api";
 import { navigate } from "@/lib/router";
 import { DefaultTagsEditor } from "./DefaultTagsEditor";
 import { FileList } from "./FileList";
 import { FilesCard } from "./FilesCard";
 import { ImportActionBar } from "./ImportActionBar";
 import { OptionsCard } from "./OptionsCard";
-
-/** ffmpeg sert aux miniatures vidéo (IMP-48) : message clair s'il est absent. */
-function FfmpegNotice() {
-  const { data } = useQuery({ queryKey: ["ffmpeg"], queryFn: api.ffmpegStatus, staleTime: Infinity });
-  if (!data) return null;
-  if (data.found) {
-    return (
-      <p data-zone="import.ffmpeg" className="text-[11px] select-text text-muted-foreground" title={data.path ?? undefined}>
-        ffmpeg {data.version} détecté : les vidéos auront une miniature.
-      </p>
-    );
-  }
-  return (
-    <div
-      data-zone="import.ffmpeg"
-      className="flex select-text items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-2.5 text-sm text-amber-200"
-    >
-      <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-      <span>
-        ffmpeg est introuvable : les vidéos seront importées sans miniature. Installez ffmpeg (par exemple avec la commande{" "}
-        <code className="font-mono text-xs">winget install Gyan.FFmpeg</code>), puis relancez MyBoard.
-      </span>
-    </div>
-  );
-}
 
 export function ImportPage() {
   return (
@@ -76,7 +49,6 @@ export function ImportPage() {
           <OptionsCard />
         </div>
         <DefaultTagsEditor />
-        <FfmpegNotice />
         <ImportActionBar />
         <FileList />
       </div>

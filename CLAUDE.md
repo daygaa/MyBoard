@@ -67,6 +67,10 @@ Depuis le Workspace (Rust : `cargo` est dans `%USERPROFILE%\.cargo\bin`) :
 - `npm run tauri dev` — lance l'application en développement (rechargement automatique de l'interface).
 - `npm run tauri build -- --no-bundle` — version finale : `src-tauri\target\release\myboard.exe`.
 - `npx tsc` — vérification des types TypeScript ; dans `src-tauri` : `cargo check`, `cargo clippy`.
+- `.\scripts\fetch-ffmpeg.ps1` (PowerShell) — ffmpeg fourni (IMP-49, D-070) : télécharge la version épinglée,
+  vérifie son empreinte SHA-256 et la range dans `src-tauri\target\release\ffmpeg` (à côté de myboard.exe ;
+  `-Destination <dossier>` pour un autre exe, `-Archive <zip>` pour une archive déjà téléchargée). Jamais dans Git.
+  Ordre de recherche de MyBoard : `MYBOARD_FFMPEG`, ffmpeg du PC s'il est complet, copie fournie, ffmpeg du PC incomplet.
 - Bibliothèque de test (DEV-02, avec tags DEV-04), dans `src-tauri` :
   `cargo run --release --example gen_test_library -- "<dossier vide>" 100000` ;
   ajouter les tags à une bibliothèque générée qui n'en a pas : `… -- "<dossier>" --tags-seulement`.
@@ -89,7 +93,9 @@ Depuis le Workspace (Rust : `cargo` est dans `%USERPROFILE%\.cargo\bin`) :
 Variables d'environnement utiles :
 - `MYBOARD_DATA_DIR` — autre dossier de données (défaut `%LOCALAPPDATA%\MyBoard`). Toujours
   l'utiliser pour les tests : la bibliothèque réelle de l'utilisateur ne doit pas être polluée.
-- `MYBOARD_FFMPEG` — chemin de ffmpeg (dossier ou `.exe`) si la détection automatique échoue.
+- `MYBOARD_FFMPEG` — chemin de ffmpeg (dossier ou `.exe`) pour les essais : pris avant tout autre (IMP-49).
+- `MYBOARD_SANS_FFMPEG` (tests uniquement, IMP-49) — `1` : MyBoard fait comme si ffmpeg était absent ; `pc` : le
+  ffmpeg du PC est ignoré (seule la copie fournie sert). À retirer quand il ne servira plus.
 - `WEBVIEW2_USER_DATA_FOLDER` / `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=--remote-debugging-port=9333`
   — profil WebView2 séparé et port de débogage (pilotage et captures pendant les tests).
 - `MYBOARD_MONITOR` (tests uniquement, DEV-05) — écran où s'ouvre la fenêtre, par sa définition

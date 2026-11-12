@@ -17,7 +17,7 @@ pub mod store;
 
 use std::collections::{HashSet, VecDeque};
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Condvar, Mutex, OnceLock};
+use std::sync::{Arc, Condvar, Mutex};
 use std::time::{Duration, Instant};
 
 use rusqlite::{Connection, OptionalExtension, params_from_iter};
@@ -81,7 +81,6 @@ struct Shared {
     db: Mutex<Connection>,
     /// Fichier des miniatures (écriture).
     store: Mutex<Connection>,
-    ffmpeg: OnceLock<Option<Ffmpeg>>,
     queue: Mutex<Queue>,
     wake: Condvar,
     pending: Mutex<Pending>,
@@ -113,16 +112,15 @@ impl ThumbService {
             app,
             db: Mutex::new(db),
             store: Mutex::new(store::open_writer(thumbs_db)?),
-            ffmpeg: OnceLock::new(),
             queue: Mutex::new(Queue::default()),
             wake: Condvar::new(),
             pending: Mutex::new(Pending { updates: Vec::new(), last_emit: Instant::now() }),
         });
         let service = Self { shared: shared.clone() };
 
-        // La détection de ffmpeg lance des processus : on ne retarde pas l'ouverture de la fenêtre.
+        // La recherche de ffmpeg (commune à tout MyBoard) lance des processus : on ne retarde pas l'ouverture de la fenêtre.
         std::thread::Builder::new().name("miniatures-demarrage".into()).spawn(move || {
-            let found = shared.ffmpeg.get_or_init(ffmpeg::detect).is_some();
+            let found = ffmpeg::shared().is_some();
             if found {
                 // ffmpeg installé depuis le dernier lancement : on retente les vidéos en attente.
                 let db = shared.db.lock().unwrap();
@@ -143,9 +141,9 @@ impl ThumbService {
         Ok(service)
     }
 
-    /// ffmpeg détecté (attend la fin de la détection si elle est en cours).
-    pub fn ffmpeg(&self) -> Option<&Ffmpeg> {
-        self.shared.ffmpeg.get_or_init(ffmpeg::detect).as_ref()
+    /// ffmpeg trouvé (attend la fin de la recherche si elle est en cours).
+    pub fn ffmpeg(&self) -> Option<&'static Ffmpeg> {
+        ffmpeg::shared()
     }
 
     /// De nouveaux médias attendent une miniature (appelé par l'import).
@@ -248,7 +246,7 @@ fn process(shared: &Shared, job: &Job) -> Option<ThumbUpdate> {
     if !still_todo {
         return None;
     }
-    let ff = shared.ffmpeg.get_or_init(ffmpeg::detect).as_ref();
+    let ff = ffmpeg::shared();
     let mut update = ThumbUpdate { id: job.id, status: status::ERROR, width: None, height: None, duration_ms: None };
 
     let made = match job.kind.as_str() {

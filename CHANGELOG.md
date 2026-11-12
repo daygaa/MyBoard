@@ -3,6 +3,21 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Phase 4, lot 12 : ffmpeg fourni avec MyBoard, revérification de l'import (13/11/2026) — Backup v127
+
+SPEC : IMP-49, IMP-53 `[~]` ; note d'IMP-48. Décision D-070.
+
+- ffmpeg 8.1.3 fourni dans un dossier `ffmpeg` à côté de myboard.exe (191 Mo, licence GPL et lien vers le code source
+  joints), jamais dans Git : `scripts/fetch-ffmpeg.ps1` le télécharge et vérifie son empreinte.
+- MyBoard prend le ffmpeg du PC s'il est complet, sinon la copie fournie ; recherche faite une seule fois pour tout
+  MyBoard. Réglage d'essai `MYBOARD_SANS_FFMPEG` (`1` : sans ffmpeg ; `pc` : copie fournie seule).
+- Page Importer : le texte « ffmpeg … détecté » est retiré.
+- Revérification complète de l'import (IMP-53) : aucun défaut trouvé.
+
+Vérifié dans la version compilée : chaque usage de ffmpeg avec le ffmpeg du PC, avec la copie fournie et sans ffmpeg ;
+ordre de recherche avec un faux ffmpeg incomplet ; tout l'import (bibliothèques neuves, copies de la base d'essai, copies
+des fichiers d'essai remises ensuite) ; zéro erreur `tsc` / `clippy`.
+
 ## Phase 4, lot 11 et retouches : annulation de l'import, lecture en parallèle, corbeille des tags rapide (12/11/2026) — Backup v126
 
 SPEC : IMP-42 (retouche), IMP-06, TAGM-21, TAGM-23, TAGM-24 `[~]`. Schéma 21 (table `tag_jobs`). Décision D-069.

@@ -1953,3 +1953,28 @@ TAGM-24) ; réponses Q1 à Q8 du 12/11 (SPEC).
 - TAGM-21 : `exportable` écarte les masqués de la sélection, puis de tout ce que les options ajoutent.
 - TAGM-24 : `NoTags.tsx` réutilise `NewTagButton` (taille `big`).
 
+## D-070 — ffmpeg fourni à côté de MyBoard ; recherche unique ; revérification de l'import (13/11/2026)
+
+**Contexte.** Lot 12 (IMP-49, IMP-53) ; réponses Q1 à Q6 du 12/11 (SPEC). Complète D-007 et D-012 : ffmpeg est fourni
+avec MyBoard, celui du PC reste pris d'abord s'il est complet ; l'installateur qui ne télécharge ffmpeg que s'il manque
+viendra plus tard (IMP-77).
+
+**Choix.**
+- Variante : compilation BtbN « win64-gpl-shared » de ffmpeg 8.1.3, publication datée `autobuild-2026-11-11-12-39`
+  (dépôt `FFmpeg-Builds/FFmpeg-Builds`, ancien nom `BtbN/FFmpeg-Builds`) : ffmpeg et ffprobe partagent 7 DLL, 191 Mo
+  contre 331 Mo pour la variante statique, mêmes encodeurs, même vitesse (mesuré). Les DLL sont chargées depuis le
+  dossier de ffmpeg.exe (règle de Windows) : pas de mélange avec d'autres copies.
+- Rangement : dossier `ffmpeg` à côté de myboard.exe (`LICENSE.txt`, `SOURCE.txt` avec les liens vers le code source) ;
+  `scripts/fetch-ffmpeg.ps1` : adresse, nom et empreinte SHA-256 épinglés dans le script ; archive gardée dans
+  `src-tauri/target/ffmpeg-archive` ; empreinte vérifiée à chaque fois. Si BtbN retire cette publication datée, en
+  choisir une autre et changer les trois valeurs du script.
+- `ffmpeg.rs` : une seule recherche par lancement (`ffmpeg::shared`), utilisée par les miniatures, la visionneuse et
+  l'import (avant : deux recherches séparées). Ordre : `MYBOARD_FFMPEG` ; ffmpeg du PC (PATH, puis emplacements
+  d'installation courants, chacun une fois) s'il est complet (ffprobe à côté ou dans le PATH, et les 6 encodeurs
+  libx264, libx265, libaom-av1, libvpx, libvpx-vp9, libopus dans `-encoders`) ; copie fournie (ffprobe à côté
+  obligatoire) ; enfin le premier ffmpeg du PC incomplet. `FfmpegStatus` donne aussi `source` (essai, pc, fourni) et
+  `complete`. `MYBOARD_SANS_FFMPEG` : `1` aucun ffmpeg, `pc` ffmpeg du PC ignoré.
+- Interface : `FfmpegNotice` retiré de la page Importer, et `api.ffmpegStatus` avec lui ; la commande `ffmpeg_status`
+  reste pour les vérifications.
+- IMP-53 : revérification par les scripts d'essai de chaque lot (mis à jour) et de nouveaux essais (bibliothèque
+  neuve) ; les fichiers d'essai sont notés avant et remis après (versions effacées, originaux recopiés).

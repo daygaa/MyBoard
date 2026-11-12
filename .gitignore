@@ -8,6 +8,10 @@ src-tauri/target/
 src-tauri/gen/schemas/
 *.tsbuildinfo
 
+# ffmpeg fourni (IMP-49) : téléchargé par scripts/fetch-ffmpeg.ps1, jamais versionné (dépôt public, > 100 Mo)
+ffmpeg/
+ffmpeg-*.zip
+
 # Données de l'utilisateur : base, miniatures, médias, caches
 /library/
 *.db
