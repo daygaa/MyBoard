@@ -3,6 +3,17 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Aperçus de la liste avant l'import par ffmpeg (12/11/2026) — Backup v128
+
+SPEC : IMP-78 `[~]` (nouveau, réponse Q3 A) ; réponses Q1 B, Q2 B, Q4 A notées ; nouvel ID DEV-08 (refonte du workflow
+avant la phase 5). Décision D-071.
+
+- Liste avant l'import : quand Windows ne donne pas de miniature (AVIF, FLV…) ou pas d'aperçu agrandi (3GP), MyBoard
+  le fait avec ffmpeg (image, ou vidéo à 10 % de sa durée) au lieu de laisser l'icône.
+
+Vérifié dans la version compilée : dossier des formats avec le ffmpeg du PC, avec la copie fournie et sans ffmpeg
+(icônes gardées, rien ne plante) ; zéro erreur `tsc` / `clippy`.
+
 ## Phase 4, lot 12 : ffmpeg fourni avec MyBoard, revérification de l'import (12/11/2026) — Backup v127
 
 SPEC : IMP-49, IMP-53 `[~]` ; note d'IMP-48. Décision D-070.

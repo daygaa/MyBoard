@@ -1,6 +1,7 @@
 //! Aperçus de la liste des fichiers avant l'import (IMP-10, IMP-13) : d'abord la miniature de Windows (celle de
 //! l'Explorateur : 2 à 17 ms si elle est déjà dans son cache, et bien moins de processeur que ffmpeg pour une vidéo ;
-//! mesures du 09/11, D-060) ; si Windows n'en a pas, image ou PDF faits par MyBoard ; sinon l'interface garde l'icône.
+//! mesures du 09/11, D-060) ; si Windows n'en a pas, MyBoard le fait (image, PDF, et par ffmpeg : AVIF, vidéo…, IMP-78) ;
+//! sinon l'interface garde l'icône.
 //! Deux fils dédiés, au plus : la liste ne charge jamais le PC comme un import.
 
 use std::path::{Path, PathBuf};

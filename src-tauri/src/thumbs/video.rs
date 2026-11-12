@@ -45,6 +45,13 @@ pub fn video_preview(ff: &Ffmpeg, path: &Path, side: u32) -> anyhow::Result<Vec<
     preview_of(decode(&video_frame(ff, path, &probe, side * 3 / 2)?)?, side)
 }
 
+/// Image d'un fichier de la liste avant l'import (IMP-78) : vidéo à 10 % de sa durée, ou image que seul ffmpeg sait
+/// lire ; petit côté `short_side`.
+pub fn list_frame(ff: &Ffmpeg, path: &Path, video: bool, short_side: u32) -> anyhow::Result<::image::DynamicImage> {
+    let png = if video { video_frame(ff, path, &probe(ff, path)?, short_side)? } else { frame_png(ff, path, 0.0, short_side)? };
+    decode(&png)
+}
+
 /// Miniatures d'une image que le décodeur Rust ne gère pas (AVIF, HEIC…).
 pub fn image_thumb(ff: &Ffmpeg, path: &Path) -> anyhow::Result<Thumb> {
     let probe = probe(ff, path)?;

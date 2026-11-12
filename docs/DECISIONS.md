@@ -1978,3 +1978,17 @@ viendra plus tard (IMP-77).
   reste pour les vérifications.
 - IMP-53 : revérification par les scripts d'essai de chaque lot (mis à jour) et de nouveaux essais (bibliothèque
   neuve) ; les fichiers d'essai sont notés avant et remis après (versions effacées, originaux recopiés).
+
+## D-071 — Aperçus de la liste avant l'import : ffmpeg en dernier secours (12/11/2026)
+
+**Contexte.** Revérification de l'import (IMP-53) : dans la liste avant l'import, les AVIF et les FLV gardaient leur
+icône et le 3GP n'avait pas d'aperçu agrandi, car D-060 réservait le secours aux images lisibles par MyBoard et aux PDF
+(« une vidéo n'est jamais lue ici »). Réponse Q3 A de l'utilisateur : IMP-78.
+
+**Choix.**
+- Ordre inchangé au début : miniature de Windows (rapide, peu de processeur), puis PDF ou image décodée par MyBoard ;
+  ensuite seulement ffmpeg (`ffmpeg::shared`, D-070) : image qu'il sait lire, ou vidéo (image à 10 % de la durée, comme
+  sa miniature dans la bibliothèque). Sans ffmpeg : icône, comme avant.
+- Charge limitée comme avant : seules les lignes visibles demandent leur aperçu, deux fils au plus, ffmpeg en priorité
+  basse.
+- Code : `thumbs/list.rs` (aperçus de la liste, sortis de `thumbs/mod.rs`, trop long), `video::list_frame`.

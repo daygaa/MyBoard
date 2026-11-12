@@ -8,6 +8,7 @@
 //! Documents : seuls les PDF ont une miniature, leur 1re page (LIB-17).
 
 mod image;
+mod list;
 mod pdf;
 mod video;
 
@@ -27,6 +28,7 @@ use tauri::{AppHandle, Emitter};
 use crate::ffmpeg::{self, Ffmpeg};
 
 pub use image::{THUMB_SIZE, Thumb, decode, thumbs_of};
+pub use list::{list_preview, list_preview_fit};
 pub use video::{frame_jpeg_at, frame_rate, full_image_jpeg};
 
 /// Valeurs de `media.thumb_status`.
@@ -303,27 +305,6 @@ pub fn make_preview(ff: Option<&Ffmpeg>, kind: &str, path: &Path, side: u32) -> 
         ("document", _) if is_pdf(path) => pdf::first_page(path, side).and_then(|img| image::preview_of(img, side)),
         _ => anyhow::bail!("pas d'aperçu pour ce type de média"),
     }
-}
-
-/// Aperçu 128 px d'un fichier pas encore importé (liste avant l'import, IMP-10), quand Windows n'en donne pas :
-/// seulement une image lisible par MyBoard ou un PDF (une vidéo n'est jamais lue ici : trop lourd pour une liste).
-pub fn list_preview(path: &Path) -> anyhow::Result<Vec<u8>> {
-    if is_pdf(path) {
-        return pdf::first_page(path, image::THUMB_SIZE).and_then(image::small_of);
-    }
-    let ext = crate::formats::extension(path).unwrap_or_default();
-    anyhow::ensure!(crate::formats::kind_of_ext(&ext) == Some(crate::formats::Kind::Image), "pas une image");
-    image::open_image(path).and_then(image::small_of)
-}
-
-/// Aperçu agrandi au survol (IMP-59), proportions gardées, quand Windows n'en donne pas : mêmes fichiers.
-pub fn list_preview_fit(path: &Path, side: u32) -> anyhow::Result<Vec<u8>> {
-    if is_pdf(path) {
-        return pdf::first_page(path, side).and_then(|img| image::fit_of(img, side));
-    }
-    let ext = crate::formats::extension(path).unwrap_or_default();
-    anyhow::ensure!(crate::formats::kind_of_ext(&ext) == Some(crate::formats::Kind::Image), "pas une image");
-    image::open_image(path).and_then(|img| image::fit_of(img, side))
 }
 
 fn is_pdf(path: &Path) -> bool {
