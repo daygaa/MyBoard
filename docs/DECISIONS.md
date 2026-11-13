@@ -2025,6 +2025,9 @@ outils de test vivaient dans un dossier temporaire qui change à chaque session,
   mesurée par l'application (appliquée une image trop tard : scintillement) mais calculée par le moteur pendant la mise
   en page : classe `garde-barre`, `padding-right: max(0, var(--barre) - (100vw - 100 %))` (100vw - 100 % = barre
   affichée ; `--barre` mesurée une fois au démarrage). Appliquée à l'en-tête, au pied de page et à la page Importer.
+  v134 : gestionnaire de tags : la classe va sur des enveloppes autour de ses blocs centrés, pas sur toute la page
+  (ses onglets, à fond et à trait, doivent aller jusqu'au bord). Essayé et écarté : l'unité `cqw` (la zone qui défile
+  comme conteneur de requête) compte la barre de défilement dans la largeur.
 - TAGM-23 (complète D-069) : une erreur dans un paquet ne fait plus abandonner le premier tag de la file. Base occupée
   (`SQLITE_BUSY` / `LOCKED` au-delà de 5 s) : nouvel essai après 1 s, 30 fois ; autre erreur : 400 travaux un par un,
   seul celui qui échoue seul est retiré de la file. Journal `erreurs.txt` dans le dossier de données (la version

@@ -84,7 +84,8 @@
   /* GEN-28 (lot R2) : sans barre de défilement, marge à droite de la largeur de la barre (`--barre`, mesurée au
      démarrage) ; avec la barre, aucune (100vw - 100 % = la barre affichée). Le contenu garde ainsi sa place, le fond
      va jusqu'au bord. Calculé par le moteur pendant la mise en page : rien ne bouge, même une image. Seulement sur un
-     élément aussi large que la zone qui défile ; `--garde-base` : sa propre marge à droite. */
+     élément aussi large que la zone qui défile (100 % = sa largeur utile ; l'unité cqw ne convient pas : elle compte
+     la barre, mesuré le 13/11) ; `--garde-base` : la marge à droite de l'élément lui-même. */
   .garde-barre {
     padding-right: calc(var(--garde-base, 0px) + max(0px, var(--barre, 0px) - (100vw - 100%)));
   }

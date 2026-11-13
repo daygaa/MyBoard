@@ -8,6 +8,13 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
 import type { ImageTarget, ImportSnapshot, NewTag, VideoTarget } from "@/lib/api";
+
+/** Tag par défaut : `name` part au cœur tel que tapé (un nom fusionné y est noté pour la défusion, D-047) ;
+ *  `shown` : le tag réellement posé, montré sur la pastille (le principal d'un nom fusionné, IMP-79). */
+export type DefaultTag = NewTag & { shown?: string };
+
+/** Nom montré d'un tag par défaut. */
+export const shownName = (t: DefaultTag) => t.shown ?? t.name;
 import { usePreviews } from "./previews";
 
 /** Qualité de compression : 20 à 95, 85 par défaut (comme la v8, IMP-20). */
@@ -37,7 +44,7 @@ type ImportState = {
   /** « Supprimer les originaux » (IMP-28). */
   deleteOriginals: boolean;
   /** Tags ajoutés à tous les fichiers du prochain import (IMP-30) ; vidés une fois appliqués. */
-  defaultTags: NewTag[];
+  defaultTags: DefaultTag[];
   setSnapshot: (snapshot: ImportSnapshot) => void;
   setRecursive: (recursive: boolean) => void;
   setCompress: (compress: boolean) => void;
@@ -49,7 +56,7 @@ type ImportState = {
   setConvertVideos: (convertVideos: boolean) => void;
   setVideoTarget: (videoTarget: VideoTarget) => void;
   setDeleteOriginals: (deleteOriginals: boolean) => void;
-  addDefaultTag: (tag: NewTag) => void;
+  addDefaultTag: (tag: DefaultTag) => void;
   removeDefaultTag: (name: string) => void;
   /** « Tout effacer » (IMP-79). */
   clearDefaultTags: () => void;
@@ -91,7 +98,8 @@ export const useImport = create<ImportState>()(
       setVideoTarget: (videoTarget) => set({ videoTarget }),
       setDeleteOriginals: (deleteOriginals) => set({ deleteOriginals }),
       addDefaultTag: (tag) => {
-        if (get().defaultTags.some((t) => t.name === tag.name)) return;
+        // Déjà là, tapé ou par son principal : une seule pastille.
+        if (get().defaultTags.some((t) => t.name === tag.name || shownName(t) === shownName(tag))) return;
         set({ defaultTags: [...get().defaultTags, tag] });
       },
       removeDefaultTag: (name) => set({ defaultTags: get().defaultTags.filter((t) => t.name !== name) }),

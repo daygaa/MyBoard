@@ -162,6 +162,9 @@ function ManagerPage({ tab, store }: { tab: TagTab; store: StoreApi<TagsTabState
           comprise) : à sa place de départ, sans saut d'1 px au premier défilement. */}
       <div ref={topRef} data-zone="gestionnaire-tags.haut" className="sticky top-[57px] z-30 bg-background">
         <Tabs />
+        {/* garde-barre (GEN-28) autour des blocs centrés : ils gardent leur place, barre de défilement affichée ou non ;
+            les onglets, eux, vont jusqu'au bord. */}
+        <div className="garde-barre">
         <div className={cn(PAGE, "pt-5")}>
           <div className="mb-4 flex flex-wrap items-center gap-3">
             <Button data-zone="gestionnaire-tags.retour" variant="outline" size="sm" onClick={() => navigate("library")} className={TOOL}>
@@ -213,7 +216,9 @@ function ManagerPage({ tab, store }: { tab: TagTab; store: StoreApi<TagsTabState
           </div>
           {tab === "tags" && <TagFilters filters={filters} setFilters={setFilters} shown={visible.length} total={all.length} />}
         </div>
+        </div>
       </div>
+      <div className={cn("garde-barre", tab === "rules" && "flex min-h-0 flex-1 flex-col")}>
       <main
         data-zone="gestionnaire-tags"
         style={{ "--haut-fixe": `${topHeight}px` } as React.CSSProperties}
@@ -295,6 +300,7 @@ function ManagerPage({ tab, store }: { tab: TagTab; store: StoreApi<TagsTabState
         {dialog === "trash" && <TagTrashDialog onClose={() => setDialog(null)} />}
         {dialog === "merge" && <CreateSynonymsDialog checked={checkedTags} groupOf={rules.groupOf} tagOf={tagOf} onClose={() => setDialog(null)} />}
       </main>
+      </div>
     </>
   );
 }

@@ -107,7 +107,8 @@ export function useImportStart() {
         if (!second) return;
         options.deleteOriginals = true;
       }
-      await api.startImport(useImport.getState().defaultTags, options);
+      // Le cœur reçoit les noms tapés (nom fusionné compris), sans le nom montré.
+      await api.startImport(useImport.getState().defaultTags.map(({ name, categoryId }) => ({ name, categoryId })), options);
     } catch (error) {
       useViewer.getState().setError({ action: "Importer", code: null, message: String(error) });
     } finally {

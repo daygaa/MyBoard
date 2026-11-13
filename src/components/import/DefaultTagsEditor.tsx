@@ -2,10 +2,12 @@
 // existants (IMP-79). La frappe suit la recherche de la bibliothèque (retour du 13/11) : plusieurs tags séparés par des
 // espaces (« _ » dans un nom), suggestions sur le mot en cours, une suggestion choisie s'écrit à la place du mot ; les
 // mots déjà tapés et les tags déjà dans la liste sont grisés dans les suggestions. Entrée ou « Ajouter » : chaque tag
-// existant devient une pastille (un synonyme donne son tag principal) ; chaque tag inexistant ouvre, l'un après l'autre,
+// existant devient une pastille ; un nom fusionné montre son principal, mais part au cœur tel que tapé (la défusion
+// rendra ce nom, D-047 ; retour du 13/11) ; chaque tag inexistant ouvre, l'un après l'autre,
 // la pop-in de création (choix de sa catégorie) puis rejoint aussitôt la liste (réponse Q3 A du 13/11) ; un nom annulé
 // revient dans le champ. Le tag est écrit dans la base au départ de l'import, comme avant : l'annuler ne laisse aucun
-// tag vide. « Tout effacer » vide la liste, comme « Tout vider » celle des fichiers.
+// tag vide. « Tout effacer » vide la liste, comme « Tout vider » celle des fichiers ; toujours affiché, grisé sans
+// pastille ou pendant l'import (retour du 13/11).
 // Ces tags sont ajoutés à TOUS les fichiers de l'import, y compris ceux déjà dans la
 // bibliothèque (D-016). En phase 2, la carte est placée sous l'encadré de dépôt.
 // Clic droit sur une pastille : « Copier le tag », « Retirer » (CTX-15).
@@ -20,7 +22,7 @@ import { useCategories } from "@/hooks/useCategories";
 import { api } from "@/lib/api";
 import { openContextMenu } from "@/lib/contextMenu";
 import { displayTag, normalizeTag } from "@/lib/tags";
-import { useImport } from "@/stores/import";
+import { shownName, useImport } from "@/stores/import";
 
 export function DefaultTagsEditor() {
   const tags = useImport((s) => s.defaultTags);
@@ -43,9 +45,10 @@ export function DefaultTagsEditor() {
     setText("");
     const unknown: string[] = [];
     for (const name of names) {
-      if (tags.some((t) => t.name === name)) continue;
+      if (tags.some((t) => t.name === name || shownName(t) === name)) continue;
       const found = await api.findTag(name);
-      if (found) addDefaultTag({ name: found.name, categoryId: found.categoryId });
+      // Nom fusionné : `found` est son principal ; le nom tapé part au cœur, le principal se montre.
+      if (found) addDefaultTag({ name, categoryId: found.categoryId, shown: found.name });
       else unknown.push(name);
     }
     cancelled.current = [];
@@ -71,23 +74,21 @@ export function DefaultTagsEditor() {
 
   return (
     <section data-zone="import.tags-defaut" className="rounded-xl border border-border bg-card/60 p-6">
-      {/* Hauteur fixe : la ligne ne grandit pas quand « Tout effacer » apparaît. */}
       <div className="mb-4 flex min-h-7 items-center justify-between gap-3">
         <h2 className="flex items-center gap-2 text-sm font-semibold tracking-wider text-muted-foreground uppercase">
           <Tag className="h-4 w-4 text-[#d9a94e]" />
           Tags par défaut
         </h2>
-        {tags.length > 0 && !busy && (
-          <button
-            type="button"
-            data-zone="import.tags-defaut.vider"
-            onClick={clearDefaultTags}
-            className="flex items-center gap-1.5 rounded-md px-2 py-1 text-sm text-muted-foreground transition hover:bg-secondary hover:text-foreground"
-          >
-            <Trash2 className="h-4 w-4" />
-            Tout effacer
-          </button>
-        )}
+        <button
+          type="button"
+          data-zone="import.tags-defaut.vider"
+          disabled={tags.length === 0 || busy}
+          onClick={clearDefaultTags}
+          className="flex items-center gap-1.5 rounded-md px-2 py-1 text-sm text-muted-foreground transition enabled:hover:bg-secondary enabled:hover:text-foreground disabled:text-muted-foreground/40"
+        >
+          <Trash2 className="h-4 w-4" />
+          Tout effacer
+        </button>
       </div>
       <div className="flex flex-wrap items-center gap-2">
         <TagInput
@@ -97,7 +98,7 @@ export function DefaultTagsEditor() {
           value={text}
           onChange={setText}
           onSubmit={(raw) => void submit(raw)}
-          taken={(tag) => (tags.some((t) => t.name === tag.name) ? "Ce tag est déjà dans les tags par défaut" : null)}
+          taken={(tag) => (tags.some((t) => t.name === tag.name || shownName(t) === tag.name) ? "Ce tag est déjà dans les tags par défaut" : null)}
           placeholder="ex. red_hair vacances demo…"
           className="h-[38px] min-w-60 flex-1"
         />
@@ -123,16 +124,16 @@ export function DefaultTagsEditor() {
               key={t.name}
               color={color(t.categoryId ?? -1)}
               onRemove={busy ? undefined : () => removeDefaultTag(t.name)}
-              removeLabel={`Retirer « ${displayTag(t.name)} »`}
+              removeLabel={`Retirer « ${displayTag(shownName(t))} »`}
               // Clic droit (CTX-15, choix du 09/11) : ces tags ne sont pas encore posés sur des médias.
               onContextMenu={(e) =>
                 openContextMenu(e, () => [
-                  { label: "Copier le tag", run: () => void api.writeClipboardText(t.name) },
+                  { label: "Copier le tag", run: () => void api.writeClipboardText(shownName(t)) },
                   { label: "Retirer", disabled: busy, run: () => removeDefaultTag(t.name) },
                 ])
               }
             >
-              {displayTag(t.name)}
+              {displayTag(shownName(t))}
             </TagPill>
           ))}
         </div>

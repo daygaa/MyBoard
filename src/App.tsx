@@ -54,7 +54,8 @@ export function App() {
         <div className={cn("flex flex-col", fitted ? "h-full" : "min-h-full")}>
           <Header />
           <OfflineBanner />
-          {/* Page Importer : son contenu garde sa place, barre de défilement affichée ou non (GEN-28). */}
+          {/* Page Importer : son contenu garde sa place, barre de défilement affichée ou non (GEN-28 ; gestionnaire de
+              tags : dans TagManagerPage, ses onglets allant jusqu'au bord). */}
           <div className={cn("flex flex-1 flex-col", fitted && "min-h-0", route === "import" && "garde-barre")}>{route === "import" ? <ImportPage /> : route === "tags" ? <TagManagerPage /> : <LibraryPage />}</div>
           <Footer />
         </div>

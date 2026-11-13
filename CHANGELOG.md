@@ -3,6 +3,17 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Retouches R2 (fin) : gestionnaire sans décalage, nom fusionné des tags par défaut (13/11/2026) — Backup v134
+
+SPEC : GEN-28 `[~]`, IMP-79 `[~]`, VIEW-58 `[x]`, nouvel ID IMP-84 (bug non reproduit). DEV-08 : seuils de contexte
+relevés, `/compact` au lieu de `/clear` (outils de Claude Code, hors dépôt).
+
+- GEN-28 : le contenu du gestionnaire de tags garde sa place quand la barre de défilement apparaît (au chargement
+  notamment) ; ses onglets vont toujours jusqu'au bord (`TagManagerPage.tsx`).
+- IMP-79 : un nom fusionné tapé dans les tags par défaut montre son principal mais part au cœur tel quel : la défusion
+  rend ce nom au média (D-047 ; `stores/import.ts` : `DefaultTag`, `useImportStart.tsx`) ; « Tout effacer » toujours
+  affiché, grisé sans pastille ou pendant l'import.
+
 ## Retouches R2 (suite) : page Importer sans décalage, frappe des tags par défaut, curseur des notes (13/11/2026) — Backup v133
 
 SPEC : GEN-28 `[~]`, IMP-79 `[~]`, VIEW-58 `[~]` ; TAGM-25 `[x]`. Complément de D-073.
