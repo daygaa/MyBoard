@@ -3,6 +3,19 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Retouches R2 des lots 11-12 : en-tête, tags par défaut, touche N, seuil « Rares » (13/11/2026) — Backup v132
+
+SPEC : GEN-28 `[~]`, IMP-79 `[~]`, VIEW-58 `[~]`, TAGM-25 `[~]`. Complément de D-073.
+
+- GEN-28 : le bouton Importer et les compteurs de l'en-tête ne se décalent plus quand la barre de défilement apparaît
+  ou disparaît (marge à droite de la largeur de la barre quand elle est absente ; `Header.tsx`).
+- IMP-79 : tags par défaut de l'import sans choix de catégorie ; un tag qui n'existe pas ouvre la pop-in de création,
+  puis rejoint aussitôt la liste (`DefaultTagsEditor.tsx`).
+- VIEW-58 : touche N dans la visionneuse : note ouverte en écriture, curseur dans la zone de texte (`shortcuts.ts`,
+  `NoteEditor.tsx`, `NotesButton.tsx`).
+- TAGM-25 : filtre « Rares ≤ N » du gestionnaire de tags, N de 1 à 5 par clic droit ou petite flèche, gardé d'un
+  lancement à l'autre (`TagFilters.tsx`, `useTagList.ts`, nouveau `stores/rareMax.ts`).
+
 ## Retouches R1 des lots 11-12 : corbeille des tags, bord droit, nom survolé, base d'essai (13/11/2026) — Backup v131
 
 SPEC : TAGM-23 `[~]`, GEN-28 `[~]`, GRID-15 `[~]`, DEV-09 `[~]`. Décision D-073.

@@ -43,6 +43,12 @@ export const ZOOM_SHORTCUTS: Record<"adapt", Shortcut> = {
   adapt: { key: "a", label: "A" },
 };
 
+/** Notes de la visionneuse (VIEW-58, N comme « Note ») : ouvre la note et met le curseur dans sa zone de texte ; déjà
+ *  ouverte : remet seulement le curseur (réponse Q4 A du 13/11). */
+export const NOTE_SHORTCUTS: Record<"write", Shortcut> = {
+  write: { key: "n", label: "N" },
+};
+
 /** Lecteur vidéo (VIEW-47) : son, vitesse d'un palier (convention de YouTube), boucle ; sous-titres
  *  (VIEW-52, C comme YouTube). */
 export type VideoAction = "mute" | "slower" | "faster" | "loop" | "subtitles";

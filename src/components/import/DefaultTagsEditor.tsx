@@ -1,6 +1,8 @@
-// Tags par défaut de l'import (IMP-30, IMP-31), apparence v8 : [champ] → [catégorie à droite]
-// → Entrée ou « Ajouter » → badge coloré sous le champ. Les espaces deviennent des « _ » ;
-// un tag existant (choisi dans les suggestions ou tapé en entier) garde sa catégorie.
+// Tags par défaut de l'import (IMP-30, IMP-31) : une barre complète, sans choix de catégorie, qui cherche parmi les tags
+// existants (IMP-79) → Entrée ou « Ajouter » → badge coloré sous le champ. Les espaces deviennent des « _ ». Un tag qui
+// n'existe pas encore ouvre la pop-in de création (choix de sa catégorie), comme dans la visionneuse ; une fois créé,
+// il rejoint aussitôt les tags par défaut (réponse Q3 A du 13/11). Il est écrit dans la base au départ de l'import,
+// comme avant : l'annuler ne laisse aucun tag vide.
 // Ces tags sont ajoutés à TOUS les fichiers de l'import, y compris ceux déjà dans la
 // bibliothèque (D-016). En phase 2, la carte est placée sous l'encadré de dépôt.
 // Clic droit sur une pastille : « Copier le tag », « Retirer » (CTX-15).
@@ -8,7 +10,7 @@
 import { useState } from "react";
 import { Plus, Tag } from "lucide-react";
 
-import { CategorySelect, useDefaultCategory } from "@/components/tags/CategorySelect";
+import { CreateTagDialog } from "@/components/tags/CreateTagDialog";
 import { TagInput } from "@/components/tags/TagInput";
 import { TagPill } from "@/components/tags/TagPill";
 import { useCategories } from "@/hooks/useCategories";
@@ -23,18 +25,25 @@ export function DefaultTagsEditor() {
   const removeDefaultTag = useImport((s) => s.removeDefaultTag);
   const busy = useImport((s) => s.snapshot?.phase === "importing");
   const { color } = useCategories();
-  const fallback = useDefaultCategory();
-  const [chosen, setChosen] = useState<number | null>(null);
   const [text, setText] = useState("");
-  const category = chosen ?? fallback;
+  const [toCreate, setToCreate] = useState<string | null>(null);
 
-  /** Texte tapé : un tag qui existe déjà garde sa catégorie, sinon celle du menu. */
+  /** Texte tapé : un tag qui existe est ajouté avec sa catégorie, sinon la pop-in de création s'ouvre. Un tag déjà dans
+   *  la liste (créé plus tôt par la pop-in, pas encore dans la base) n'est pas redemandé. */
   const submit = async (raw: string) => {
     const name = normalizeTag(raw);
-    if (!name || category === null) return;
+    if (!name) return;
     setText("");
+    if (tags.some((t) => t.name === name)) return;
     const existing = await api.findTag(name);
-    addDefaultTag({ name, categoryId: existing?.categoryId ?? category });
+    if (existing) addDefaultTag({ name, categoryId: existing.categoryId });
+    else setToCreate(name);
+  };
+
+  /** Tag restauré de la corbeille par la pop-in (TAGM-19) : il garde sa catégorie d'origine. */
+  const addRestored = async (name: string) => {
+    const restored = await api.findTag(name);
+    addDefaultTag({ name, categoryId: restored?.categoryId ?? null });
   };
 
   return (
@@ -58,7 +67,6 @@ export function DefaultTagsEditor() {
           placeholder="ex. red_hair, vacances, demo…"
           className="h-[38px] min-w-60 flex-1"
         />
-        <CategorySelect zone="import.tags-defaut.categorie" value={category} onChange={setChosen} className="w-40" />
         <button
           type="button"
           data-zone="import.tags-defaut.ajouter"
@@ -71,8 +79,8 @@ export function DefaultTagsEditor() {
         </button>
       </div>
       <p className="mt-2 text-[11px] text-muted-foreground">
-        Les espaces sont normalisés en _. Si un tag existe déjà en base, sa catégorie d'origine est conservée. Ces tags sont
-        ajoutés à tous les fichiers de l'import, y compris ceux déjà présents dans la bibliothèque.
+        Les espaces sont normalisés en _. Un tag qui n'existe pas encore ouvre la fenêtre de création, pour choisir sa
+        catégorie. Ces tags sont ajoutés à tous les fichiers de l'import, y compris ceux déjà présents dans la bibliothèque.
       </p>
       {tags.length > 0 && (
         <div data-zone="import.tags-defaut.badges" className="mt-3 flex flex-wrap gap-1.5">
@@ -95,6 +103,18 @@ export function DefaultTagsEditor() {
           ))}
         </div>
       )}
+      <CreateTagDialog
+        name={toCreate}
+        onCancel={() => setToCreate(null)}
+        onCreate={(categoryId, name) => {
+          setToCreate(null);
+          addDefaultTag({ name, categoryId });
+        }}
+        onRestored={(name) => {
+          setToCreate(null);
+          void addRestored(name);
+        }}
+      />
     </section>
   );
 }

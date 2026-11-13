@@ -2019,6 +2019,9 @@ outils de test vivaient dans un dossier temporaire qui change à chaque session,
   sans fin) laissait une bande vide à droite sans barre. Retiré ; la grille calcule sa largeur barre toujours déduite
   (mesurée une fois sur un élément caché), donc identique avec ou sans barre : la boucle ne peut pas revenir. Les autres
   éléments qui mesurent leur largeur (en-tête, ligne de recherche, pagination) ne changent pas de hauteur avec elle.
+  Complément du lot R2 (13/11, v132) : le CONTENU de l'en-tête suit la même règle (marge à droite de la largeur de la
+  barre quand elle est absente, `missingScrollbar`) ; seul son fond va jusqu'au bord. Bouton Importer, compteurs et
+  logo ne bougent donc plus quand la barre apparaît ou disparaît.
 - TAGM-23 (complète D-069) : une erreur dans un paquet ne fait plus abandonner le premier tag de la file. Base occupée
   (`SQLITE_BUSY` / `LOCKED` au-delà de 5 s) : nouvel essai après 1 s, 30 fois ; autre erreur : 400 travaux un par un,
   seul celui qui échoue seul est retiré de la file. Journal `erreurs.txt` dans le dossier de données (la version

@@ -22,8 +22,9 @@ export function scrollbarWidth(): number {
   return barWidth;
 }
 
-/** Largeur de la zone qui défile, barre de défilement toujours déduite (GEN-28) : la même que la barre soit affichée ou
- *  non. Ce qui se calcule d'après elle (la grille) ne change donc pas quand la barre apparaît ou disparaît (sinon, une
+/** Largeur de la barre de défilement quand elle n'est pas affichée, 0 quand elle l'est (GEN-28) : déduite de la largeur
+ *  de la zone, celle-ci est la même que la barre soit affichée ou non. Ce qui se calcule d'après elle (la grille ; le
+ *  contenu de l'en-tête, qui garde ainsi sa place) ne change donc pas quand la barre apparaît ou disparaît (sinon, une
  *  page « juste à la limite » faisait apparaître puis disparaître la barre sans fin, bogue mesuré le 11/10/2026). */
 export function missingScrollbar(): number {
   const area = scroller();

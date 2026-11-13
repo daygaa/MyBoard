@@ -68,6 +68,7 @@ export function useNoteEditor(saved: string, onSave: (value: string) => void) {
   save.current = onSave;
   const panelRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const text = draft ?? saved;
 
   const flush = () => {
@@ -106,6 +107,13 @@ export function useNoteEditor(saved: string, onSave: (value: string) => void) {
     setOpen(true);
     setEditing(!saved);
   };
+  /** Zone ouverte en écriture, curseur dans le texte (raccourci N de la visionneuse, VIEW-58) : la zone de texte qui
+   *  apparaît prend le focus d'elle-même ; déjà là, elle le reprend. */
+  const write = () => {
+    setOpen(true);
+    if (!editing) setEditing(true);
+    else textareaRef.current?.focus();
+  };
   const type = (value: string) => {
     setDraft(value);
     pending.current = value;
@@ -113,7 +121,7 @@ export function useNoteEditor(saved: string, onSave: (value: string) => void) {
     timer.current = setTimeout(flush, SAVE_DELAY);
   };
 
-  return { open, editing, setEditing, text, saved, confirming, setConfirming, panelRef, buttonRef, flush, close, erase, toggle, type };
+  return { open, editing, setEditing, text, saved, confirming, setConfirming, panelRef, buttonRef, textareaRef, flush, close, erase, toggle, write, type };
 }
 
 export type NoteEditor = ReturnType<typeof useNoteEditor>;
@@ -154,6 +162,7 @@ export function NotePanel({ editor, texts, zone, className, style }: PanelProps)
         </div>
         {editing ? (
           <textarea
+            ref={editor.textareaRef}
             autoFocus
             value={text}
             onChange={(e) => editor.type(e.target.value)}

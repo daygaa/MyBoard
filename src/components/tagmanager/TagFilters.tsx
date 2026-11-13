@@ -2,14 +2,17 @@
 // « x / N tags ». Au bout du champ du nom, une croix efface le texte tapé (retour T3, point TAGM-04.11) ;
 // toujours affichée, grisée (sans bulle) quand le champ est vide ; le curseur reste dans le champ. Le
 // compteur garde la largeur du total : il ne rétrécit pas quand x baisse, et les filtres ne bougent pas
-// (retour T3, point TAGM-04.12).
+// (retour T3, point TAGM-04.12). « Rares » montre son seuil (« Rares ≤ 2 ») ; un clic droit ou la petite flèche
+// ouvre le choix de 1 à 5 médias, qui active le filtre (TAGM-25, réponse Q2 A du 13/11).
 
 import { useRef } from "react";
-import { Search, X } from "lucide-react";
+import { ChevronDown, Search, X } from "lucide-react";
 
 import { CategorySelect } from "@/components/tags/CategorySelect";
+import { openContextMenu, openMenuAt, type MenuEntry } from "@/lib/contextMenu";
 import { formatNumber, plural } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { RARE_CHOICES, useRareMax } from "@/stores/rareMax";
 import type { Filters } from "./useTagList";
 
 /** Bouton d'un choix à segments (« Masqués | Rares », « Strict | Large » des tags proches). */
@@ -27,6 +30,18 @@ type Props = {
 export function TagFilters({ filters, setFilters, shown, total }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const toggle = (key: "hidden" | "rare") => setFilters((f) => ({ ...f, [key]: !f[key] }));
+  const rareMax = useRareMax((s) => s.max);
+  const rareOn = filters.rare;
+  const rareMenu = (): MenuEntry[] =>
+    RARE_CHOICES.map((n) => ({
+      label: `≤ ${n} ${plural(n, "média")}`,
+      checked: n === rareMax,
+      run: () => {
+        useRareMax.getState().setMax(n);
+        setFilters((f) => ({ ...f, rare: true }));
+      },
+    }));
+  const rareTitle = rareMax === 1 ? "Seulement les tags portés par un seul média" : `Seulement les tags portés par 1 à ${rareMax} médias`;
   return (
     <div data-zone="gestionnaire-tags.filtres" className="mb-3 flex flex-wrap items-center gap-2">
       <div className="relative min-w-60 flex-1">
@@ -65,19 +80,45 @@ export function TagFilters({ filters, setFilters, shown, total }: Props) {
         className="h-8 w-48 text-xs"
       />
       <div className="flex items-center gap-0.5 rounded-lg border border-border bg-card/60 p-0.5">
-        {(["hidden", "rare"] as const).map((key) => (
+        <button
+          type="button"
+          data-zone="gestionnaire-tags.filtre-masques"
+          aria-pressed={filters.hidden}
+          onClick={() => toggle("hidden")}
+          title="Seulement les tags masqués de la recherche"
+          className={segment(filters.hidden)}
+        >
+          Masqués
+        </button>
+        {/* Bouton et petite flèche dans un même segment, colorés ensemble quand le filtre est actif. */}
+        <div
+          onContextMenu={(e) => openContextMenu(e, rareMenu)}
+          className={cn("flex items-center rounded-md text-xs font-medium transition", rareOn ? "bg-[#d9a94e]/15 text-[#d9a94e]" : "text-muted-foreground")}
+        >
           <button
-            key={key}
             type="button"
-            data-zone={`gestionnaire-tags.filtre-${key === "hidden" ? "masques" : "rares"}`}
-            aria-pressed={filters[key]}
-            onClick={() => toggle(key)}
-            title={key === "hidden" ? "Seulement les tags masqués de la recherche" : "Seulement les tags portés par un seul média"}
-            className={segment(filters[key])}
+            data-zone="gestionnaire-tags.filtre-rares"
+            aria-pressed={rareOn}
+            onClick={() => toggle("rare")}
+            title={`${rareTitle} (clic droit : changer le seuil)`}
+            className={cn("py-1 pr-1 pl-2.5 tabular-nums transition", !rareOn && "hover:text-foreground")}
           >
-            {key === "hidden" ? "Masqués" : "Rares"}
+            Rares ≤ {rareMax}
           </button>
-        ))}
+          <button
+            type="button"
+            data-zone="gestionnaire-tags.filtre-rares.seuil"
+            onClick={(e) => {
+              const r = e.currentTarget.getBoundingClientRect();
+              openMenuAt(r.left, r.bottom + 4, rareMenu(), e.detail === 0, { anchor: e.currentTarget });
+            }}
+            aria-label="Seuil du filtre Rares"
+            title="Changer le seuil : 1 à 5 médias"
+            className={cn("grid place-items-center self-stretch rounded-md pr-1.5 pl-0.5 transition", rareOn ? "hover:text-[#e3b75f]" : "hover:text-foreground")}
+          >
+            <ChevronDown className="h-3 w-3" />
+          </button>
+        </div>
       </div>
       <span data-zone="gestionnaire-tags.filtres.compteur" className="ml-auto text-xs text-muted-foreground tabular-nums">
         {/* Même case que le total, invisible : la place du plus grand nombre possible reste prise. */}

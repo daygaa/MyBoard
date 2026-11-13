@@ -3,15 +3,19 @@
 // note. Il ouvre une petite zone de texte enregistrée automatiquement pendant la frappe, partagée
 // avec la description des tags (components/notes/NoteEditor.tsx : liens cliquables, Entrée, Échap,
 // clic en dehors, menus CTX-09 / CTX-10, poubelle « Effacer la note » VIEW-45). Échap ferme la note,
-// puis la visionneuse.
+// puis la visionneuse. Touche N (VIEW-58) : note ouverte en écriture, curseur dans le texte.
 
-import { useContext } from "react";
+import { useContext, useEffect, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { StickyNote } from "lucide-react";
 
-import { NotePanel, useNoteEditor, type NoteTexts } from "@/components/notes/NoteEditor";
+import { NotePanel, useNoteEditor, type NoteEditor, type NoteTexts } from "@/components/notes/NoteEditor";
 import { api, type MediaDetail } from "@/lib/api";
+import { hasModalLayer } from "@/lib/escape";
+import { NOTE_SHORTCUTS } from "@/lib/shortcuts";
 import { cn } from "@/lib/utils";
+import { useViewer } from "@/stores/viewer";
+import { isTyping } from "./navigation";
 import { idleClass, ViewerChrome } from "./viewerChrome";
 
 const TEXTS: NoteTexts = {
@@ -20,6 +24,24 @@ const TEXTS: NoteTexts = {
   erase: "Effacer la note",
   confirm: { title: "Effacer la note ?", message: "La note de ce média sera supprimée.", danger: true },
 };
+
+/** Touche N (VIEW-58). Comme les autres touches de la visionneuse : pas pendant une saisie (« n » s'écrit alors), ni
+ *  avec une pop-in ouverte, ni pendant un défilement rapide (la note serait celle du média d'avant, burst.ts). */
+function useNoteShortcut(editor: NoteEditor) {
+  const live = useRef(editor);
+  live.current = editor;
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key.toLowerCase() !== NOTE_SHORTCUTS.write.key || e.ctrlKey || e.altKey || e.metaKey) return;
+      if (isTyping(e.target) || hasModalLayer() || useViewer.getState().burst) return;
+      // Sans cela, la lettre s'écrirait dans la zone de texte qui reçoit le focus.
+      e.preventDefault();
+      live.current.write();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+}
 
 export function NotesButton({ mediaId }: { mediaId: number }) {
   const queryClient = useQueryClient();
@@ -30,6 +52,8 @@ export function NotesButton({ mediaId }: { mediaId: number }) {
     queryClient.setQueryData<MediaDetail | null>(["media-detail", mediaId], (d) => d && { ...d, notes: value.trim() ? value : null });
     void api.setMediaNotes(mediaId, value);
   });
+  useNoteShortcut(editor);
+  const key = NOTE_SHORTCUTS.write.label;
 
   return (
     <>
@@ -39,7 +63,7 @@ export function NotesButton({ mediaId }: { mediaId: number }) {
         data-zone="visionneuse.note"
         onClick={editor.toggle}
         aria-label={editor.open ? "Fermer la note" : "Note"}
-        title={saved ? "Note de ce média" : "Ajouter une note"}
+        title={saved ? `Note de ce média (${key})` : `Ajouter une note (${key})`}
         className={cn(
           "absolute top-4 left-4 z-20 grid h-10 w-10 place-items-center rounded-full bg-black/60 transition hover:bg-black/85",
           editor.open || saved ? "text-[#d9a94e]" : "text-white",

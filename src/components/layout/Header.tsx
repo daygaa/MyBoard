@@ -10,36 +10,36 @@ import { Button } from "@/components/ui/button";
 import { useStats } from "@/hooks/useLibraryData";
 import { formatCount } from "@/lib/format";
 import { navigate } from "@/lib/router";
-import { scroller } from "@/lib/scroller";
+import { missingScrollbar, scroller, scrollbarWidth } from "@/lib/scroller";
 import { goHome } from "@/stores/search";
 import { useUI } from "@/stores/ui";
 import { ImportBadge } from "./ImportBadge";
 
-/** Largeur de la barre de défilement affichée (0 sans barre : plus rien n'est réservé, GEN-28) : l'en-tête s'arrête
- *  avant elle, le logo doit donc être décalé de la moitié pour être au centre de la FENÊTRE (NAV-01). */
-function useScrollbarGutter(): number {
-  const [gutter, setGutter] = useState(0);
+/** Largeur de la barre de défilement quand elle n'est PAS affichée (0 quand elle l'est ; GEN-28, lot R2) : l'en-tête
+ *  va alors jusqu'au bord de la fenêtre, son fond aussi, mais son contenu garde cette marge à droite. Bouton Importer
+ *  et compteurs restent ainsi à la même place, barre de défilement affichée ou non. */
+function useMissingScrollbar(): number {
+  const [missing, setMissing] = useState(0);
   useEffect(() => {
-    // Zone qui défile sous la barre de titre (NAV-04) : sa largeur totale moins sa largeur
-    // utile = la largeur de la barre, quand elle est affichée.
+    // Zone qui défile sous la barre de titre (NAV-04) : elle change de largeur utile quand la barre apparaît.
     const area = scroller();
-    const measure = () => setGutter(area.offsetWidth - area.clientWidth);
+    const measure = () => setMissing(missingScrollbar());
     measure();
     const observer = new ResizeObserver(measure);
     observer.observe(area);
     return () => observer.disconnect();
   }, []);
-  return gutter;
+  return missing;
 }
 
 export function Header() {
-  const gutter = useScrollbarGutter();
+  const missing = useMissingScrollbar();
   const burgerOpen = useUI((s) => s.burgerOpen);
   const toggleBurger = useUI((s) => s.toggleBurger);
   const { data: stats } = useStats();
 
   return (
-    <header data-zone="entete" className="sticky top-0 z-40 border-b border-border bg-background">
+    <header data-zone="entete" className="sticky top-0 z-40 border-b border-border bg-background" style={{ paddingRight: missing }}>
       {/* Trois colonnes : les deux côtés ont la même largeur, le logo est donc au centre exact. */}
       <div className="grid min-h-14 grid-cols-[1fr_auto_1fr] items-center gap-3 px-3 sm:gap-4 sm:px-4 lg:px-6">
         <div className="flex items-center">
@@ -61,7 +61,9 @@ export function Header() {
           data-zone="entete.logo"
           onClick={goHome}
           className="flex items-center gap-2.5"
-          style={{ transform: `translateX(${gutter / 2}px)` }}
+          // Le contenu de l'en-tête s'arrête toujours à la place de la barre : décalé de sa moitié, le logo est au centre
+          // de la FENÊTRE (NAV-01).
+          style={{ transform: `translateX(${scrollbarWidth() / 2}px)` }}
           aria-label="MyBoard — accueil"
         >
           <span className="grid h-7 w-7 place-items-center rounded-full bg-gradient-to-br from-[#e3b75f] to-[#b88838] shadow-sm ring-2 ring-[#d9a94e]/40">
