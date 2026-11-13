@@ -2006,7 +2006,8 @@ outils de test vivaient dans un dossier temporaire qui change à chaque session,
   `backup.ps1`), noms fixes ; anciens suivis dans `new V2\Archives\phase-N\<type>_<sujet>`.
 - Outils de test dans un dossier fixe et visible (`new V2\Outils de test`), inventoriés avec les données d'essai.
 - Compacter tôt : seuil 250 000 jetons (200 000 si de grosses retouches sont attendues, 350 000 s'il n'en reste que
-  de petites), mesuré par un crochet de Claude Code qui lit le journal de la session ; filet automatique à 45 %.
+  de petites), mesuré par un crochet de Claude Code qui lit le journal de la session. Pas de compactage automatique avancé (essayé à 45 %, retiré le 13/11 à la demande de l'utilisateur :
+  il préfère dépasser le seuil et faire une passation propre plutôt qu'un compactage au milieu d'une tâche).
   Un compactage coûte à peu près une relecture complète : il est remboursé en 5 à 10 appels.
 - Travail lourd en tokens délégué : `test-runner` (compilations, Sonnet, effort bas) et `ui-tester` (essais
   d'interface, même modèle que la session, captures et journaux gardés chez lui). Pas d'agent Explore maison : celui
