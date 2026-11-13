@@ -42,6 +42,10 @@ fn ffmpeg_missing() -> OpenFailure {
 /// Image telle qu'affichée (orientation de l'appareil photo appliquée). Formats que Rust ne lit
 /// pas (HEIC…) : convertie par ffmpeg, comme dans la visionneuse.
 fn load(state: &AppState, path: &Path) -> Result<DynamicImage, OpenFailure> {
+    // HEIF / HEIC, DNG : ffmpeg récent ou décodeur de Windows (IMP-80, IMP-82).
+    if crate::photos::is_photo(path) {
+        return crate::photos::open(state.thumbs.ffmpeg(), path).map_err(failure);
+    }
     let bytes = std::fs::read(path)?;
     if let Ok(image) = thumbs::decode(&bytes) {
         return Ok(image);

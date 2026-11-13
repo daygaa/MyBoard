@@ -141,7 +141,8 @@ export function SelectionBar() {
         pills={adder}
         pillKey={(chip) => chip.name}
         resolve={resolveAdd}
-        toItem={(tag) => ({ name: tag.name, categoryId: tag.categoryId })}
+        // Nom fusionné choisi (« bagnole → voiture ») : envoyé tel quel, comme tapé, pour que la défusion le rende (TAGM-26).
+        toItem={(tag) => ({ name: tag.alias ?? tag.name, categoryId: tag.categoryId })}
         toClip={(chip) => chip}
         fromClip={(c) => c}
         taken={(tag) => (common.includes(tag.name) ? "Ce tag appartient déjà à tous les médias sélectionnés" : null)}

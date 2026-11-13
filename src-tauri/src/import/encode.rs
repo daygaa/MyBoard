@@ -11,9 +11,9 @@ use image::{DynamicImage, ImageReader};
 use super::plan::Action;
 
 /// Contenu réencodé ; `None` : image à ne jamais traiter (GIF ou WebP animé : l'animation serait perdue).
-pub fn reencode(bytes: &[u8], action: Action) -> anyhow::Result<Option<Vec<u8>>> {
+pub fn reencode(path: &std::path::Path, bytes: &[u8], action: Action) -> anyhow::Result<Option<Vec<u8>>> {
     let quality = match action {
-        Action::Convert { target, quality, compressed } => return super::convert::convert(bytes, target, quality, compressed),
+        Action::Convert { target, quality, compressed } => return super::convert::convert(path, bytes, target, quality, compressed),
         Action::Compress(quality) => quality,
         Action::Video(_) => anyhow::bail!("vidéo : traitée par ffmpeg"),
     };
@@ -23,11 +23,16 @@ pub fn reencode(bytes: &[u8], action: Action) -> anyhow::Result<Option<Vec<u8>>>
     if bytes.len() > 12 && &bytes[..4] == b"RIFF" && &bytes[8..12] == b"WEBP" {
         return webp(bytes, quality);
     }
+    // AVIF compressé en AVIF (réponse Q7 B du 13/11, IMP-85) : relu par ffmpeg, réécrit comme une conversion.
+    if super::convert::is_avif(bytes) {
+        let Some(source) = super::convert::read_any(path, bytes)? else { return Ok(None) };
+        return super::convert::avif(source, quality).map(Some);
+    }
     if bytes.starts_with(b"\x89PNG") {
         let Some(source) = super::convert::read(bytes)? else { return Ok(None) };
         return super::png_out::encode(source.img, &source.meta, Some(quality)).map(Some);
     }
-    bail!("contenu ni JPEG, ni WebP, ni PNG")
+    bail!("contenu ni JPEG, ni WebP, ni PNG, ni AVIF")
 }
 
 /// WebP animé (drapeau « animation » de l'en-tête VP8X).

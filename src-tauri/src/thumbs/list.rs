@@ -19,6 +19,8 @@ fn source(path: &Path, side: u32) -> anyhow::Result<DynamicImage> {
     let ext = formats::extension(path).unwrap_or_default();
     let ff = crate::ffmpeg::shared();
     match formats::kind_of_ext(&ext) {
+        // HEIF / HEIC, DNG : ffmpeg récent ou décodeur de Windows (IMP-80, IMP-82).
+        Some(Kind::Image) if crate::photos::is_photo(path) => crate::photos::open(ff, path),
         Some(Kind::Image) => open_image(path).or_else(|e| match ff {
             Some(ff) => video::list_frame(ff, path, false, side),
             None => Err(e),

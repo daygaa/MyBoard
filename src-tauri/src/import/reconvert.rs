@@ -84,7 +84,7 @@ fn convert(app: &AppHandle, id: i64, target: VideoTarget, quality: u8, delete_or
         }
     };
     let hooks = Hooks { cancel: &CANCEL, progress: &report, gate: None };
-    let request = VideoRequest { quality: (quality < 4).then_some(quality), convert: Some(target), playable: true };
+    let request = VideoRequest { quality: (quality < 4).then_some(quality), convert: Some(target), fallback: None, playable: true };
     let (new_path, new_hash, size, ext, lost) = match video::process(&conn, &path, &meta, request, &hooks)? {
         Done::Cancelled => return Ok(None),
         Done::Kept(_) => bail!("rien à convertir : cette vidéo est déjà dans ce format"),

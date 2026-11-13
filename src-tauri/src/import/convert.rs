@@ -23,14 +23,49 @@ pub struct Source {
 }
 
 /// Contenu converti ; `None` : image animée (jamais convertie).
-pub fn convert(bytes: &[u8], target: Target, quality: u8, compressed: bool) -> anyhow::Result<Option<Vec<u8>>> {
-    let Some(source) = read(bytes)? else { return Ok(None) };
+pub fn convert(path: &Path, bytes: &[u8], target: Target, quality: u8, compressed: bool) -> anyhow::Result<Option<Vec<u8>>> {
+    let Some(source) = read_any(path, bytes)? else { return Ok(None) };
     Ok(Some(match target {
         Target::Jpg | Target::Jfif => jpeg(source, quality)?,
         Target::Png => png_out::encode(source.img, &source.meta, compressed.then_some(quality))?,
         Target::Webp => webp(source, quality),
         Target::Avif => avif(source, quality)?,
     }))
+}
+
+/// AVIF (marque « avif » ou « avis » de la boîte ftyp).
+pub fn is_avif(bytes: &[u8]) -> bool {
+    matches!(bytes.get(4..12), Some(b"ftypavif" | b"ftypavis"))
+}
+
+/// Comme `read`, plus les formats que Rust ne lit pas (IMP-85) : HEIF / HEIC et DNG par `photos.rs` (EXIF du HEIF
+/// recopié ; celui du DNG non), AVIF par ffmpeg (transparence comprise).
+pub fn read_any(path: &Path, bytes: &[u8]) -> anyhow::Result<Option<Source>> {
+    let ff = crate::ffmpeg::shared();
+    if crate::photos::is_photo(path) {
+        let exif = if is_dng(path) { None } else { super::avif_meta::exif_of(bytes).map(upright) };
+        return Ok(Some(Source { img: crate::photos::open(ff, path)?, meta: Meta { icc: None, exif } }));
+    }
+    if is_avif(bytes) {
+        let ff = ff.context("ffmpeg introuvable : AVIF illisible")?;
+        let img = crate::thumbs::decode(&crate::thumbs::still_png(ff, path)?)?;
+        return Ok(Some(Source { img, meta: Meta { icc: None, exif: super::avif_meta::exif_of(bytes).map(upright) } }));
+    }
+    // Contenu que Rust ne sait pas lire (certains TIFF…) : relu par ffmpeg, comme pour les miniatures (essai du 13/11).
+    match read(bytes) {
+        Err(e) => match ff {
+            Some(ff) => {
+                let png = crate::thumbs::still_png(ff, path).map_err(|_| e)?;
+                Ok(Some(Source { img: crate::thumbs::decode(&png)?, meta: Meta { icc: None, exif: None } }))
+            }
+            None => Err(e),
+        },
+        found => found,
+    }
+}
+
+fn is_dng(path: &Path) -> bool {
+    path.extension().is_some_and(|e| e.eq_ignore_ascii_case("dng"))
 }
 
 /// Décode avec les informations de la photo ; `None` : GIF ou WebP animé.
@@ -128,7 +163,7 @@ fn webp(source: Source, quality: u8) -> Vec<u8> {
 /// AVIF par ffmpeg (libaom), image fixe ; transparence dans un second flux. Qualité 90 → crf 18, 50 → 38. Le flux de
 /// la transparence reçoit un espace de couleurs ordinaire : celui de l'image RVB d'entrée (« identité ») lui est
 /// interdit par libaom, qui refusait toute image transparente (défaut du lot 4, corrigé le 10/11).
-fn avif(source: Source, quality: u8) -> anyhow::Result<Vec<u8>> {
+pub fn avif(source: Source, quality: u8) -> anyhow::Result<Vec<u8>> {
     static NEXT: AtomicU64 = AtomicU64::new(0);
     let ff = crate::ffmpeg::shared().context("ffmpeg introuvable : AVIF impossible")?;
     let img = &source.img;

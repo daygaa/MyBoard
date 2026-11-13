@@ -96,7 +96,21 @@ pub fn plan(probe: &Probe, ext: &str, request: VideoRequest) -> Result<Job, Opti
     let notch = request.quality.ok_or(None)?;
     match (source, container_of(ext)) {
         (Some(codec), Some(out)) => Ok(Job::Encode { codec, out, notch, compressed: true, converted: false }),
-        _ => Err(Some(Squeeze::Unsupported)),
+        // Réponse « Oui » de la pop-in d'IMP-85 : convertie (et compressée) dans le format choisi.
+        _ => match request.fallback {
+            Some(target) => plan(probe, ext, VideoRequest { convert: Some(target), fallback: None, ..request }),
+            None => Err(Some(Squeeze::Unsupported)),
+        },
+    }
+}
+
+/// Vidéo que « Compresser les vidéos » seule laisserait telle quelle (pop-in d'IMP-85) ; `None` : pas de vidéo à traiter.
+pub fn uncompressible(probe: &Probe, ext: &str) -> Option<bool> {
+    let request = VideoRequest { quality: Some(HIGH), convert: None, fallback: None, playable: false };
+    match plan(probe, ext, request) {
+        Ok(_) => Some(false),
+        Err(Some(Squeeze::Unsupported)) => Some(true),
+        Err(_) => None,
     }
 }
 

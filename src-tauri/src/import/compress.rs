@@ -52,7 +52,7 @@ pub fn animated(path: &Path) -> bool {
 /// Réencode le fichier ; `Ok(None)` : pas au moins 5 % plus léger, ou image animée (`animated`).
 pub fn encode(path: &Path, action: Action, animated: &mut bool) -> anyhow::Result<Option<Encoded>> {
     let original = std::fs::read(path)?;
-    let Some(bytes) = super::encode::reencode(&original, action)? else {
+    let Some(bytes) = super::encode::reencode(path, &original, action)? else {
         *animated = true;
         return Ok(None);
     };

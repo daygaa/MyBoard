@@ -29,7 +29,7 @@ use crate::ffmpeg::{self, Ffmpeg};
 
 pub use image::{THUMB_SIZE, Thumb, decode, thumbs_of};
 pub use list::{list_preview, list_preview_fit};
-pub use video::{frame_jpeg_at, frame_rate, full_image_jpeg};
+pub use video::{frame_jpeg_at, frame_rate, full_image_jpeg, photo_jpeg, still_png};
 
 /// Valeurs de `media.thumb_status`.
 pub mod status {
@@ -252,6 +252,8 @@ fn process(shared: &Shared, job: &Job) -> Option<ThumbUpdate> {
     let mut update = ThumbUpdate { id: job.id, status: status::ERROR, width: None, height: None, duration_ms: None };
 
     let made = match job.kind.as_str() {
+        // HEIF / HEIC, DNG : ffmpeg récent ou décodeur de Windows (IMP-80, IMP-82).
+        "image" if crate::photos::is_photo(&job.path) => crate::photos::open(ff, &job.path).and_then(image::thumbs_of).map(|t| (t, None)),
         "image" => image::open_image(&job.path)
             .and_then(image::thumbs_of)
             .or_else(|e| match ff {
@@ -297,6 +299,7 @@ fn process(shared: &Shared, job: &Job) -> Option<ThumbUpdate> {
 /// service des aperçus.
 pub fn make_preview(ff: Option<&Ffmpeg>, kind: &str, path: &Path, side: u32) -> anyhow::Result<Vec<u8>> {
     match (kind, ff) {
+        ("image", ff) if crate::photos::is_photo(path) => crate::photos::open(ff, path).and_then(|img| image::preview_of(img, side)),
         ("image", ff) => image::open_image(path).and_then(|img| image::preview_of(img, side)).or_else(|e| match ff {
             Some(ff) => video::image_preview(ff, path, side),
             None => Err(e),

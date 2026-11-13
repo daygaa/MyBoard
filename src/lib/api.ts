@@ -289,7 +289,14 @@ export type ImportOptions = {
   /** Cran de « Compresser les vidéos » (IMP-69, 0 Minimale … 4 Maximale). */
   videoQuality: number | null;
   convertVideosTo: VideoTarget | null;
+  /** Réponses « Oui » de la pop-in des fichiers qu'on ne peut pas compresser (IMP-85) : format choisi, `null` pour « Non ». */
+  convertUncompressible: ImageTarget | null;
+  convertUncompressibleVideos: VideoTarget | null;
 };
+
+/** Fichiers de la liste que la compression laisserait tels quels (pop-in d'IMP-85) : extensions sans le point ;
+ *  `videosLeft` : vidéos pas encore lues par la lecture anticipée (la pop-in attend). */
+export type Uncompressible = { images: string[]; videos: string[]; videosLeft: number; videosTotal: number };
 
 /** Photo complète de l'état de l'import (événement `import-state`). */
 export type ImportSnapshot = {
@@ -318,6 +325,11 @@ export const api = {
   /** Médias de la liste déjà dans la bibliothèque au même endroit, jamais traités, par type (pop-in IMP-60). */
   countCompressibleExisting: (o: Pick<ImportOptions, "compressQuality" | "convertTo" | "videoQuality" | "convertVideosTo" | "pairs" | "deletePairFiles">) =>
     invoke<KindCounts>("count_compressible_existing", o),
+  /** Pop-in d'IMP-85 : images et vidéos de la liste que la compression laisserait telles quelles. */
+  uncompressibleFiles: (o: Pick<ImportOptions, "compressQuality" | "convertTo" | "videoQuality" | "convertVideosTo" | "processExisting">) =>
+    invoke<Uncompressible>("uncompressible_files", o),
+  /** Lecture anticipée des vidéos de la liste (IMP-85) : seulement quand « Compresser les vidéos » seule est cochée. */
+  setVideoChecks: (on: boolean) => invoke<void>("set_video_checks", { on }),
   /** Paires originaux + versions compressées ou converties de la liste (pop-in IMP-64, IMP-68). */
   countPairs: () => invoke<PairCount>("count_pairs"),
   /** « Arrêter » (pause), « Reprendre », « Terminer ici », « Annuler l'import » (IMP-42, IMP-43), bilan fermé (IMP-45). */

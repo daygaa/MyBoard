@@ -33,8 +33,9 @@ const OPEN_CHUNK: u64 = 2 * 1024 * 1024;
 const MAX_CHUNK: u64 = 8 * 1024 * 1024;
 /// Au-delà, un fichier demandé sans « Range » est tout de même servi par morceaux.
 const WHOLE_FILE_MAX: u64 = 64 * 1024 * 1024;
-/// Formats d'image que WebView2 n'affiche pas : convertis par ffmpeg (D-016, point 8).
-const CONVERTED: [&str; 4] = ["tif", "tiff", "heic", "heif"];
+/// Formats d'image que WebView2 n'affiche pas : convertis par ffmpeg (D-016, point 8) ; HEIF / HEIC et DNG par
+/// `photos.rs` (IMP-80, IMP-82).
+const CONVERTED: [&str; 5] = ["tif", "tiff", "heic", "heif", "dng"];
 /// Dernières images converties gardées en mémoire (retour sur l'image précédente…).
 const CONVERTED_KEPT: usize = 4;
 
@@ -42,10 +43,14 @@ thread_local! {
     static READER: OnceCell<Option<Connection>> = const { OnceCell::new() };
 }
 
-static CONVERTED_CACHE: Mutex<VecDeque<(i64, Arc<Vec<u8>>)>> = Mutex::new(VecDeque::new());
+/// Gardées par numéro ET empreinte du média : un numéro libéré (média supprimé) peut être repris par un autre média
+/// importé ensuite, qui recevait alors l'image de l'ancien (IMP-82, point 3, 13/11).
+type Converted = ((i64, String), Arc<Vec<u8>>);
+static CONVERTED_CACHE: Mutex<VecDeque<Converted>> = Mutex::new(VecDeque::new());
 
 struct Target {
     id: i64,
+    hash: String,
     path: PathBuf,
     ext: String,
 }
@@ -75,7 +80,7 @@ pub fn handle(app: &AppHandle, request: Request<Vec<u8>>, responder: UriSchemeRe
 fn gif_target(root: &Path, gif: Target, rest: &str) -> Option<Target> {
     let hash = rest.split_once('/')?.1.split('.').next()?;
     let path = super::gif::cached_video(root, hash);
-    path.exists().then(|| Target { id: gif.id, path, ext: "mp4".into() })
+    path.exists().then(|| Target { id: gif.id, hash: gif.hash, path, ext: "mp4".into() })
 }
 
 /// `<id>/<hash>.<ext>` → le média correspondant, s'il existe avec cette empreinte.
@@ -91,7 +96,7 @@ fn lookup(db_path: &Path, name: &str) -> Option<Target> {
             .optional()
             .ok()
             .flatten()
-            .map(|(path, ext)| Target { id, path: PathBuf::from(path), ext })
+            .map(|(path, ext)| Target { id, hash: hash.to_owned(), path: PathBuf::from(path), ext })
     })
 }
 
@@ -171,12 +176,18 @@ fn read_part(path: &Path, range: Option<&str>) -> Result<Part, PartError> {
 
 /// Image convertie en JPEG pleine résolution, gardée en mémoire pour les retours en arrière.
 fn converted(target: &Target, ffmpeg: Option<&Ffmpeg>) -> Option<Arc<Vec<u8>>> {
-    if let Some((_, bytes)) = CONVERTED_CACHE.lock().unwrap().iter().find(|(id, _)| *id == target.id) {
+    let key = (target.id, target.hash.clone());
+    if let Some((_, bytes)) = CONVERTED_CACHE.lock().unwrap().iter().find(|(k, _)| *k == key) {
         return Some(bytes.clone());
     }
-    let bytes = Arc::new(thumbs::full_image_jpeg(ffmpeg?, &target.path).ok()?);
+    let jpeg = if crate::photos::is_photo(&target.path) {
+        crate::photos::full_jpeg(ffmpeg, &target.path)
+    } else {
+        thumbs::full_image_jpeg(ffmpeg?, &target.path)
+    };
+    let bytes = Arc::new(jpeg.ok()?);
     let mut cache = CONVERTED_CACHE.lock().unwrap();
-    cache.push_back((target.id, bytes.clone()));
+    cache.push_back((key, bytes.clone()));
     if cache.len() > CONVERTED_KEPT {
         cache.pop_front();
     }

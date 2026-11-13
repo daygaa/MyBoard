@@ -2032,3 +2032,26 @@ outils de test vivaient dans un dossier temporaire qui change à chaque session,
   (`SQLITE_BUSY` / `LOCKED` au-delà de 5 s) : nouvel essai après 1 s, 30 fois ; autre erreur : 400 travaux un par un,
   seul celui qui échoue seul est retiré de la file. Journal `erreurs.txt` dans le dossier de données (la version
   finale n'a pas de console).
+
+## D-074 — Photos HEIF / HEIC et DNG ; version minimale de ffmpeg ; fichiers qu'on ne peut pas compresser (lot R3, 13/11/2026)
+
+- IMP-80, IMP-82 (réponses Q2 A et Q5 A du 13/11) : module `photos.rs`. HEIF / HEIC lus par ffmpeg 8.1 ou plus SANS
+  `-map 0:v:0` (il assemble seul la grille de carreaux des photos d'iPhone et applique leur rotation ; avec `-map`, seul
+  le 1er carreau de 512 × 512), le décodeur de Windows (WIC, `Win32_Graphics_Imaging`) en secours ; DNG par WIC seul
+  (ffmpeg ne lit pas les DNG de l'iPhone), rotation de l'étiquette TIFF 274 appliquée par MyBoard (le décodeur DNG rend
+  l'image du capteur sans la tourner). Mesures du 13/11 (image entière + JPEG) : HEIF 0,27 à 0,39 s par ffmpeg, 0,49 à
+  1 s par Windows ; DNG 0,25 à 0,4 s par Windows. Interrupteur d'essai `MYBOARD_PHOTOS` (`ffmpeg` : Windows ignoré ;
+  `windows` : ffmpeg ignoré). Utilisé partout où une image est lue : miniatures, aperçus, liste avant l'import,
+  visionneuse (`media://`, converti en JPEG), copie, conversion. `dng` ajouté aux formats d'image.
+- IMP-82, point 3 : les images converties gardées en mémoire par la visionneuse sont rangées par numéro ET empreinte
+  du média : un numéro libéré par une suppression peut être repris par le média importé ensuite.
+- IMP-83 (réponse Q4 A) : `Ffmpeg.recent` = `libavformat` 62.12 ou plus (ffmpeg 8.1 ; les versions « N-… » sans numéro
+  l'affichent aussi) ; `complete` exige aussi `recent` : un ffmpeg du PC trop ancien passe après la copie fournie.
+- IMP-85 (réponse Q3 C et suivantes) : `Family::compressible` (JPEG, WebP, PNG, AVIF : réponse Q7 B) et
+  `Family::uncompressible` (BMP, TIFF, HEIF, DNG ; pas le GIF, laissé tel quel sans le dire). Options
+  `convert_uncompressible` / `convert_uncompressible_videos` = réponses « Oui » de la pop-in : conversion de secours,
+  compressée (nom « _c »). AVIF lu par ffmpeg (`still_png`, transparence fusionnée par `alphamerge`), compressé en AVIF.
+  EXIF des HEIF et AVIF recopié dans la version convertie (`avif_meta::exif_of`) ; celui des DNG non. Vidéos : lecture
+  anticipée (`import/video/checks.rs`) : un seul fil, une vidéo à la fois par ffprobe, seulement quand « Compresser les
+  vidéos » est cochée sans « Convertir les vidéos en » ; liste refaite à chaque changement (parcours, croix, « Tout
+  vider ») ; lectures réutilisées par l'import. Commande `uncompressible_files` (extensions citées par la pop-in).

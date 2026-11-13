@@ -1,17 +1,19 @@
 // Lancement de l'import au clic sur « Importer » : les pop-ins dans l'ordre choisi le 10/11 (réponse Q8), chacune
-// seulement si elle sert : paires originaux + versions (IMP-64), « Compresser aussi » (IMP-60), puis les deux
-// confirmations de « Supprimer les originaux » (IMP-28, comme DEL-04). Annuler l'une d'elles : rien ne démarre.
+// seulement si elle sert : paires originaux + versions (IMP-64), « Compresser aussi » (IMP-60), fichiers qu'on ne peut
+// pas compresser (IMP-85, précédée au besoin de « Vérification des vidéos… »), puis les deux confirmations de
+// « Supprimer les originaux » (IMP-28, comme DEL-04). Annuler l'une d'elles : rien ne démarre.
 
 import { useState, type ReactNode } from "react";
 
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { api, type ImportOptions, type PairChoice } from "@/lib/api";
+import { api, type ImportOptions, type PairChoice, type Uncompressible } from "@/lib/api";
 import { keepQuoted } from "@/lib/keepWords";
 import type { KindCounts } from "@/lib/mediaWords";
 import { useImport } from "@/stores/import";
 import { useViewer } from "@/stores/viewer";
 import { CompressExistingDialog } from "./CompressExistingDialog";
 import { PairsDialog } from "./PairsDialog";
+import { UncompressibleDialog, VideoCheckWait, type UncompressibleAnswer } from "./UncompressibleDialog";
 
 export function useImportStart() {
   const [dialog, setDialog] = useState<ReactNode>(null);
@@ -39,6 +41,8 @@ export function useImportStart() {
       deletePairFiles: false,
       videoQuality: s.compressVideos ? s.videoQuality : null,
       convertVideosTo: s.convertVideos ? s.videoTarget : null,
+      convertUncompressible: null,
+      convertUncompressibleVideos: null,
     };
     const processing =
       options.compressQuality !== null || options.convertTo !== null || options.videoQuality !== null || options.convertVideosTo !== null;
@@ -69,6 +73,24 @@ export function useImportStart() {
           ));
           if (answer === null) return;
           options.processExisting = answer;
+        }
+      }
+      if (options.compressQuality !== null || options.videoQuality !== null) {
+        let found = await api.uncompressibleFiles(options);
+        if (found.videosLeft > 0) {
+          const first = found;
+          const ready = await ask<Uncompressible>((done) => (
+            <VideoCheckWait options={options} first={first} onReady={done} onCancel={() => done(null)} />
+          ));
+          if (!ready) return;
+          found = ready;
+        }
+        if (found.images.length + found.videos.length > 0) {
+          const list = found;
+          const answer = await ask<UncompressibleAnswer>((done) => <UncompressibleDialog found={list} onAnswer={done} onCancel={() => done(null)} />);
+          if (!answer) return;
+          options.convertUncompressible = answer.images;
+          options.convertUncompressibleVideos = answer.videos;
         }
       }
       if (processing && s.deleteOriginals) {

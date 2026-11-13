@@ -54,6 +54,9 @@ pub enum VideoTarget {
 pub struct VideoRequest {
     pub quality: Option<u8>,
     pub convert: Option<VideoTarget>,
+    /// Réponse « Oui » de la pop-in des fichiers qu'on ne peut pas compresser (IMP-85) : une vidéo que « Compresser les
+    /// vidéos » laisserait telle quelle (ancien format, conteneur non pris en charge) est convertie dans ce format.
+    pub fallback: Option<VideoTarget>,
     /// Conversion d'une vidéo illisible depuis la visionneuse (VIEW-25) : le résultat doit être lu par MyBoard.
     pub playable: bool,
 }
@@ -68,6 +71,22 @@ enum Family {
     Bmp,
     Tiff,
     Avif,
+    /// HEIF / HEIC (IMP-82) et RAW DNG (IMP-80) : lus par `photos.rs`.
+    Heif,
+    Dng,
+}
+
+impl Family {
+    /// Compressée dans son format par « Compresser les images » (AVIF : réponse Q7 B du 13/11, IMP-85).
+    fn compressible(self) -> bool {
+        matches!(self, Family::Jpeg | Family::Webp | Family::Png | Family::Avif)
+    }
+
+    /// Ne peut pas être compressée dans son format : citée par la pop-in d'IMP-85, convertie si on y répond « Oui ».
+    /// Pas le GIF (réponse Q7 du 13/11 : laissé tel quel, sans le dire).
+    fn uncompressible(self) -> bool {
+        matches!(self, Family::Bmp | Family::Tiff | Family::Heif | Family::Dng)
+    }
 }
 
 fn family_of(ext: &str) -> Option<Family> {
@@ -78,7 +97,10 @@ fn family_of(ext: &str) -> Option<Family> {
         "gif" => Family::Gif,
         "bmp" => Family::Bmp,
         "tif" | "tiff" => Family::Tiff,
-        // AVIF, HEIC comme sources : pas encore (IMP-53, lot 12).
+        // Lues par ffmpeg (AVIF) ou `photos.rs` (HEIF, DNG) : IMP-82, IMP-85.
+        "avif" => Family::Avif,
+        "heic" | "heif" => Family::Heif,
+        "dng" => Family::Dng,
         _ => return None,
     })
 }
@@ -103,6 +125,8 @@ pub struct Process {
     /// Qualité si « Compresser les images » est cochée (20 à 95).
     pub quality: Option<u8>,
     pub convert: Option<Target>,
+    /// Réponse « Oui » de la pop-in d'IMP-85 : format des images que « Compresser les images » laisserait telles quelles.
+    pub fallback: Option<Target>,
     /// Réponse « Compresser aussi » / « Convertir aussi » de la pop-in : médias déjà dans la bibliothèque (IMP-60).
     pub existing: bool,
     pub video: VideoRequest,
@@ -126,8 +150,18 @@ impl Process {
                 quality: self.quality.unwrap_or(CONVERT_QUALITY),
                 compressed: self.quality.is_some(),
             }),
-            _ => self.quality.filter(|_| matches!(source, Family::Jpeg | Family::Webp | Family::Png)).map(Action::Compress),
+            _ => match self.quality {
+                Some(quality) if source.compressible() => Some(Action::Compress(quality)),
+                Some(quality) if source.uncompressible() => self.fallback.map(|target| Action::Convert { target, quality, compressed: true }),
+                _ => None,
+            },
         }
+    }
+
+    /// Image que « Compresser les images » laisserait telle quelle faute de savoir la compresser (pop-in d'IMP-85).
+    pub fn uncompressible_image(&self, ext: &str) -> bool {
+        let Some(source) = family_of(ext) else { return false };
+        self.quality.is_some() && source.uncompressible() && !self.convert.is_some_and(|t| t.family() != source)
     }
 }
 
@@ -163,6 +197,11 @@ pub struct ImportOptions {
     pub video_quality: Option<u8>,
     #[serde(default)]
     pub convert_videos_to: Option<VideoTarget>,
+    /// Réponses « Oui » de la pop-in d'IMP-85 (format choisi), `None` pour « Non » ou sans pop-in.
+    #[serde(default)]
+    pub convert_uncompressible: Option<Target>,
+    #[serde(default)]
+    pub convert_uncompressible_videos: Option<VideoTarget>,
 }
 
 impl ImportOptions {
@@ -173,10 +212,16 @@ impl ImportOptions {
 
     pub fn process(&self) -> Option<Process> {
         let quality = self.compress_quality.map(|q| q.clamp(20, 95));
-        let video = VideoRequest { quality: self.video_quality.map(|q| q.min(4)), convert: self.convert_videos_to, playable: false };
+        let video = VideoRequest {
+            quality: self.video_quality.map(|q| q.min(4)),
+            convert: self.convert_videos_to,
+            fallback: self.convert_uncompressible_videos,
+            playable: false,
+        };
         (quality.is_some() || self.convert_to.is_some() || video.quality.is_some() || video.convert.is_some()).then_some(Process {
             quality,
             convert: self.convert_to,
+            fallback: self.convert_uncompressible,
             existing: self.process_existing,
             video,
         })

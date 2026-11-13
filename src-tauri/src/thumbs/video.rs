@@ -83,6 +83,41 @@ pub fn full_image_jpeg(ff: &Ffmpeg, path: &Path) -> anyhow::Result<Vec<u8>> {
     Ok(output.stdout)
 }
 
+/// Photo HEIF / HEIC entière en JPEG haute qualité, SANS choisir de flux : ffmpeg 8.1 ou plus assemble alors seul la
+/// grille de carreaux des photos d'iPhone et applique leur rotation (IMP-82 ; avec `-map 0:v:0`, seul le 1er carreau
+/// de 512 × 512 ; un filtre `-vf` est alors refusé : la réduction se fait ensuite en Rust).
+pub fn photo_jpeg(ff: &Ffmpeg, path: &Path) -> anyhow::Result<Vec<u8>> {
+    let mut cmd = ffmpeg::command(&ff.ffmpeg);
+    cmd.args(["-hide_banner", "-loglevel", "error", "-nostdin", "-i"])
+        .arg(path)
+        .args(["-frames:v", "1", "-an", "-sn", "-dn"])
+        .args(["-f", "image2pipe", "-c:v", "mjpeg", "-q:v", "2", "-"]);
+    let output = run(cmd)?;
+    if output.stdout.is_empty() {
+        bail!("ffmpeg n'a produit aucune image");
+    }
+    Ok(output.stdout)
+}
+
+/// Image fixe entière en PNG (AVIF à convertir ou compresser, IMP-85), sans choisir de flux (grille assemblée) ; avec
+/// sa transparence quand l'AVIF en a une (second flux, fusionné ici ; essai sans elle sinon).
+pub fn still_png(ff: &Ffmpeg, path: &Path) -> anyhow::Result<Vec<u8>> {
+    let attempt = |alpha: bool| -> anyhow::Result<Vec<u8>> {
+        let mut cmd = ffmpeg::command(&ff.ffmpeg);
+        cmd.args(["-hide_banner", "-loglevel", "error", "-nostdin", "-i"]).arg(path);
+        if alpha {
+            cmd.args(["-filter_complex", "[0:v:0][0:v:1]alphamerge,format=rgba"]);
+        }
+        cmd.args(["-frames:v", "1", "-an", "-sn", "-dn", "-f", "image2pipe", "-c:v", "png", "-"]);
+        let output = run(cmd)?;
+        if output.stdout.is_empty() {
+            bail!("ffmpeg n'a produit aucune image");
+        }
+        Ok(output.stdout)
+    };
+    attempt(true).or_else(|_| attempt(false))
+}
+
 /// Image de la vidéo à `seconds`, pleine résolution (rotation appliquée), en JPEG haute qualité :
 /// capture enregistrée depuis le menu de la vidéo (CTX-07).
 pub fn frame_jpeg_at(ff: &Ffmpeg, path: &Path, seconds: f64) -> anyhow::Result<Vec<u8>> {

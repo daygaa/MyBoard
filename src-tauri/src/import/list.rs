@@ -50,6 +50,7 @@ pub fn remove_scan_file(state: State<'_, AppState>, path: String) {
             }
         }
     });
+    super::video::checks::changed();
 }
 
 /// « Tout vider » (IMP-51) : la page revient à son état de départ ; un parcours en cours s'arrête.
@@ -67,6 +68,7 @@ pub fn clear_scan(state: State<'_, AppState>) -> Result<(), String> {
         inner.snapshot =
             Snapshot { phase: Phase::Idle, sources: Vec::new(), recursive, scan: None, progress: None, result: None, paused: None, undoable: false };
     });
+    super::video::checks::changed();
     Ok(())
 }
 
@@ -113,8 +115,8 @@ pub async fn count_compressible_existing(
         let state = app.state::<AppState>();
         let (files, all): (Vec<(String, Kind)>, Vec<ScanFile>) = {
             let inner = state.import.inner.lock().unwrap();
-            let video = super::plan::VideoRequest { quality: video_quality, convert: convert_videos_to, playable: false };
-            let process = super::plan::Process { quality: compress_quality, convert: convert_to, existing: true, video };
+            let video = super::plan::VideoRequest { quality: video_quality, convert: convert_videos_to, fallback: None, playable: false };
+            let process = super::plan::Process { quality: compress_quality, convert: convert_to, fallback: None, existing: true, video };
             // Vidéos : comptées d'après leur extension ; celles déjà au bon format seront laissées telles quelles.
             let eligible = |f: &&ScanFile| process.action(f.kind, &f.ext).is_some();
             let files = inner.files.iter().filter(eligible).filter_map(|f| Some((f.path.to_str()?.to_owned(), f.kind))).collect();

@@ -6,6 +6,8 @@
 //! dans le dossier `ffmpeg` à côté de myboard.exe, enfin un ffmpeg du PC incomplet (mieux que rien : miniatures et
 //! lecture). Chaque candidat est validé en le lançant, une fois par lancement ; tout reste sur le PC (GEN-01).
 //! Interrupteur d'essai MYBOARD_SANS_FFMPEG : `1` = aucun ffmpeg, `pc` = celui du PC ignoré (copie fournie seule).
+//! Version minimale (IMP-83, réponse Q4 A du 13/11) : 8.1 ; un ffmpeg du PC plus ancien compte comme incomplet (la copie
+//! fournie passe avant lui).
 
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
@@ -15,6 +17,11 @@ use serde::Serialize;
 /// Encodeurs dont MyBoard se sert (vidéos IMP-22, IMP-69, AVIF IMP-21) ; les autres (aac, mjpeg, png, mov_text,
 /// webvtt) font partie de ffmpeg lui-même.
 const NEEDED: [&str; 6] = ["libx264", "libx265", "libaom-av1", "libvpx", "libvpx-vp9", "libopus"];
+
+/// Version minimale (IMP-83) : ffmpeg 8.1, le premier qui assemble seul la grille des photos HEIF (IMP-82, essai du
+/// 13/11 : 8.0.1 non, 8.1.3 oui). Comparée par sa bibliothèque libavformat (62.12 pour la 8.1), que les versions « de
+/// développement » sans numéro (« N-125875-g… ») affichent aussi.
+const MIN_LIBAVFORMAT: (u32, u32) = (62, 12);
 
 /// D'où vient le ffmpeg utilisé.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
@@ -34,8 +41,10 @@ pub struct Ffmpeg {
     pub ffprobe: PathBuf,
     pub version: String,
     pub source: Source,
-    /// Tous les encodeurs de `NEEDED` sont présents.
+    /// Tous les encodeurs de `NEEDED` sont présents, et la version est assez récente (IMP-83).
     pub complete: bool,
+    /// Version 8.1 ou plus (`MIN_LIBAVFORMAT`) : sait lire les photos HEIF en entier (IMP-82).
+    pub recent: bool,
 }
 
 /// État lu par la commande `ffmpeg_status` (vérifications).
@@ -182,7 +191,7 @@ fn validate(ffmpeg: &Path, source: Source) -> Option<Ffmpeg> {
     if !ffmpeg.is_file() {
         return None;
     }
-    let version = run_version(ffmpeg)?;
+    let (version, details) = run_version(ffmpeg)?;
     let probe_name = exe_name("ffprobe");
     let beside = ffmpeg.parent().map(|dir| dir.join(&probe_name)).filter(|p| p.is_file());
     let ffprobe = match source {
@@ -190,8 +199,9 @@ fn validate(ffmpeg: &Path, source: Source) -> Option<Ffmpeg> {
         Source::Essai | Source::Fourni => beside?,
     };
     run_version(&ffprobe)?;
-    let complete = has_encoders(ffmpeg);
-    Some(Ffmpeg { ffmpeg: ffmpeg.to_path_buf(), ffprobe, version, source, complete })
+    let recent = recent_enough(&details);
+    let complete = recent && has_encoders(ffmpeg);
+    Some(Ffmpeg { ffmpeg: ffmpeg.to_path_buf(), ffprobe, version, source, complete, recent })
 }
 
 /// Lignes de `-encoders` : « ␣V....D libx264  libx264 H.264… » (drapeaux, puis le nom).
@@ -204,8 +214,17 @@ fn has_encoders(ffmpeg: &Path) -> bool {
     NEEDED.iter().all(|needed| names.contains(needed))
 }
 
-/// Première ligne de `-version`, ex. « ffmpeg version 8.0.1-essentials_build… ».
-fn run_version(exe: &Path) -> Option<String> {
+/// libavformat d'au moins `MIN_LIBAVFORMAT`, d'après `-version` (« libavformat    62. 12.103 / 62. 12.103 »).
+fn recent_enough(details: &str) -> bool {
+    let found = details.lines().find_map(|line| line.trim().strip_prefix("libavformat")).and_then(|rest| {
+        let mut parts = rest.split('/').next()?.split('.').map(|p| p.trim().parse::<u32>().ok());
+        Some((parts.next()??, parts.next()??))
+    });
+    found.is_some_and(|v| v >= MIN_LIBAVFORMAT)
+}
+
+/// Numéro de version (première ligne de `-version`, ex. « ffmpeg version 8.0.1-essentials_build… ») et tout le texte.
+fn run_version(exe: &Path) -> Option<(String, String)> {
     let output = command(exe).arg("-version").stderr(Stdio::null()).output().ok()?;
     if !output.status.success() {
         return None;
@@ -213,5 +232,19 @@ fn run_version(exe: &Path) -> Option<String> {
     let text = String::from_utf8_lossy(&output.stdout);
     let first = text.lines().next()?.trim();
     let version = first.split_whitespace().nth(2).unwrap_or(first);
-    Some(version.to_string())
+    Some((version.to_string(), text.to_string()))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::recent_enough;
+
+    #[test]
+    fn version_minimale() {
+        assert!(recent_enough("ffmpeg version n8.1.3\nlibavutil      60. 26.100\nlibavformat    62. 12.103 / 62. 12.103"));
+        assert!(recent_enough("ffmpeg version N-125875-g5d4d3bdc61\nlibavformat    63.  0.100 / 63.  0.100"));
+        assert!(!recent_enough("ffmpeg version 8.0.1-essentials_build\nlibavformat    62.  3.100 / 62.  3.100"));
+        assert!(!recent_enough("ffmpeg version 7.1\nlibavformat    61.  7.100 / 61.  7.100"));
+        assert!(!recent_enough("ffmpeg version ?"));
+    }
 }

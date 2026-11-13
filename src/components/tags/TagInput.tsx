@@ -6,7 +6,8 @@
 // suggestions portent sur le mot en cours (SRCH-20) ; le nom choisi s'écrit dans le champ à la
 // place de ce mot, les boutons + / − l'ajoutent tout de suite à la recherche (SRCH-21).
 // `multi` (tags par défaut de l'import, IMP-79) : plusieurs tags séparés par des espaces, comme la recherche, sans
-// les boutons + / − ni le « - » d'exclusion.
+// les boutons + / − ni le « - » d'exclusion ; une suggestion de nom fusionné (« bagnole → voiture ») s'écrit sous son
+// propre nom, comme s'il était tapé : le cœur notera le média pour la défusion (D-047, retour du 13/11).
 // `source` : suggestions prises dans une liste donnée, dans le même ordre que l'autocomplétion.
 // Tags déjà là (SRCH-29) : grisés avec leur bulle (`taken`) ; dans la recherche, seulement les autres mots
 // déjà tapés dans le champ (choisir un tag de la recherche en cours prépare une nouvelle recherche, SRCH-24),
@@ -83,9 +84,11 @@ export function TagInput({
   const text = normalizeTag(typed);
 
   const suggestions = useTagSuggestions(text, source);
+  /** Nom écrit dans le champ pour une suggestion (`multi` : le nom fusionné lui-même, D-047). */
+  const written = (tag: TagInfo) => (multi ? (tag.alias ?? tag.name) : tag.name);
   // Recherche : les autres mots du champ comptent comme déjà là.
   const others = search ? parseTerms(value.slice(0, word.start) + " " + value.slice(word.end)).map((t) => splitTerm(t).name) : [];
-  const takenHere: Taken = (tag) => (others.includes(tag.name) ? IN_FIELD : (taken?.(tag) ?? null));
+  const takenHere: Taken = (tag) => (others.includes(tag.name) || others.includes(written(tag)) ? IN_FIELD : (taken?.(tag) ?? null));
   const open = focused && text.length > 0 && suggestions.length > 0;
   // Échap ferme d'abord les suggestions, sans fermer la visionneuse derrière ; les boutons 4 / 5 et
   // les flèches de la barre de titre les ignorent (NAV-07).
@@ -112,8 +115,8 @@ export function TagInput({
     // Le tag remplace le mot en cours, suivi d'un espace : la liste se ferme, on tape le tag
     // suivant ou Entrée pour lancer la recherche (SRCH-21, choix du 15/10). Au milieu du texte,
     // l'espace est ajouté quand même : ce qu'on tape ensuite forme un nouveau mot.
-    const written = `${negated ? "-" : ""}${tag.name} `;
-    rewrite(value.slice(0, word.start) + written + value.slice(word.end), word.start + written.length);
+    const inserted = `${negated ? "-" : ""}${written(tag)} `;
+    rewrite(value.slice(0, word.start) + inserted + value.slice(word.end), word.start + inserted.length);
   };
 
   /** + / − : le tag part dans la recherche ; le mot en cours est effacé, les autres restent. */

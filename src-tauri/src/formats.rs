@@ -23,7 +23,7 @@ impl Kind {
 }
 
 const IMAGES: &[&str] = &[
-    "jpg", "jpeg", "jpe", "jfif", "png", "gif", "webp", "bmp", "tif", "tiff", "avif", "heic", "heif",
+    "jpg", "jpeg", "jpe", "jfif", "png", "gif", "webp", "bmp", "tif", "tiff", "avif", "heic", "heif", "dng",
 ];
 const VIDEOS: &[&str] = &[
     "mp4", "m4v", "mov", "webm", "mkv", "avi", "wmv", "flv", "mpg", "mpeg", "ts", "m2ts", "mts",

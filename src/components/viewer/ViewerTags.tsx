@@ -42,7 +42,8 @@ export function TagAdder({ mediaId, kind }: { mediaId: number; kind: MediaKind }
         onSubmit={(raw) => void submit(raw)}
         onPick={(tag) => {
           setText("");
-          void add(mediaId, { name: tag.name, categoryId: null });
+          // Nom fusionné choisi (« bagnole → voiture ») : envoyé tel quel, comme tapé, pour que la défusion le rende (TAGM-26).
+          void add(mediaId, { name: tag.alias ?? tag.name, categoryId: null });
         }}
         dropdown="top"
         taken={(tag) => (detail?.tags.some((t) => t.name === tag.name) ? `Ce tag appartient déjà à ${THIS_MEDIA[kind]}` : null)}

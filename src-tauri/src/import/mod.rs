@@ -32,7 +32,7 @@ mod state;
 mod tally;
 pub mod undo;
 mod versions;
-mod video;
+pub mod video;
 
 use std::path::PathBuf;
 use std::sync::Mutex;
@@ -201,6 +201,7 @@ pub fn scan_paths(app: AppHandle, state: State<'_, AppState>, paths: Vec<String>
                     inner.snapshot.phase = Phase::Ready;
                     inner.snapshot.scan = Some(summary);
                 });
+                video::checks::changed();
             }
         })
         .map_err(|e| e.to_string())?;

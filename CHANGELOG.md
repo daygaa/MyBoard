@@ -3,6 +3,22 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Retouches R3 : nom fusionné choisi, photos HEIF et DNG, ffmpeg 8.1, fichiers qu'on ne peut pas compresser (13/11/2026) — Backup v135
+
+SPEC : IMP-79 `[~]`, nouvel ID TAGM-26 `[~]`, IMP-80 `[~]`, IMP-82 `[~]`, IMP-83 `[~]` (partie application), nouvel ID
+IMP-85 `[~]` ; IMP-53 reste `[~]` (photo HEIC à essayer par l'utilisateur). Décision D-074.
+
+- IMP-79, TAGM-26 : une suggestion de nom fusionné (« bagnole → voiture ») choisie dans les tags par défaut, la
+  visionneuse ou la barre de la sélection envoie ce nom, comme s'il était tapé : la défusion le rend au média (D-047 ;
+  `TagInput.tsx`, `ViewerTags.tsx`, `SelectionBar.tsx`).
+- IMP-80, IMP-82 : photos HEIF / HEIC lues en entier et tournées par ffmpeg 8.1 ou plus (Windows en secours), DNG
+  acceptés et lus par Windows, tournés par MyBoard (`photos.rs`, interrupteur d'essai `MYBOARD_PHOTOS`) ; la
+  visionneuse ne montre plus l'image d'un ancien média qui avait le même numéro (`media/protocol.rs`).
+- IMP-83 : ffmpeg du PC accepté seulement en 8.1 ou plus (`libavformat` 62.12), sinon la copie fournie (`ffmpeg.rs`).
+- IMP-85 : pop-in « Fichiers impossibles à compresser » (BMP, TIFF, HEIF, DNG ; anciennes vidéos) avec conversion au
+  choix ; AVIF compressé en AVIF ; EXIF des HEIF recopié ; vidéos lues à l'avance pendant que la liste est affichée
+  (`UncompressibleDialog.tsx`, `import/plan.rs`, `import/video/checks.rs`, `import/convert.rs`, `avif_meta.rs`).
+
 ## Retouches R2 (fin) : gestionnaire sans décalage, nom fusionné des tags par défaut (13/11/2026) — Backup v134
 
 SPEC : GEN-28 `[~]`, IMP-79 `[~]`, VIEW-58 `[x]`, nouvel ID IMP-84 (bug non reproduit). DEV-08 : seuils de contexte

@@ -80,6 +80,68 @@ struct Iloc {
     items: Vec<Item>,
 }
 
+/// EXIF d'une photo HEIF / HEIC ou d'un AVIF (élément « Exif » de meta) : l'en-tête TIFF et la suite, pour le recopier
+/// dans la version convertie (IMP-85). Toute structure inattendue : `None` (conversion sans EXIF).
+pub fn exif_of(file: &[u8]) -> Option<Vec<u8>> {
+    let top = boxes(file, 0, file.len())?;
+    let meta = top.iter().find(|b| &b.kind == b"meta")?;
+    let children = boxes(file, meta.body + 4, meta.end)?;
+    let iinf = children.iter().find(|b| &b.kind == b"iinf")?;
+    let count_size = if *file.get(iinf.body)? == 0 { 2 } else { 4 };
+    let id = boxes(file, iinf.body + 4 + count_size, iinf.end)?.iter().filter(|b| &b.kind == b"infe").find_map(|b| {
+        let d = &file[b.body..b.end];
+        let version = *d.first()?;
+        if version < 2 {
+            return None;
+        }
+        let mut r = Rd { d, p: 4 };
+        let id = r.n(if version == 2 { 2 } else { 4 })?;
+        r.n(2)?;
+        (d.get(r.p..r.p + 4)? == b"Exif").then_some(id)
+    })?;
+    let iloc = children.iter().find(|b| &b.kind == b"iloc")?;
+    let (base, extents) = extents_of(&file[iloc.body..iloc.end], id)?;
+    let mut data = Vec::new();
+    for (offset, length) in extents {
+        let start = usize::try_from(base.checked_add(offset)?).ok()?;
+        data.extend_from_slice(file.get(start..start.checked_add(usize::try_from(length).ok()?)?)?);
+    }
+    // 4 octets : écart jusqu'à l'en-tête TIFF (souvent « Exif\0\0 » avant lui).
+    let skip = u32::from_be_bytes(data.get(..4)?.try_into().ok()?) as usize;
+    let tiff = data.get(4 + skip..)?;
+    (tiff.starts_with(b"II*\0") || tiff.starts_with(b"MM\0*")).then(|| tiff.to_vec())
+}
+
+/// Position d'un élément dans iloc (début, puis morceaux : écart et longueur), sans refuser les autres éléments rangés
+/// autrement (les grilles des photos d'iPhone sont dans idat : méthode 1). `None` : élément absent ou pas dans le fichier.
+fn extents_of(d: &[u8], wanted: u64) -> Option<(u64, Vec<(u64, u64)>)> {
+    let v = *d.first()?;
+    let mut r = Rd { d, p: 4 };
+    let (a, b) = (r.n(1)? as u8, r.n(1)? as u8);
+    let (os, ls, bs, is) = (a >> 4, a & 15, b >> 4, if v >= 1 { b & 15 } else { 0 });
+    if v > 2 || [os, ls, bs, is].iter().any(|s| ![0, 4, 8].contains(s)) {
+        return None;
+    }
+    let count = r.n(if v < 2 { 2 } else { 4 })?;
+    for _ in 0..count {
+        let id = r.n(if v < 2 { 2 } else { 4 })?;
+        let method = if v >= 1 { r.n(2)? & 15 } else { 0 };
+        let reference = r.n(2)?;
+        let base = r.n(bs)?;
+        let mut extents = Vec::new();
+        for _ in 0..r.n(2)? {
+            if is > 0 {
+                r.n(is)?;
+            }
+            extents.push((r.n(os)?, r.n(ls)?));
+        }
+        if id == wanted {
+            return (method == 0 && reference == 0).then_some((base, extents));
+        }
+    }
+    None
+}
+
 fn parse_iloc(d: &[u8]) -> Option<Iloc> {
     let v = *d.first()?;
     let mut r = Rd { d, p: 4 };

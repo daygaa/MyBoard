@@ -1,9 +1,12 @@
 // Options vidéo de la carte « Options d'import » : « Compresser les vidéos » et son curseur à 5 crans (IMP-69, IMP-24 :
 // sous cette case, choix de l'utilisateur du 11/11), « Convertir les vidéos en » (IMP-22) et son menu, avec un « ⓘ »
-// par format (IMP-66). Placées sous « Convertir les images en » (demande du 11/11).
+// par format (IMP-66). Placées sous « Convertir les images en » (demande du 11/11). « Compresser les vidéos » cochée seule
+// (sans « Convertir les vidéos en ») : les vidéos de la liste sont lues à l'avance, pour la pop-in d'IMP-85 (réponse Q12 A).
 
+import { useEffect } from "react";
 import { Film, Video } from "lucide-react";
 
+import { api } from "@/lib/api";
 import { useImport } from "@/stores/import";
 import { FormatSelect, VIDEO_FORMATS } from "./FormatSelect";
 import { OptionRow, withOriginals } from "./OptionRow";
@@ -26,6 +29,10 @@ const CONVERT_VIDEOS_INFO = [
 
 export function VideoOptions({ busy }: { busy: boolean }) {
   const s = useImport();
+  const readAhead = s.compressVideos && !s.convertVideos;
+  useEffect(() => {
+    void api.setVideoChecks(readAhead);
+  }, [readAhead]);
   return (
     <>
       <div data-zone="import.options.compression-video" className="space-y-3">

@@ -4,6 +4,7 @@
 //! légère, une version convertie toujours (IMP-70, 11/11 ; réglage à venir SET-18) ; progression du fichier (IMP-41) ; « Arrêter » coupe ffmpeg
 //! aussitôt. La carte graphique échoue (format de pixels, taille…) : nouvel essai au processeur.
 
+pub mod checks;
 pub mod control;
 mod encoders;
 mod probe;
@@ -40,7 +41,11 @@ pub enum Done {
 
 pub fn process(conn: &Connection, path: &Path, meta: &Metadata, request: VideoRequest, hooks: &Hooks) -> anyhow::Result<Done> {
     let ff = crate::ffmpeg::shared().context("ffmpeg introuvable : vidéo ni compressée ni convertie")?;
-    let probe = probe::probe(&ff.ffprobe, path)?;
+    // Lue à l'avance pendant que la liste était affichée (IMP-85), sinon maintenant.
+    let probe = match checks::cached(path, meta.len()) {
+        Some(probe) => probe,
+        None => std::sync::Arc::new(probe::probe(&ff.ffprobe, path)?),
+    };
     let ext = path.extension().map(|e| e.to_string_lossy().to_lowercase()).unwrap_or_default();
     let job = match streams::plan(&probe, &ext, request) {
         Ok(job) => job,
