@@ -4,6 +4,7 @@
 //! tenue plus longtemps : le reste de MyBoard reste fluide). L'avancement part vers l'interface (badge en haut au
 //! centre, Q5 B, Q7 B). MyBoard fermé entre-temps : le travail reprend au lancement suivant (Q6 A, comme DEL-03).
 //! Pendant ce travail, les autres modifications des tags attendent qu'il soit fini (`hold`, choix accepté le 12/11).
+//! Une erreur n'abandonne plus un tag au hasard : voir `run` (réponse Q1 A du 13/11).
 
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Condvar, Mutex, MutexGuard};
@@ -107,10 +108,27 @@ fn set_progress(inner: &Inner, progress: Progress) {
     let _ = inner.app.emit(EVENT, Some(progress));
 }
 
-/// Tout ce qui attend, paquet par paquet ; un paquet en erreur : son premier travail est abandonné (signalé), pour que
-/// la file ne reste jamais bloquée.
+/// Base occupée par un autre fil au-delà de son attente (5 s) : nouvel essai après 1 s, 30 fois au plus.
+const BUSY_TRIES: u32 = 30;
+/// Après une erreur, les travaux suivants passent un par un (plus qu'un paquet n'en contient), pour trouver celui qui la
+/// cause.
+const ALONE_AFTER_ERROR: u32 = 400;
+
+fn is_busy(e: &anyhow::Error) -> bool {
+    e.chain()
+        .filter_map(|c| c.downcast_ref::<rusqlite::Error>())
+        .any(|r| matches!(r.sqlite_error_code(), Some(rusqlite::ErrorCode::DatabaseBusy | rusqlite::ErrorCode::DatabaseLocked)))
+}
+
+/// Tout ce qui attend, paquet par paquet. Un paquet en erreur n'abandonne plus le premier tag de la file (TAGM-23,
+/// réponse Q1 A du 13/11 : un tag pouvait rester hors de la corbeille sans raison) : base occupée, il est réessayé ;
+/// autre erreur, les travaux repassent un par un, et seul celui qui échoue encore seul est mis de côté (son tag reste
+/// affiché), pour que la file ne reste jamais bloquée. Chaque erreur est notée dans `erreurs.txt`.
 fn run(inner: &Inner, conn: &mut Connection) {
+    let dir = inner.db.parent().unwrap_or(&inner.db);
     let mut done = 0;
+    let mut busy = 0;
+    let mut alone: u32 = 0;
     loop {
         let next: Option<(i64, u64)> = conn
             .row("SELECT (SELECT kind FROM tag_jobs ORDER BY seq LIMIT 1), COUNT(*) FROM tag_jobs", [], |r| Ok((r.get::<_, Option<i64>>(0)?, r.get::<_, i64>(1)?)))
@@ -118,15 +136,43 @@ fn run(inner: &Inner, conn: &mut Connection) {
             .and_then(|(k, n)| k.map(|k| (k, n as u64)));
         let Some((kind, left)) = next else { return };
         set_progress(inner, Progress { kind, done, total: done + left });
-        match slice(conn) {
-            Ok(n) => done += n,
+        match slice(conn, if alone > 0 { 1 } else { usize::MAX }) {
+            Ok(n) => {
+                done += n;
+                busy = 0;
+                alone = alone.saturating_sub(1);
+            }
+            Err(e) if is_busy(&e) && busy < BUSY_TRIES => {
+                busy += 1;
+                crate::error_log::note(dir, &format!("[tags] base occupée, nouvel essai dans 1 s ({busy}/{BUSY_TRIES}) : {e:#}"));
+                std::thread::sleep(Duration::from_secs(1));
+            }
+            Err(e) if alone == 0 && !is_busy(&e) => {
+                crate::error_log::note(dir, &format!("[tags] paquet en erreur, nouvel essai tag par tag : {e:#}"));
+                alone = ALONE_AFTER_ERROR;
+            }
             Err(e) => {
-                eprintln!("[tags] travail abandonné : {e:#}");
+                let (kind, name) = head_name(conn);
+                crate::error_log::note(dir, &format!("[tags] {kind} abandonnée pour « {name} » (le tag reste où il était) : {e:#}"));
                 let _ = conn.execute("DELETE FROM tag_jobs WHERE seq = (SELECT MIN(seq) FROM tag_jobs)", []);
                 done += 1;
+                busy = 0;
+                alone = 0;
             }
         }
     }
+}
+
+/// Le travail en tête de file, en mots, et le nom de son tag (pour `erreurs.txt`).
+fn head_name(conn: &Connection) -> (&'static str, String) {
+    conn.row(
+        "SELECT kind, COALESCE(name, CASE WHEN kind = ?1 THEN (SELECT name FROM tag_trash WHERE id = target) ELSE (SELECT name FROM tags WHERE id = target) END, '?')
+           FROM tag_jobs ORDER BY seq LIMIT 1",
+        [RESTORE],
+        |r| Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?)),
+    )
+    .map(|(kind, name)| (match kind { TRASH => "mise à la corbeille", PERMANENT => "suppression définitive", _ => "restauration" }, name))
+    .unwrap_or(("tâche", "?".into()))
 }
 
 /// Une ligne de la file.
@@ -171,8 +217,9 @@ fn head(conn: &Connection) -> rusqlite::Result<Vec<Job>> {
 }
 
 /// Un paquet, dans une transaction : la suppression définitive d'une demande d'un coup (ses tags se répondent : groupes,
-/// règles), les mises à la corbeille et les restaurations une par une, jusqu'à 150 ms. Renvoie le nombre de tags traités.
-fn slice(conn: &mut Connection) -> anyhow::Result<u64> {
+/// règles), les mises à la corbeille et les restaurations une par une, jusqu'à 150 ms (et `max` tags au plus). Renvoie le
+/// nombre de tags traités.
+fn slice(conn: &mut Connection, max: usize) -> anyhow::Result<u64> {
     let start = Instant::now();
     let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
     let jobs = head(&tx)?;
@@ -191,7 +238,7 @@ fn slice(conn: &mut Connection) -> anyhow::Result<u64> {
         }
         TRASH => {
             trash_journal::start(&tx)?;
-            for j in &jobs {
+            for j in jobs.iter().take(max) {
                 if n > 0 && start.elapsed() >= SLICE {
                     break;
                 }
@@ -205,7 +252,7 @@ fn slice(conn: &mut Connection) -> anyhow::Result<u64> {
         }
         _ => {
             let mut names = tag_trash::trash_names(&tx)?;
-            for j in &jobs {
+            for j in jobs.iter().take(max) {
                 if n > 0 && start.elapsed() >= SLICE {
                     break;
                 }

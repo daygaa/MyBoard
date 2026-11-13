@@ -88,6 +88,20 @@ function fitName(name: HTMLElement) {
   name.style.setProperty("--name-size", `${size.toFixed(2)}px`);
 }
 
+/** Dernière position de la souris : après un changement de densité, la vignette sous elle n'a pas reçu « la souris
+ *  arrive » (GRID-15). */
+let pointerAt: [number, number] | null = null;
+window.addEventListener("pointermove", (e) => (pointerAt = [e.clientX, e.clientY]), { passive: true, capture: true });
+
+/** GRID-15 : le nom de la vignette sous la souris reprend la taille qui va avec sa nouvelle largeur (Ctrl + molette :
+ *  la souris ne bouge pas, mais la vignette sous elle change de taille, ou n'est plus la même). */
+export function refitNameUnderPointer() {
+  if (!pointerAt) return;
+  const tile = document.elementFromPoint(pointerAt[0], pointerAt[1])?.closest('[data-zone="grille.vignette"]');
+  const name = tile?.querySelector<HTMLElement>(".tile-name");
+  if (name) fitName(name);
+}
+
 /** Étoile favori (GRID-08, FAV-03) : un clic ajoute ou retire le favori, sans ouvrir la visionneuse. */
 function FavoriteStar({ id, favorite }: { id: number; favorite: boolean }) {
   return (

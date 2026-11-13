@@ -7,6 +7,29 @@ export function scroller(): HTMLElement {
   return document.getElementById(SCROLLER_ID) ?? document.documentElement;
 }
 
+let barWidth = -1;
+
+/** Largeur de la barre de défilement de la zone qui défile, qu'elle soit affichée ou non (mesurée une fois, sur un
+ *  élément caché qui défile toujours). */
+export function scrollbarWidth(): number {
+  if (barWidth < 0) {
+    const probe = document.createElement("div");
+    probe.style.cssText = "position:absolute;top:-9999px;width:100px;height:50px;overflow-y:scroll;visibility:hidden";
+    document.body.appendChild(probe);
+    barWidth = probe.offsetWidth - probe.clientWidth;
+    probe.remove();
+  }
+  return barWidth;
+}
+
+/** Largeur de la zone qui défile, barre de défilement toujours déduite (GEN-28) : la même que la barre soit affichée ou
+ *  non. Ce qui se calcule d'après elle (la grille) ne change donc pas quand la barre apparaît ou disparaît (sinon, une
+ *  page « juste à la limite » faisait apparaître puis disparaître la barre sans fin, bogue mesuré le 11/10/2026). */
+export function missingScrollbar(): number {
+  const area = scroller();
+  return area.offsetWidth - area.clientWidth > 0 ? 0 : scrollbarWidth();
+}
+
 /** Durée du retour en haut fluide : rapide, puis ralenti sur la fin (retour T3, points AUT.19 et TAGM-04.13). */
 const GLIDE_MS = 250;
 /** Avance maximale de la glissade en une image (deux images à 60 Hz). */

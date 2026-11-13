@@ -3,6 +3,18 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Retouches R1 des lots 11-12 : corbeille des tags, bord droit, nom survolé, base d'essai (13/11/2026) — Backup v131
+
+SPEC : TAGM-23 `[~]`, GEN-28 `[~]`, GRID-15 `[~]`, DEV-09 `[~]`. Décision D-073.
+
+- TAGM-23 : le travail en arrière-plan sur les tags n'abandonne plus un tag au hasard quand un paquet échoue (base
+  occupée : nouvel essai ; autre erreur : tags un par un, seul celui qui échoue est mis de côté) ; erreurs notées
+  dans `erreurs.txt` (dossier de données, nouveau module `error_log.rs`).
+- GEN-28 : l'interface va jusqu'au bord droit quand il n'y a pas de barre de défilement (plus de place réservée) ; la
+  grille déduit toujours la largeur de la barre (`lib/scroller.ts`, `MediaGrid.tsx`).
+- GRID-15 : après Ctrl + molette, le nom de la vignette sous la souris prend la bonne taille (`MediaTile.tsx`).
+- DEV-09 : base d'essai sans les médias du lecteur Q: ni les cartes disparues (hors dépôt).
+
 ## Refonte du workflow : rangement, inventaires, sous-agents, mesure du contexte (12/11/2026) — Backup v130
 
 SPEC : DEV-08 `[~]`. Décision D-072. Aucun code de l'application modifié.

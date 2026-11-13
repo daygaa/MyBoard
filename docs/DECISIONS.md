@@ -2012,3 +2012,14 @@ outils de test vivaient dans un dossier temporaire qui change à chaque session,
 - Travail lourd en tokens délégué : `test-runner` (compilations, Sonnet, effort bas) et `ui-tester` (essais
   d'interface, même modèle que la session, captures et journaux gardés chez lui). Pas d'agent Explore maison : celui
   intégré suffit et nos recherches sont des `grep` ciblés.
+
+## D-073 — Barre de défilement : plus de place réservée ; erreurs du travail sur les tags (lot R1, 13/11/2026)
+
+- GEN-28 : `scrollbar-gutter: stable` (place toujours réservée, ajouté le 11/10 contre une grille qui se recalculait
+  sans fin) laissait une bande vide à droite sans barre. Retiré ; la grille calcule sa largeur barre toujours déduite
+  (mesurée une fois sur un élément caché), donc identique avec ou sans barre : la boucle ne peut pas revenir. Les autres
+  éléments qui mesurent leur largeur (en-tête, ligne de recherche, pagination) ne changent pas de hauteur avec elle.
+- TAGM-23 (complète D-069) : une erreur dans un paquet ne fait plus abandonner le premier tag de la file. Base occupée
+  (`SQLITE_BUSY` / `LOCKED` au-delà de 5 s) : nouvel essai après 1 s, 30 fois ; autre erreur : 400 travaux un par un,
+  seul celui qui échoue seul est retiré de la file. Journal `erreurs.txt` dans le dossier de données (la version
+  finale n'a pas de console).

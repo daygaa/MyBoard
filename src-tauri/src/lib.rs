@@ -7,6 +7,7 @@ pub mod clipboard_text;
 pub mod db;
 pub mod deletion;
 pub mod display;
+pub mod error_log;
 pub mod favorites;
 pub mod folders;
 pub mod group_create;

@@ -15,13 +15,13 @@ import { goHome } from "@/stores/search";
 import { useUI } from "@/stores/ui";
 import { ImportBadge } from "./ImportBadge";
 
-/** Largeur réservée à la barre de défilement (index.css) : l'en-tête s'arrête avant elle,
- *  le logo doit donc être décalé de la moitié pour être au centre de la FENÊTRE (NAV-01). */
+/** Largeur de la barre de défilement affichée (0 sans barre : plus rien n'est réservé, GEN-28) : l'en-tête s'arrête
+ *  avant elle, le logo doit donc être décalé de la moitié pour être au centre de la FENÊTRE (NAV-01). */
 function useScrollbarGutter(): number {
   const [gutter, setGutter] = useState(0);
   useEffect(() => {
     // Zone qui défile sous la barre de titre (NAV-04) : sa largeur totale moins sa largeur
-    // utile = la place réservée, qu'elle défile ou non.
+    // utile = la largeur de la barre, quand elle est affichée.
     const area = scroller();
     const measure = () => setGutter(area.offsetWidth - area.clientWidth);
     measure();

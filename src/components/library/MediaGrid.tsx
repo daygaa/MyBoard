@@ -12,11 +12,11 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import { canStartRectangle, useRectangleSelection } from "@/hooks/useRectangleSelection";
 import { useScreen } from "@/hooks/useScreen";
 import type { MediaItem } from "@/lib/api";
-import { scroller } from "@/lib/scroller";
+import { missingScrollbar, scroller } from "@/lib/scroller";
 import { COMPACT_DENSITY, GRID_GAP, NAME_ONLY_TILE_INCHES, TILE_FULL_WIDTH, thumbSizeFor } from "@/lib/grid";
 import { setSelectionPage, useSelection } from "@/stores/selection";
 import { DeleteKey } from "./DeleteKey";
-import { MediaTile } from "./MediaTile";
+import { MediaTile, refitNameUnderPointer } from "./MediaTile";
 
 /** Largeur de la grille et sa position dans la zone qui défile, tenues à jour. */
 function useGridBox(ref: React.RefObject<HTMLDivElement | null>) {
@@ -24,7 +24,8 @@ function useGridBox(ref: React.RefObject<HTMLDivElement | null>) {
   const measure = () => {
     const el = ref.current;
     if (!el) return;
-    const width = el.clientWidth;
+    // Barre de défilement toujours déduite, affichée ou non (GEN-28) : la grille ne change pas quand elle apparaît.
+    const width = el.clientWidth - missingScrollbar();
     const area = scroller();
     const top = el.getBoundingClientRect().top - area.getBoundingClientRect().top + area.scrollTop;
     setBox((b) => (b.width === width && b.top === top ? b : { width, top }));
@@ -89,6 +90,12 @@ export function MediaGrid({ items, density, firstIndex, pageSize }: Props) {
   useLayoutEffect(() => {
     virtualizer.measure();
   }, [virtualizer, rowHeight]);
+  // GRID-15 : la souris restée sur la grille pendant un changement de densité (Ctrl + molette) : le nom de la vignette
+  // sous elle est recalculé (il ne l'était qu'à l'arrivée de la souris), une fois les vignettes à leur nouvelle taille.
+  useEffect(() => {
+    const frame = requestAnimationFrame(refitNameUnderPointer);
+    return () => cancelAnimationFrame(frame);
+  }, [tile, nameOnly]);
 
   return (
     <div
@@ -111,8 +118,9 @@ export function MediaGrid({ items, density, firstIndex, pageSize }: Props) {
         virtualizer.getVirtualItems().map((row) => (
           <div
             key={row.index}
-            className="absolute top-0 left-0 grid w-full"
+            className="absolute top-0 left-0 grid"
             style={{
+              width,
               transform: `translateY(${row.index * rowHeight}px)`,
               gridTemplateColumns: `repeat(${density}, minmax(0, 1fr))`,
               gap: GRID_GAP,
