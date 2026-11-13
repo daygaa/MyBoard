@@ -51,6 +51,8 @@ type ImportState = {
   setDeleteOriginals: (deleteOriginals: boolean) => void;
   addDefaultTag: (tag: NewTag) => void;
   removeDefaultTag: (name: string) => void;
+  /** « Tout effacer » (IMP-79). */
+  clearDefaultTags: () => void;
 };
 
 export const useImport = create<ImportState>()(
@@ -93,6 +95,7 @@ export const useImport = create<ImportState>()(
         set({ defaultTags: [...get().defaultTags, tag] });
       },
       removeDefaultTag: (name) => set({ defaultTags: get().defaultTags.filter((t) => t.name !== name) }),
+      clearDefaultTags: () => set({ defaultTags: [] }),
     }),
     {
       name: "myboard.import-options",

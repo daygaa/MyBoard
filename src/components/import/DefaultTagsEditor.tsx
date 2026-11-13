@@ -1,14 +1,17 @@
 // Tags par défaut de l'import (IMP-30, IMP-31) : une barre complète, sans choix de catégorie, qui cherche parmi les tags
-// existants (IMP-79) → Entrée ou « Ajouter » → badge coloré sous le champ. Les espaces deviennent des « _ ». Un tag qui
-// n'existe pas encore ouvre la pop-in de création (choix de sa catégorie), comme dans la visionneuse ; une fois créé,
-// il rejoint aussitôt les tags par défaut (réponse Q3 A du 13/11). Il est écrit dans la base au départ de l'import,
-// comme avant : l'annuler ne laisse aucun tag vide.
+// existants (IMP-79). La frappe suit la recherche de la bibliothèque (retour du 13/11) : plusieurs tags séparés par des
+// espaces (« _ » dans un nom), suggestions sur le mot en cours, une suggestion choisie s'écrit à la place du mot ; les
+// mots déjà tapés et les tags déjà dans la liste sont grisés dans les suggestions. Entrée ou « Ajouter » : chaque tag
+// existant devient une pastille (un synonyme donne son tag principal) ; chaque tag inexistant ouvre, l'un après l'autre,
+// la pop-in de création (choix de sa catégorie) puis rejoint aussitôt la liste (réponse Q3 A du 13/11) ; un nom annulé
+// revient dans le champ. Le tag est écrit dans la base au départ de l'import, comme avant : l'annuler ne laisse aucun
+// tag vide. « Tout effacer » vide la liste, comme « Tout vider » celle des fichiers.
 // Ces tags sont ajoutés à TOUS les fichiers de l'import, y compris ceux déjà dans la
 // bibliothèque (D-016). En phase 2, la carte est placée sous l'encadré de dépôt.
 // Clic droit sur une pastille : « Copier le tag », « Retirer » (CTX-15).
 
-import { useState } from "react";
-import { Plus, Tag } from "lucide-react";
+import { useRef, useState } from "react";
+import { Plus, Tag, Trash2 } from "lucide-react";
 
 import { CreateTagDialog } from "@/components/tags/CreateTagDialog";
 import { TagInput } from "@/components/tags/TagInput";
@@ -23,21 +26,41 @@ export function DefaultTagsEditor() {
   const tags = useImport((s) => s.defaultTags);
   const addDefaultTag = useImport((s) => s.addDefaultTag);
   const removeDefaultTag = useImport((s) => s.removeDefaultTag);
+  const clearDefaultTags = useImport((s) => s.clearDefaultTags);
   const busy = useImport((s) => s.snapshot?.phase === "importing");
   const { color } = useCategories();
   const [text, setText] = useState("");
-  const [toCreate, setToCreate] = useState<string | null>(null);
+  /** Noms à créer, l'un après l'autre (le premier est dans la pop-in). */
+  const [queue, setQueue] = useState<string[]>([]);
+  /** Noms dont la création a été annulée : remis dans le champ à la fin de la file. */
+  const cancelled = useRef<string[]>([]);
 
-  /** Texte tapé : un tag qui existe est ajouté avec sa catégorie, sinon la pop-in de création s'ouvre. Un tag déjà dans
+  /** Texte validé : chaque tag existant est ajouté avec sa catégorie, les autres passent par la pop-in. Un tag déjà dans
    *  la liste (créé plus tôt par la pop-in, pas encore dans la base) n'est pas redemandé. */
   const submit = async (raw: string) => {
-    const name = normalizeTag(raw);
-    if (!name) return;
+    const names = [...new Set(raw.split(/\s+/).map(normalizeTag).filter(Boolean))];
+    if (names.length === 0 || queue.length > 0) return;
     setText("");
-    if (tags.some((t) => t.name === name)) return;
-    const existing = await api.findTag(name);
-    if (existing) addDefaultTag({ name, categoryId: existing.categoryId });
-    else setToCreate(name);
+    const unknown: string[] = [];
+    for (const name of names) {
+      if (tags.some((t) => t.name === name)) continue;
+      const found = await api.findTag(name);
+      if (found) addDefaultTag({ name: found.name, categoryId: found.categoryId });
+      else unknown.push(name);
+    }
+    cancelled.current = [];
+    setQueue(unknown);
+  };
+
+  /** Pop-in suivante ; `skipped` : nom annulé. */
+  const next = (skipped: string | null) => {
+    if (skipped) cancelled.current.push(skipped);
+    const rest = queue.slice(1);
+    setQueue(rest);
+    if (rest.length === 0 && cancelled.current.length > 0) {
+      setText(`${cancelled.current.join(" ")} `);
+      cancelled.current = [];
+    }
   };
 
   /** Tag restauré de la corbeille par la pop-in (TAGM-19) : il garde sa catégorie d'origine. */
@@ -48,23 +71,34 @@ export function DefaultTagsEditor() {
 
   return (
     <section data-zone="import.tags-defaut" className="rounded-xl border border-border bg-card/60 p-6">
-      <h2 className="mb-4 flex items-center gap-2 text-sm font-semibold tracking-wider text-muted-foreground uppercase">
-        <Tag className="h-4 w-4 text-[#d9a94e]" />
-        Tags par défaut
-      </h2>
+      {/* Hauteur fixe : la ligne ne grandit pas quand « Tout effacer » apparaît. */}
+      <div className="mb-4 flex min-h-7 items-center justify-between gap-3">
+        <h2 className="flex items-center gap-2 text-sm font-semibold tracking-wider text-muted-foreground uppercase">
+          <Tag className="h-4 w-4 text-[#d9a94e]" />
+          Tags par défaut
+        </h2>
+        {tags.length > 0 && !busy && (
+          <button
+            type="button"
+            data-zone="import.tags-defaut.vider"
+            onClick={clearDefaultTags}
+            className="flex items-center gap-1.5 rounded-md px-2 py-1 text-sm text-muted-foreground transition hover:bg-secondary hover:text-foreground"
+          >
+            <Trash2 className="h-4 w-4" />
+            Tout effacer
+          </button>
+        )}
+      </div>
       <div className="flex flex-wrap items-center gap-2">
         <TagInput
           zone="import.tags-defaut.champ"
+          multi
           dropdown="top"
           value={text}
           onChange={setText}
           onSubmit={(raw) => void submit(raw)}
-          onPick={(tag) => {
-            setText("");
-            addDefaultTag({ name: tag.name, categoryId: tag.categoryId });
-          }}
           taken={(tag) => (tags.some((t) => t.name === tag.name) ? "Ce tag est déjà dans les tags par défaut" : null)}
-          placeholder="ex. red_hair, vacances, demo…"
+          placeholder="ex. red_hair vacances demo…"
           className="h-[38px] min-w-60 flex-1"
         />
         <button
@@ -79,8 +113,8 @@ export function DefaultTagsEditor() {
         </button>
       </div>
       <p className="mt-2 text-[11px] text-muted-foreground">
-        Les espaces sont normalisés en _. Un tag qui n'existe pas encore ouvre la fenêtre de création, pour choisir sa
-        catégorie. Ces tags sont ajoutés à tous les fichiers de l'import, y compris ceux déjà présents dans la bibliothèque.
+        Un tag qui n'existe pas encore ouvre le menu de création. Les espaces sont des "_". Ces tags sont ajoutés à tous les
+        fichiers de l'import, y compris s'ils sont déjà dans la bibliothèque
       </p>
       {tags.length > 0 && (
         <div data-zone="import.tags-defaut.badges" className="mt-3 flex flex-wrap gap-1.5">
@@ -104,15 +138,15 @@ export function DefaultTagsEditor() {
         </div>
       )}
       <CreateTagDialog
-        name={toCreate}
-        onCancel={() => setToCreate(null)}
+        name={queue[0] ?? null}
+        onCancel={() => next(queue[0] ?? null)}
         onCreate={(categoryId, name) => {
-          setToCreate(null);
           addDefaultTag({ name, categoryId });
+          next(null);
         }}
         onRestored={(name) => {
-          setToCreate(null);
           void addRestored(name);
+          next(null);
         }}
       />
     </section>

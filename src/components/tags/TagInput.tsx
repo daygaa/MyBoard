@@ -5,6 +5,8 @@
 // Recherche de la barre latérale (`onAddTerm`) : plusieurs termes séparés par des espaces, les
 // suggestions portent sur le mot en cours (SRCH-20) ; le nom choisi s'écrit dans le champ à la
 // place de ce mot, les boutons + / − l'ajoutent tout de suite à la recherche (SRCH-21).
+// `multi` (tags par défaut de l'import, IMP-79) : plusieurs tags séparés par des espaces, comme la recherche, sans
+// les boutons + / − ni le « - » d'exclusion.
 // `source` : suggestions prises dans une liste donnée, dans le même ordre que l'autocomplétion.
 // Tags déjà là (SRCH-29) : grisés avec leur bulle (`taken`) ; dans la recherche, seulement les autres mots
 // déjà tapés dans le champ (choisir un tag de la recherche en cours prépare une nouvelle recherche, SRCH-24),
@@ -31,6 +33,9 @@ type Props = {
   /** Recherche de la barre latérale : boutons + / − des suggestions (`exclude` pour « − »), plusieurs
    *  termes, « -tag » tapé pour exclure (SRCH-03). */
   onAddTerm?: (tag: TagInfo, exclude: boolean) => void;
+  /** Plusieurs tags séparés par des espaces, comme la recherche (IMP-79) : une suggestion choisie s'écrit à la place
+   *  du mot en cours ; `onSubmit` reçoit tout le texte. */
+  multi?: boolean;
   placeholder: string;
   /** Côté où s'ouvrent les suggestions (« top » dans la visionneuse, VIEW-21, et pour les tags par défaut de
    *  l'import, IMP-52). */
@@ -53,6 +58,7 @@ export function TagInput({
   onSubmit,
   onPick,
   onAddTerm,
+  multi = false,
   placeholder,
   dropdown = "bottom",
   zone,
@@ -68,11 +74,12 @@ export function TagInput({
   const field = useRef<HTMLInputElement | null>(null);
   /** Curseur de saisie à replacer après un texte réécrit ici (SRCH-21). */
   const nextCaret = useRef<number | null>(null);
-  const search = onAddTerm !== undefined;
-  // Recherche : seul le mot en cours compte (SRCH-20) ; ailleurs, tout le texte forme un seul tag.
+  // Plusieurs mots (recherche, ou `multi`) : seul le mot en cours compte (SRCH-20) ; ailleurs, tout le texte forme un
+  // seul tag.
+  const search = onAddTerm !== undefined || multi;
   const word = search ? wordAt(value, Math.min(caret, value.length)) : { start: 0, end: value.length };
   const typed = value.slice(word.start, word.end);
-  const negated = search && typed.startsWith("-");
+  const negated = onAddTerm !== undefined && typed.startsWith("-");
   const text = normalizeTag(typed);
 
   const suggestions = useTagSuggestions(text, source);
@@ -167,7 +174,7 @@ export function TagInput({
           dropdown={dropdown}
           onPick={pick}
           negated={negated}
-          onAddTerm={search ? addTerm : undefined}
+          onAddTerm={onAddTerm ? addTerm : undefined}
           taken={takenHere}
           termTaken={termTaken}
           className="left-0"

@@ -3,6 +3,18 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Retouches R2 (suite) : page Importer sans décalage, frappe des tags par défaut, curseur des notes (13/11/2026) — Backup v133
+
+SPEC : GEN-28 `[~]`, IMP-79 `[~]`, VIEW-58 `[~]` ; TAGM-25 `[x]`. Complément de D-073.
+
+- GEN-28 : plus de scintillement de l'en-tête ; la page Importer et le pied de page ne se décalent plus quand la barre
+  de défilement apparaît (classe `garde-barre`, `index.css` ; `--barre`, `lib/scroller.ts`).
+- IMP-79 : tags par défaut tapés comme dans la recherche (plusieurs tags séparés par des espaces, mots déjà tapés
+  grisés, pop-ins de création l'une après l'autre) ; bouton « Tout effacer » ; texte d'aide revu (`TagInput.tsx`
+  mode `multi`, `DefaultTagsEditor.tsx`, `stores/import.ts`).
+- VIEW-58 : « N » met le curseur à la fin de la note ; un clic dans une note écrite met le curseur à l'endroit cliqué
+  (aussi pour la description d'un tag, même composant `NoteEditor.tsx`).
+
 ## Retouches R2 des lots 11-12 : en-tête, tags par défaut, touche N, seuil « Rares » (13/11/2026) — Backup v132
 
 SPEC : GEN-28 `[~]`, IMP-79 `[~]`, VIEW-58 `[~]`, TAGM-25 `[~]`. Complément de D-073.

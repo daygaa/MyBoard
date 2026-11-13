@@ -22,9 +22,15 @@ export function scrollbarWidth(): number {
   return barWidth;
 }
 
+/** Largeur de la barre en variable CSS `--barre` (classe `garde-barre` : en-tête, pied de page, page Importer ;
+ *  GEN-28) : une fois, au démarrage. */
+export function exposeScrollbarWidth() {
+  document.documentElement.style.setProperty("--barre", `${scrollbarWidth()}px`);
+}
+
 /** Largeur de la barre de défilement quand elle n'est pas affichée, 0 quand elle l'est (GEN-28) : déduite de la largeur
- *  de la zone, celle-ci est la même que la barre soit affichée ou non. Ce qui se calcule d'après elle (la grille ; le
- *  contenu de l'en-tête, qui garde ainsi sa place) ne change donc pas quand la barre apparaît ou disparaît (sinon, une
+ *  de la zone, celle-ci est la même que la barre soit affichée ou non. Ce qui se calcule d'après elle (la grille) ne
+ *  change donc pas quand la barre apparaît ou disparaît (sinon, une
  *  page « juste à la limite » faisait apparaître puis disparaître la barre sans fin, bogue mesuré le 11/10/2026). */
 export function missingScrollbar(): number {
   const area = scroller();

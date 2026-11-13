@@ -81,6 +81,14 @@
   /* Plus de place réservée à la barre de défilement (`scrollbar-gutter`, GEN-28) : sans barre, l'en-tête, le pied de
      page et les onglets s'arrêtaient avant le bord droit. La grille, elle, déduit toujours la largeur de la barre
      (`missingScrollbar`, lib/scroller.ts) : elle ne se recalcule pas quand la barre apparaît ou disparaît. */
+  /* GEN-28 (lot R2) : sans barre de défilement, marge à droite de la largeur de la barre (`--barre`, mesurée au
+     démarrage) ; avec la barre, aucune (100vw - 100 % = la barre affichée). Le contenu garde ainsi sa place, le fond
+     va jusqu'au bord. Calculé par le moteur pendant la mise en page : rien ne bouge, même une image. Seulement sur un
+     élément aussi large que la zone qui défile ; `--garde-base` : sa propre marge à droite. */
+  .garde-barre {
+    padding-right: calc(var(--garde-base, 0px) + max(0px, var(--barre, 0px) - (100vw - 100%)));
+  }
+
   .app-scroll {
     /* GEN-24 : arrivé en bas, le moteur ne « passe pas la main » à la fenêtre (qui ne défile pas) ;
        sinon, une molette en roue libre resterait accrochée à elle après « Afficher 100 de plus » ou

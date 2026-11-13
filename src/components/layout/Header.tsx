@@ -3,43 +3,26 @@
 // résumé de l'import en cours hors de la page Importer, juste à gauche des statistiques (IMP-76).
 // Fond opaque (la v8 utilisait un flou d'arrière-plan, coûteux pendant le défilement : D-008).
 
-import { useEffect, useState } from "react";
 import { Film, Image as ImageIcon, Menu, Tag, Upload } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { useStats } from "@/hooks/useLibraryData";
 import { formatCount } from "@/lib/format";
 import { navigate } from "@/lib/router";
-import { missingScrollbar, scroller, scrollbarWidth } from "@/lib/scroller";
+import { scrollbarWidth } from "@/lib/scroller";
 import { goHome } from "@/stores/search";
 import { useUI } from "@/stores/ui";
 import { ImportBadge } from "./ImportBadge";
 
-/** Largeur de la barre de défilement quand elle n'est PAS affichée (0 quand elle l'est ; GEN-28, lot R2) : l'en-tête
- *  va alors jusqu'au bord de la fenêtre, son fond aussi, mais son contenu garde cette marge à droite. Bouton Importer
- *  et compteurs restent ainsi à la même place, barre de défilement affichée ou non. */
-function useMissingScrollbar(): number {
-  const [missing, setMissing] = useState(0);
-  useEffect(() => {
-    // Zone qui défile sous la barre de titre (NAV-04) : elle change de largeur utile quand la barre apparaît.
-    const area = scroller();
-    const measure = () => setMissing(missingScrollbar());
-    measure();
-    const observer = new ResizeObserver(measure);
-    observer.observe(area);
-    return () => observer.disconnect();
-  }, []);
-  return missing;
-}
-
 export function Header() {
-  const missing = useMissingScrollbar();
   const burgerOpen = useUI((s) => s.burgerOpen);
   const toggleBurger = useUI((s) => s.toggleBurger);
   const { data: stats } = useStats();
 
   return (
-    <header data-zone="entete" className="sticky top-0 z-40 border-b border-border bg-background" style={{ paddingRight: missing }}>
+    // garde-barre (GEN-28) : sans barre de défilement, le contenu garde à droite la place de la barre (bouton Importer et
+    // compteurs ne bougent pas) ; le fond va jusqu'au bord.
+    <header data-zone="entete" className="garde-barre sticky top-0 z-40 border-b border-border bg-background">
       {/* Trois colonnes : les deux côtés ont la même largeur, le logo est donc au centre exact. */}
       <div className="grid min-h-14 grid-cols-[1fr_auto_1fr] items-center gap-3 px-3 sm:gap-4 sm:px-4 lg:px-6">
         <div className="flex items-center">

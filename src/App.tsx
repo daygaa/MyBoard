@@ -4,7 +4,7 @@
 // (DEL-05) par-dessus ; bilan de l'import (IMP-45), fichiers disparus (LIB-05), bandeau des emplacements inaccessibles
 // sous l'en-tête (LIB-14) ; badge du travail sur les tags en arrière-plan (TAGM-23).
 
-import { useEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useRef } from "react";
 
 import { ImportPage } from "@/components/import/ImportPage";
 import { ImportReport } from "@/components/import/ImportReport";
@@ -25,7 +25,7 @@ import { ErrorDialog } from "@/components/viewer/ErrorDialog";
 import { Viewer } from "@/components/viewer/Viewer";
 import { useBackendEvents } from "@/hooks/useBackendEvents";
 import { useRoute, useTagTab } from "@/lib/router";
-import { SCROLLER_ID } from "@/lib/scroller";
+import { exposeScrollbarWidth, SCROLLER_ID } from "@/lib/scroller";
 import { cn } from "@/lib/utils";
 
 export function App() {
@@ -38,6 +38,8 @@ export function App() {
   const scrollArea = useRef<HTMLDivElement>(null);
   // Défilement au clavier (Espace, Page suivante…) dès l'ouverture : la zone prend le focus.
   useEffect(() => scrollArea.current?.focus({ preventScroll: true }), []);
+  // Avant la 1re image : la marge `garde-barre` (GEN-28) est juste dès l'ouverture.
+  useLayoutEffect(exposeScrollbarWidth, []);
 
   return (
     <div className="flex h-full flex-col">
@@ -52,7 +54,8 @@ export function App() {
         <div className={cn("flex flex-col", fitted ? "h-full" : "min-h-full")}>
           <Header />
           <OfflineBanner />
-          <div className={cn("flex flex-1 flex-col", fitted && "min-h-0")}>{route === "import" ? <ImportPage /> : route === "tags" ? <TagManagerPage /> : <LibraryPage />}</div>
+          {/* Page Importer : son contenu garde sa place, barre de défilement affichée ou non (GEN-28). */}
+          <div className={cn("flex flex-1 flex-col", fitted && "min-h-0", route === "import" && "garde-barre")}>{route === "import" ? <ImportPage /> : route === "tags" ? <TagManagerPage /> : <LibraryPage />}</div>
           <Footer />
         </div>
       </div>

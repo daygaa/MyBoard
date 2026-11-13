@@ -6,7 +6,7 @@
 // menu du texte écrit ou d'un lien ; en écriture, menu d'édition (CTX-03, automatique). Poubelle rouge
 // en haut à droite : « Effacer », même confirmation que dans le menu.
 
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { Trash2 } from "lucide-react";
 
 import { runExternal } from "@/components/viewer/externalOpen";
@@ -53,6 +53,23 @@ function Linked({ text }: { text: string }) {
       )}
     </>
   );
+}
+
+/** Place dans le texte du point cliqué (VIEW-58, retour du 13/11) : début, entre deux caractères, fin d'une ligne… ;
+ *  en dehors du texte (sous la dernière ligne) : la fin. */
+function offsetAt(box: HTMLElement, x: number, y: number): number {
+  const end = box.textContent?.length ?? 0;
+  // Sous la dernière ligne (marge du bas de la zone) : la fin de la note, pas la dernière ligne à cette hauteur.
+  const all = document.createRange();
+  all.selectNodeContents(box);
+  const lines = all.getClientRects();
+  if (lines.length === 0 || y > lines[lines.length - 1].bottom) return end;
+  const point = document.caretRangeFromPoint?.(x, y);
+  if (!point || !box.contains(point.startContainer)) return end;
+  const before = document.createRange();
+  before.setStart(box, 0);
+  before.setEnd(point.startContainer, point.startOffset);
+  return Math.min(before.toString().length, end);
 }
 
 /** État d'une zone de texte : `saved` = texte enregistré, `onSave` l'enregistre (vide = effacé). */
@@ -107,12 +124,30 @@ export function useNoteEditor(saved: string, onSave: (value: string) => void) {
     setOpen(true);
     setEditing(!saved);
   };
-  /** Zone ouverte en écriture, curseur dans le texte (raccourci N de la visionneuse, VIEW-58) : la zone de texte qui
-   *  apparaît prend le focus d'elle-même ; déjà là, elle le reprend. */
+  /** Place du curseur à donner à la zone de texte (VIEW-58) ; `null` : celle du navigateur. */
+  const caretTo = useRef<number | null>(null);
+  const placeCaret = () => {
+    const area = textareaRef.current;
+    if (!area || caretTo.current === null) return;
+    const at = Math.min(caretTo.current, area.value.length);
+    caretTo.current = null;
+    area.focus();
+    area.setSelectionRange(at, at);
+  };
+  // La zone de texte vient d'apparaître (rendue par NotePanel, dans le même passage) : le curseur va à sa place.
+  useLayoutEffect(placeCaret, [open, editing]);
+  /** Écriture, curseur à la place `at` du texte. */
+  const editAt = (at: number) => {
+    caretTo.current = at;
+    setEditing(true);
+  };
+  /** Zone ouverte en écriture, curseur à la FIN du texte (raccourci N de la visionneuse, VIEW-58, retour du 13/11) ;
+   *  déjà en écriture : le curseur y revient, à la fin. */
   const write = () => {
+    caretTo.current = Number.MAX_SAFE_INTEGER;
     setOpen(true);
     if (!editing) setEditing(true);
-    else textareaRef.current?.focus();
+    else placeCaret();
   };
   const type = (value: string) => {
     setDraft(value);
@@ -121,7 +156,7 @@ export function useNoteEditor(saved: string, onSave: (value: string) => void) {
     timer.current = setTimeout(flush, SAVE_DELAY);
   };
 
-  return { open, editing, setEditing, text, saved, confirming, setConfirming, panelRef, buttonRef, textareaRef, flush, close, erase, toggle, write, type };
+  return { open, editing, setEditing, text, saved, confirming, setConfirming, panelRef, buttonRef, textareaRef, flush, close, erase, toggle, write, editAt, type };
 }
 
 export type NoteEditor = ReturnType<typeof useNoteEditor>;
@@ -183,7 +218,8 @@ export function NotePanel({ editor, texts, zone, className, style }: PanelProps)
           />
         ) : (
           <div
-            onClick={() => setEditing(true)}
+            // Le curseur arrive là où l'on a cliqué (VIEW-58, retour du 13/11).
+            onClick={(e) => editor.editAt(offsetAt(e.currentTarget, e.clientX, e.clientY))}
             onContextMenu={(e) =>
               openContextMenu(e, () => [
                 { label: "Modifier", run: () => setEditing(true) },
