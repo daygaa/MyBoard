@@ -39,7 +39,7 @@ type Props = {
   /** Plus large, pour une liste (restauration des données, DEL-05) ou trois longs boutons (pop-in des paires, IMP-64). */
   wide?: boolean;
   /** Un peu plus large qu'une pop-in ordinaire : trois boutons au texte long (pop-in « Compresser aussi », IMP-60). */
-  size?: "lg";
+  size?: "lg" | "xl";
   /** Confirmation : le même espace (16 px) entre le titre, le texte, le contenu et les boutons
    *  (DEL-06). Le texte en plusieurs paragraphes les espace de même (`space-y-4`). */
   even?: boolean;
@@ -135,7 +135,8 @@ export function Modal(props: Props) {
           // 80 % de la hauteur de la fenêtre au plus : titre, sous-titre et boutons restent en place, le
           // contenu entre eux défile (retouches de R3, 29/10 ; toutes les pop-ins).
           "relative flex max-h-[80vh] w-full flex-col rounded-xl border bg-card p-6 text-card-foreground shadow-xl outline-none",
-          wide ? "max-w-2xl" : size === "lg" ? "max-w-lg" : "max-w-md",
+          // « xl » : tableau de la pop-in des fichiers qu'on ne peut pas compresser (IMP-85, réponse Q16 A).
+          wide ? "max-w-2xl" : size === "xl" ? "max-w-3xl" : size === "lg" ? "max-w-lg" : "max-w-md",
           danger ? "border-destructive" : "border-border",
         )}
         style={lift ? { transform: `translateY(-${lift}px)` } : undefined}

@@ -2055,3 +2055,23 @@ outils de test vivaient dans un dossier temporaire qui change à chaque session,
   anticipée (`import/video/checks.rs`) : un seul fil, une vidéo à la fois par ffprobe, seulement quand « Compresser les
   vidéos » est cochée sans « Convertir les vidéos en » ; liste refaite à chaque changement (parcours, croix, « Tout
   vider ») ; lectures réutilisées par l'import. Commande `uncompressible_files` (extensions citées par la pop-in).
+
+## D-075 — Réglages gardés dans la bibliothèque ; « rien à traiter » avant l'import ; noms fusionnés proposés (lot R4, 14/11/2026)
+
+- TAGM-27 (réponse Q19 A) : un choix à retenir « dans la bibliothèque, même après un redémarrage » va dans la table
+  `settings` de la base (clé → texte ; créée au schéma 1, inutilisée jusqu'ici : pas de changement de schéma), par les
+  commandes `library_setting` / `set_library_setting` (`prefs.rs`). Les préférences de l'interface (localStorage de
+  WebView2) sont communes à toutes les bibliothèques, d'où la base. Clé `fusion.cases-decochees` : liste JSON de
+  « medias:<id de la règle> » (règle du principal) et « groupe:<id> » (règle d'un tag fusionné étendue au groupe).
+- IMP-86 (réponse Q17 B) : commande `will_process` (`import/video/checks.rs`) : au moins un fichier de la liste sera
+  compressé ou converti, avec les mêmes règles que l'import (`Process::action`, réponses de la pop-in d'IMP-85, fichiers
+  déjà dans la bibliothèque comptés seulement avec « Compresser aussi », vidéos d'après leur lecture anticipée ; vidéo
+  pas encore lue : comptée). Fin d'import (`run.rs`) : « Annuler l'import » possible si aucune suppression n'était
+  demandée OU si aucun fichier n'a été effacé (`progress.deleted == 0`).
+- SRCH-31 (réponse Q18 A) : `tags::autocomplete` ne retire plus de noms fusionnés ; `beside_principal` regroupe chaque
+  tag et ses noms fusionnés à la place de sa première ligne (son nom d'abord). Plusieurs suggestions peuvent donc avoir
+  le même tag : clé React = numéro + nom fusionné.
+- GEN-30 : `scrollbar-gutter: stable` sur les deux listes de l'onglet « Synonymes et parents ». Pas contraire à D-073
+  (place retirée à la zone principale, qui laissait voir le fond au bord de la fenêtre) : ici la bande est dans le
+  tableau, sur son propre fond.
+- IMP-85 (réponse Q16 A) : `Modal` reçoit une largeur `xl` (768 px) pour le tableau de la pop-in.

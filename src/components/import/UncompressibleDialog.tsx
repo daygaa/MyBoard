@@ -8,6 +8,8 @@
 //   puis « Confirmer » / « Annuler » ; « Confirmer » grisé tant qu'une ligne n'a pas sa réponse, avec une bulle (Q11, Q13).
 // Avant elle, si des vidéos de la liste ne sont pas encore lues (lecture anticipée, Q12 A) : « Vérification des
 // vidéos… », qui attend la fin de leur lecture.
+// Disposition (réponse Q16 A du 14/11) : un tableau aligné, une ligne par type (type, extensions, « Convertir en » et
+// son menu, cases « Oui » / « Non » s'il y a deux lignes), sous une phrase commune.
 
 import { useEffect, useState } from "react";
 
@@ -24,8 +26,8 @@ const OUTLINE = "border-border text-foreground hover:bg-secondary hover:text-for
 /** Réponse : format choisi pour chaque type (`null` : « Non », ou type absent). */
 export type UncompressibleAnswer = { images: ImageTarget | null; videos: VideoTarget | null };
 
-/** « .heif, .dng » */
-const listed = (exts: string[]) => exts.map((e) => `.${e}`).join(", ");
+/** « .heif .dng » */
+const listed = (exts: string[]) => exts.map((e) => `.${e}`).join(" ");
 
 /** Attend la fin de la lecture anticipée des vidéos ; `onReady` reçoit la liste complète, `onCancel` : rien ne démarre. */
 export function VideoCheckWait({
@@ -93,14 +95,17 @@ export function UncompressibleDialog({ found, onAnswer, onCancel }: Props) {
   const answer = (images: boolean, videos: boolean) =>
     onAnswer({ images: hasImages && images ? imageTarget : null, videos: hasVideos && videos ? videoTarget : null });
 
-  const line = (kind: "images" | "videos") => {
+  /** Une ligne du tableau (grille commune : colonnes alignées d'une ligne à l'autre). */
+  const row = (kind: "images" | "videos") => {
     const images = kind === "images";
     return (
-      <div data-zone={`import.non-compressibles.${kind}`} className="flex flex-col gap-2">
-        <span className="block">
-          MyBoard ne peut pas compresser les fichiers {listed(images ? found.images : found.videos)}, souhaitez-vous les convertir en :
+      <div data-zone={`import.non-compressibles.${kind}`} className="col-span-full grid grid-cols-subgrid items-center">
+        <span className="font-medium text-foreground">{images ? "Images" : "Vidéos"}</span>
+        <span data-zone={`import.non-compressibles.${kind}.extensions`} className="break-words">
+          {listed(images ? found.images : found.videos)}
         </span>
-        <div className="flex flex-wrap items-center gap-4">
+        <div className="flex items-center gap-2">
+          <span className="whitespace-nowrap">Convertir en</span>
           <div className="w-60">
             {images ? (
               <FormatSelect formats={IMAGE_FORMATS} value={imageTarget} onChange={setImageTarget} disabled={false} zone="import.non-compressibles.format" />
@@ -108,25 +113,25 @@ export function UncompressibleDialog({ found, onAnswer, onCancel }: Props) {
               <FormatSelect formats={VIDEO_FORMATS} value={videoTarget} onChange={setVideoTarget} disabled={false} zone="import.non-compressibles.format-video" />
             )}
           </div>
-          {both && (
-            <>
-              {([true, false] as const).map((yes) => {
-                const value = images ? imageYes : videoYes;
-                const set = images ? setImageYes : setVideoYes;
-                return (
-                  <label key={String(yes)} className="flex cursor-pointer items-center gap-2 text-sm text-foreground">
-                    <Checkbox
-                      data-zone={`import.non-compressibles.${kind}.${yes ? "oui" : "non"}`}
-                      checked={value === yes}
-                      onCheckedChange={(c) => set(c === true ? yes : null)}
-                    />
-                    {yes ? "Oui" : "Non"}
-                  </label>
-                );
-              })}
-            </>
-          )}
         </div>
+        {both && (
+          <div className="flex items-center gap-4">
+            {([true, false] as const).map((yes) => {
+              const value = images ? imageYes : videoYes;
+              const set = images ? setImageYes : setVideoYes;
+              return (
+                <label key={String(yes)} className="flex cursor-pointer items-center gap-2 text-foreground">
+                  <Checkbox
+                    data-zone={`import.non-compressibles.${kind}.${yes ? "oui" : "non"}`}
+                    checked={value === yes}
+                    onCheckedChange={(c) => set(c === true ? yes : null)}
+                  />
+                  {yes ? "Oui" : "Non"}
+                </label>
+              );
+            })}
+          </div>
+        )}
       </div>
     );
   };
@@ -135,11 +140,12 @@ export function UncompressibleDialog({ found, onAnswer, onCancel }: Props) {
   return (
     <Modal
       open
-      size="lg"
+      size="xl"
       zone="import.non-compressibles"
       onClose={onCancel}
       onEnter={() => (both ? ready && answer(imageYes, videoYes) : answer(true, true))}
       title="Fichiers impossibles à compresser"
+      description="MyBoard ne sait pas compresser ces fichiers dans leur format. Voulez-vous les convertir ?"
       footer={
         both ? (
           <>
@@ -164,9 +170,12 @@ export function UncompressibleDialog({ found, onAnswer, onCancel }: Props) {
         )
       }
     >
-      <div className="flex flex-col gap-5 text-sm text-muted-foreground">
-        {hasImages && line("images")}
-        {hasVideos && line("videos")}
+      <div
+        data-zone="import.non-compressibles.tableau"
+        className={`grid items-center gap-x-5 gap-y-3 text-sm text-muted-foreground ${both ? "grid-cols-[auto_minmax(0,1fr)_auto_auto]" : "grid-cols-[auto_minmax(0,1fr)_auto]"}`}
+      >
+        {hasImages && row("images")}
+        {hasVideos && row("videos")}
       </div>
     </Modal>
   );

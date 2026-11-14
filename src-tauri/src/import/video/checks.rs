@@ -171,3 +171,61 @@ pub async fn uncompressible_files(
     .map_err(|e| e.to_string())?
     .map_err(|e| format!("{e:#}"))
 }
+
+/// Au moins un fichier de la liste sera compressé ou converti (IMP-86, réponse Q17 B du 14/11) : sinon les deux
+/// confirmations de « Supprimer les originaux » ne s'affichent pas (aucun original ne serait effacé). Mêmes règles que
+/// l'import : réponses de la pop-in d'IMP-85 comprises ; fichier déjà dans la bibliothèque au même endroit compté
+/// seulement avec « Compresser aussi » (IMP-60). Vidéo pas encore lue : comptée, par prudence. Les doublons ne sont connus
+/// que pendant l'import : « Annuler l'import » se rallume à la fin si aucun fichier n'a été effacé (`run.rs`).
+#[tauri::command]
+#[allow(clippy::too_many_arguments)]
+pub async fn will_process(
+    app: AppHandle,
+    compress_quality: Option<u8>,
+    convert_to: Option<Target>,
+    video_quality: Option<u8>,
+    convert_videos_to: Option<VideoTarget>,
+    process_existing: bool,
+    convert_uncompressible: Option<Target>,
+    convert_uncompressible_videos: Option<VideoTarget>,
+) -> Result<bool, String> {
+    tauri::async_runtime::spawn_blocking(move || -> anyhow::Result<bool> {
+        let state = app.state::<AppState>();
+        let video = VideoRequest { quality: video_quality, convert: convert_videos_to, fallback: convert_uncompressible_videos, playable: false };
+        let process = Process { quality: compress_quality, convert: convert_to, fallback: convert_uncompressible, existing: process_existing, video };
+        let files: Vec<(PathBuf, Kind, String, u64)> = {
+            let inner = state.import.inner.lock().unwrap();
+            inner
+                .files
+                .iter()
+                .filter(|f| process.action(f.kind, &f.ext).is_some())
+                .map(|f| (f.path.clone(), f.kind, f.ext.clone(), f.size))
+                .collect()
+        };
+        let conn = crate::db::open(&state.paths.db)?;
+        let mut known = conn.prepare("SELECT 1 FROM media WHERE path = ?1")?;
+        for (path, kind, ext, size) in files {
+            if !process_existing && known.exists([path.to_string_lossy()])? {
+                continue;
+            }
+            let processed = kind != Kind::Video
+                || convert_videos_to.is_some()
+                || match cached(&path, size) {
+                    Some(probe) => match streams::uncompressible(&probe, &ext) {
+                        Some(false) => true,
+                        Some(true) => convert_uncompressible_videos.is_some(),
+                        None => false,
+                    },
+                    // Illisible par ffprobe : laissée telle quelle ; pas encore lue : comptée.
+                    None => !checks().done.lock().unwrap().get(&path).is_some_and(|r| r.size == size),
+                };
+            if processed {
+                return Ok(true);
+            }
+        }
+        Ok(false)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+    .map_err(|e| format!("{e:#}"))
+}

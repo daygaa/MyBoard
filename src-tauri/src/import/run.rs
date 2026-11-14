@@ -273,8 +273,10 @@ pub fn run_import(app: &AppHandle, files: Vec<ScanFile>, default_tags: Vec<NewTa
     // Fichiers revus (réimport, LIB-05) : grands aperçus ratés réessayés ; emplacements de l'import surveillés (LIB-14).
     state.previews.retry_failed();
     crate::library_check::watch_roots(files.iter().map(|f| f.path.as_path()));
-    // « Annuler l'import » reste possible après la fin (retour du 11/11), jusqu'au prochain choix de fichiers.
-    let undoable = options.undoable() && undone.is_none();
+    // « Annuler l'import » reste possible après la fin (retour du 11/11), jusqu'au prochain choix de fichiers ; aussi
+    // avec « Supprimer les originaux » si aucun fichier n'a vraiment été effacé (IMP-86, réponse Q17 B du 14/11 : toutes
+    // les compressions à moins de 5 % de gain, fichiers qu'on ne peut pas compresser, doublons…).
+    let undoable = (options.undoable() || progress.deleted == 0) && undone.is_none();
     *manager.last.lock().unwrap() = undoable.then_some(changes);
     state.thumbs.wake();
     let _ = app.emit("library-changed", ());

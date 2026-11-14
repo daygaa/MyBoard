@@ -15,9 +15,10 @@ import { runTagAction as runAction } from "./tagManager";
 import { quote } from "./keepWords";
 import { displayTag } from "./tags";
 
-/** Une ligne « Règles de parents » d'une pop-in de fusion (lot R5) ; `option` : sa case « Étendre », décochée, le
- *  texte de la ligne quand elle est cochée et la bulle Windows de la case. */
-export type RuleLine = { id: number; text: string; option?: { label: string; text?: string; title?: string } };
+/** Une ligne « Règles de parents » d'une pop-in de fusion (lot R5) ; `option` : sa case « Appliquer » (TAGM-27), le
+ *  texte de la ligne quand elle est cochée, la bulle Windows de la case, sa clé dans les cases décochées retenues par
+ *  la bibliothèque et son état à l'ouverture (cochée, sauf si l'utilisateur l'a décochée la dernière fois). */
+export type RuleLine = { id: number; text: string; option?: { label: string; text?: string; title?: string; key?: string; checked?: boolean } };
 export type AskRules = { lines: RuleLine[]; end?: string };
 
 /** Pop-in de confirmation en attente ; `lead` : première ligne mise en avant ; `option` : case à cocher (cochée

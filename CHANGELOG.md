@@ -3,6 +3,23 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Retouches R4 : pop-in en tableau, « rien à traiter », noms fusionnés, cases « Appliquer » (14/11/2026) — Backup v136
+
+SPEC : IMP-85 `[~]`, nouveaux ID IMP-86, GEN-30, SRCH-31, TAGM-27 `[~]` ; IMP-53 reste `[~]` (photo HEIC essayée par
+Claude, à essayer par l'utilisateur). Décision D-075.
+
+- IMP-85 : pop-in « Fichiers impossibles à compresser » en tableau aligné (une ligne par type), plus large ; bulle
+  « ⓘ » de « Compresser les vidéos » adaptée (`UncompressibleDialog.tsx`, `modal.tsx`, `VideoOptions.tsx`).
+- IMP-86 : pas de confirmations de « Supprimer les originaux » quand aucun fichier ne sera traité ; « Annuler
+  l'import » reste possible à la fin si rien n'a été effacé (`import/video/checks.rs` : `will_process`, `run.rs`,
+  `useImportStart.tsx`).
+- GEN-30 : les tableaux des synonymes et des parents ne se décalent plus quand leur barre de défilement apparaît
+  (`RulesTab.tsx`).
+- SRCH-31 : tous les noms fusionnés qui correspondent sont proposés, sous leur principal (`tags.rs`,
+  `TagSuggestions.tsx`).
+- TAGM-27 : pop-in de fusion : cases « Appliquer « X » → « Y » » et « … à tout le groupe », cochées par défaut, avec de
+  nouvelles bulles ; un décochage est retenu par la bibliothèque (`mergeRules.ts`, `RuleAskHost.tsx`, `prefs.rs`).
+
 ## Retouches R3 : nom fusionné choisi, photos HEIF et DNG, ffmpeg 8.1, fichiers qu'on ne peut pas compresser (13/11/2026) — Backup v135
 
 SPEC : IMP-79 `[~]`, nouvel ID TAGM-26 `[~]`, IMP-80 `[~]`, IMP-82 `[~]`, IMP-83 `[~]` (partie application), nouvel ID

@@ -24,6 +24,7 @@ pub mod media;
 pub mod parents;
 pub mod paths;
 pub mod photos;
+pub mod prefs;
 pub mod reserve;
 pub mod rule_moves;
 pub mod rule_preview;
@@ -151,6 +152,9 @@ pub fn run() {
             import::list::count_compressible_existing,
             import::video::checks::set_video_checks,
             import::video::checks::uncompressible_files,
+            import::video::checks::will_process,
+            prefs::library_setting,
+            prefs::set_library_setting,
             import::pairs::count_pairs,
             import::reconvert::convert_video,
             import::reconvert::cancel_video_conversion,

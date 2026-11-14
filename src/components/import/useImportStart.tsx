@@ -93,7 +93,8 @@ export function useImportStart() {
           options.convertUncompressibleVideos = answer.videos;
         }
       }
-      if (processing && s.deleteOriginals) {
+      // IMP-86 (réponse Q17 B du 14/11) : pas de confirmations si aucun fichier ne sera compressé ni converti.
+      if (processing && s.deleteOriginals && (await api.willProcess(options))) {
         const first = await ask<true>((done) => (
           <ConfirmDialog
             zone="import.suppression-originaux"

@@ -78,7 +78,9 @@ function Panel({ zone, title, count, help, form, filter, onFilter, titles, sorte
             const top = e.currentTarget.scrollTop;
             store.setState((s) => ({ scroll: { ...s.scroll, [zone]: top } }));
           }}
-          className="min-h-24 flex-1 space-y-0.5 overflow-y-auto overscroll-contain"
+          // GEN-30 : place de la barre de défilement toujours gardée dans le tableau (bande invisible sur son fond) :
+          // son apparition ou sa disparition ne décale plus les lignes, comme l'en-tête (GEN-28).
+          className="min-h-24 flex-1 space-y-0.5 overflow-y-auto overscroll-contain [scrollbar-gutter:stable]"
         >
           {titles}
           {children.length ? children : <p className="px-1.5 py-2 text-xs text-muted-foreground">{empty}</p>}

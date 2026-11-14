@@ -6,7 +6,7 @@
 //! (D-005) : ce module n'y touche jamais. Un tag est lié à l'identifiant du média, jamais à
 //! son nom de fichier (LIB-04).
 
-use std::collections::HashSet;
+use std::collections::HashMap;
 
 use rusqlite::{Connection, OptionalExtension, TransactionBehavior, params, params_from_iter};
 use serde::{Deserialize, Serialize};
@@ -106,8 +106,9 @@ pub fn categories(db: &Connection) -> rusqlite::Result<Vec<Category>> {
 
 /// Autocomplétion (SRCH-06, D-016) : d'abord les tags qui COMMENCENT par le texte, puis ceux
 /// qui le CONTIENNENT ; les plus utilisés en premier. Les tags masqués ne sont pas proposés (TAGM-05).
-/// Les tags fusionnés (TAGM-15, D-047) sont proposés « nom → principal » (le choisir donne le principal), sauf si
-/// le principal l'est déjà ; un nom relié est un tag comme un autre, proposé comme tel.
+/// Les tags fusionnés (TAGM-15, D-047) sont proposés « nom → principal » (le choisir donne le principal) : tous ceux
+/// qui correspondent, chacun sur sa ligne, juste sous leur principal, même s'il est déjà proposé (SRCH-31, réponse Q18 A
+/// du 14/11) ; un nom relié est un tag comme un autre, proposé comme tel.
 pub fn autocomplete(db: &Connection, text: &str) -> rusqlite::Result<Vec<TagInfo>> {
     let Some(prefix) = normalize(text) else { return Ok(Vec::new()) };
     // Bornes [prefix, prefix + U+10FFFF) : la recherche utilise l'index unique sur `name`.
@@ -139,10 +140,7 @@ pub fn autocomplete(db: &Connection, text: &str) -> rusqlite::Result<Vec<TagInfo
             .collect::<rusqlite::Result<Vec<_>>>()?;
         found.extend(merged(tags, aliases));
     }
-    // Un tag proposé par son nom ne l'est pas aussi par un nom fusionné ; un seul nom fusionné par tag.
-    let named: HashSet<i64> = found.iter().filter(|t| t.alias.is_none()).map(|t| t.id).collect();
-    let mut aliased = HashSet::new();
-    found.retain(|t| t.alias.is_none() || (!named.contains(&t.id) && aliased.insert(t.id)));
+    let mut found = beside_principal(found);
     found.truncate(SUGGESTIONS as usize);
     for tag in found.iter_mut().filter(|t| t.alias.is_none()) {
         tag.synonyms = synonyms_of(db, tag.id)?;
@@ -161,6 +159,32 @@ fn synonyms_of(db: &Connection, id: i64) -> rusqlite::Result<Vec<Synonym>> {
     )?
     .query_map([id], |r| Ok(Synonym { name: r.get(0)?, category_id: r.get(1)?, media_count: r.get(2)?, principal: r.get(3)? }))?
     .collect()
+}
+
+/// Chaque nom fusionné juste sous son principal (SRCH-31) : un tag garde la place de sa première ligne (son nom ou un
+/// de ses noms fusionnés) ; son nom vient en premier, puis ses noms fusionnés dans l'ordre trouvé.
+fn beside_principal(found: Vec<TagInfo>) -> Vec<TagInfo> {
+    let mut order: Vec<i64> = Vec::new();
+    let mut lines: HashMap<i64, (Option<TagInfo>, Vec<TagInfo>)> = HashMap::new();
+    for tag in found {
+        let id = tag.id;
+        let entry = lines.entry(id).or_insert_with(|| {
+            order.push(id);
+            (None, Vec::new())
+        });
+        match tag.alias {
+            None => entry.0 = entry.0.take().or(Some(tag)),
+            Some(_) => entry.1.push(tag),
+        }
+    }
+    let mut out = Vec::new();
+    for id in order {
+        if let Some((named, aliases)) = lines.remove(&id) {
+            out.extend(named);
+            out.extend(aliases);
+        }
+    }
+    out
 }
 
 /// Tags et noms fusionnés trouvés, les plus utilisés en premier (à égalité, le tag avant le nom fusionné).

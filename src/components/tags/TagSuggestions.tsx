@@ -173,7 +173,7 @@ export function SuggestionList({ zone, suggestions, highlight, setHighlight, dro
         const reason = taken?.(tag) ?? null;
         return (
         <li
-          key={tag.id}
+          key={`${tag.id}:${tag.alias ?? ""}`}
           data-deja-la={reason ? "" : undefined}
           onMouseEnter={() => setHighlight(reason ? -1 : i)}
           className={cn("flex items-center rounded-md", search && "pl-1", i === highlight && ACTIVE, reason && "hover:bg-[#2a2c33]")}

@@ -328,6 +328,8 @@ export const api = {
   /** Pop-in d'IMP-85 : images et vidéos de la liste que la compression laisserait telles quelles. */
   uncompressibleFiles: (o: Pick<ImportOptions, "compressQuality" | "convertTo" | "videoQuality" | "convertVideosTo" | "processExisting">) =>
     invoke<Uncompressible>("uncompressible_files", o),
+  /** IMP-86 : au moins un fichier de la liste sera compressé ou converti (sinon, pas de confirmations de suppression). */
+  willProcess: (o: ImportOptions) => invoke<boolean>("will_process", o),
   /** Lecture anticipée des vidéos de la liste (IMP-85) : seulement quand « Compresser les vidéos » seule est cochée. */
   setVideoChecks: (on: boolean) => invoke<void>("set_video_checks", { on }),
   /** Paires originaux + versions compressées ou converties de la liste (pop-in IMP-64, IMP-68). */
@@ -346,6 +348,9 @@ export const api = {
   tagCategories: () => invoke<Category[]>("tag_categories"),
   // Les tags en cours de suppression en arrière-plan sont déjà cachés (TAGM-23, stores/tagJobs.ts).
   autocompleteTags: (text: string) => invoke<TagInfo[]>("autocomplete_tags", { text }).then(withoutPending),
+  /** Réglage gardé dans la bibliothèque (table `settings`, TAGM-27) ; `null` : jamais écrit. */
+  librarySetting: (key: string) => invoke<string | null>("library_setting", { key }),
+  setLibrarySetting: (key: string, value: string | null) => invoke<void>("set_library_setting", { key, value }),
   findTag: (name: string) => invoke<TagInfo | null>("find_tag", { name }).then((t) => (t && withoutPending([t]).length ? t : null)),
   pageTags: (ids: number[]) => invoke<TagInfo[]>("page_tags", { ids }).then(withoutPending),
   addMediaTag: (mediaId: number, tag: NewTag) => invoke<void>("add_media_tag", { mediaId, tag }),

@@ -10,14 +10,15 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { formatNumber } from "@/lib/format";
 import { copyPlain, keepQuoted } from "@/lib/keepWords";
+import { rememberChecks } from "@/lib/mergeRules";
 import { useRuleAsk, type AskRules, type RuleAsk } from "@/lib/tagRules";
 
 /** Lignes de règles montrées au plus ; les suivantes sont comptées. */
 const MAX_RULES = 10;
 
 /** Règles de parents touchées par une fusion (réponse 3 du lot R5), sous un trait comme dans la pop-in de
- *  suppression d'un tag ; sous une ligne, sa case « Étendre » (D11.3), toujours décochée à l'ouverture, avec sa bulle
- *  Windows (case et texte). */
+ *  suppression d'un tag ; sous une ligne, sa case « Appliquer » (D11.3, TAGM-27), cochée à l'ouverture sauf si
+ *  l'utilisateur l'a décochée la dernière fois (retenu par la bibliothèque), avec sa bulle Windows (case et texte). */
 function RulesBlock({ rules, checked, onCheck }: { rules: AskRules; checked: number[]; onCheck: (id: number, on: boolean) => void }) {
   const more = rules.lines.length - MAX_RULES;
   return (
@@ -45,9 +46,10 @@ function RulesBlock({ rules, checked, onCheck }: { rules: AskRules; checked: num
 
 function Ask({ ask }: { ask: RuleAsk }) {
   const [option, setOption] = useState(true);
-  const [extend, setExtend] = useState<number[]>([]);
+  const [extend, setExtend] = useState<number[]>(() => ask.rules?.lines.filter((l) => l.option?.checked).map((l) => l.id) ?? []);
   const answer = (confirmed: boolean) => {
     useRuleAsk.setState({ ask: null });
+    if (confirmed && ask.rules) void rememberChecks(ask.rules.lines.slice(0, MAX_RULES), extend);
     if (confirmed) void ask.run(option, extend);
     ask.done?.(confirmed);
   };

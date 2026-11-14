@@ -17,7 +17,8 @@ const COMPRESS_VIDEOS_INFO = [
   "Réencode les vidéos H.264, H.265, VP8, VP9 et AV1 dans leur format, à la qualité choisie.",
   "La version compressée est enregistrée à côté de l'original et n'est conservée que si elle est au moins 5 % plus légère ; l'original n'est jamais modifié.",
   "Résolution, IPS, pistes son, sous-titres et métadonnées sont conservés.",
-  "Anciens formats et formats déjà compressés (MPEG-4 / Xvid, MPEG-2, WMV, FLV…) : jamais compressés, signalés dans le bilan.",
+  // Adapté à la pop-in d'IMP-85 (accord du 14/11).
+  "Anciens formats et formats déjà compressés (MPEG-4 / Xvid, MPEG-2, WMV, FLV…) : MyBoard ne sait pas les compresser ; au clic sur « Importer », une fenêtre propose de les convertir (sinon, ils restent tels quels, signalés dans le bilan).",
   "Encodage via CPU par défaut et via GPU si disponible car plus rapide.",
 ];
 const CONVERT_VIDEOS_INFO = [
