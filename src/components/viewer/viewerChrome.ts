@@ -28,3 +28,6 @@ export const KEEP_SHOWN = [
 export function idleClass(idle: boolean): string {
   return idle ? "pointer-events-none opacity-0" : "opacity-100";
 }
+
+/** Boutons d'action de la barre du bas (InfoBar.tsx), repris par « Supprimer » des cartes « illisible » (VIEW-62). */
+export const ACTION_BUTTON = "inline-flex h-8 items-center gap-1.5 rounded-md px-2.5 text-sm transition";

@@ -25,11 +25,10 @@ import { useViewer } from "@/stores/viewer";
 import { copyFile, openFile, revealFile } from "./mediaActions";
 import { DeleteShownDialog } from "./DeleteShown";
 import { fileNameMenu } from "./mediaMenus";
+import { ACTION_BUTTON } from "./viewerChrome";
 import { isTyping } from "./navigation";
 import { printImage } from "./printMedia";
 import { TagAdder } from "./ViewerTags";
-
-const ACTION = "inline-flex h-8 items-center gap-1.5 rounded-md px-2.5 text-sm transition";
 
 type ActionDef = {
   action: ViewerAction;
@@ -56,7 +55,7 @@ function Action({ zone, icon: Icon, label, title, run, unavailable, className, i
       onClick={run}
       title={unavailable ?? (run ? hint : `${hint} — bientôt disponible`)}
       className={cn(
-        ACTION,
+        ACTION_BUTTON,
         disabled ? "cursor-not-allowed opacity-45" : "hover:bg-secondary hover:text-foreground",
         className ?? "text-muted-foreground",
       )}

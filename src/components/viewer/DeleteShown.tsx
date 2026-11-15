@@ -6,7 +6,10 @@ import { Trash2 } from "lucide-react";
 
 import { DeleteDialog } from "@/components/library/DeleteDialog";
 import type { MediaItem } from "@/lib/api";
+import { withShortcut } from "@/lib/shortcuts";
+import { cn } from "@/lib/utils";
 import { deleteShown } from "./mediaActions";
+import { ACTION_BUTTON } from "./viewerChrome";
 
 export function DeleteShownDialog({ item, onClose }: { item: MediaItem; onClose: () => void }) {
   return (
@@ -22,7 +25,8 @@ export function DeleteShownDialog({ item, onClose }: { item: MediaItem; onClose:
   );
 }
 
-/** « Supprimer » sous « Ouvrir avec l'application par défaut » des cartes « illisible » (VIEW-62, demande du 15/11). */
+/** « Supprimer » sous « Ouvrir avec l'application par défaut » des cartes « illisible » (VIEW-62, demande du 15/11) :
+ *  aspect et bulle du bouton de la barre du bas, avec un contour gris en plus (retour du 15/11). */
 export function DeleteShownButton({ item }: { item: MediaItem }) {
   const [open, setOpen] = useState(false);
   return (
@@ -31,7 +35,8 @@ export function DeleteShownButton({ item }: { item: MediaItem }) {
         type="button"
         data-zone="visionneuse.illisible.supprimer"
         onClick={() => setOpen(true)}
-        className="mt-3 inline-flex items-center gap-2 rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground transition hover:bg-secondary hover:text-rose-300"
+        title={withShortcut("Supprimer de la bibliothèque", "delete")}
+        className={cn(ACTION_BUTTON, "mt-3 border border-border text-rose-400 hover:bg-secondary hover:text-foreground")}
       >
         <Trash2 className="h-4 w-4" />
         Supprimer

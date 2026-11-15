@@ -3,6 +3,13 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Lot R5, 3e tour : aspect du bouton « Supprimer » des cartes (15/11/2026) — Backup v141
+
+SPEC : IMP-87, IMP-92 `[x]` (marques de l'utilisateur) ; VIEW-59, VIEW-62 `[~]`.
+
+- VIEW-62 : le bouton « Supprimer » des cartes « illisible » a l'aspect et la bulle de celui de la barre du bas
+  (« Supprimer de la bibliothèque (Suppr) »), avec un contour gris en plus.
+
 ## Lot R5, 2e tour : « Supprimer » sur les cartes, miniatures après une annulation (15/11/2026) — Backup v140
 
 SPEC : IMP-82, IMP-80 `[x]` (marques de l'utilisateur) ; IMP-87, VIEW-59 `[~]` ; VIEW-62, IMP-92 `[~]` (nouveaux).
