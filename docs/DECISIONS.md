@@ -2075,3 +2075,7 @@ outils de test vivaient dans un dossier temporaire qui change à chaque session,
   (place retirée à la zone principale, qui laissait voir le fond au bord de la fenêtre) : ici la bande est dans le
   tableau, sur son propre fond.
 - IMP-85 (réponse Q16 A) : `Modal` reçoit une largeur `xl` (768 px) pour le tableau de la pop-in.
+- GEN-31 : menu du clic droit ouvert, un clic sur la barre de titre (boutons et zone de déplacement) ferme le menu
+  et agit (exception à « un clic hors du menu ne fait que le fermer ») ; la pile d'Échap a une option
+  `arrowsBelow` : les flèches de la barre de titre s'affichent selon ce qui est sous le menu (Échap et le bouton 4
+  de la souris ferment toujours d'abord le menu).
