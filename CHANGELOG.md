@@ -3,6 +3,13 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Retouches R4, 3e tour : barre de titre et menu du clic droit (15/11/2026) — Backup v138
+
+SPEC : IMP-85, TAGM-27, IMP-90 `[x]` (marques de l'utilisateur) ; GEN-31 `[~]`.
+
+- GEN-31 : menu du clic droit ouvert, la fenêtre se déplace de nouveau par sa barre de titre, et la flèche « suivant »
+  n'est plus grisée à tort (`context-menu.tsx`, `escape.ts`).
+
 ## Retouches R4, 2e tour : textes de la pop-in et des cases, « 20 (basse) », barre de titre (15/11/2026) — Backup v137
 
 SPEC : IMP-86, GEN-30, SRCH-31, IMP-53 `[x]` (marques de l'utilisateur) ; IMP-85 et TAGM-27 `[~]` ; nouveaux ID IMP-90 et

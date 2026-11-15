@@ -22,6 +22,8 @@ type Entry = {
   canForward: (() => boolean) | null;
   modal: boolean;
   escapeOnly: boolean;
+  /** Les flèches de la barre de titre s'affichent selon ce qui est dessous (menu du clic droit, GEN-31). */
+  arrowsBelow: boolean;
 };
 const stack: Entry[] = [];
 
@@ -45,6 +47,13 @@ function top() {
 /** Élément au premier plan pour les boutons 4 / 5 et les flèches (sans les « Échap seulement »). */
 function navTop(): Entry | undefined {
   for (let i = stack.length - 1; i >= 0; i--) if (!stack[i].escapeOnly) return stack[i];
+  return undefined;
+}
+
+/** Élément qui décide de l'aspect des flèches : comme `navTop`, sans le menu du clic droit (un clic sur une flèche
+ *  le ferme puis agit sur ce qui est dessous, GEN-31 : flèche grisée à tort pendant qu'il était ouvert). */
+function arrowTop(): Entry | undefined {
+  for (let i = stack.length - 1; i >= 0; i--) if (!stack[i].escapeOnly && !stack[i].arrowsBelow) return stack[i];
   return undefined;
 }
 
@@ -85,6 +94,8 @@ type Options = {
   canForward?: () => boolean;
   /** Seule Échap le ferme : les boutons 4 / 5 et les flèches l'ignorent (suggestions, NAV-07). */
   escapeOnly?: boolean;
+  /** Les flèches de la barre de titre s'affichent selon ce qui est dessous (menu du clic droit, GEN-31). */
+  arrowsBelow?: boolean;
 };
 
 /** Inscrit `handler` (Échap, bouton 4) sur la pile tant que `active` est vrai. Renvoie une
@@ -94,6 +105,7 @@ export function useEscape(active: boolean, handler: Handler, options: Options = 
   const entryRef = useRef<Entry | null>(null);
   const modal = options.modal ?? false;
   const escapeOnly = options.escapeOnly ?? false;
+  const arrowsBelow = options.arrowsBelow ?? false;
   const hasBack = options.onBack !== undefined;
   const hasForward = options.onForward !== undefined;
   const hasCanForward = options.canForward !== undefined;
@@ -109,6 +121,7 @@ export function useEscape(active: boolean, handler: Handler, options: Options = 
       canForward: hasCanForward ? () => ref.current.canForward?.() ?? true : null,
       modal,
       escapeOnly,
+      arrowsBelow,
     };
     entryRef.current = entry;
     stack.push(entry);
@@ -119,7 +132,7 @@ export function useEscape(active: boolean, handler: Handler, options: Options = 
       entryRef.current = null;
       changed();
     };
-  }, [active, modal, escapeOnly, hasBack, hasForward, hasCanForward]);
+  }, [active, modal, escapeOnly, arrowsBelow, hasBack, hasForward, hasCanForward]);
   return () => entryRef.current !== null && top() === entryRef.current;
 }
 
@@ -142,13 +155,13 @@ export const historyHasForward = () => history_()?.canGoForward ?? true;
 
 /** Ce que ferait le bouton 4 de la souris : y a-t-il quelque chose à faire ? */
 export function canGoBack(): boolean {
-  if (navTop()) return true;
+  if (arrowTop()) return true;
   return history_()?.canGoBack ?? true;
 }
 
 /** Ce que ferait le bouton 5 de la souris : y a-t-il quelque chose à faire ? */
 export function canGoForward(): boolean {
-  const entry = navTop();
+  const entry = arrowTop();
   if (entry) return entry.forward !== null && (entry.canForward?.() ?? true);
   return historyHasForward();
 }

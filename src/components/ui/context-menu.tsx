@@ -44,8 +44,9 @@ window.addEventListener(
     // Boutons 4 et 5 : pile d'Échap (escape.ts). Clic droit : il ouvrira le menu du nouvel endroit.
     if (!isContextMenuOpen() || !menuOnTop() || inMenu(e.target) || e.button > 2) return;
     closeContextMenu();
-    // GEN-31 : les boutons de la barre de titre (retour arrière / avant, réduire, agrandir, fermer) agissent tout de suite.
-    if (e.target instanceof Element && e.target.closest('[data-zone="barre-titre"] button')) return;
+    // GEN-31 : la barre de titre agit tout de suite : ses boutons (retour arrière / avant, réduire, agrandir, fermer)
+    // et le reste de la barre (déplacer la fenêtre, retour du 15/11).
+    if (e.target instanceof Element && e.target.closest('[data-zone="barre-titre"]')) return;
     if (e.button !== 2) swallowClick(e);
   },
   true,
@@ -130,7 +131,7 @@ function MenuLayer({ menu }: { menu: OpenMenu }) {
   };
 
   // Échap et bouton 4 : d'abord le sous-menu, puis le menu.
-  const isTop = useEscape(true, () => (sub !== null ? openSub(null) : closeContextMenu()));
+  const isTop = useEscape(true, () => (sub !== null ? openSub(null) : closeContextMenu()), { arrowsBelow: true });
   useEffect(() => {
     menuOnTop = isTop;
     return () => {
