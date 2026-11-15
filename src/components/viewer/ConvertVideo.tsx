@@ -22,6 +22,7 @@ import { useViewer } from "@/stores/viewer";
 import { FormatSelect, VIDEO_FORMATS } from "../import/FormatSelect";
 import { VideoQualitySlider } from "../import/VideoQualitySlider";
 import { videoMenu } from "./mediaMenus";
+import { DeleteShownButton } from "./DeleteShown";
 import { OpenExternally } from "./OpenExternally";
 import { UnreadableCard } from "./UnreadableCard";
 
@@ -180,6 +181,7 @@ export function UnplayableVideo({ item }: { item: MediaItem }) {
           <OpenExternally item={item} secondary />
         </div>
       )}
+      {fraction === null && <DeleteShownButton item={item} />}
       {message && <p className="mt-3 text-sm text-rose-400 select-text">{message}</p>}
       {dialog && <ConvertDialog onConvert={(c) => void start(c)} onCancel={() => setDialog(false)} />}
     </div>

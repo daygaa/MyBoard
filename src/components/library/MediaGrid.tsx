@@ -128,7 +128,8 @@ export function MediaGrid({ items, density, firstIndex, pageSize }: Props) {
           >
             {items.slice(row.index * density, (row.index + 1) * density).map((item, col) => (
               <MediaTile
-                key={item.id}
+                // Numéro ET empreinte : un numéro repris par un autre média repart d'une vignette neuve (IMP-92).
+                key={`${item.id}:${item.hash}`}
                 item={item}
                 index={firstIndex + row.index * density + col}
                 pageSize={pageSize}

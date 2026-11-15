@@ -166,6 +166,8 @@ export type MediaDetail = {
 /** Résultat d'une miniature, envoyé par lots (événement `thumbs-ready`). */
 export type ThumbUpdate = {
   id: number;
+  /** Empreinte du média traité : un numéro repris par un autre média ne reçoit pas cet état (IMP-92). */
+  hash: string;
   status: number;
   width: number | null;
   height: number | null;

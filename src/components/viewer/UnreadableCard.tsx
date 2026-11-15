@@ -2,13 +2,14 @@
 // décodeur de MyBoard ne lit (format sans programme sur ce PC, ou fichier abîmé), vidéo que ni le lecteur intégré ni
 // ffmpeg ne lisent. Vidéo que ffmpeg lit : carte « Vidéo illisible » avec « Convertir » (ConvertVideo.tsx, VIEW-25).
 // Pas de zoom (la carte remplace l'image) ; clic droit : le menu du média, entrées qui ont besoin de l'image ou de la
-// lecture grisées.
+// lecture grisées. Sous « Ouvrir avec l'application par défaut » : « Supprimer » (VIEW-62).
 
 import type { ReactNode } from "react";
 import { Film, ImageOff } from "lucide-react";
 
 import type { MediaItem } from "@/lib/api";
 import { openContextMenu } from "@/lib/contextMenu";
+import { DeleteShownButton } from "./DeleteShown";
 import { imageMenu, videoMenu } from "./mediaMenus";
 import { OpenExternally } from "./OpenExternally";
 
@@ -37,6 +38,7 @@ export function UnreadableCard({ item, kind }: { item: MediaItem; kind: "image" 
         {`MyBoard ne parvient pas à lire cette ${kind} : son format n'est pas pris en charge sur ce PC, ou le fichier est abîmé. Ouvrez-la avec l'application par défaut.`}
       </p>
       <OpenExternally item={item} />
+      <DeleteShownButton item={item} />
     </div>
   );
 }

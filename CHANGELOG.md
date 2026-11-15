@@ -3,6 +3,15 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Lot R5, 2e tour : « Supprimer » sur les cartes, miniatures après une annulation (15/11/2026) — Backup v140
+
+SPEC : IMP-82, IMP-80 `[x]` (marques de l'utilisateur) ; IMP-87, VIEW-59 `[~]` ; VIEW-62, IMP-92 `[~]` (nouveaux).
+
+- VIEW-62 : bouton « Supprimer » sur les cartes « Image illisible », « Vidéo illisible » et « Vidéo illisible » avec
+  « Convertir », comme celui de la barre du bas de la visionneuse.
+- IMP-92 : après « Annuler l'import » puis un nouvel import, une vignette pouvait rester vide un moment : l'état des
+  miniatures est maintenant lié à l'empreinte du média, plus seulement à son numéro (repris par le média suivant).
+
 ## Lot R5 : fichiers illisibles et photos (15/11/2026) — Backup v139
 
 SPEC : IMP-87, VIEW-59 `[~]` (nouveaux) ; IMP-82, IMP-80 `[~]` ; FUT-15 (idée : interface en Rust, GPUI) `[ ]`.

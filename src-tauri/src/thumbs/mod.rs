@@ -50,6 +50,9 @@ const BATCH: usize = 64;
 #[serde(rename_all = "camelCase")]
 pub struct ThumbUpdate {
     pub id: i64,
+    /// Empreinte du média traité (IMP-92) : un numéro libéré par une suppression ou « Annuler l'import » est repris par
+    /// le média suivant ; le résultat d'une tâche de l'ancien média ne doit toucher ni la fiche ni la vignette du nouveau.
+    pub hash: String,
     pub status: i64,
     pub width: Option<u32>,
     pub height: Option<u32>,
@@ -249,7 +252,7 @@ fn process(shared: &Shared, job: &Job) -> Option<ThumbUpdate> {
         return None;
     }
     let ff = ffmpeg::shared();
-    let mut update = ThumbUpdate { id: job.id, status: status::ERROR, width: None, height: None, duration_ms: None };
+    let mut update = ThumbUpdate { id: job.id, hash: job.hash.clone(), status: status::ERROR, width: None, height: None, duration_ms: None };
 
     let made = match job.kind.as_str() {
         // HEIF / HEIC, DNG : ffmpeg récent ou décodeur de Windows (IMP-80, IMP-82).
@@ -338,8 +341,8 @@ fn finish(shared: &Shared, id: i64, update: Option<ThumbUpdate>) {
             "UPDATE media SET thumb_status = ?1,
                  width = COALESCE(?2, width), height = COALESCE(?3, height),
                  duration_ms = COALESCE(?4, duration_ms)
-             WHERE id = ?5",
-            rusqlite::params![u.status, u.width, u.height, u.duration_ms, u.id],
+             WHERE id = ?5 AND hash = ?6",
+            rusqlite::params![u.status, u.width, u.height, u.duration_ms, u.id, u.hash],
         );
         if let Err(e) = result {
             eprintln!("[miniatures] enregistrement du média {id} : {e}");

@@ -187,7 +187,10 @@ type TileProps = {
 export const MediaTile = memo(function MediaTile({ item, index, pageSize, compact, thumbSize }: TileProps) {
   const ref = useRef<HTMLDivElement>(null);
   const nameRef = useRef<HTMLParagraphElement>(null);
-  const update = useThumbs((s) => s.updates[item.id]);
+  // État envoyé pour CE média (même empreinte) : après « Annuler l'import », le numéro est repris par le média réimporté
+  // et l'ancien état « prête » le faisait chercher une miniature pas encore faite (IMP-92).
+  const sent = useThumbs((s) => s.updates[item.id]);
+  const update = sent?.hash === item.hash ? sent : undefined;
   const favorite = useIsFavorite(item.id, item.favorite);
   const hidden = useDeletion((s) => s.hidden[item.id] === true);
   const selecting = useSelection((s) => s.active);

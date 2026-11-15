@@ -14,7 +14,6 @@ import { useQuery } from "@tanstack/react-query";
 import { Check, Copy, ExternalLink, FolderOpen, FolderPlus, Printer, Star, Trash2 } from "lucide-react";
 
 import { folderListLabel, folderPickEntries } from "@/components/folders/folderMenus";
-import { DeleteDialog } from "@/components/library/DeleteDialog";
 import { api, type MediaItem } from "@/lib/api";
 import { openContextMenu, openMenuAt } from "@/lib/contextMenu";
 import { hasModalLayer } from "@/lib/escape";
@@ -23,7 +22,8 @@ import { viewerActionFor, withShortcut, type ViewerAction } from "@/lib/shortcut
 import { cn } from "@/lib/utils";
 import { setFavorite, useIsFavorite } from "@/stores/favorites";
 import { useViewer } from "@/stores/viewer";
-import { copyFile, deleteShown, openFile, revealFile } from "./mediaActions";
+import { copyFile, openFile, revealFile } from "./mediaActions";
+import { DeleteShownDialog } from "./DeleteShown";
 import { fileNameMenu } from "./mediaMenus";
 import { isTyping } from "./navigation";
 import { printImage } from "./printMedia";
@@ -198,17 +198,7 @@ export function InfoBar({ item, children }: { item: MediaItem; children: ReactNo
       </div>
 
       {children}
-      {deleting && (
-        <DeleteDialog
-          count={1}
-          name={item.fileName}
-          onCancel={() => setDeleting(false)}
-          onConfirm={(deleteFiles) => {
-            setDeleting(false);
-            void deleteShown(item, deleteFiles);
-          }}
-        />
-      )}
+      {deleting && <DeleteShownDialog item={item} onClose={() => setDeleting(false)} />}
     </div>
   );
 }

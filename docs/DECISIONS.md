@@ -2104,3 +2104,7 @@ outils de test vivaient dans un dossier temporaire qui change à chaque session,
   « Convertir » ; sinon carte « Vidéo illisible » au texte de l'image, sans « Convertir ». Menus : `imageMenu(item,
   null)` et `videoMenu(item, null)` grisent ce qui a besoin de l'image ou de la lecture ; `useViewer.unreadable` grise
   « Imprimer » de la barre d'informations.
+- IMP-92 (2e tour) : `ThumbUpdate.hash` ; `thumbs::finish` n'écrit que `WHERE id AND hash` ; l'interface ne prend
+  un état de `useThumbs.updates[id]` que s'il porte l'empreinte du média, et la vignette a pour clé numéro +
+  empreinte (un numéro repris par le média suivant repart d'une vignette neuve). VIEW-62 : `DeleteShown.tsx`
+  (pop-in de suppression partagée par la barre du bas et les cartes « illisible »).
