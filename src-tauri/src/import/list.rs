@@ -9,13 +9,15 @@ use serde::Serialize;
 use tauri::State;
 
 use super::scan::{ScanEntry, ScanFile};
-use super::{Phase, Snapshot};
+use super::Phase;
 use crate::AppState;
 
 impl super::ImportManager {
-    /// Ce chemin fait partie de la liste en cours (seuls ces fichiers ont un aperçu, `thumb://apercu`).
+    /// Ce chemin fait partie de la liste en cours, ou des doublons du bilan (IMP-91) : seuls ces fichiers ont un aperçu
+    /// (`thumb://apercu`).
     pub fn has_file(&self, path: &str) -> bool {
-        self.inner.lock().unwrap().files.iter().any(|f| f.path.as_os_str() == path)
+        let inner = self.inner.lock().unwrap();
+        inner.files.iter().any(|f| f.path.as_os_str() == path) || Self::is_duplicate_line(&inner, path)
     }
 }
 
@@ -26,28 +28,31 @@ pub struct ScanPage {
     pub total: usize,
 }
 
-/// Lignes `offset` à `offset + limit` de la liste (1 000 au plus par appel).
+/// Fichiers `offset` à `offset + limit` de la liste (1 000 au plus par appel) ; `source` : ceux d'un dossier déplié
+/// (IMP-88), sinon tous.
 #[tauri::command]
-pub fn scan_files(state: State<'_, AppState>, offset: usize, limit: usize) -> ScanPage {
+pub fn scan_files(state: State<'_, AppState>, offset: usize, limit: usize, source: Option<u64>) -> ScanPage {
     let inner = state.import.inner.lock().unwrap();
+    let mine = |f: &&ScanFile| source.is_none_or(|id| f.source == id);
     ScanPage {
-        entries: inner.files.iter().skip(offset).take(limit.min(1000)).map(ScanFile::entry).collect(),
-        total: inner.files.len(),
+        entries: inner.files.iter().filter(mine).skip(offset).take(limit.min(1000)).map(ScanFile::entry).collect(),
+        total: inner.files.iter().filter(mine).count(),
     }
 }
 
-/// Retire un fichier de la liste (avant l'import seulement) ; le résumé et le bouton « Importer (N) » suivent.
+/// Retire un fichier de la liste (avant l'import seulement, aussi pendant un parcours) ; le résumé et le bouton
+/// « Importer (N) » suivent.
 #[tauri::command]
 pub fn remove_scan_file(state: State<'_, AppState>, path: String) {
     state.import.update(false, |inner| {
-        if inner.snapshot.phase != Phase::Ready {
+        if !matches!(inner.snapshot.phase, Phase::Scanning | Phase::Ready) {
             return;
         }
         if let Some(i) = inner.files.iter().position(|f| f.path.as_os_str() == path.as_str()) {
             let file = inner.files.remove(i);
-            if let Some(scan) = &mut inner.snapshot.scan {
-                scan.forget(&file);
-            }
+            // Fichier choisi seul : sa ligne disparaît avec lui ; dans un dossier, le dossier reste (Q40 A).
+            inner.sources.retain(|s| s.id != file.source || s.folder);
+            inner.after_removal();
         }
     });
     super::video::checks::changed();
@@ -62,23 +67,21 @@ pub fn clear_scan(state: State<'_, AppState>) -> Result<(), String> {
     }
     manager.generation.fetch_add(1, Ordering::SeqCst);
     *manager.last.lock().unwrap() = None;
-    manager.update(false, |inner| {
-        inner.files.clear();
-        let recursive = inner.snapshot.recursive;
-        inner.snapshot =
-            Snapshot { phase: Phase::Idle, sources: Vec::new(), recursive, scan: None, progress: None, result: None, paused: None, undoable: false };
-    });
+    manager.update(false, |inner| inner.reset());
     super::video::checks::changed();
     Ok(())
 }
 
-/// Explorateur ouvert sur un fichier de la liste ou de la liste des erreurs de l'import (CTX-14).
+/// Explorateur ouvert sur un fichier ou un dossier de la liste (IMP-88), un fichier de la liste des erreurs de l'import (CTX-14) ou des doublons du bilan
+/// (IMP-91).
 #[tauri::command]
 pub fn reveal_scan_file(state: State<'_, AppState>, path: String) -> Result<(), String> {
     let known = {
         let inner = state.import.inner.lock().unwrap();
         inner.files.iter().any(|f| f.path.as_os_str() == path.as_str())
             || inner.snapshot.result.as_ref().is_some_and(|r| r.error_files.iter().any(|e| e.path == path))
+            || super::ImportManager::is_duplicate_line(&inner, &path)
+            || inner.sources.iter().any(|s| s.path == path)
     };
     if !known {
         return Err("Ce fichier ne fait pas partie de l'import.".into());

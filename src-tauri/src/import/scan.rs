@@ -1,5 +1,5 @@
 //! Parcours de ce que l'utilisateur a choisi ou déposé : fichiers et dossiers mélangés
-//! (IMP-01, IMP-02, IMP-03, IMP-04, IMP-05).
+//! (IMP-01, IMP-02, IMP-03, IMP-04, IMP-05), une source (fichier ou dossier ajouté, IMP-88) à la fois.
 
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
@@ -17,6 +17,8 @@ pub struct ScanFile {
     pub ext: String,
     /// Poids, lu avec le dossier (liste avant l'import, IMP-10).
     pub size: u64,
+    /// Fichier ou dossier ajouté qui l'a apporté (liste groupée, IMP-88).
+    pub source: u64,
 }
 
 /// Une ligne de la liste des fichiers avant l'import (IMP-10).
@@ -43,16 +45,30 @@ impl ScanFile {
 }
 
 impl ScanSummary {
-    /// Un fichier retiré de la liste (IMP-10, CTX-14) : les compteurs suivent.
-    pub fn forget(&mut self, file: &ScanFile) {
+    /// Un fichier de plus dans la liste : les compteurs suivent.
+    pub fn count(&mut self, file: &ScanFile) {
         match file.kind {
-            Kind::Image => self.images -= 1,
-            Kind::Video => self.videos -= 1,
-            Kind::Audio => self.audio -= 1,
-            Kind::Document => self.documents -= 1,
+            Kind::Image => self.images += 1,
+            Kind::Video => self.videos += 1,
+            Kind::Audio => self.audio += 1,
+            Kind::Document => self.documents += 1,
         }
-        self.total -= 1;
-        self.bytes -= file.size;
+        self.total += 1;
+        self.bytes += file.size;
+    }
+
+    /// Résumé de la liste pendant un parcours : ce qui y était déjà, plus ce que le parcours a trouvé.
+    pub fn plus(&self, other: &ScanSummary) -> ScanSummary {
+        ScanSummary {
+            total: self.total + other.total,
+            images: self.images + other.images,
+            videos: self.videos + other.videos,
+            audio: self.audio + other.audio,
+            documents: self.documents + other.documents,
+            ignored: self.ignored + other.ignored,
+            inaccessible: self.inaccessible + other.inaccessible,
+            bytes: self.bytes + other.bytes,
+        }
     }
 }
 
@@ -79,7 +95,10 @@ fn is_system_dir(name: &str) -> bool {
 
 struct Collector<'a> {
     files: Vec<ScanFile>,
-    seen: HashSet<PathBuf>,
+    seen: &'a mut HashSet<PathBuf>,
+    source: u64,
+    /// Fichiers pris en charge déjà dans la liste (« Déjà dans la liste », IMP-88).
+    already: u64,
     summary: ScanSummary,
     last: Instant,
     progress: &'a mut dyn FnMut(&ScanSummary),
@@ -94,17 +113,12 @@ impl Collector<'_> {
             return;
         };
         if !self.seen.insert(path.clone()) {
-            return; // fichier déposé ET présent dans un dossier déposé
+            self.already += 1; // déjà apporté par un autre fichier ou dossier ajouté
+            return;
         }
-        match kind {
-            Kind::Image => self.summary.images += 1,
-            Kind::Video => self.summary.videos += 1,
-            Kind::Audio => self.summary.audio += 1,
-            Kind::Document => self.summary.documents += 1,
-        }
-        self.summary.total += 1;
-        self.summary.bytes += size;
-        self.files.push(ScanFile { path, kind, ext, size });
+        let file = ScanFile { path, kind, ext, size, source: self.source };
+        self.summary.count(&file);
+        self.files.push(file);
         if self.last.elapsed() > Duration::from_millis(100) {
             (self.progress)(&self.summary);
             self.last = Instant::now();
@@ -137,31 +151,40 @@ impl Collector<'_> {
     }
 }
 
-/// Parcourt les fichiers et dossiers choisis ; `stop()` permet d'abandonner,
-/// `progress` est appelé ~10 fois par seconde.
+/// Ce qu'a trouvé le parcours d'une source.
+pub struct Found {
+    pub files: Vec<ScanFile>,
+    pub summary: ScanSummary,
+    pub already: u64,
+}
+
+/// Parcourt un fichier ou un dossier ajouté (`source`) ; `seen` : chemins déjà dans la liste (jamais deux fois) ;
+/// `stop()` permet d'abandonner, `progress` est appelé ~10 fois par seconde.
 pub fn scan(
-    roots: &[PathBuf],
+    root: &Path,
     recursive: bool,
+    source: u64,
+    seen: &mut HashSet<PathBuf>,
     stop: impl Fn() -> bool,
     mut progress: impl FnMut(&ScanSummary),
-) -> Option<(Vec<ScanFile>, ScanSummary)> {
+) -> Option<Found> {
     let mut collector = Collector {
         files: Vec::new(),
-        seen: HashSet::new(),
+        seen,
+        source,
+        already: 0,
         summary: ScanSummary::default(),
         last: Instant::now(),
         progress: &mut progress,
     };
-    for root in roots {
-        match std::fs::metadata(root) {
-            Ok(meta) if meta.is_dir() => {
-                if !collector.walk(root, recursive, &stop) {
-                    return None;
-                }
+    match std::fs::metadata(root) {
+        Ok(meta) if meta.is_dir() => {
+            if !collector.walk(root, recursive, &stop) {
+                return None;
             }
-            Ok(meta) => collector.add(root.clone(), meta.len()),
-            Err(_) => collector.summary.inaccessible += 1,
         }
+        Ok(meta) => collector.add(root.to_path_buf(), meta.len()),
+        Err(_) => collector.summary.inaccessible += 1,
     }
-    Some((collector.files, collector.summary))
+    Some(Found { files: collector.files, summary: collector.summary, already: collector.already })
 }

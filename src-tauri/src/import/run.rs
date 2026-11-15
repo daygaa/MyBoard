@@ -46,6 +46,9 @@ pub fn run_import(app: &AppHandle, files: Vec<ScanFile>, default_tags: Vec<NewTa
     let mut cancelled = false;
     let mut undone = None;
     let mut restorable = Vec::new();
+    // Doublons écartés et le média dont ils ont le contenu : groupes du bilan (IMP-91).
+    let mut duplicates: Vec<(ScanFile, i64)> = Vec::new();
+    let mut duplicate_groups = Vec::new();
     // Fichiers à effacer une fois leur lot validé : originaux remplacés (IMP-28), fichiers écartés d'une paire (IMP-64).
     let mut to_delete: Vec<PathBuf> = Vec::new();
     // Versions écrites depuis la dernière validation : elles sortent du journal une fois enregistrées (IMP-42).
@@ -209,7 +212,12 @@ pub fn run_import(app: &AppHandle, files: Vec<ScanFile>, default_tags: Vec<NewTa
                             vanished_files.push(file.path.display().to_string());
                         }
                     }
-                    Presence::Present => count(&mut progress, &outcome, &indexer, &mut error_files, &mut unreadable, file),
+                    Presence::Present => {
+                        count(&mut progress, &outcome, &indexer, &mut error_files, &mut unreadable, file);
+                        if let Ok(Outcome::Duplicate(id)) = &outcome {
+                            duplicates.push((file.clone(), *id));
+                        }
+                    }
                 }
                 if indexer.lost_subtitles {
                     progress.videos_subtitles_lost += 1;
@@ -273,6 +281,7 @@ pub fn run_import(app: &AppHandle, files: Vec<ScanFile>, default_tags: Vec<NewTa
             state.deletion.wake();
         } else {
             restorable = reserve::candidates(&conn, &found)?;
+            duplicate_groups = super::dups::groups(&conn, &duplicates)?;
         }
         Ok(())
     })()
@@ -304,10 +313,13 @@ pub fn run_import(app: &AppHandle, files: Vec<ScanFile>, default_tags: Vec<NewTa
         undone,
         elapsed_ms: start.elapsed().as_millis() as u64,
         restorable,
+        duplicate_groups,
         reported: false,
     };
     manager.update(false, |inner| {
         inner.files.clear();
+        inner.sources.clear();
+        inner.snapshot.lines = 0;
         inner.unreadable = unreadable.into_iter().map(|(f, _)| f).collect();
         inner.last_tags = default_tags;
         inner.snapshot.phase = Phase::Finished;

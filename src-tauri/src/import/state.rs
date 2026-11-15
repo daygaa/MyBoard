@@ -2,6 +2,7 @@
 
 use serde::Serialize;
 
+use super::dups::DupGroup;
 use super::scan::ScanSummary;
 use super::undo::Undone;
 use crate::reserve::RestoreCandidate;
@@ -89,6 +90,8 @@ pub struct ImportResult {
     pub elapsed_ms: u64,
     /// Médias réimportés dont les données sont en réserve (DEL-05) ; vidé une fois la pop-in réglée.
     pub restorable: Vec<RestoreCandidate>,
+    /// Doublons trouvés pendant l'import, par média (IMP-91) ; « Supprimer les doublons » les retire.
+    pub duplicate_groups: Vec<DupGroup>,
     /// Bilan fermé (IMP-45) : la pop-in de restauration peut s'ouvrir, et le bilan ne revient plus.
     pub reported: bool,
 }
@@ -104,13 +107,36 @@ pub struct Paused {
 #[serde(rename_all = "camelCase")]
 pub struct Snapshot {
     pub phase: Phase,
-    /// Fichiers et dossiers choisis (bouton ou glisser-déposer).
-    pub sources: Vec<String>,
+    /// Lignes de la liste : fichiers et dossiers ajoutés (bouton ou glisser-déposer, IMP-88) ; `list_version` change à
+    /// chaque changement de la liste.
+    pub lines: u64,
+    pub list_version: u64,
+    /// Case « Sous-dossiers inclus par défaut » : choix des nouveaux dossiers (IMP-88, réponse Q26 A).
     pub recursive: bool,
+    /// Ajouts refusés, déjà dans la liste (Q42 A) : « Déjà dans la liste » s'affiche à chaque hausse.
+    pub already_listed: u64,
     pub scan: Option<ScanSummary>,
     pub progress: Option<Progress>,
     pub result: Option<ImportResult>,
     pub paused: Option<Paused>,
     /// « Annuler l'import » possible pour l'import en cours (grisé sinon, réponses Q2, Q3 du 11/11).
     pub undoable: bool,
+}
+
+impl Snapshot {
+    /// Page à son état de départ : rien de choisi.
+    pub fn idle(recursive: bool) -> Self {
+        Self {
+            phase: Phase::Idle,
+            lines: 0,
+            list_version: 0,
+            recursive,
+            already_listed: 0,
+            scan: None,
+            progress: None,
+            result: None,
+            paused: None,
+            undoable: false,
+        }
+    }
 }

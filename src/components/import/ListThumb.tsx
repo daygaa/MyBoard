@@ -1,8 +1,11 @@
 // Miniature d'une ligne de la liste avant l'import (IMP-10, IMP-13) : aperçu de Windows, sinon une icône. Après 0,5 s
 // de survol, un aperçu agrandi de 256 px (taille du cache de l'Explorateur) s'affiche PAR-DESSUS, centré sur elle et
-// décalé s'il sortait de la zone visible ; il disparaît quand la souris quitte la miniature (IMP-59).
+// décalé s'il sortait de la zone visible ; il disparaît quand la souris quitte la miniature (IMP-59). Aussi dans les
+// doublons du bilan d'import (IMP-91) : `floating`, l'aperçu passe par-dessus la pop-in (sinon coupé par sa zone qui
+// défile), dans les limites de la fenêtre.
 
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { File, FileText, Film, Image as ImageIcon, Music } from "lucide-react";
 
 import { scanPreviewUrl, type ScanEntry } from "@/lib/api";
@@ -19,8 +22,9 @@ function KindIcon({ entry }: { entry: ScanEntry }) {
   return <Icon className="h-5 w-5 text-zinc-500" />;
 }
 
-/** Aperçu agrandi ; caché jusqu'à son chargement, le temps de le placer. */
-function LargePreview({ path }: { path: string }) {
+/** Aperçu agrandi ; caché jusqu'à son chargement, le temps de le placer. `anchor` : miniature dans une pop-in, l'aperçu
+ *  est posé par-dessus tout, centré sur elle. */
+function LargePreview({ path, anchor }: { path: string; anchor?: DOMRect }) {
   const ref = useRef<HTMLImageElement>(null);
   const [shift, setShift] = useState<{ x: number; y: number } | null>(null);
   const [failed, setFailed] = useState(false);
@@ -30,8 +34,8 @@ function LargePreview({ path }: { path: string }) {
   const place = () => {
     const box = ref.current?.getBoundingClientRect();
     if (!box) return;
-    const top = (document.querySelector('[data-zone="entete"]')?.getBoundingClientRect().bottom ?? 0) + MARGIN;
-    const scroller = document.getElementById(SCROLLER_ID);
+    const top = anchor ? MARGIN : (document.querySelector('[data-zone="entete"]')?.getBoundingClientRect().bottom ?? 0) + MARGIN;
+    const scroller = anchor ? null : document.getElementById(SCROLLER_ID);
     const right = (scroller ? scroller.getBoundingClientRect().left + scroller.clientWidth : window.innerWidth) - MARGIN;
     const bottom = window.innerHeight - MARGIN;
     const x = box.left < MARGIN ? MARGIN - box.left : box.right > right ? right - box.right : 0;
@@ -39,7 +43,7 @@ function LargePreview({ path }: { path: string }) {
     setShift({ x, y });
   };
 
-  return (
+  const image = (
     <img
       ref={ref}
       data-zone="import.liste.apercu-grand"
@@ -51,15 +55,17 @@ function LargePreview({ path }: { path: string }) {
       style={{
         transform: `translate(calc(-50% + ${shift?.x ?? 0}px), calc(-50% + ${shift?.y ?? 0}px))`,
         visibility: shift ? "visible" : "hidden",
+        ...(anchor && { left: anchor.left + anchor.width / 2, top: anchor.top + anchor.height / 2 }),
       }}
-      className="pointer-events-none absolute top-1/2 left-1/2 z-20 max-w-none rounded-lg border border-border bg-[#0d0e12] shadow-2xl shadow-black/60"
+      className={`pointer-events-none max-w-none rounded-lg border border-border bg-[#0d0e12] shadow-2xl shadow-black/60 ${anchor ? "fixed z-[130]" : "absolute top-1/2 left-1/2 z-20"}`}
     />
   );
+  return anchor ? createPortal(image, document.body) : image;
 }
 
-export function ListThumb({ entry }: { entry: ScanEntry }) {
+export function ListThumb({ entry, floating = false }: { entry: ScanEntry; floating?: boolean }) {
   const [failed, setFailed] = useState(false);
-  const [large, setLarge] = useState(false);
+  const [large, setLarge] = useState<DOMRect | null>(null);
   const timer = useRef<number | undefined>(undefined);
   useEffect(() => () => window.clearTimeout(timer.current), []);
   const preview = hasPreview(entry) && !failed;
@@ -67,12 +73,13 @@ export function ListThumb({ entry }: { entry: ScanEntry }) {
   return (
     <span
       className="relative shrink-0"
-      onMouseEnter={() => {
-        if (preview) timer.current = window.setTimeout(() => setLarge(true), HOVER_DELAY);
+      onMouseEnter={(e) => {
+        const box = e.currentTarget;
+        if (preview) timer.current = window.setTimeout(() => setLarge(box.getBoundingClientRect()), HOVER_DELAY);
       }}
       onMouseLeave={() => {
         window.clearTimeout(timer.current);
-        setLarge(false);
+        setLarge(null);
       }}
     >
       <span className="grid h-11 w-11 place-items-center overflow-hidden rounded-md bg-[#0d0e12]">
@@ -90,7 +97,7 @@ export function ListThumb({ entry }: { entry: ScanEntry }) {
           <KindIcon entry={entry} />
         )}
       </span>
-      {large && <LargePreview path={entry.path} />}
+      {large && <LargePreview path={entry.path} anchor={floating ? large : undefined} />}
     </span>
   );
 }

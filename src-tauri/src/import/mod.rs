@@ -14,6 +14,7 @@ mod avif_meta;
 mod compress;
 mod convert;
 mod disk;
+pub mod dups;
 mod encode;
 mod index;
 pub mod journal;
@@ -29,18 +30,18 @@ pub mod reconvert;
 mod relocate;
 mod run;
 mod scan;
+pub mod sources;
 mod state;
 mod tally;
 pub mod undo;
 mod versions;
 pub mod video;
 
-use std::path::PathBuf;
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::time::{Duration, Instant};
 
-use tauri::{AppHandle, Emitter, Manager, State};
+use tauri::{AppHandle, Emitter, State};
 
 use crate::AppState;
 use crate::tags::NewTag;
@@ -61,6 +62,10 @@ const MAX_LISTED_ERRORS: usize = 200;
 struct Inner {
     snapshot: Snapshot,
     files: Vec<ScanFile>,
+    /// Fichiers et dossiers ajoutés, dans l'ordre (liste groupée, IMP-88).
+    sources: Vec<sources::Source>,
+    /// Compteur des numéros de source et des versions de la liste (jamais remis à zéro).
+    version: u64,
     /// Fichiers illisibles du dernier import et ses tags par défaut : « Les importer quand même » (IMP-87).
     unreadable: Vec<ScanFile>,
     last_tags: Vec<NewTag>,
@@ -85,17 +90,10 @@ impl ImportManager {
         Self {
             app,
             inner: Mutex::new(Inner {
-                snapshot: Snapshot {
-                    phase: Phase::Idle,
-                    sources: Vec::new(),
-                    recursive: true,
-                    scan: None,
-                    progress: None,
-                    result: None,
-                    paused: None,
-                    undoable: false,
-                },
+                snapshot: Snapshot::idle(true),
                 files: Vec::new(),
+                sources: Vec::new(),
+                version: 0,
                 unreadable: Vec::new(),
                 last_tags: Vec::new(),
                 last_emit: Instant::now(),
@@ -165,56 +163,6 @@ pub fn import_snapshot(state: State<'_, AppState>) -> Snapshot {
     state.import.snapshot()
 }
 
-/// Parcourt les fichiers et dossiers choisis et prépare la liste des fichiers à importer.
-#[tauri::command]
-pub fn scan_paths(app: AppHandle, state: State<'_, AppState>, paths: Vec<String>, recursive: bool) -> Result<(), String> {
-    let manager = &state.import;
-    if manager.snapshot().phase == Phase::Importing {
-        return Err("Un import est déjà en cours.".into());
-    }
-    if paths.is_empty() {
-        return Err("Aucun fichier choisi.".into());
-    }
-    let generation = manager.generation.fetch_add(1, Ordering::SeqCst) + 1;
-    *manager.last.lock().unwrap() = None;
-    manager.update(false, |inner| {
-        inner.files.clear();
-        inner.unreadable.clear();
-        inner.snapshot = Snapshot {
-            phase: Phase::Scanning,
-            sources: paths.clone(),
-            recursive,
-            scan: Some(ScanSummary::default()),
-            progress: None,
-            result: None,
-            paused: None,
-            undoable: false,
-        };
-    });
-
-    std::thread::Builder::new()
-        .name("import-parcours".into())
-        .spawn(move || {
-            let manager = &app.state::<AppState>().import;
-            let current = || manager.generation.load(Ordering::SeqCst) == generation;
-            let roots: Vec<PathBuf> = paths.iter().map(PathBuf::from).collect();
-            let found = scan::scan(&roots, recursive, || !current(), |summary| {
-                let summary = summary.clone();
-                manager.update(true, |inner| inner.snapshot.scan = Some(summary));
-            });
-            if let Some((files, summary)) = found.filter(|_| current()) {
-                manager.update(false, |inner| {
-                    inner.files = files;
-                    inner.snapshot.phase = Phase::Ready;
-                    inner.snapshot.scan = Some(summary);
-                });
-                video::checks::changed();
-            }
-        })
-        .map_err(|e| e.to_string())?;
-    Ok(())
-}
-
 /// Lance l'import des fichiers trouvés par le dernier parcours. `default_tags` : ajoutés à
 /// tous les fichiers de l'import, y compris ceux déjà présents dans la bibliothèque (IMP-30) ; `options` : compression
 /// des images (IMP-20, IMP-60).
@@ -248,8 +196,8 @@ pub fn import_unreadable(app: AppHandle, state: State<'_, AppState>) -> Result<(
         if inner.snapshot.phase != Phase::Finished || inner.unreadable.is_empty() {
             return Err("Aucun fichier illisible à importer.".into());
         }
-        let files = std::mem::take(&mut inner.unreadable);
-        inner.files = files.clone();
+        let mut files = std::mem::take(&mut inner.unreadable);
+        inner.list_alone(&mut files);
         (files, inner.last_tags.clone())
     };
     let earlier = manager.last.lock().unwrap().take();

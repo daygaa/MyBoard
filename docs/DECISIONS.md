@@ -2108,3 +2108,30 @@ outils de test vivaient dans un dossier temporaire qui change à chaque session,
   un état de `useThumbs.updates[id]` que s'il porte l'empreinte du média, et la vignette a pour clé numéro +
   empreinte (un numéro repris par le média suivant repart d'une vignette neuve). VIEW-62 : `DeleteShown.tsx`
   (pop-in de suppression partagée par la barre du bas et les cartes « illisible »).
+
+## D-077 — Liste de l'import par sources ; doublons du bilan supprimés du disque (lot R6, 15/11/2026)
+
+- IMP-88 (réponses Q20 B, Q26 A, Q40 A à Q42 A) : la liste avant l'import est faite de **sources** (`import/sources.rs`) :
+  chaque fichier ou dossier ajouté (bouton ou glisser-déposer) reçoit un numéro ; chaque fichier de la liste
+  (`ScanFile.source`) garde celui de la source qui l'a apporté. `scan_paths` AJOUTE (après un import, il repart de
+  zéro) ; un chemin déjà source ou déjà fichier de la liste est refusé tout de suite ; une source nouvelle dont le
+  parcours n'apporte que des fichiers déjà listés est retirée ; chaque refus augmente `Snapshot.already_listed`
+  (« Déjà dans la liste » dans l'interface). Les sources à parcourir (`scanning`) le sont dans un fil, une à une, avec
+  les chemins déjà listés (`seen`) ; tout changement pendant un parcours le relance (numéro de parcours,
+  `generation`) et le résultat d'un parcours remplacé est oublié. Case « sous-dossiers » d'un dossier
+  (`set_source_recursive`) : ses fichiers sont retirés puis il est parcouru de nouveau. Fichiers rangés dans l'ordre
+  des sources (ordre de l'import). L'état envoyé à l'interface ne porte plus la liste des chemins, seulement
+  `lines` et `list_version` (lourd à chaque envoi avec des milliers de fichiers choisis un par un) ; lignes lues par
+  pages (`scan_lines`, `scan_files(…, source)`). Un fichier d'un format non pris en charge reste une source sans
+  ligne, compté dans « fichiers ignorés ».
+- IMP-91 (réponses Q36 A à Q39 A, reprend DUP-05) : pendant l'import, chaque `Outcome::Duplicate(média)` est noté ; à
+  la fin (sauf « Annuler l'import »), `import/dups.rs` en fait des groupes par média (`ImportResult.duplicate_groups`) :
+  le fichier du média, puis ses copies. Le fichier du média n'est cochable que si le média n'est pas une version
+  (`original_hash IS NULL` : ni version compressée ou convertie par MyBoard, ni version d'une paire). « Supprimer les
+  doublons » (`delete_import_duplicates`) : groupe entièrement coché refusé ; fichier du média coché : le média passe
+  d'abord sur le premier fichier gardé du groupe (chemin, nom, clé de tri, extension, date ; même contenu, donc même
+  empreinte et mêmes miniatures ; une transaction), puis effacement définitif sans la Corbeille (comme DEL-04),
+  jamais d'un fichier qu'un média utilise encore. Les lignes effacées quittent leur groupe, les groupes d'un seul
+  fichier disparaissent. Aperçus, Explorateur et application par défaut : seulement pour les chemins des groupes
+  (`is_duplicate_line`). « Annuler l'import » reste possible après une suppression : il ne touche jamais aux fichiers
+  de l'utilisateur, et les fichiers gardés restent sur le disque.

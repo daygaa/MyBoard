@@ -256,6 +256,8 @@ export type ImportResult = {
   elapsedMs: number;
   /** Pop-in de fin d'import (DEL-05) ; vide une fois réglée. */
   restorable: RestoreCandidate[];
+  /** Doublons trouvés pendant l'import, par média (IMP-91). */
+  duplicateGroups: DupGroup[];
   /** Bilan fermé (IMP-45). */
   reported: boolean;
 };
@@ -270,9 +272,20 @@ export type FailedFile = { id: number; path: string; code: number | null; messag
 
 export type ImportPhase = "idle" | "scanning" | "ready" | "importing" | "finished";
 
+/** Une ligne d'un groupe de doublons du bilan (IMP-91) : `inLibrary`, le fichier du média ; `deletable` : peut être
+ *  coché (pas une version faite par MyBoard ni celle d'une paire, réponse Q36 A). */
+export type DupFile = { path: string; name: string; size: number; ext: string; kind: MediaKind; inLibrary: boolean; deletable: boolean };
+export type DupGroup = { media: number; files: DupFile[] };
+/** « Supprimer les doublons » : fichiers effacés, et ceux qui n'ont pas pu l'être (ils restent dans leur groupe). */
+export type DupDeleteReport = { deleted: number; failed: { path: string; message: string }[] };
+
 /** Une ligne de la liste des fichiers avant l'import (IMP-10). */
 export type ScanEntry = { path: string; name: string; size: number; ext: string; kind: MediaKind };
 export type ScanPage = { entries: ScanEntry[]; total: number };
+/** Une ligne de la liste groupée (IMP-88) : un dossier (dépliable), ou un fichier choisi seul (`entry`, absente tant qu'il
+ *  n'est pas parcouru). */
+export type ScanLine = { id: number; path: string; folder: boolean; recursive: boolean; files: number; bytes: number; scanning: boolean; entry: ScanEntry | null };
+export type LinePage = { lines: ScanLine[]; total: number };
 
 /** Format de « Convertir les images en » (IMP-21) ; JFIF = JPEG sous un autre nom. */
 export type ImageTarget = "jpg" | "jfif" | "png" | "webp" | "avif";
@@ -309,9 +322,13 @@ export type Uncompressible = { images: string[]; videos: string[]; videosLeft: n
 /** Photo complète de l'état de l'import (événement `import-state`). */
 export type ImportSnapshot = {
   phase: ImportPhase;
-  /** Fichiers et dossiers choisis (bouton ou glisser-déposer). */
-  sources: string[];
+  /** Lignes de la liste : fichiers et dossiers ajoutés (IMP-88) ; `listVersion` change à chaque changement de la liste. */
+  lines: number;
+  listVersion: number;
+  /** Case « Sous-dossiers inclus par défaut » (IMP-88, réponse Q26 A). */
   recursive: boolean;
+  /** Ajouts refusés, déjà dans la liste (Q42 A) : « Déjà dans la liste » à chaque hausse. */
+  alreadyListed: number;
   scan: ScanSummary | null;
   progress: ImportProgress | null;
   result: ImportResult | null;
@@ -353,10 +370,15 @@ export const api = {
   /** Vidéo lisible par ffmpeg : « Convertir » possible sur sa carte « Vidéo illisible » (VIEW-59). */
   videoReadable: (id: number) => invoke<boolean>("video_readable", { id }),
   /** Liste des fichiers avant l'import, par pages (IMP-10 à IMP-12) ; retirer, tout vider (IMP-51, CTX-14). */
-  scanFiles: (offset: number, limit: number) => invoke<ScanPage>("scan_files", { offset, limit }),
+  scanFiles: (offset: number, limit: number, source?: number) => invoke<ScanPage>("scan_files", { offset, limit, source }),
+  scanLines: (offset: number, limit: number) => invoke<LinePage>("scan_lines", { offset, limit }),
+  removeScanSource: (id: number) => invoke<void>("remove_scan_source", { id }),
+  setSourceRecursive: (id: number, recursive: boolean) => invoke<void>("set_source_recursive", { id, recursive }),
   removeScanFile: (path: string) => invoke<void>("remove_scan_file", { path }),
   clearScan: () => invoke<void>("clear_scan"),
   revealScanFile: (path: string) => invoke<void>("reveal_scan_file", { path }),
+  deleteImportDuplicates: (paths: string[]) => invoke<DupDeleteReport>("delete_import_duplicates", { paths }),
+  openImportFile: (path: string) => invoke<void>("open_import_file", { path }),
   tagCategories: () => invoke<Category[]>("tag_categories"),
   // Les tags en cours de suppression en arrière-plan sont déjà cachés (TAGM-23, stores/tagJobs.ts).
   autocompleteTags: (text: string) => invoke<TagInfo[]>("autocomplete_tags", { text }).then(withoutPending),

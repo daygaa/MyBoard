@@ -3,6 +3,18 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Lot R6 : doublons du bilan, liste de l'import groupée par dossier (16/11/2026) — Backup v142
+
+SPEC : IMP-91, IMP-88 `[~]` ; décision D-077.
+
+- IMP-91 : le bilan d'import montre les doublons trouvés, par groupe (fichier de la bibliothèque marqué d'une icône,
+  copies) : miniature agrandie au survol, boutons Explorateur et application par défaut, menu du clic droit, cases ;
+  « Supprimer les doublons » efface du disque les fichiers cochés (confirmation, suppression définitive) ; si le fichier
+  de la bibliothèque est coché, le média passe sur une copie gardée.
+- IMP-88 : chaque fichier ou dossier ajouté (glisser-déposer ou boutons) s'ajoute à la liste ; un dossier = une ligne
+  dépliable avec sa case « Sous-dossiers » et sa croix ; case générale « Sous-dossiers inclus par défaut » ; « Déjà dans
+  la liste » ; la carte n'affiche plus le chemin choisi ni la liste des formats.
+
 ## Lot R5, 3e tour : aspect du bouton « Supprimer » des cartes (15/11/2026) — Backup v141
 
 SPEC : IMP-87, IMP-92 `[x]` (marques de l'utilisateur) ; VIEW-59, VIEW-62 `[~]`.

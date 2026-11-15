@@ -1,58 +1,30 @@
-// Liste des fichiers choisis, sous la barre d'actions (IMP-10, apparence v8) : aperçu, nom, poids · format, et une
-// croix au bout de la ligne pour retirer le fichier (CTX-14). 100 lignes, puis « et X supplémentaires » et
-// « Voir plus » (+100 par clic, IMP-11) ; les lignes sont lues par pages dans le cœur Rust : la page reste fluide
-// avec 100 000 fichiers choisis (IMP-12). « Tout vider » (IMP-51) remet la page à son état de départ.
-// Clic droit sur une ligne : Retirer de la liste ‖ Afficher dans l'explorateur de fichiers (CTX-14).
-// Pendant l'import, la liste reste affichée, sans croix ni « Tout vider » ; elle disparaît à la fin (IMP-50).
-// Miniature et aperçu agrandi au survol (IMP-59) : `ListThumb`.
+// Liste des fichiers choisis, sous la barre d'actions (IMP-10, apparence v8), groupée par dossier (IMP-88, réponse Q20 B
+// du 14/11) : un dossier ajouté = une ligne (`FolderLine`, dépliable), un fichier choisi seul = une ligne simple
+// (`FileRow`). 100 lignes, puis « et X supplémentaires » et « Voir plus » (+100 par clic, IMP-11) ; les lignes sont lues
+// par pages dans le cœur Rust : la page reste fluide avec 100 000 fichiers choisis (IMP-12). « Tout vider » (IMP-51)
+// remet la page à son état de départ. Pendant l'import, la liste reste affichée, sans croix ni « Tout vider » ; elle
+// disparaît à la fin (IMP-50).
 
 import { useEffect, useState } from "react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { ChevronDown, ListChecks, Trash2, X } from "lucide-react";
+import { ChevronDown, ListChecks, Loader2, Trash2 } from "lucide-react";
 
-import { api, type ScanEntry } from "@/lib/api";
-import { openContextMenu, type MenuEntry } from "@/lib/contextMenu";
+import { api, type ScanLine } from "@/lib/api";
 import { formatBytes, formatNumber, plural } from "@/lib/format";
 import { useImport } from "@/stores/import";
-import { ListThumb } from "./ListThumb";
+import { FileRow } from "./FileRow";
+import { FolderLine } from "./FolderLine";
 
 const STEP = 100;
 
-function rowMenu(entry: ScanEntry, locked: boolean): MenuEntry[] {
-  return [
-    { label: "Retirer de la liste", disabled: locked, run: () => void api.removeScanFile(entry.path) },
-    "separator",
-    { label: "Afficher dans l'explorateur de fichiers", run: () => void api.revealScanFile(entry.path) },
-  ];
-}
-
-function Row({ entry, locked }: { entry: ScanEntry; locked: boolean }) {
+/** Fichier choisi seul, pas encore parcouru : son nom, le temps du parcours. */
+function PendingFile({ line }: { line: ScanLine }) {
   return (
-    <li
-      data-zone="import.liste.fichier"
-      onContextMenu={(e) => openContextMenu(e, () => rowMenu(entry, locked))}
-      className="flex items-center gap-3 rounded-lg border border-border bg-background/40 px-2.5 py-2"
-    >
-      <ListThumb entry={entry} />
-      <span className="min-w-0 flex-1 select-text">
-        <span className="block truncate text-sm text-foreground" title={entry.path}>
-          {entry.name}
-        </span>
-        <span className="block text-[11px] text-muted-foreground">
-          {formatBytes(entry.size)} · {entry.ext.toUpperCase()}
-        </span>
+    <li className="flex items-center gap-3 rounded-lg border border-border bg-background/40 px-2.5 py-2 text-sm text-muted-foreground">
+      <Loader2 className="h-4 w-4 animate-spin text-[#d9a94e]" />
+      <span className="truncate" title={line.path}>
+        {line.path.split(/[\\/]/).pop()}
       </span>
-      {!locked && (
-        <button
-          type="button"
-          data-zone="import.liste.retirer"
-          title="Retirer de la liste"
-          onClick={() => void api.removeScanFile(entry.path)}
-          className="grid h-7 w-7 shrink-0 place-items-center rounded-md text-muted-foreground transition hover:bg-secondary hover:text-foreground"
-        >
-          <X className="h-4 w-4" />
-        </button>
-      )}
     </li>
   );
 }
@@ -60,22 +32,25 @@ function Row({ entry, locked }: { entry: ScanEntry; locked: boolean }) {
 export function FileList() {
   const snapshot = useImport((s) => s.snapshot);
   const phase = snapshot?.phase ?? "idle";
-  const visible = phase === "ready" || phase === "importing";
+  const visible = phase === "scanning" || phase === "ready" || phase === "importing";
   const locked = phase === "importing";
+  const lines = snapshot?.lines ?? 0;
+  const version = snapshot?.listVersion ?? 0;
   const total = snapshot?.scan?.total ?? 0;
   const bytes = snapshot?.scan?.bytes ?? 0;
-  const sourcesKey = snapshot?.sources.join("|") ?? "";
   const [shown, setShown] = useState(STEP);
-  // Nouveau choix de fichiers : on repart des 100 premières lignes.
-  useEffect(() => setShown(STEP), [sourcesKey]);
+  // Liste vidée : on repart des 100 premières lignes.
+  useEffect(() => {
+    if (lines === 0) setShown(STEP);
+  }, [lines]);
   const { data } = useQuery({
-    queryKey: ["scan-files", sourcesKey, total, shown, phase],
-    queryFn: () => api.scanFiles(0, shown),
-    enabled: visible && total > 0,
+    queryKey: ["scan-lines", version, shown, phase],
+    queryFn: () => api.scanLines(0, shown),
+    enabled: visible && lines > 0,
     placeholderData: keepPreviousData,
   });
-  if (!visible || total === 0 || !data) return null;
-  const rest = total - data.entries.length;
+  if (!visible || lines === 0 || !data) return null;
+  const rest = data.total - data.lines.length;
 
   return (
     <section data-zone="import.liste" className="rounded-xl border border-border bg-card/60 p-6">
@@ -101,14 +76,20 @@ export function FileList() {
         </div>
       </div>
       <ul className="space-y-1.5">
-        {data.entries.map((entry) => (
-          <Row key={entry.path} entry={entry} locked={locked} />
-        ))}
+        {data.lines.map((line) =>
+          line.folder ? (
+            <FolderLine key={line.id} line={line} locked={locked} version={version} />
+          ) : line.entry ? (
+            <FileRow key={line.id} entry={line.entry} locked={locked} />
+          ) : (
+            <PendingFile key={line.id} line={line} />
+          ),
+        )}
       </ul>
       {rest > 0 && (
         <div className="mt-3 flex flex-col items-center gap-1.5">
           <span className="text-xs text-muted-foreground select-text">
-            et {formatNumber(rest)} {plural(rest, "fichier supplémentaire", "fichiers supplémentaires")}
+            et {formatNumber(rest)} {plural(rest, "élément supplémentaire", "éléments supplémentaires")}
           </span>
           <button
             type="button"

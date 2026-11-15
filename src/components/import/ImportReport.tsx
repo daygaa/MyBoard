@@ -2,7 +2,8 @@
 // lieu) : « X importés sur Y », erreurs avec le nom des fichiers, fichiers disparus (IMP-54) ; avec une compression ou
 // une conversion : taux moyen, place gagnée, poids avant / après, détail images / vidéos au survol. Après « Terminer
 // ici » : ce qui n'a pas été traité ; après « Annuler l'import » : ce qui a été défait (réponse Q12 A du 11/11). Fichiers
-// illisibles sur ce PC, pas importés, avec « Les importer quand même » (IMP-87). Monté
+// illisibles sur ce PC, pas importés, avec « Les importer quand même » (IMP-87). Doublons trouvés, à supprimer du disque
+// (IMP-91, `ImportDuplicates`) : la pop-in est alors un peu plus large. Monté
 // dans App : il s'ouvre même si l'on a quitté la page Importer.
 
 import { useState } from "react";
@@ -14,6 +15,7 @@ import { api, type ImportProgress, type ImportResult } from "@/lib/api";
 import { formatBytes, formatNumber, plural } from "@/lib/format";
 import { useImport } from "@/stores/import";
 import { ImportAnyway } from "./ImportAnyway";
+import { ImportDuplicates } from "./ImportDuplicates";
 import { compressionLine, undoneText } from "./ImportProgress";
 
 function Line({ label, value }: { label: string; value: number }) {
@@ -138,6 +140,7 @@ function Body({ p, r }: { p: ImportProgress; r: ImportResult }) {
       <FileList title="Fichiers disparus pendant l'import" total={p.vanished} items={r.vanishedFiles.map((path) => ({ path }))} />
       <FileList title="Fichiers illisibles sur ce PC (pas importés)" total={p.unreadable} items={r.unreadableFiles} />
       {r.unreadableFiles.length > 0 && <ImportAnyway />}
+      <ImportDuplicates groups={r.duplicateGroups} />
     </>
   );
 }
@@ -152,6 +155,7 @@ export function ImportReport() {
     <Modal
       open
       even
+      size={result.duplicateGroups.length > 0 && !result.undone ? "lg" : undefined}
       zone="import.bilan"
       onClose={close}
       onEnter={close}
