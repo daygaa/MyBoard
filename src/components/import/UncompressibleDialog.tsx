@@ -145,7 +145,7 @@ export function UncompressibleDialog({ found, onAnswer, onCancel }: Props) {
       onClose={onCancel}
       onEnter={() => (both ? ready && answer(imageYes, videoYes) : answer(true, true))}
       title="Fichiers impossibles à compresser"
-      description="MyBoard ne sait pas compresser ces fichiers dans leur format. Voulez-vous les convertir ?"
+      description="MyBoard ne sait pas compresser certains formats. Voulez-vous les convertir ?"
       footer={
         both ? (
           <>

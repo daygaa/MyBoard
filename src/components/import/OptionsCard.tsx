@@ -14,10 +14,12 @@ import { VideoOptions } from "./VideoOptions";
 
 // Textes des « ⓘ » : ceux de l'utilisateur (IMP-71, 11/11), une ligne par retour à la ligne.
 const COMPRESS_INFO = [
-  "Réencode les JPEG, WebP et PNG à la qualité choisie.",
+  // Lignes 1, 4 et 5 adaptées à la pop-in d'IMP-85 (réponse Q27 A du 15/11).
+  "Réencode les JPEG, WebP, PNG et AVIF à la qualité choisie.",
   "La version compressée est enregistrée à côté de l'original et n'est conservée que si elle est au moins 5 % plus légère ; l'original n'est jamais modifié.",
   "PNG : optimisation lossless si la case est activée, peu importe la qualité ; de 16 à 8 bits de profondeur par couleur à 75 ou moins ; réduction à 256 couleurs à 50 ou moins.",
-  "Les métadonnées sont conservées. Les GIF, BMP, TIFF et autres images animées ne sont jamais compressés.",
+  "Les métadonnées sont conservées. Les GIF et autres images animées ne sont jamais compressés.",
+  "BMP, TIFF, HEIF / HEIC et DNG : MyBoard ne sait pas les compresser dans leur format ; au clic sur « Importer », une fenêtre propose de les convertir.",
 ];
 const CONVERT_INFO = [
   "Réencode chaque image dans le format choisi, à côté de l'original.",
@@ -68,7 +70,7 @@ export function OptionsCard() {
               className="data-[disabled]:cursor-not-allowed"
             />
             <div className="mt-1.5 flex justify-between text-[10px] text-muted-foreground">
-              <span>{QUALITY.min} (compressé)</span>
+              <span>{QUALITY.min} (basse)</span>
               <span>{QUALITY.max} (haute)</span>
             </div>
           </div>

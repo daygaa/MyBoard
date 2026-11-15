@@ -53,7 +53,7 @@ window.addEventListener("hashchange", () => {
  *  groupe se comprend seule), qui ne l'est plus (changement de principal), ou règle du principal. Case « Appliquer »
  *  (D11.3 ; textes de TAGM-27, réponses Q19 A et Q23 A du 14/11 : sans nombre de médias), avec sa bulle Windows : une
  *  règle du principal pose son parent aux médias des tags fusionnés ; une règle dont le tag fusionné est l'enfant
- *  devient une règle du principal (« … à tout le groupe »). */
+ *  devient une règle du principal (« Appliquer « B » → « Z » à « X » »). */
 function line(c: RuleChange): RuleLine {
   const rule = `${q(c.child)} → ${q(c.parent)}`;
   const other = `${q(c.newChild ?? "")} → ${q(c.newParent ?? "")}`;
@@ -61,9 +61,13 @@ function line(c: RuleChange): RuleLine {
   const spread = (chief: string, parent: string) => {
     const of = c.of.map(q).join(", ");
     const text = `${q(chief)} → ${q(parent)}`;
-    const title =
-      `Les médias de ${of} recevront ${q(chief)} par la fusion. Cochée : la règle ${text} leur ajoute aussi ${q(parent)}. ` +
-      `Décochée : ils reçoivent ${q(chief)} sans ${q(parent)}. À la défusion, ils retrouvent ${of} et perdent ${q(chief)} et ${q(parent)}.`;
+    // Une phrase par ligne (retour du 15/11).
+    const title = [
+      `Les médias de ${of} recevront ${q(chief)} par la fusion.`,
+      `Cochée : la règle ${text} leur ajoute aussi ${q(parent)}.`,
+      `Décochée : ils reçoivent ${q(chief)} sans ${q(parent)}.`,
+      `À la défusion, ils retrouvent ${of} et perdent ${q(chief)} et ${q(parent)}.`,
+    ].join("\n");
     return { label: `Appliquer ${text}`, title, key: `medias:${c.id}`, checked: true };
   };
   // Règle de l'ancien principal réécrite vers le nouveau, qui reçoit aussi des tags fusionnés (tags cochés, point
@@ -76,10 +80,14 @@ function line(c: RuleChange): RuleLine {
   const text = `${rule} sera mise de côté pendant la fusion${why}.`;
   if (c.extend === null) return { id: c.id, text };
   const principal = q(c.newChild ?? "");
-  const title =
-    `${q(c.child)} sera fusionné dans ${principal}. Cochée : la règle ${rule} devient ${other} et ajoute ${q(c.parent)} aux médias de ${principal}. ` +
-    `Décochée : elle est mise de côté pendant la fusion. À la défusion, la règle redevient ${rule} et ${q(c.parent)} est retiré des médias qui l'ont reçu ainsi.`;
-  return { id: c.id, text, option: { label: `Appliquer ${other} à tout le groupe`, text: `${rule} deviendra ${other}.`, title, key: `groupe:${c.id}`, checked: true } };
+  const title = [
+    `${q(c.child)} sera fusionné dans ${principal}.`,
+    `Cochée : la règle ${rule} devient ${other} et ajoute ${q(c.parent)} aux médias de ${principal}.`,
+    `Décochée : elle est mise de côté pendant la fusion.`,
+    `À la défusion, la règle redevient ${rule} et ${q(c.parent)} est retiré des médias qui l'ont reçu ainsi.`,
+  ].join("\n");
+  // Retour du 15/11 : case « Appliquer « B » → « Z » à « X » » ; cochée, la ligne montre la règle seule.
+  return { id: c.id, text, option: { label: `Appliquer ${rule} à ${principal}`, text: rule, title, key: `groupe:${c.id}`, checked: true } };
 }
 
 /** Ce que l'action changera aux règles : les lignes de la pop-in, toutes ; changement de principal (`fusion` faux) :

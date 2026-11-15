@@ -3,6 +3,17 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Retouches R4, 2e tour : textes de la pop-in et des cases, « 20 (basse) », barre de titre (15/11/2026) — Backup v137
+
+SPEC : IMP-86, GEN-30, SRCH-31, IMP-53 `[x]` (marques de l'utilisateur) ; IMP-85 et TAGM-27 `[~]` ; nouveaux ID IMP-90 et
+GEN-31 `[~]` ; nouveaux ID IMP-91, GEN-32, VIEW-61 (lots R6, R8, R9).
+
+- IMP-85 : phrase « MyBoard ne sait pas compresser certains formats. Voulez-vous les convertir ? » ; bulle « ⓘ » de
+  « Compresser les images » adaptée (AVIF, BMP, TIFF, HEIF / HEIC, DNG) (`UncompressibleDialog.tsx`, `OptionsCard.tsx`).
+- TAGM-27 : une phrase par ligne dans les bulles des cases ; case « Appliquer « B » → « Z » à « X » » (`mergeRules.ts`).
+- IMP-90 : « 20 (basse) » sous le curseur de qualité des images (`OptionsCard.tsx`).
+- GEN-31 : les boutons de la barre de titre agissent même quand un menu du clic droit est ouvert (`context-menu.tsx`).
+
 ## Retouches R4 : pop-in en tableau, « rien à traiter », noms fusionnés, cases « Appliquer » (14/11/2026) — Backup v136
 
 SPEC : IMP-85 `[~]`, nouveaux ID IMP-86, GEN-30, SRCH-31, TAGM-27 `[~]` ; IMP-53 reste `[~]` (photo HEIC essayée par
