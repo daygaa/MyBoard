@@ -202,7 +202,7 @@ export function VideoStage({ item, onClose, fallback }: { item: MediaItem; onClo
             if (!isGif && item.fileUrl && !viaProtocol) setViaProtocol(true);
             else setFailed(true);
           }}
-          onContextMenu={(e) => openContextMenu(e, () => videoMenu(item, e.currentTarget, controls, subs, gifControls))}
+          onContextMenu={(e) => openContextMenu(e, () => videoMenu(item, { video: e.currentTarget, zoom: controls, subs, gif: gifControls }))}
           onLoadedMetadata={(e) => {
             const v = e.currentTarget;
             // GIF : ses dimensions restent celles du GIF (la vidéo a parfois 1 px de plus, non montré).

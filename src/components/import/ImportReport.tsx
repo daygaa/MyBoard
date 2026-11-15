@@ -1,7 +1,8 @@
 // Bilan de fin d'import (IMP-45 ; choix du 09/11 : à la fin de chaque import, puis la restauration DEL-05 s'il y a
 // lieu) : « X importés sur Y », erreurs avec le nom des fichiers, fichiers disparus (IMP-54) ; avec une compression ou
 // une conversion : taux moyen, place gagnée, poids avant / après, détail images / vidéos au survol. Après « Terminer
-// ici » : ce qui n'a pas été traité ; après « Annuler l'import » : ce qui a été défait (réponse Q12 A du 11/11). Monté
+// ici » : ce qui n'a pas été traité ; après « Annuler l'import » : ce qui a été défait (réponse Q12 A du 11/11). Fichiers
+// illisibles sur ce PC, pas importés, avec « Les importer quand même » (IMP-87). Monté
 // dans App : il s'ouvre même si l'on a quitté la page Importer.
 
 import { useState } from "react";
@@ -12,6 +13,7 @@ import { Modal } from "@/components/ui/modal";
 import { api, type ImportProgress, type ImportResult } from "@/lib/api";
 import { formatBytes, formatNumber, plural } from "@/lib/format";
 import { useImport } from "@/stores/import";
+import { ImportAnyway } from "./ImportAnyway";
 import { compressionLine, undoneText } from "./ImportProgress";
 
 function Line({ label, value }: { label: string; value: number }) {
@@ -127,12 +129,15 @@ function Body({ p, r }: { p: ImportProgress; r: ImportResult }) {
         <Line label="Supprimés du disque" value={p.deleted} />
         <Line label="Suppressions impossibles" value={p.deleteFailed} />
         <Line label="Erreurs" value={p.errors} />
+        <Line label="Illisibles sur ce PC (pas importés)" value={p.unreadable} />
         <Line label="Fichiers disparus pendant l'import" value={p.vanished} />
       </div>
       <Compression p={p} />
       {r.fatal && <p className="mt-4 text-rose-400">{r.fatal}</p>}
       <FileList title="Fichiers en erreur" total={p.errors} items={r.errorFiles} />
       <FileList title="Fichiers disparus pendant l'import" total={p.vanished} items={r.vanishedFiles.map((path) => ({ path }))} />
+      <FileList title="Fichiers illisibles sur ce PC (pas importés)" total={p.unreadable} items={r.unreadableFiles} />
+      {r.unreadableFiles.length > 0 && <ImportAnyway />}
     </>
   );
 }

@@ -14,6 +14,7 @@ import { ImageStage } from "./ImageStage";
 import { LostStage } from "./LostStage";
 import { VideoStage } from "./VideoStage";
 import { OpenExternally } from "./OpenExternally";
+import { Centered } from "./UnreadableCard";
 
 const SHEETS = ["xls", "xlsx", "xlsm", "ods", "csv"];
 
@@ -25,15 +26,6 @@ function Card({ item, icon, message }: { item: MediaItem; icon: ReactNode; messa
       <p className="mt-4 font-medium break-all text-foreground">{item.fileName}</p>
       {message && <p className="mt-2 text-sm text-muted-foreground">{message}</p>}
       <OpenExternally item={item} />
-    </div>
-  );
-}
-
-/** Contenu centré dans la scène ; un clic sur le fond (hors du contenu) ferme (VIEW-02). */
-function Centered({ children, onClose }: { children: ReactNode; onClose: () => void }) {
-  return (
-    <div className="absolute inset-0 flex items-center justify-center p-6" onClick={(e) => e.target === e.currentTarget && onClose()}>
-      {children}
     </div>
   );
 }

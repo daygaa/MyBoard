@@ -195,6 +195,10 @@ export type ImportProgress = {
   errors: number;
   /** Fichiers effacés pendant l'import (IMP-54). */
   vanished: number;
+  /** Fichiers qu'aucun programme du PC ne sait lire, pas importés (IMP-87). */
+  unreadable: number;
+  /** « Les importer quand même » : médias ajoutés par l'import précédent, défaits avec celui-ci. */
+  earlierAdded: number;
   /** Compression des images (IMP-20) : gardées compressées · originaux gardés (moins de 5 % de gain) · impossibles. */
   compressed: number;
   /** Converties dans le format choisi (IMP-21). */
@@ -243,6 +247,8 @@ export type ImportResult = {
   errorFiles: { path: string; message: string }[];
   /** Fichiers effacés pendant l'import (IMP-54). */
   vanishedFiles: string[];
+  /** Fichiers illisibles sur ce PC (IMP-87), les 200 premiers, avec la raison. */
+  unreadableFiles: { path: string; message: string }[];
   /** « Annuler l'import » (IMP-43) : ce qui a été défait. */
   undone: { removed: number; restored: number; erased: number } | null;
   elapsedMs: number;
@@ -340,6 +346,10 @@ export const api = {
   finishImport: () => invoke<void>("finish_import"),
   undoImport: () => invoke<void>("undo_import"),
   importReportSeen: () => invoke<void>("import_report_seen"),
+  /** « Les importer quand même » (IMP-87) : les fichiers illisibles du dernier import. */
+  importUnreadable: () => invoke<void>("import_unreadable"),
+  /** Vidéo lisible par ffmpeg : « Convertir » possible sur sa carte « Vidéo illisible » (VIEW-59). */
+  videoReadable: (id: number) => invoke<boolean>("video_readable", { id }),
   /** Liste des fichiers avant l'import, par pages (IMP-10 à IMP-12) ; retirer, tout vider (IMP-51, CTX-14). */
   scanFiles: (offset: number, limit: number) => invoke<ScanPage>("scan_files", { offset, limit }),
   removeScanFile: (path: string) => invoke<void>("remove_scan_file", { path }),
@@ -496,6 +506,11 @@ const MEDIA_ROOT = convertFileSrc("", "media");
  *  fait partie de l'adresse : son contenu ne change jamais, la fenêtre peut le garder en cache. */
 export function mediaUrl(item: Pick<MediaItem, "id" | "hash" | "ext">): string {
   return `${MEDIA_ROOT}${item.id}/${item.hash}.${item.ext}`;
+}
+
+/** Image que la fenêtre n'a pas su afficher, convertie en JPEG par un décodeur de MyBoard (VIEW-59, réponse Q34 A). */
+export function jpegUrl(item: Pick<MediaItem, "id" | "hash" | "ext">): string {
+  return `${MEDIA_ROOT}jpeg/${item.id}/${item.hash}.${item.ext}`;
 }
 
 /** Adresse du fichier d'une image ou d'une vidéo pour la visionneuse : lu directement sur le disque par la fenêtre

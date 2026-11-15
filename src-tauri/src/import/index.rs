@@ -32,6 +32,8 @@ pub enum Outcome {
     Duplicate(i64),
     /// Média dont le fichier avait disparu, retrouvé ailleurs : il prend ce chemin (LIB-05).
     Relocated(i64),
+    /// Aucun programme du PC ne sait lire ce fichier (IMP-87) : pas importé ; la raison.
+    Unreadable(String),
 }
 
 /// Fichier écrit : chemin, empreinte, poids, extension.
@@ -56,13 +58,15 @@ pub struct Indexer {
     pub before: Option<Before>,
     /// Le fichier en cours, lu d'avance sur un SSD (IMP-06, `prefetch.rs`).
     pub ready: Option<Hashed>,
+    /// « Les importer quand même » (IMP-87) : les fichiers illisibles sur ce PC sont importés.
+    pub accept_unreadable: bool,
 }
 
 impl Indexer {
     pub fn new() -> Self {
         // Lecture par blocs de 1 Mo : efficace sur SSD comme sur disque dur.
         let (squeeze, replaced, written, sizes, before) = (None, None, None, None, None);
-        Self { buffer: vec![0; 1 << 20], head: Vec::with_capacity(HEAD_LEN), squeeze, replaced, lost_subtitles: false, written, sizes, before, ready: None }
+        Self { buffer: vec![0; 1 << 20], head: Vec::with_capacity(HEAD_LEN), squeeze, replaced, lost_subtitles: false, written, sizes, before, ready: None, accept_unreadable: false }
     }
 
     /// Doit être appelé dans une transaction ouverte (les lots sont validés par l'appelant), sauf pour une vidéo à traiter.
@@ -117,6 +121,13 @@ impl Indexer {
                 return Ok(Outcome::Relocated(other));
             }
             return Ok(Outcome::Duplicate(other));
+        }
+        // Aucun programme du PC ne sait lire ce fichier (IMP-87, réponse Q15 A) : pas importé, sauf « Les importer quand
+        // même » ; vérifié après les doublons (un doublon reçoit les tags par défaut, comme avant).
+        if !self.accept_unreadable
+            && let Some(reason) = super::readable::unreadable(file)
+        {
+            return Ok(Outcome::Unreadable(reason));
         }
 
         let (width, height) = match file.kind {

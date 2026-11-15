@@ -11,17 +11,21 @@
 // Les miniatures sont des carrés recadrés au centre (D-013) : elle est donc posée exactement
 // sur le carré central de l'image, et le reste apparaît avec l'original.
 // Clic droit sur l'image (pas sur le fond) : son menu (CTX-06).
+// Original que la fenêtre n'affiche pas : `media://`, puis converti en JPEG par un décodeur de MyBoard (réponse Q34 A
+// du 15/11) ; illisible aussi, sans copie : carte « Image illisible dans MyBoard » (VIEW-59, UnreadableCard.tsx).
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
-import { THUMB, directUrl, mediaUrl, type MediaItem } from "@/lib/api";
+import { THUMB, directUrl, jpegUrl, mediaUrl, type MediaItem } from "@/lib/api";
 import { openContextMenu } from "@/lib/contextMenu";
 import { cn } from "@/lib/utils";
 import { usePreviewReady } from "@/stores/previews";
+import { useViewer } from "@/stores/viewer";
 import { hideCopy, showCopy } from "./copyCanvas";
 import { canCopy, pauseCopies, readyBitmap, whenReady } from "./imageCache";
 import { imageMenu } from "./mediaMenus";
 import { stageThumb } from "./navigation";
+import { Centered, UnreadableCard } from "./UnreadableCard";
 import { ANIM_MS, useZoom, type Size } from "./useZoom";
 import { ZoomBadge } from "./ZoomBadge";
 
@@ -49,8 +53,8 @@ export function ImageStage({ item, onClose, opening = false }: { item: MediaItem
   const [covered, setCovered] = useState(false);
   /** Original demandé : pas de copie possible, ouverture sans copie prête, 1 s passée sur l'image, ou zoom. */
   const [wantOriginal, setWantOriginal] = useState(!copyPossible || (opening && bitmap === null));
-  /** Lecture directe du fichier impossible : `media://`. */
-  const [fallback, setFallback] = useState(false);
+  /** Adresse de l'original : lu directement, par `media://`, ou converti en JPEG (fenêtre qui ne sait pas l'afficher). */
+  const [source, setSource] = useState<"direct" | "media" | "jpeg">("direct");
   // Ouverture sans copie prête : les copies (voisines comprises) attendent que l'original soit affiché.
   const [openingAlone] = useState(opening && bitmap === null && copyPossible);
   /** Original illisible : la copie reste l'image nette. */
@@ -99,6 +103,20 @@ export function ImageStage({ item, onClose, opening = false }: { item: MediaItem
   }, [reveal]);
   const previewReady = usePreviewReady(item.id, 640);
   const side = Math.min(natural.w, natural.h);
+  const card = broken && !bitmap;
+  useEffect(() => {
+    if (!card) return;
+    useViewer.setState({ unreadable: item.id });
+    return () => useViewer.setState((s) => (s.unreadable === item.id ? { unreadable: null } : s));
+  }, [card, item.id]);
+
+  if (card) {
+    return (
+      <Centered onClose={onClose}>
+        <UnreadableCard item={item} kind="image" />
+      </Centered>
+    );
+  }
 
   return (
     <div
@@ -132,12 +150,13 @@ export function ImageStage({ item, onClose, opening = false }: { item: MediaItem
           />
         )}
         <img
-          src={wantOriginal ? (fallback ? mediaUrl(item) : directUrl(item)) : undefined}
+          src={wantOriginal ? (source === "jpeg" ? jpegUrl(item) : source === "media" ? mediaUrl(item) : directUrl(item)) : undefined}
           alt={item.fileName}
           draggable={false}
           decoding="async"
           onError={() => {
-            if (item.fileUrl && !fallback) setFallback(true);
+            if (source === "direct" && item.fileUrl) setSource("media");
+            else if (source !== "jpeg") setSource("jpeg");
             else setBroken(true);
           }}
           onLoad={(e) => {

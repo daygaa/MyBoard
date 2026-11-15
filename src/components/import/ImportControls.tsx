@@ -24,7 +24,8 @@ const run = (action: string, call: () => Promise<void>) =>
 /** « Annuler l'import », pendant une pause ou après la fin de l'import ; grisé avec sa raison dans une bulle. */
 export function UndoButton({ snapshot }: { snapshot: ImportSnapshot }) {
   const [confirm, setConfirm] = useState(false);
-  const added = snapshot.progress?.imported ?? 0;
+  // Après « Les importer quand même » (IMP-87), les médias de l'import précédent sont défaits aussi.
+  const added = (snapshot.progress?.imported ?? 0) + (snapshot.progress?.earlierAdded ?? 0);
   const running = snapshot.phase === "importing";
   const why = snapshot.undoable
     ? undefined

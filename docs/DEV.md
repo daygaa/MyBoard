@@ -83,6 +83,9 @@ Depuis le Workspace (Rust : `cargo` est dans `%USERPROFILE%\.cargo\bin`) :
 - `WEBVIEW2_USER_DATA_FOLDER` / `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=--remote-debugging-port=9333` — profil WebView2
   séparé et port de débogage (pilotage et captures pendant les tests). Cette variable REMPLACE les réglages du moteur
   de `tauri.conf.json` : toujours les redonner.
+- `MYBOARD_PHOTOS` (tests uniquement, IMP-80, IMP-82, IMP-87) — `ffmpeg` : décodeur de Windows ignoré (les DNG
+  deviennent illisibles, comme sur un PC sans décodeur DNG) ; `windows` : ffmpeg ignoré pour les photos (HEIF / HEIC
+  illisibles).
 - `MYBOARD_MONITOR` (tests uniquement, DEV-05) — écran où s'ouvre la fenêtre, par sa définition (`1920x1080`) ou son
   nom Windows (`DISPLAY1`). Sans la variable, rien ne change.
 

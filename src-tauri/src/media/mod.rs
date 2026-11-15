@@ -146,6 +146,16 @@ pub async fn open_media(state: State<'_, AppState>, id: i64) -> Result<(), OpenF
     opener::open(&path).map_err(from_opener)
 }
 
+/// La vidéo est lisible par ffmpeg : sa carte « Vidéo illisible » propose « Convertir » (VIEW-25) ; sinon (ni ffmpeg ni
+/// le lecteur intégré ne la lisent : importée « quand même », ou abîmée), le texte de la carte « Image illisible »
+/// (VIEW-59, réponse Q33 A du 15/11).
+#[tauri::command]
+pub async fn video_readable(state: State<'_, AppState>, id: i64) -> Result<bool, OpenFailure> {
+    let path = existing_path(&state, id)?;
+    let Some(ff) = crate::ffmpeg::shared() else { return Ok(false) };
+    Ok(crate::import::video::probe::probe(&ff.ffprobe, &path).is_ok_and(|p| p.main_video().is_some()))
+}
+
 /// Copie le fichier du média dans le presse-papiers, comme Ctrl + C dans l'Explorateur (VIEW-35).
 #[tauri::command]
 pub async fn copy_media(state: State<'_, AppState>, id: i64) -> Result<(), OpenFailure> {

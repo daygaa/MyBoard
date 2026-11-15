@@ -10,6 +10,7 @@ import { api, scanPreviewUrl, type ImportProgress as ProgressData, type ImportRe
 import { openContextMenu, type MenuEntry } from "@/lib/contextMenu";
 import { formatNumber, plural } from "@/lib/format";
 import { keepQuoted } from "@/lib/keepWords";
+import { ImportAnyway } from "./ImportAnyway";
 
 /** Clic droit sur un fichier en erreur (CTX-14). */
 function errorMenu(f: { path: string; message: string }): MenuEntry[] {
@@ -39,6 +40,7 @@ function resultLine(p: ProgressData, r: ImportResult): string {
   if (p.relocated > 0) parts.push(`${formatNumber(p.relocated)} ${plural(p.relocated, "retrouvé")} à un autre endroit`);
   if (p.vanished > 0) parts.push(`${formatNumber(p.vanished)} ${plural(p.vanished, "fichier disparu", "fichiers disparus")}`);
   if (p.errors > 0) parts.push(`${formatNumber(p.errors)} ${plural(p.errors, "erreur")}`);
+  if (p.unreadable > 0) parts.push(`${formatNumber(p.unreadable)} ${plural(p.unreadable, "illisible")} sur ce PC (pas ${plural(p.unreadable, "importé")})`);
   const duration = r.elapsedMs < 1000 ? "moins d'une seconde" : `${formatNumber(Math.round(r.elapsedMs / 1000))} s`;
   return `${start} — ${parts.join(", ")} (${duration})`;
 }
@@ -107,6 +109,7 @@ export function ImportProgress({ progress, result, paused }: Props) {
         <Stat label="Doublons" value={progress.duplicates} color="text-amber-400" />
         {progress.relocated > 0 && <Stat label="Retrouvés" value={progress.relocated} color="text-emerald-400" />}
         <Stat label="Erreurs" value={progress.errors} color="text-rose-400" />
+        {progress.unreadable > 0 && <Stat label="Illisibles" value={progress.unreadable} color="text-amber-400" />}
         <span className="ml-auto text-[11px] text-muted-foreground tabular-nums">
           {formatNumber(progress.processed)} / {formatNumber(progress.total)} · {pct}%
         </span>
@@ -165,30 +168,42 @@ export function ImportProgress({ progress, result, paused }: Props) {
         </div>
       )}
 
-      {result && result.errorFiles.length > 0 && (
-        <div data-zone="import.erreurs">
-          <p className="mb-1 text-[10px] font-semibold tracking-wider text-muted-foreground uppercase">
-            Fichiers en erreur
-            {progress.errors > result.errorFiles.length && ` (${result.errorFiles.length} premiers sur ${progress.errors})`}
-          </p>
-          <ul className="max-h-44 space-y-1 overflow-y-auto pr-1">
-            {result.errorFiles.map((f) => (
-              <li
-                key={f.path}
-                onContextMenu={(e) => openContextMenu(e, () => errorMenu(f))}
-                className="rounded-md border border-border bg-background/40 px-2 py-1.5 text-xs"
-              >
-                <span className="block truncate text-foreground" title={f.path}>
-                  {f.path}
-                </span>
-                <span className="block truncate text-[10px] text-rose-300/80" title={f.message}>
-                  {f.message}
-                </span>
-              </li>
-            ))}
-          </ul>
+      {result && <FileErrors zone="import.erreurs" title="Fichiers en erreur" total={progress.errors} items={result.errorFiles} />}
+      {result && !result.undone && result.unreadableFiles.length > 0 && (
+        <div>
+          <FileErrors zone="import.illisibles" title="Fichiers illisibles sur ce PC (pas importés)" total={progress.unreadable} items={result.unreadableFiles} />
+          <ImportAnyway />
         </div>
       )}
+    </div>
+  );
+}
+
+/** Fichiers en erreur, ou illisibles sur ce PC (IMP-87) : chemin et message, clic droit (CTX-14). */
+function FileErrors({ zone, title, total, items }: { zone: string; title: string; total: number; items: { path: string; message: string }[] }) {
+  if (items.length === 0) return null;
+  return (
+    <div data-zone={zone}>
+      <p className="mb-1 text-[10px] font-semibold tracking-wider text-muted-foreground uppercase">
+        {title}
+        {total > items.length && ` (${items.length} premiers sur ${total})`}
+      </p>
+      <ul className="max-h-44 space-y-1 overflow-y-auto pr-1">
+        {items.map((f) => (
+          <li
+            key={f.path}
+            onContextMenu={(e) => openContextMenu(e, () => errorMenu(f))}
+            className="rounded-md border border-border bg-background/40 px-2 py-1.5 text-xs"
+          >
+            <span className="block truncate text-foreground" title={f.path}>
+              {f.path}
+            </span>
+            <span className="block truncate text-[10px] text-rose-300/80" title={f.message}>
+              {f.message}
+            </span>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

@@ -21,6 +21,7 @@ pub mod list;
 pub mod pairs;
 mod pause;
 mod plan;
+mod readable;
 mod png_out;
 mod prefetch;
 pub mod preview;
@@ -60,6 +61,9 @@ const MAX_LISTED_ERRORS: usize = 200;
 struct Inner {
     snapshot: Snapshot,
     files: Vec<ScanFile>,
+    /// Fichiers illisibles du dernier import et ses tags par défaut : « Les importer quand même » (IMP-87).
+    unreadable: Vec<ScanFile>,
+    last_tags: Vec<NewTag>,
     last_emit: Instant,
 }
 
@@ -92,6 +96,8 @@ impl ImportManager {
                     undoable: false,
                 },
                 files: Vec::new(),
+                unreadable: Vec::new(),
+                last_tags: Vec::new(),
                 last_emit: Instant::now(),
             }),
             cancel: AtomicBool::new(false),
@@ -173,6 +179,7 @@ pub fn scan_paths(app: AppHandle, state: State<'_, AppState>, paths: Vec<String>
     *manager.last.lock().unwrap() = None;
     manager.update(false, |inner| {
         inner.files.clear();
+        inner.unreadable.clear();
         inner.snapshot = Snapshot {
             phase: Phase::Scanning,
             sources: paths.clone(),
@@ -227,6 +234,30 @@ pub fn start_import(
         // La liste reste affichée pendant l'import (IMP-10) ; vidée à la fin.
         inner.files.clone()
     };
+    begin(app, manager, files, default_tags, options, None)
+}
+
+/// « Les importer quand même » (IMP-87, réponse Q30 A du 15/11) : les fichiers illisibles du dernier import, avec ses
+/// tags par défaut, gardés tels quels (ni compression ni conversion : impossibles pour eux). « Annuler l'import » défait
+/// ensuite les deux imports.
+#[tauri::command]
+pub fn import_unreadable(app: AppHandle, state: State<'_, AppState>) -> Result<(), String> {
+    let manager = &state.import;
+    let (files, tags) = {
+        let mut inner = manager.inner.lock().unwrap();
+        if inner.snapshot.phase != Phase::Finished || inner.unreadable.is_empty() {
+            return Err("Aucun fichier illisible à importer.".into());
+        }
+        let files = std::mem::take(&mut inner.unreadable);
+        inner.files = files.clone();
+        (files, inner.last_tags.clone())
+    };
+    let earlier = manager.last.lock().unwrap().take();
+    begin(app, manager, files, tags, ImportOptions { accept_unreadable: true, ..ImportOptions::default() }, earlier)
+}
+
+/// Départ d'un import dans son propre fil.
+fn begin(app: AppHandle, manager: &ImportManager, files: Vec<ScanFile>, default_tags: Vec<NewTag>, options: ImportOptions, earlier: Option<undo::Changes>) -> Result<(), String> {
     manager.cancel.store(false, Ordering::SeqCst);
     manager.undo.store(false, Ordering::SeqCst);
     manager.gate.set(false);
@@ -241,7 +272,7 @@ pub fn start_import(
 
     std::thread::Builder::new()
         .name("import".into())
-        .spawn(move || run::run_import(&app, files, default_tags, options))
+        .spawn(move || run::run_import(&app, files, default_tags, options, earlier))
         .map_err(|e| e.to_string())?;
     Ok(())
 }

@@ -3,6 +3,19 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Lot R5 : fichiers illisibles et photos (15/11/2026) — Backup v139
+
+SPEC : IMP-87, VIEW-59 `[~]` (nouveaux) ; IMP-82, IMP-80 `[~]` ; FUT-15 (idée : interface en Rust, GPUI) `[ ]`.
+
+- IMP-82 : photos HEIF / HEIC lues par ffmpeg seulement (plus de secours par le décodeur de Windows).
+- IMP-87 : un fichier qu'aucun programme du PC ne sait lire (DNG sans décodeur de Windows, HEIF sans ffmpeg récent,
+  vidéo que ffmpeg ne lit pas) n'est plus importé : il est listé dans le bilan, avec sa raison et « Les importer quand
+  même » ; « Annuler l'import » défait ensuite les deux imports.
+- VIEW-59 : cartes « Image illisible dans MyBoard » et « Vidéo illisible dans MyBoard » (sans « Convertir » quand
+  ffmpeg ne lit pas la vidéo), sans zoom, menu du clic droit grisé ; une image que la fenêtre n'affiche pas est
+  convertie en JPEG au moment de l'afficher.
+- IMP-80 : DNG sans décodeur de Windows traités par IMP-87.
+
 ## Retouches R4, 3e tour : barre de titre et menu du clic droit (15/11/2026) — Backup v138
 
 SPEC : IMP-85, TAGM-27, IMP-90 `[x]` (marques de l'utilisateur) ; GEN-31 `[~]`.

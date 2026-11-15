@@ -3,7 +3,8 @@
 // formats vidéo, MP4 standard par défaut, bulles d'IMP-66), qualité (curseur à 5 crans, « Maximale » au départ : réponse
 // Q5 du 11/11), case « Supprimer l'original » (2e confirmation rouge, comme IMP-28). La copie est écrite à côté de
 // l'original et la fiche passe à la copie ; pendant la conversion : avancement et « Annuler » ; à la fin, la vidéo
-// convertie est lue.
+// convertie est lue. Vidéo que ffmpeg ne lit pas non plus (importée « quand même », ou abîmée) : carte « illisible » sans
+// « Convertir » (UnreadableCard.tsx, VIEW-59, réponse Q33 A du 15/11). Clic droit : menu de la vidéo, lecture grisée.
 
 import { useEffect, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
@@ -15,11 +16,14 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Modal } from "@/components/ui/modal";
 import { Progress } from "@/components/ui/progress";
 import { api, EVENTS, type MediaItem, type VideoConverted, type VideoTarget } from "@/lib/api";
+import { openContextMenu } from "@/lib/contextMenu";
 import { refreshLibrary } from "@/stores/deletion";
 import { useViewer } from "@/stores/viewer";
 import { FormatSelect, VIDEO_FORMATS } from "../import/FormatSelect";
 import { VideoQualitySlider } from "../import/VideoQualitySlider";
+import { videoMenu } from "./mediaMenus";
 import { OpenExternally } from "./OpenExternally";
+import { UnreadableCard } from "./UnreadableCard";
 
 const GOLD = "bg-[#d9a94e] text-[#1a1408] hover:bg-[#e3b75f]";
 const RED = "bg-destructive text-white hover:bg-destructive/90";
@@ -90,6 +94,19 @@ export function UnplayableVideo({ item }: { item: MediaItem }) {
   /** Avancement de la conversion en cours (0 à 1) ; `null` : aucune. */
   const [fraction, setFraction] = useState<number | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  /** Lisible par ffmpeg (« Convertir » possible) ; `null` : pas encore su (une lecture de son en-tête). */
+  const [readable, setReadable] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    api
+      .videoReadable(item.id)
+      .catch(() => false)
+      .then((ok) => alive && setReadable(ok));
+    return () => {
+      alive = false;
+    };
+  }, [item.id]);
 
   useEffect(() => {
     const progress = listen<{ id: number; fraction: number }>(EVENTS.videoConversionProgress, (e) => {
@@ -126,8 +143,14 @@ export function UnplayableVideo({ item }: { item: MediaItem }) {
     }
   };
 
+  if (readable === null) return null;
+  if (!readable) return <UnreadableCard item={item} kind="vidéo" />;
   return (
-    <div data-zone="visionneuse.illisible" className="flex max-w-lg flex-col items-center rounded-xl border border-border bg-card px-8 py-10 text-center">
+    <div
+      data-zone="visionneuse.illisible"
+      onContextMenu={(e) => openContextMenu(e, () => videoMenu(item, null))}
+      className="flex max-w-lg flex-col items-center rounded-xl border border-border bg-card px-8 py-10 text-center"
+    >
       <Film className="h-12 w-12 text-muted-foreground" />
       <p className="mt-4 font-semibold text-foreground">Vidéo illisible dans MyBoard</p>
       <p className="mt-1 text-sm font-medium break-all text-foreground/80 select-text">{item.fileName}</p>

@@ -2079,3 +2079,28 @@ outils de test vivaient dans un dossier temporaire qui change à chaque session,
   et agit (exception à « un clic hors du menu ne fait que le fermer ») ; la pile d'Échap a une option
   `arrowsBelow` : les flèches de la barre de titre s'affichent selon ce qui est sous le menu (Échap et le bouton 4
   de la souris ferment toujours d'abord le menu).
+
+## D-076 — Fichiers illisibles sur ce PC ; photos HEIF par ffmpeg seul ; cartes « illisible » (lot R5, 15/11/2026)
+
+- IMP-82 (décision de l'utilisateur du 14/11) : plus de secours par le décodeur HEIF de Windows : HEIF / HEIC par
+  ffmpeg 8.1 ou plus seulement (toujours fourni avec MyBoard) ; DNG toujours par le décodeur de Windows (D-074).
+  Interrupteur d'essai `MYBOARD_PHOTOS` : `ffmpeg` = décodeur de Windows ignoré (DNG illisibles), `windows` = ffmpeg
+  ignoré pour les photos (HEIF illisibles).
+- IMP-87 (réponses Q15 A, Q29 A, Q30 A) : `import/readable.rs`, appelé par `Indexer::index` APRÈS les doublons et les
+  fichiers déjà présents (un doublon reçoit toujours les tags par défaut), avant tout enregistrement ou traitement :
+  issue `Outcome::Unreadable(raison)`. Images : seuls les formats lus par un programme qui peut manquer sont vérifiés
+  (HEIF / HEIC : ffmpeg récent ; DNG : un décodeur WIC déclare l'extension « .dng », liste lue une fois par lancement,
+  `photos::missing_decoder`) ; vérification par le format, pas par le contenu (un fichier abîmé d'un format lisible est
+  importé, carte à l'affichage). Vidéos : ffprobe (lecture anticipée réutilisée) ; lisible = au moins un flux ; sans
+  ffmpeg : pas de vérification. Mesure du 15/11 : ≈ 0,07 s par vidéo. Bilan : `Progress.unreadable`,
+  `ImportResult.unreadable_files` (200 premiers) ; la liste complète et les tags par défaut restent dans le gestionnaire
+  pour la commande `import_unreadable` (« Les importer quand même ») : options vides (`accept_unreadable`, fichiers
+  tels quels) ; ses changements absorbent ceux de l'import précédent (`Changes::absorb`) : « Annuler l'import » défait
+  les deux, et ce petit import n'est annulable que si le précédent l'était. « Annuler l'import » vide la liste.
+- VIEW-59 (réponses Q31 A à Q34 A) : original que la fenêtre n'affiche pas : `media://`, puis
+  `media://jpeg/<id>/<hash>.<ext>` (décodeur de MyBoard, puis ffmpeg, ou celui des photos ; même cache que les
+  formats convertis) ; échec sans copie : carte « Image illisible dans MyBoard » (`UnreadableCard.tsx`). Vidéo que le
+  lecteur ne joue pas : commande `video_readable` (ffprobe, un flux vidéo) : lisible → carte de VIEW-25 avec
+  « Convertir » ; sinon carte « Vidéo illisible » au texte de l'image, sans « Convertir ». Menus : `imageMenu(item,
+  null)` et `videoMenu(item, null)` grisent ce qui a besoin de l'image ou de la lecture ; `useViewer.unreadable` grise
+  « Imprimer » de la barre d'informations.

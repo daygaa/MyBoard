@@ -29,13 +29,19 @@ use crate::tagging::{Tagger, Target, resolve_or_create};
 use crate::tags::NewTag;
 use crate::{AppState, db};
 
-pub fn run_import(app: &AppHandle, files: Vec<ScanFile>, default_tags: Vec<NewTag>, options: ImportOptions) {
+/// `earlier` : « Les importer quand même » (IMP-87), changements de l'import qui a écarté ces fichiers : « Annuler
+/// l'import » défait les deux (sans eux, ce petit import n'est pas annulable seul).
+pub fn run_import(app: &AppHandle, files: Vec<ScanFile>, default_tags: Vec<NewTag>, options: ImportOptions, earlier: Option<Changes>) {
     let state = app.state::<AppState>();
     let manager = &state.import;
     let start = Instant::now();
     let process = options.process();
     let mut progress = Progress { total: files.len() as u64, ..Progress::default() };
     let mut error_files = Vec::new();
+    let mut unreadable = Vec::new();
+    let chain_ok = !options.accept_unreadable || earlier.is_some();
+    progress.earlier_added = earlier.as_ref().map_or(0, |e| e.added.len() as u64);
+    let mut earlier = earlier;
     let mut vanished_files = Vec::new();
     let mut cancelled = false;
     let mut undone = None;
@@ -89,6 +95,7 @@ pub fn run_import(app: &AppHandle, files: Vec<ScanFile>, default_tags: Vec<NewTa
             delete_files(&conn, &mut early, &mut progress);
         }
         let mut indexer = Indexer::new();
+        indexer.accept_unreadable = options.accept_unreadable;
         // Sur un SSD, les fichiers suivants sont lus d'avance par 4 fils (IMP-06) ; sur un disque dur, un à la fois.
         let prefetch = Prefetch::start(&state.paths.db, &files, |p| set_aside.contains(p));
         // Vidéo en cours de traitement : barre du fichier (IMP-41) ; pause et arrêt passent jusqu'à ffmpeg.
@@ -202,7 +209,7 @@ pub fn run_import(app: &AppHandle, files: Vec<ScanFile>, default_tags: Vec<NewTa
                             vanished_files.push(file.path.display().to_string());
                         }
                     }
-                    Presence::Present => count(&mut progress, &outcome, &indexer, &mut error_files, file),
+                    Presence::Present => count(&mut progress, &outcome, &indexer, &mut error_files, &mut unreadable, file),
                 }
                 if indexer.lost_subtitles {
                     progress.videos_subtitles_lost += 1;
@@ -258,6 +265,9 @@ pub fn run_import(app: &AppHandle, files: Vec<ScanFile>, default_tags: Vec<NewTa
         drop(prefetch);
         conn.execute_batch("COMMIT")?;
         after_commit(&conn, &mut to_delete, &mut unsaved, &mut progress);
+        if let Some(e) = earlier.take() {
+            changes.absorb(e);
+        }
         if manager.undo.load(Ordering::SeqCst) && options.undoable() {
             undone = Some(changes.undo(&mut conn)?);
             state.deletion.wake();
@@ -276,7 +286,7 @@ pub fn run_import(app: &AppHandle, files: Vec<ScanFile>, default_tags: Vec<NewTa
     // « Annuler l'import » reste possible après la fin (retour du 11/11), jusqu'au prochain choix de fichiers ; aussi
     // avec « Supprimer les originaux » si aucun fichier n'a vraiment été effacé (IMP-86, réponse Q17 B du 14/11 : toutes
     // les compressions à moins de 5 % de gain, fichiers qu'on ne peut pas compresser, doublons…).
-    let undoable = (options.undoable() || progress.deleted == 0) && undone.is_none();
+    let undoable = (options.undoable() || progress.deleted == 0) && undone.is_none() && chain_ok;
     *manager.last.lock().unwrap() = undoable.then_some(changes);
     state.thumbs.wake();
     let _ = app.emit("library-changed", ());
@@ -286,6 +296,11 @@ pub fn run_import(app: &AppHandle, files: Vec<ScanFile>, default_tags: Vec<NewTa
         fatal,
         error_files,
         vanished_files,
+        unreadable_files: unreadable
+            .iter()
+            .take(MAX_LISTED_ERRORS)
+            .map(|(f, reason): &(ScanFile, String)| super::FileError { path: f.path.display().to_string(), message: reason.clone() })
+            .collect(),
         undone,
         elapsed_ms: start.elapsed().as_millis() as u64,
         restorable,
@@ -293,6 +308,8 @@ pub fn run_import(app: &AppHandle, files: Vec<ScanFile>, default_tags: Vec<NewTa
     };
     manager.update(false, |inner| {
         inner.files.clear();
+        inner.unreadable = unreadable.into_iter().map(|(f, _)| f).collect();
+        inner.last_tags = default_tags;
         inner.snapshot.phase = Phase::Finished;
         inner.snapshot.paused = None;
         inner.snapshot.undoable = undoable;

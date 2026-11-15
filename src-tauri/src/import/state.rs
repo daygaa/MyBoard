@@ -30,6 +30,11 @@ pub struct Progress {
     pub errors: u64,
     /// Fichiers effacés pendant l'import (IMP-54).
     pub vanished: u64,
+    /// Fichiers qu'aucun programme du PC ne sait lire, pas importés (IMP-87).
+    pub unreadable: u64,
+    /// « Les importer quand même » (IMP-87) : médias ajoutés par l'import précédent, défaits avec celui-ci (confirmation
+    /// d'« Annuler l'import »).
+    pub earlier_added: u64,
     /// Compression des images (IMP-20) : versions compressées gardées ; originaux gardés faute d'au moins 5 % de
     /// gain ; compressions impossibles (original importé tel quel).
     pub compressed: u64,
@@ -76,6 +81,9 @@ pub struct ImportResult {
     pub error_files: Vec<FileError>,
     /// Fichiers effacés pendant l'import (IMP-54), les 200 premiers.
     pub vanished_files: Vec<String>,
+    /// Fichiers illisibles sur ce PC (IMP-87), les 200 premiers, avec la raison ; tous restent proposés à « Les importer
+    /// quand même ».
+    pub unreadable_files: Vec<FileError>,
     /// « Annuler l'import » (IMP-43) : ce qui a été défait.
     pub undone: Option<Undone>,
     pub elapsed_ms: u64,

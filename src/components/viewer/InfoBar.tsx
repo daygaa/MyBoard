@@ -92,6 +92,7 @@ function useShortcuts(actions: ActionDef[]) {
 export function InfoBar({ item, children }: { item: MediaItem; children: ReactNode }) {
   const { data: detail } = useQuery({ queryKey: ["media-detail", item.id], queryFn: () => api.mediaDetail(item.id) });
   const copied = useViewer((s) => s.copied === item.id);
+  const unreadable = useViewer((s) => s.unreadable === item.id);
   const favorite = useIsFavorite(item.id, detail?.favorite ?? item.favorite);
   const [deleting, setDeleting] = useState(false);
   const meta = [
@@ -159,7 +160,7 @@ export function InfoBar({ item, children }: { item: MediaItem; children: ReactNo
       label: "Imprimer",
       title: "Imprimer l'image",
       run: () => void printImage(item),
-      unavailable: item.kind === "image" ? undefined : "Imprimer : réservé aux images",
+      unavailable: item.kind !== "image" ? "Imprimer : réservé aux images" : unreadable ? "Imprimer : image illisible dans MyBoard" : undefined,
     },
     {
       action: "delete",

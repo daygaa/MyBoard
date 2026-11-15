@@ -179,7 +179,7 @@ pub enum PairChoice {
 }
 
 /// Options envoyées au lancement de l'import.
-#[derive(Deserialize)]
+#[derive(Default, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ImportOptions {
     pub compress_quality: Option<u8>,
@@ -202,6 +202,10 @@ pub struct ImportOptions {
     pub convert_uncompressible: Option<Target>,
     #[serde(default)]
     pub convert_uncompressible_videos: Option<VideoTarget>,
+    /// « Les importer quand même » (IMP-87) : fichiers illisibles sur ce PC importés tels quels ; jamais envoyé par
+    /// l'interface.
+    #[serde(skip)]
+    pub accept_unreadable: bool,
 }
 
 impl ImportOptions {

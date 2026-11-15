@@ -7,7 +7,7 @@
 pub mod checks;
 pub mod control;
 mod encoders;
-mod probe;
+pub(crate) mod probe;
 mod streams;
 
 use std::fs::{self, Metadata};

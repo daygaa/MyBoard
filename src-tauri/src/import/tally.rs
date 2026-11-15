@@ -12,7 +12,15 @@ use super::{FileError, MAX_LISTED_ERRORS, Progress};
 use crate::formats::Kind;
 
 /// Compteurs de la progression pour un fichier.
-pub fn count(progress: &mut Progress, outcome: &anyhow::Result<Outcome>, indexer: &Indexer, errors: &mut Vec<FileError>, file: &ScanFile) {
+/// `unreadable` : fichiers illisibles sur ce PC (IMP-87), avec leur raison, tous gardés pour « Les importer quand même ».
+pub fn count(
+    progress: &mut Progress,
+    outcome: &anyhow::Result<Outcome>,
+    indexer: &Indexer,
+    errors: &mut Vec<FileError>,
+    unreadable: &mut Vec<(ScanFile, String)>,
+    file: &ScanFile,
+) {
     let video = file.kind == Kind::Video;
     match indexer.squeeze {
         Some(Squeeze::Compressed) if video => progress.videos_compressed += 1,
@@ -42,6 +50,10 @@ pub fn count(progress: &mut Progress, outcome: &anyhow::Result<Outcome>, indexer
         Ok(Outcome::AlreadyPresent(_)) => progress.already_present += 1,
         Ok(Outcome::Duplicate(_)) => progress.duplicates += 1,
         Ok(Outcome::Relocated(_)) => progress.relocated += 1,
+        Ok(Outcome::Unreadable(reason)) => {
+            progress.unreadable += 1;
+            unreadable.push((file.clone(), reason.clone()));
+        }
         Err(e) => {
             progress.errors += 1;
             if errors.len() < MAX_LISTED_ERRORS {

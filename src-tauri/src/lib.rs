@@ -137,6 +137,8 @@ pub fn run() {
             import::scan_paths,
             formats::supported_extensions,
             import::start_import,
+            import::import_unreadable,
+            media::video_readable,
             import::pause_import,
             import::resume_import,
             import::finish_import,

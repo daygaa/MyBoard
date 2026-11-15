@@ -7,6 +7,9 @@
 //!
 //! Vidéo d'un GIF (VIEW-54, `gif.rs`) : `gif/<id>/<hash>.mp4`, servie depuis le cache si elle y est.
 //!
+//! Image que la fenêtre n'a pas su afficher (VIEW-59, réponse Q34 A du 15/11) : `jpeg/<id>/<hash>.<ext>`, convertie en
+//! JPEG par un décodeur de MyBoard (le sien, ffmpeg, ou celui des photos HEIF / DNG) ; échec : carte « Image illisible ».
+//!
 //! Lisible aussi par la page et ses fils à part (`fetch`, en-tête CORS) : copies des images à la taille de
 //! l'écran (VIEW-53). Seule la fenêtre de MyBoard voit ce protocole.
 //!
@@ -64,11 +67,17 @@ pub fn handle(app: &AppHandle, request: Request<Vec<u8>>, responder: UriSchemeRe
     let name = request.uri().path().trim_start_matches('/').to_string();
     // Lecture du disque hors du fil principal : la fenêtre n'attend jamais.
     tauri::async_runtime::spawn_blocking(move || {
-        let target = match name.strip_prefix("gif/") {
-            Some(rest) => lookup(&db_path, rest).filter(|t| t.ext == "gif").and_then(|t| gif_target(&root, t, rest)),
-            None => lookup(&db_path, &name),
+        let as_jpeg = name.starts_with("jpeg/");
+        let target = if let Some(rest) = name.strip_prefix("gif/") {
+            lookup(&db_path, rest).filter(|t| t.ext == "gif").and_then(|t| gif_target(&root, t, rest))
+        } else {
+            lookup(&db_path, name.strip_prefix("jpeg/").unwrap_or(&name))
         };
         let response = match target {
+            Some(target) if as_jpeg => match converted(&target, ffmpeg.as_ref(), true) {
+                Some(bytes) => ok(bytes.as_ref().clone(), "image/jpeg"),
+                None => status(StatusCode::UNSUPPORTED_MEDIA_TYPE),
+            },
             Some(target) => serve(&target, range.as_deref(), ffmpeg.as_ref()),
             None => status(StatusCode::NOT_FOUND),
         };
@@ -102,7 +111,7 @@ fn lookup(db_path: &Path, name: &str) -> Option<Target> {
 
 fn serve(target: &Target, range: Option<&str>, ffmpeg: Option<&Ffmpeg>) -> Response<Vec<u8>> {
     if CONVERTED.contains(&target.ext.as_str()) {
-        return match converted(target, ffmpeg) {
+        return match converted(target, ffmpeg, false) {
             Some(bytes) => ok(bytes.as_ref().clone(), "image/jpeg"),
             None => status(StatusCode::UNSUPPORTED_MEDIA_TYPE),
         };
@@ -174,14 +183,17 @@ fn read_part(path: &Path, range: Option<&str>) -> Result<Part, PartError> {
     Ok(Part { bytes, start, total, partial })
 }
 
-/// Image convertie en JPEG pleine résolution, gardée en mémoire pour les retours en arrière.
-fn converted(target: &Target, ffmpeg: Option<&Ffmpeg>) -> Option<Arc<Vec<u8>>> {
+/// Image convertie en JPEG pleine résolution, gardée en mémoire pour les retours en arrière. `any` : image que la
+/// fenêtre n'a pas su afficher (VIEW-59) : le décodeur de MyBoard d'abord, ffmpeg ensuite.
+fn converted(target: &Target, ffmpeg: Option<&Ffmpeg>, any: bool) -> Option<Arc<Vec<u8>>> {
     let key = (target.id, target.hash.clone());
     if let Some((_, bytes)) = CONVERTED_CACHE.lock().unwrap().iter().find(|(k, _)| *k == key) {
         return Some(bytes.clone());
     }
     let jpeg = if crate::photos::is_photo(&target.path) {
         crate::photos::full_jpeg(ffmpeg, &target.path)
+    } else if any {
+        decoded_jpeg(ffmpeg, &target.path)
     } else {
         thumbs::full_image_jpeg(ffmpeg?, &target.path)
     };
@@ -192,6 +204,21 @@ fn converted(target: &Target, ffmpeg: Option<&Ffmpeg>) -> Option<Arc<Vec<u8>>> {
         cache.pop_front();
     }
     Some(bytes)
+}
+
+/// L'image par le décodeur de MyBoard, encodée en JPEG ; sinon par ffmpeg.
+fn decoded_jpeg(ffmpeg: Option<&Ffmpeg>, path: &Path) -> anyhow::Result<Vec<u8>> {
+    match thumbs::open_image(path) {
+        Ok(img) => {
+            let mut out = Vec::new();
+            image::codecs::jpeg::JpegEncoder::new_with_quality(&mut out, 92).encode_image(&img.into_rgb8())?;
+            Ok(out)
+        }
+        Err(e) => match ffmpeg {
+            Some(ff) => thumbs::full_image_jpeg(ff, path),
+            None => Err(e),
+        },
+    }
 }
 
 /// Type annoncé à la fenêtre. Les `.mov` sont annoncés en MP4 : c'est la même famille de

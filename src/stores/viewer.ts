@@ -43,6 +43,8 @@ type ViewerState = {
   error: ExternalError | null;
   /** Média dont le fichier vient d'être copié : « Copié » s'affiche ~1,5 s (VIEW-35). */
   copied: number | null;
+  /** Image dont la carte « Image illisible dans MyBoard » est affichée (VIEW-59) : « Imprimer » grisé. */
+  unreadable: number | null;
   /** Défilement rapide en cours (flèche maintenue, appuis rapprochés) : affichage allégé (VIEW-53,
    *  components/viewer/burst.ts). */
   burst: boolean;
@@ -128,6 +130,7 @@ export const useViewer = create<ViewerState>()((set, get) => {
     screenGap: 0,
     error: null,
     copied: null,
+    unreadable: null,
     burst: false,
     openAt: (index, item, pageSize) => {
       const { kinds, sort, seed } = useLibrary.getState();

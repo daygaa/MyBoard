@@ -92,6 +92,16 @@ pub struct Undone {
 }
 
 impl Changes {
+    /// Changements d'un import précédent (« Les importer quand même », IMP-87) : « Annuler l'import » défait les deux.
+    pub fn absorb(&mut self, earlier: Changes) {
+        self.added.extend(earlier.added);
+        self.tags.extend(earlier.tags);
+        self.created_tags.extend(earlier.created_tags);
+        self.before.extend(earlier.before);
+        self.written.extend(earlier.written);
+        self.reserve.extend(earlier.reserve);
+    }
+
     /// Une transaction pour la base ; les fichiers sont effacés ensuite, s'ils ne sont plus le fichier d'aucun média.
     /// Les médias ajoutés sont retirés sans réserve (`UNDONE`), pendant l'import comme après sa fin (retour du 12/11).
     pub fn undo(&self, conn: &mut Connection) -> anyhow::Result<Undone> {
@@ -161,7 +171,10 @@ pub fn undo_import(app: AppHandle, state: State<'_, AppState>) -> Result<(), Str
             state.thumbs.wake();
             let _ = app.emit("library-changed", ());
             state.import.update(false, |inner| {
+                // Import défait : plus de « Les importer quand même » pour ses fichiers illisibles (IMP-87).
+                inner.unreadable.clear();
                 if let Some(result) = &mut inner.snapshot.result {
+                    result.unreadable_files.clear();
                     match done {
                         Ok(undone) => result.undone = Some(undone),
                         Err(e) => result.fatal = Some(format!("Annulation impossible : {e:#}")),

@@ -27,7 +27,7 @@ use tauri::{AppHandle, Emitter};
 
 use crate::ffmpeg::{self, Ffmpeg};
 
-pub use image::{THUMB_SIZE, Thumb, decode, thumbs_of};
+pub use image::{THUMB_SIZE, Thumb, decode, open_image, thumbs_of};
 pub use list::{list_preview, list_preview_fit};
 pub use video::{frame_jpeg_at, frame_rate, full_image_jpeg, photo_jpeg, still_png};
 
