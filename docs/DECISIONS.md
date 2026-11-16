@@ -2165,3 +2165,7 @@ outils de test vivaient dans un dossier temporaire qui change à chaque session,
   côté retrouve sa ligne ; celles qu'elle avait mises de côté passent au dossier coché) ; `release` donne chaque fichier
   à la ligne la plus proche qui le couvre. `rescan` passe dans `rescan.rs`, les essais dans `sources_tests.rs`. Les
   fichiers ignorés ou illisibles d'une ligne déjà couverte par un dossier de la liste ne sont comptés qu'une fois.
+- 4e tour (16/11, v145). IMP-88 : `release` ne donne les fichiers du dossier décoché qu'aux lignes placées SOUS lui
+  (sources revenues, lignes à part) ; jamais à un dossier au-dessus de lui : un fichier qu'il ne couvre plus quitte la
+  liste à son parcours (retouche 11). GEN-33 : `badgeTop()` (`GridBadge.tsx`) : au moins 32 px sous le bas de
+  `[data-zone="entete"]` ; visionneuse ouverte : calcul d'avant.

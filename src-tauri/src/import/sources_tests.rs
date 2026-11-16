@@ -193,3 +193,18 @@ fn ignores_comptes_une_fois() {
     inner.summarize();
     assert_eq!(inner.snapshot.scan.as_ref().unwrap().ignored, 5);
 }
+
+/// Retouche 11 : case décochée d'un sous-dossier rendu (Q48) sous un dossier coché : ses fichiers ne passent jamais au
+/// dossier au-dessus de lui.
+#[test]
+fn sous_dossier_rendu_decoche() {
+    let mut inner = inner();
+    let p = add(&mut inner, r"C:\a", true, true, &[r"C:\a\1.jpg"]);
+    let s = add(&mut inner, r"C:\a\s", true, true, &[r"C:\a\s\2.jpg", r"C:\a\s\t\3.jpg"]);
+    let f = add(&mut inner, r"C:\a\s\t\3.jpg", false, false, &[]);
+    inner.sources[1].recursive = false;
+    inner.release(s);
+    assert_eq!(owner(&inner, r"C:\a\s\2.jpg"), s, "toujours couvert par sa ligne");
+    assert_eq!(owner(&inner, r"C:\a\s\t\3.jpg"), f, "à une ligne placée sous lui");
+    assert_eq!(owner(&inner, r"C:\a\1.jpg"), p);
+}

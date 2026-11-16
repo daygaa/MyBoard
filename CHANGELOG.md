@@ -3,6 +3,15 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Lot R6, 4e tour : badges sous l'en-tête, case d'un sous-dossier rendu (16/11/2026) — Backup v145
+
+SPEC : IMP-88 `[~]`, GEN-33 `[~]` ; décision D-077 (complétée).
+
+- GEN-33 : les badges brefs (ajouts, « … déjà dans la liste », travail sur les tags) ne passent plus par-dessus le logo
+  et le nom de MyBoard : ils sont placés sous l'en-tête ; ceux de la visionneuse ne changent pas.
+- IMP-88 : décocher « Sous-dossiers » d'une ligne de sous-dossier ajoutée à part ne fait plus revenir ses fichiers dans
+  le dossier principal.
+
 ## Lot R6, 3e tour : fichiers retirés, ajouts de nouveau, badge « déjà dans la liste » (16/11/2026) — Backup v144
 
 SPEC : IMP-88 `[~]`, IMP-91 `[x]` (marque de l'utilisateur) ; décision D-077 (complétée).

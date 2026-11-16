@@ -215,13 +215,15 @@ impl Inner {
 
     /// Case « Sous-dossiers » du dossier `id` décochée : les sources qu'il avait mises de côté reviennent, à leur place,
     /// avec leurs fichiers (repris tout de suite, leur parcours le confirme). Chaque fichier va à la ligne la plus proche
-    /// qui le couvre, aussi une ligne restée à part sous lui (sous-dossier ou fichier ajouté de nouveau, Q48).
+    /// qui le couvre, placée SOUS lui : aussi une ligne restée à part (sous-dossier ou fichier ajouté de nouveau, Q48) ;
+    /// jamais un dossier au-dessus de lui (retouche 11) : un fichier qu'il ne couvre plus quitte la liste à son parcours.
     fn release(&mut self, id: u64) {
         for s in self.sources.iter_mut().filter(|s| s.absorbed_by == Some(id)) {
             s.absorbed_by = None;
             (s.scanning, s.fresh) = (true, false);
         }
-        let lines: Vec<Source> = self.sources.iter().filter(|s| s.id != id && s.absorbed_by.is_none()).cloned().collect();
+        let Some(root) = self.sources.iter().find(|s| s.id == id).map(|s| s.path.clone()) else { return };
+        let lines: Vec<Source> = self.sources.iter().filter(|s| s.absorbed_by.is_none() && is_under(&s.path, &root)).cloned().collect();
         for f in self.files.iter_mut().filter(|f| f.source == id) {
             if let Some(s) = lines.iter().filter(|s| s.covers(&f.path)).max_by_key(|s| s.path.len()) {
                 f.source = s.id;

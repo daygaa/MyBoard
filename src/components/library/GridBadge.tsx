@@ -2,17 +2,27 @@
 // lecteur vidéo, bordure dorée, centré dans la fenêtre sur la ligne des filtres de la grille (SEL-08.2) ;
 // sans cette ligne (gestionnaire de tags) ou quand elle a défilé hors de vue : en haut de la page. Toujours au premier
 // plan (visionneuse, pop-ins, menus, barre de titre ; retour du 05/11) ; il ne capte aucun clic.
+// GEN-33 (16/11) : jamais par-dessus l'en-tête (logo et nom de MyBoard) : sans ligne des filtres visible SOUS l'en-tête,
+// il se place juste sous l'en-tête ; visionneuse ouverte (pas d'en-tête visible) : en haut, comme avant.
 
 import { scroller } from "@/lib/scroller";
 import { useGridBadge } from "@/stores/badge";
+import { useViewer } from "@/stores/viewer";
 
-/** Hauteur du badge au-dessus du haut de la zone qui défile, sans ligne des filtres visible. */
+/** Centre du badge sous le haut de la zone qui défile, visionneuse ouverte. */
 const TOP_GAP = 40;
+/** Centre du badge sous le bas de l'en-tête (un écart, puis la moitié de sa hauteur). */
+const BELOW_HEADER = 32;
 
+/** Centre vertical des badges brefs, dans la fenêtre. */
 export function badgeTop(): number {
   const area = scroller().getBoundingClientRect();
+  const header = useViewer.getState().open ? null : document.querySelector('[data-zone="entete"]')?.getBoundingClientRect();
+  const top = header?.bottom ?? area.top;
   const row = document.querySelector('[data-zone="grille.filtres"]')?.getBoundingClientRect();
-  return row && row.bottom > area.top && row.top < area.bottom ? row.top + row.height / 2 : area.top + TOP_GAP;
+  const onRow = row && row.bottom > top && row.top < area.bottom ? row.top + row.height / 2 : null;
+  if (!header) return onRow ?? area.top + TOP_GAP;
+  return Math.max(onRow ?? 0, header.bottom + BELOW_HEADER);
 }
 
 /** Apparence commune aux badges (aussi celui du travail sur les tags, TAGM-23). */
