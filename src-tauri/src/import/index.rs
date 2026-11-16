@@ -131,6 +131,7 @@ impl Indexer {
         }
 
         let (width, height) = match file.kind {
+            Kind::Image if crate::decode::raw::is_raw(&file.path) || crate::formats::extension(&file.path).as_deref() == Some("svg") => (None, None),
             Kind::Image => imagesize::blob_size(&self.head)
                 .map(|s| (Some(s.width as i64), Some(s.height as i64)))
                 .unwrap_or((None, None)),

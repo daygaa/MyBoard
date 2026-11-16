@@ -39,8 +39,11 @@ const WHOLE_FILE_MAX: u64 = 64 * 1024 * 1024;
 /// Formats d'image que WebView2 n'affiche pas : convertis par ffmpeg (D-016, point 8) ; HEIF / HEIC et DNG par
 /// `photos.rs` (IMP-80, IMP-82).
 const CONVERTED: [&str; 5] = ["tif", "tiff", "heic", "heif", "dng"];
-/// Dernières images converties gardées en mémoire (retour sur l'image précédente…).
-const CONVERTED_KEPT: usize = 4;
+/// Dernières images converties gardées en mémoire (retour sur l'image précédente… ; 6 depuis le lot R7 : l'image
+/// affichée et ses 3 voisines préparées d'avance, VIEW-63, plus de la marge).
+const CONVERTED_KEPT: usize = 6;
+/// Aperçu intégré d'un RAW (VIEW-63) : réduit à ce côté au plus, pour arriver vite.
+const RAW_PREVIEW_SIDE: u32 = 2560;
 
 thread_local! {
     static READER: OnceCell<Option<Connection>> = const { OnceCell::new() };
@@ -68,6 +71,14 @@ pub fn handle(app: &AppHandle, request: Request<Vec<u8>>, responder: UriSchemeRe
     // Lecture du disque hors du fil principal : la fenêtre n'attend jamais.
     tauri::async_runtime::spawn_blocking(move || {
         let as_jpeg = name.starts_with("jpeg/");
+        if let Some(rest) = name.strip_prefix("apercu/") {
+            let response = match lookup(&db_path, rest).and_then(|t| raw_preview(&t.path)) {
+                Some(bytes) => ok(bytes, "image/jpeg"),
+                None => status(StatusCode::NOT_FOUND),
+            };
+            responder.respond(response);
+            return;
+        }
         let target = if let Some(rest) = name.strip_prefix("gif/") {
             lookup(&db_path, rest).filter(|t| t.ext == "gif").and_then(|t| gif_target(&root, t, rest))
         } else {
@@ -75,7 +86,7 @@ pub fn handle(app: &AppHandle, request: Request<Vec<u8>>, responder: UriSchemeRe
         };
         let response = match target {
             Some(target) if as_jpeg => match converted(&target, ffmpeg.as_ref(), true) {
-                Some(bytes) => ok(bytes.as_ref().clone(), "image/jpeg"),
+                Some(bytes) => ok(bytes.as_ref().clone(), image_type(&bytes)),
                 None => status(StatusCode::UNSUPPORTED_MEDIA_TYPE),
             },
             Some(target) => serve(&target, range.as_deref(), ffmpeg.as_ref()),
@@ -110,9 +121,9 @@ fn lookup(db_path: &Path, name: &str) -> Option<Target> {
 }
 
 fn serve(target: &Target, range: Option<&str>, ffmpeg: Option<&Ffmpeg>) -> Response<Vec<u8>> {
-    if CONVERTED.contains(&target.ext.as_str()) {
+    if CONVERTED.contains(&target.ext.as_str()) || crate::decode::handles(&target.path) {
         return match converted(target, ffmpeg, false) {
-            Some(bytes) => ok(bytes.as_ref().clone(), "image/jpeg"),
+            Some(bytes) => ok(bytes.as_ref().clone(), image_type(&bytes)),
             None => status(StatusCode::UNSUPPORTED_MEDIA_TYPE),
         };
     }
@@ -192,6 +203,8 @@ fn converted(target: &Target, ffmpeg: Option<&Ffmpeg>, any: bool) -> Option<Arc<
     }
     let jpeg = if crate::photos::is_photo(&target.path) {
         crate::photos::full_jpeg(ffmpeg, &target.path)
+    } else if crate::decode::handles(&target.path) {
+        displayed(&target.path)
     } else if any {
         decoded_jpeg(ffmpeg, &target.path)
     } else {
@@ -204,6 +217,37 @@ fn converted(target: &Target, ffmpeg: Option<&Ffmpeg>, any: bool) -> Option<Arc<
         cache.pop_front();
     }
     Some(bytes)
+}
+
+/// Format du lot R7 (IMP-89) : JPEG, ou PNG s'il est transparent (SVG, ICO, PSD… : sinon fond noir).
+fn displayed(path: &Path) -> anyhow::Result<Vec<u8>> {
+    let img = thumbs::open_image(path)?;
+    let mut out = Vec::new();
+    if img.color().has_alpha() {
+        img.into_rgba8().write_to(&mut std::io::Cursor::new(&mut out), image::ImageFormat::Png)?;
+    } else {
+        image::codecs::jpeg::JpegEncoder::new_with_quality(&mut out, 92).encode_image(&img.into_rgb8())?;
+    }
+    Ok(out)
+}
+
+/// Aperçu JPEG intégré à un RAW, réduit (VIEW-63) ; `None` : pas un RAW, ou illisible.
+fn raw_preview(path: &Path) -> Option<Vec<u8>> {
+    if !crate::decode::raw::is_raw(path) {
+        return None;
+    }
+    let mut img = crate::decode::raw::preview(path).ok()?;
+    if img.width().max(img.height()) > RAW_PREVIEW_SIDE {
+        img = img.thumbnail(RAW_PREVIEW_SIDE, RAW_PREVIEW_SIDE);
+    }
+    let mut out = Vec::new();
+    image::codecs::jpeg::JpegEncoder::new_with_quality(&mut out, 88).encode_image(&img.into_rgb8()).ok()?;
+    Some(out)
+}
+
+/// Type d'une image convertie, d'après sa signature (PNG ou JPEG).
+fn image_type(bytes: &[u8]) -> &'static str {
+    if bytes.starts_with(b"\x89PNG") { "image/png" } else { "image/jpeg" }
 }
 
 /// L'image par le décodeur de MyBoard, encodée en JPEG ; sinon par ffmpeg.

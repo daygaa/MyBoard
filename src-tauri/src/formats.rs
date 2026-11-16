@@ -25,6 +25,7 @@ impl Kind {
 const IMAGES: &[&str] = &[
     "jpg", "jpeg", "jpe", "jfif", "png", "gif", "webp", "bmp", "tif", "tiff", "avif", "heic", "heif", "dng",
 ];
+// Plus ceux du lot R7 (IMP-89) : TGA, ICO, QOI, EXR, HDR, SVG, JPEG XL, PSD, RAW d'appareils photo (`decode`).
 const VIDEOS: &[&str] = &[
     "mp4", "m4v", "mov", "webm", "mkv", "avi", "wmv", "flv", "mpg", "mpeg", "ts", "m2ts", "mts",
     "3gp", "ogv",
@@ -51,7 +52,7 @@ pub fn extension(path: &Path) -> Option<String> {
 
 /// Type du fichier d'après son extension ; `None` = format non pris en charge.
 pub fn kind_of_ext(ext: &str) -> Option<Kind> {
-    if IMAGES.contains(&ext) {
+    if IMAGES.contains(&ext) || crate::decode::extensions().any(|e| e == ext) {
         Some(Kind::Image)
     } else if VIDEOS.contains(&ext) {
         Some(Kind::Video)
@@ -68,5 +69,14 @@ pub fn kind_of_ext(ext: &str) -> Option<Kind> {
 /// la liste n'existe qu'ici, l'interface la demande au cœur Rust.
 #[tauri::command]
 pub fn supported_extensions() -> Vec<&'static str> {
-    [IMAGES, VIDEOS, AUDIO, DOCUMENTS].concat()
+    let mut images = IMAGES.to_vec();
+    images.extend(crate::decode::extensions());
+    [images.as_slice(), VIDEOS, AUDIO, DOCUMENTS].concat()
+}
+
+/// Extensions des RAW d'appareils photo (IMP-89) : la visionneuse montre leur aperçu intégré en attendant l'image
+/// décodée (VIEW-63).
+#[tauri::command]
+pub fn raw_extensions() -> Vec<&'static str> {
+    crate::decode::raw::EXTENSIONS.to_vec()
 }

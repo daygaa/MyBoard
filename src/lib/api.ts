@@ -564,6 +564,16 @@ export function jpegUrl(item: Pick<MediaItem, "id" | "hash" | "ext">): string {
   return `${MEDIA_ROOT}jpeg/${item.id}/${item.hash}.${item.ext}`;
 }
 
+/** Aperçu JPEG rangé par l'appareil photo dans un RAW (VIEW-63) : affiché en attendant l'image décodée. */
+export function rawPreviewUrl(item: Pick<MediaItem, "id" | "hash" | "ext">): string {
+  return `${MEDIA_ROOT}apercu/${item.id}/${item.hash}.${item.ext}`;
+}
+
+/** Extensions des RAW d'appareils photo (liste du cœur Rust, IMP-89), lues au démarrage. */
+const rawExtensions = new Set<string>();
+void invoke<string[]>("raw_extensions").then((list) => list.forEach((e) => rawExtensions.add(e)));
+export const isCameraRaw = (item: Pick<MediaItem, "ext">) => rawExtensions.has(item.ext.toLowerCase());
+
 /** Adresse du fichier d'une image ou d'une vidéo pour la visionneuse : lu directement sur le disque par la fenêtre
  *  (VIEW-53, VIEW-55 : 10 fois plus rapide, sans bloquer MyBoard), sinon `media://` (formats convertis, chemins réseau). */
 export const directUrl = (item: MediaItem): string => item.fileUrl ?? mediaUrl(item);

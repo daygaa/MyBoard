@@ -46,6 +46,10 @@ pub fn read_any(path: &Path, bytes: &[u8]) -> anyhow::Result<Option<Source>> {
         let exif = if is_dng(path) { None } else { super::avif_meta::exif_of(bytes).map(upright) };
         return Ok(Some(Source { img: crate::photos::open(ff, path)?, meta: Meta { icc: None, exif } }));
     }
+    // Formats du lot R7 (IMP-89) : sans informations de photo à recopier.
+    if let Some(img) = crate::decode::open(path) {
+        return Ok(Some(Source { img: img?, meta: Meta { icc: None, exif: None } }));
+    }
     if is_avif(bytes) {
         let ff = ff.context("ffmpeg introuvable : AVIF illisible")?;
         let img = crate::thumbs::decode(&crate::thumbs::still_png(ff, path)?)?;

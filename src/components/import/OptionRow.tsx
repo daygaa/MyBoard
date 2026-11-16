@@ -25,13 +25,20 @@ export function OptionRow(props: Props) {
           {props.label}
         </span>
       </label>
-      <InfoTip zone={`${props.zone}.info`}>
-        {props.info.map((text) => (
-          <span key={text} className="block">
-            {keepQuoted(text)}
-          </span>
-        ))}
-      </InfoTip>
+      <InfoLines zone={`${props.zone}.info`} lines={props.info} />
     </div>
+  );
+}
+
+/** « ⓘ » et ses lignes (options d'import, pop-in des fichiers qu'on ne peut pas compresser : IMP-93). */
+export function InfoLines({ zone, lines }: { zone: string; lines: string[] }) {
+  return (
+    <InfoTip zone={zone}>
+      {lines.map((text) => (
+        <span key={text} className="block">
+          {keepQuoted(text)}
+        </span>
+      ))}
+    </InfoTip>
   );
 }

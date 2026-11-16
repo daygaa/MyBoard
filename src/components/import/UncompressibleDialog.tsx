@@ -1,6 +1,6 @@
 // Pop-in des fichiers qu'on ne peut pas compresser (IMP-85, réponses du 13/11) : au clic sur « Importer », « Compresser
 // les images » (ou « … les vidéos ») cochée, quand la liste contient des fichiers que MyBoard ne sait pas compresser dans
-// leur format (images BMP, TIFF, HEIF / HEIC, DNG ; vidéos d'anciens formats ou de conteneurs non pris en charge). Seules
+// leur format (images BMP, TIFF, HEIF / HEIC, TGA, QOI ; vidéos d'anciens formats ou de conteneurs non pris en charge). Seules
 // les extensions de l'import en cours sont citées ; la liste des formats part toujours sur JPG / MP4 standard (Q9 B).
 // - Une seule ligne (images OU vidéos) : « Oui » / « Non » lancent l'import, avec ou sans conversion ; la croix et Échap
 //   ferment sans importer (Q10 A).
@@ -10,6 +10,8 @@
 // vidéos… », qui attend la fin de leur lecture.
 // Disposition (réponse Q16 A du 14/11) : un tableau aligné, une ligne par type (type, extensions, « Convertir en » et
 // son menu, cases « Oui » / « Non » s'il y a deux lignes), sous une phrase commune.
+// « ⓘ » de chaque ligne (IMP-93) : bulles de conversion de la carte des options, adaptées à cette pop-in ; comme dans
+// la carte, « ; l'original n'est jamais modifié » disparaît quand « Supprimer les originaux » est cochée.
 
 import { useEffect, useState } from "react";
 
@@ -18,7 +20,9 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Modal } from "@/components/ui/modal";
 import { api, type ImageTarget, type ImportOptions, type Uncompressible, type VideoTarget } from "@/lib/api";
 import { formatNumber } from "@/lib/format";
+import { useImport } from "@/stores/import";
 import { FormatSelect, IMAGE_FORMATS, VIDEO_FORMATS } from "./FormatSelect";
+import { InfoLines, withOriginals } from "./OptionRow";
 
 const GOLD = "bg-[#d9a94e] text-[#1a1408] hover:bg-[#e3b75f]";
 const OUTLINE = "border-border text-foreground hover:bg-secondary hover:text-foreground";
@@ -26,7 +30,19 @@ const OUTLINE = "border-border text-foreground hover:bg-secondary hover:text-for
 /** Réponse : format choisi pour chaque type (`null` : « Non », ou type absent). */
 export type UncompressibleAnswer = { images: ImageTarget | null; videos: VideoTarget | null };
 
-/** « .heif .dng » */
+const IMAGES_INFO = [
+  "« Oui » : chaque image citée est réencodée dans le format choisi, à la qualité de « Compresser les images », et enregistrée à côté de l'original ; l'original n'est jamais modifié.",
+  "En JPG, la transparence est remplacée par un fond blanc. Les métadonnées sont conservées.",
+  "« Non » : ces images sont importées telles quelles.",
+];
+const VIDEOS_INFO = [
+  "« Oui » : chaque vidéo citée est réencodée dans le format choisi, à la qualité de « Compresser les vidéos », et enregistrée à côté de l'original ; l'original n'est jamais modifié.",
+  "Une vidéo avec le même codec mais un container différent (H.265 en .mkv par exemple) ne change que son container.",
+  "Résolution, IPS, pistes son, sous-titres et métadonnées sont conservés.",
+  "« Non » : ces vidéos sont importées telles quelles, signalées dans le bilan.",
+];
+
+/** « .heif .tga » */
 const listed = (exts: string[]) => exts.map((e) => `.${e}`).join(" ");
 
 /** Attend la fin de la lecture anticipée des vidéos ; `onReady` reçoit la liste complète, `onCancel` : rien ne démarre. */
@@ -88,6 +104,7 @@ export function UncompressibleDialog({ found, onAnswer, onCancel }: Props) {
   const hasImages = found.images.length > 0;
   const hasVideos = found.videos.length > 0;
   const both = hasImages && hasVideos;
+  const deleteOriginals = useImport((s) => s.deleteOriginals);
   /** Deux lignes : réponse de chaque ligne (`null` : pas encore choisie). */
   const [imageYes, setImageYes] = useState<boolean | null>(null);
   const [videoYes, setVideoYes] = useState<boolean | null>(null);
@@ -113,6 +130,7 @@ export function UncompressibleDialog({ found, onAnswer, onCancel }: Props) {
               <FormatSelect formats={VIDEO_FORMATS} value={videoTarget} onChange={setVideoTarget} disabled={false} zone="import.non-compressibles.format-video" />
             )}
           </div>
+          <InfoLines zone={`import.non-compressibles.${kind}.info`} lines={withOriginals(images ? IMAGES_INFO : VIDEOS_INFO, deleteOriginals)} />
         </div>
         {both && (
           <div className="flex items-center gap-4">

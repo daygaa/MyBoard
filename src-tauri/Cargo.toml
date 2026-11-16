@@ -25,7 +25,15 @@ rusqlite = { version = "0.40", features = ["bundled"] }
 blake3 = "1"
 walkdir = "2"
 # Décodage des images pour les miniatures (formats courants, sans dépendance système).
-image = { version = "0.25", default-features = false, features = ["jpeg", "png", "gif", "webp", "bmp", "tiff"] }
+image = { version = "0.25", default-features = false, features = ["jpeg", "png", "gif", "webp", "bmp", "tiff", "tga", "ico", "qoi", "exr", "hdr"] }
+# Formats en plus (IMP-89, lot R7) : TGA, ICO, QOI, EXR, HDR par les options du crate `image` ci-dessus ; SVG dessiné
+# par `resvg` ; JPEG XL par `jxl-oxide` ; PSD (image aplatie) par `psd` ; RAW d'appareils photo par `rawler` (licence
+# LGPL-2.1 acceptée : réponse Q51 A ; obligations dans la SPEC, IMP-89 et IMP-77). `rayon` : celui de `rawler`.
+resvg = "0.50"
+jxl-oxide = { version = "0.12", features = ["image"] }
+psd = "0.3"
+rawler = "0.8"
+rayon = "1"
 fast_image_resize = { version = "6", features = ["image"] }
 # Encodage WebP avec perte (le WebP du crate `image` est sans perte, donc trop lourd).
 webp = "0.3"

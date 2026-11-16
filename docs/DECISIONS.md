@@ -2169,3 +2169,31 @@ outils de test vivaient dans un dossier temporaire qui change à chaque session,
   (sources revenues, lignes à part) ; jamais à un dossier au-dessus de lui : un fichier qu'il ne couvre plus quitte la
   liste à son parcours (retouche 11). GEN-33 : `badgeTop()` (`GridBadge.tsx`) : au moins 32 px sous le bas de
   `[data-zone="entete"]` ; visionneuse ouverte : calcul d'avant.
+
+## D-078 — Formats d'image du lot R7 : module `decode`, RAW par `rawler` (lot R7, 16/11/2026)
+
+- IMP-89 (réponses Q14 B, Q51 A, Q53 A, Q54 A) : module `src-tauri/src/decode/` pour les formats que la fenêtre
+  n'affiche pas et que `photos.rs` (HEIF par ffmpeg, DNG par Windows : inchangés) ne lit pas : TGA, ICO, QOI, EXR,
+  HDR par les options du crate `image` (TGA lu d'après l'extension, faute de signature ; EXR et HDR écrêtés à 1 puis
+  courbe sRGB) ; SVG par `resvg` (côté le plus long entre 2 048 et 8 192 px, polices de Windows chargées une fois,
+  aucun dossier de ressources) ; JPEG XL par `jxl-oxide` ; PSD aplati par `psd` ; RAW d'appareils photo par `rawler`
+  (`decode::raw`, 23 extensions, sans DNG ni « .raw »). `thumbs::open_image` passe d'abord par `decode::open` :
+  miniatures, grands aperçus, copie, fond d'écran et conversions lisent ces formats sans autre changement.
+- Licence : `rawler` est en LGPL-2.1 (les autres en MIT / Apache). Il est compilé DANS myboard.exe : le code de
+  MyBoard doit rester public, et l'installateur (IMP-77) joindra le texte de la licence et la mention de `rawler`.
+  Si MyBoard devenait fermé, retirer `rawler` (SPEC IMP-89).
+- RAW : `raw::develop` = décodage complet (miniatures, visionneuse, copie : l'image « réelle », sans les réglages de
+  l'appareil ni la correction des objectifs, voulu le 16/11). Développement de `rawler` repris pour les capteurs à 3
+  couleurs (`bayer_rgb`) : balance des blancs ramenée à un minimum de 1 et couleurs écrêtées à 1 AVANT la matrice ;
+  sans cela, les zones saturées virent au rose et bavent (Canon EOS 6D comparé à l'application Photos). Un seul
+  décodage complet à la fois (`DEVELOP`, mutex) : chacun prend tous les cœurs et jusqu'à ~1 Go. `raw::preview` =
+  aperçu JPEG de l'appareil (liste avant l'import ; visionneuse en attendant le décodage) ; sans aperçu (certains
+  Olympus) : décodage complet. Dimensions des RAW et SVG non lues à l'import (l'en-tête d'un RAW décrit souvent sa
+  petite miniature) : données par la miniature.
+- Visionneuse (VIEW-63) : `media://apercu/<id>/<hash>.<ext>` sert l'aperçu intégré réduit à 2 560 px ; `ImageStage`
+  le pose sur la miniature tant que la copie ou l'original décodé n'est pas là. Les voisines (1 avant, 2 après) sont
+  décodées d'avance par les copies de `imageCache.ts`, comme toute image ; le cache des images converties garde 6
+  images (4 avant). Formats transparents (SVG, ICO, PSD, TGA…) servis en PNG au lieu de JPEG (`image_type`).
+- Import (Q53 A) : familles `Tga` et `Qoi` comme BMP ; `Jxl` et `Ico` laissés tels quels par « Compresser »,
+  convertis par « Convertir en » ; `Work` (RAW, DNG, PSD, EXR, HDR, SVG) jamais compressés ni convertis (réglage pour
+  l'autoriser plus tard : SET-21). Bulles « ⓘ » (IMP-93) : `InfoLines` partagé par la carte des options et la pop-in.

@@ -22,8 +22,12 @@ pub struct Thumb {
     pub height: u32,
 }
 
-/// Décode un fichier image lisible par Rust (JPEG, PNG, GIF, WebP, BMP, TIFF).
+/// Décode un fichier image lisible par Rust (JPEG, PNG, GIF, WebP, BMP, TIFF ; ceux du lot R7 par `decode`, IMP-89 ;
+/// RAW : décodage complet, réponse Q54 A).
 pub fn open_image(path: &Path) -> anyhow::Result<DynamicImage> {
+    if let Some(img) = crate::decode::open(path) {
+        return img;
+    }
     decode(&std::fs::read(path)?)
 }
 

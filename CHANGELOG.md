@@ -3,6 +3,22 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Lot R7 : nouveaux formats d'image, RAW d'appareils photo (16/11/2026) — Backup v146
+
+SPEC : IMP-89 `[~]`, VIEW-63 `[~]`, IMP-93 `[~]` ; SET-21 noté pour plus tard ; décision D-078.
+
+- IMP-89 : MyBoard importe et affiche les TGA, ICO, QOI, EXR, HDR, SVG, JPEG XL, PSD (image aplatie) et les RAW
+  d'appareils photo (CR2, CR3, NEF, ARW, RAF, ORF, RW2, PEF et 15 autres extensions) : miniatures, visionneuse,
+  copie, liste avant l'import. Les RAW sont décodés en entier (image réelle du capteur) ; les zones saturées restent
+  blanches au lieu de virer au rose. Bibliothèques ajoutées : `resvg`, `jxl-oxide`, `psd`, `rawler` (LGPL-2.1).
+- Import : TGA et QOI se comportent comme BMP ; JPEG XL et ICO restent tels quels avec « Compresser les images » et
+  sont convertis par « Convertir les images en » ; RAW (DNG compris), PSD, EXR, HDR et SVG ne sont jamais compressés
+  ni convertis (les DNG ne sont plus proposés à la conversion).
+- VIEW-63 : à l'ouverture d'un RAW, la visionneuse montre d'abord l'aperçu rangé par l'appareil, puis l'image
+  décodée dès qu'elle est prête ; l'image précédente et les 2 suivantes sont décodées d'avance.
+- IMP-93 : bulle « ⓘ » de « Compresser les images » et de « Convertir les images en » mises à jour ; bulles « ⓘ »
+  ajoutées aux lignes Images et Vidéos de la pop-in « Fichiers impossibles à compresser ».
+
 ## Lot R6, 4e tour : badges sous l'en-tête, case d'un sous-dossier rendu (16/11/2026) — Backup v145
 
 SPEC : IMP-88 `[~]`, GEN-33 `[~]` ; décision D-077 (complétée).

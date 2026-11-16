@@ -21,6 +21,8 @@ fn source(path: &Path, side: u32) -> anyhow::Result<DynamicImage> {
     match formats::kind_of_ext(&ext) {
         // HEIF / HEIC, DNG : ffmpeg récent ou décodeur de Windows (IMP-80, IMP-82).
         Some(Kind::Image) if crate::photos::is_photo(path) => crate::photos::open(ff, path),
+        // RAW (IMP-89) : l'aperçu de l'appareil suffit pour la liste, sans attendre le décodage complet.
+        Some(Kind::Image) if crate::decode::raw::is_raw(path) => crate::decode::raw::preview(path),
         Some(Kind::Image) => open_image(path).or_else(|e| match ff {
             Some(ff) => video::list_frame(ff, path, false, side),
             None => Err(e),

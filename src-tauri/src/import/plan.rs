@@ -71,9 +71,19 @@ enum Family {
     Bmp,
     Tiff,
     Avif,
-    /// HEIF / HEIC (IMP-82) et RAW DNG (IMP-80) : lus par `photos.rs`.
+    /// HEIF / HEIC (IMP-82) : lus par `photos.rs`.
     Heif,
-    Dng,
+    /// Lot R7 (IMP-89, réponse Q53 A) : TGA et QOI, peu compressés ou peu lus ailleurs : comme BMP.
+    Tga,
+    Qoi,
+    /// JPEG XL (déjà très compressé) et ICO (minuscule) : laissés tels quels par « Compresser » sans le dire, comme
+    /// les GIF ; convertis par « Convertir en ».
+    Jxl,
+    Ico,
+    /// « Originaux de travail » : RAW d'appareils photo (DNG compris), PSD, EXR, HDR, SVG. Jamais compressés ni
+    /// convertis : on perdrait pour toujours ce qui fait leur intérêt (données du capteur, calques, lumières plus fortes
+    /// que le blanc, dessin net à toute taille). Réglage pour l'autoriser plus tard : SET-21.
+    Work,
 }
 
 impl Family {
@@ -85,7 +95,7 @@ impl Family {
     /// Ne peut pas être compressée dans son format : citée par la pop-in d'IMP-85, convertie si on y répond « Oui ».
     /// Pas le GIF (réponse Q7 du 13/11 : laissé tel quel, sans le dire).
     fn uncompressible(self) -> bool {
-        matches!(self, Family::Bmp | Family::Tiff | Family::Heif | Family::Dng)
+        matches!(self, Family::Bmp | Family::Tiff | Family::Heif | Family::Tga | Family::Qoi)
     }
 }
 
@@ -100,7 +110,13 @@ fn family_of(ext: &str) -> Option<Family> {
         // Lues par ffmpeg (AVIF) ou `photos.rs` (HEIF, DNG) : IMP-82, IMP-85.
         "avif" => Family::Avif,
         "heic" | "heif" => Family::Heif,
-        "dng" => Family::Dng,
+        // Lot R7 (IMP-89, réponse Q53 A).
+        "tga" => Family::Tga,
+        "qoi" => Family::Qoi,
+        "jxl" => Family::Jxl,
+        "ico" => Family::Ico,
+        "dng" | "psd" | "exr" | "hdr" | "svg" => Family::Work,
+        _ if crate::decode::raw::EXTENSIONS.contains(&ext) => Family::Work,
         _ => return None,
     })
 }
@@ -144,6 +160,9 @@ impl Process {
 
     fn image_action(&self, ext: &str) -> Option<Action> {
         let source = family_of(ext)?;
+        if source == Family::Work {
+            return None;
+        }
         match self.convert {
             Some(target) if target.family() != source => Some(Action::Convert {
                 target,
@@ -229,5 +248,39 @@ impl ImportOptions {
             existing: self.process_existing,
             video,
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn process(quality: Option<u8>, convert: Option<Target>, fallback: Option<Target>) -> Process {
+        let video = VideoRequest { quality: None, convert: None, fallback: None, playable: false };
+        Process { quality, convert, fallback, existing: false, video }
+    }
+
+    /// Lot R7 (IMP-89, réponse Q53 A) : ce que deviennent les nouveaux formats.
+    #[test]
+    fn formats_du_lot_r7() {
+        let compress = process(Some(50), None, None);
+        let convert = process(None, Some(Target::Webp), None);
+        // « Originaux de travail » : jamais compressés ni convertis, jamais dans la pop-in.
+        for ext in ["dng", "cr2", "nef", "psd", "exr", "hdr", "svg"] {
+            assert!(!compress.uncompressible_image(ext), "{ext}");
+            assert!(convert.image_action(ext).is_none(), "{ext}");
+            assert!(process(Some(50), None, Some(Target::Jpg)).image_action(ext).is_none(), "{ext}");
+        }
+        // TGA, QOI : comme BMP.
+        for ext in ["tga", "qoi", "bmp"] {
+            assert!(compress.uncompressible_image(ext), "{ext}");
+            assert!(convert.image_action(ext).is_some(), "{ext}");
+        }
+        // JPEG XL, ICO : laissés tels quels par « Compresser », convertis par « Convertir en ».
+        for ext in ["jxl", "ico"] {
+            assert!(!compress.uncompressible_image(ext), "{ext}");
+            assert!(compress.image_action(ext).is_none(), "{ext}");
+            assert!(convert.image_action(ext).is_some(), "{ext}");
+        }
     }
 }

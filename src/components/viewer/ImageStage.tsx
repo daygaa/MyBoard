@@ -13,10 +13,12 @@
 // Clic droit sur l'image (pas sur le fond) : son menu (CTX-06).
 // Original que la fenêtre n'affiche pas : `media://`, puis converti en JPEG par un décodeur de MyBoard (réponse Q34 A
 // du 15/11) ; illisible aussi, sans copie : carte « Image illisible dans MyBoard » (VIEW-59, UnreadableCard.tsx).
+// RAW d'appareil photo (VIEW-63) : son aperçu intégré, posé sur la miniature, en attendant l'image décodée (copie à
+// la taille de l'écran ou original) ; les voisines (1 avant, 2 après) sont décodées d'avance comme toute image.
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
-import { THUMB, directUrl, jpegUrl, mediaUrl, type MediaItem } from "@/lib/api";
+import { THUMB, directUrl, isCameraRaw, jpegUrl, mediaUrl, rawPreviewUrl, type MediaItem } from "@/lib/api";
 import { openContextMenu } from "@/lib/contextMenu";
 import { cn } from "@/lib/utils";
 import { usePreviewReady } from "@/stores/previews";
@@ -148,6 +150,9 @@ export function ImageStage({ item, onClose, opening = false }: { item: MediaItem
             className="absolute"
             style={{ left: (natural.w - side) / 2, top: (natural.h - side) / 2, width: side, height: side }}
           />
+        )}
+        {!bitmap && !covered && isCameraRaw(item) && (
+          <img src={rawPreviewUrl(item)} alt="" draggable={false} className="absolute inset-0 h-full w-full" />
         )}
         <img
           src={wantOriginal ? (source === "jpeg" ? jpegUrl(item) : source === "media" ? mediaUrl(item) : directUrl(item)) : undefined}

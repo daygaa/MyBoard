@@ -14,6 +14,7 @@ pub mod group_create;
 pub mod group_list;
 pub mod groups;
 pub mod ffmpeg;
+pub mod decode;
 pub mod formats;
 pub mod fullscreen;
 pub mod import;
@@ -139,6 +140,7 @@ pub fn run() {
             import::sources::remove_scan_source,
             import::sources::set_source_recursive,
             formats::supported_extensions,
+            formats::raw_extensions,
             import::start_import,
             import::import_unreadable,
             media::video_readable,

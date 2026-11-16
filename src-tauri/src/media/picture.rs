@@ -46,6 +46,10 @@ fn load(state: &AppState, path: &Path) -> Result<DynamicImage, OpenFailure> {
     if crate::photos::is_photo(path) {
         return crate::photos::open(state.thumbs.ffmpeg(), path).map_err(failure);
     }
+    // Formats du lot R7 (IMP-89) ; RAW : décodage complet, l'image de la visionneuse.
+    if let Some(image) = crate::decode::open(path) {
+        return image.map_err(failure);
+    }
     let bytes = std::fs::read(path)?;
     if let Ok(image) = thumbs::decode(&bytes) {
         return Ok(image);

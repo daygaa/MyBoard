@@ -19,12 +19,14 @@ const COMPRESS_INFO = [
   "La version compressée est enregistrée à côté de l'original et n'est conservée que si elle est au moins 5 % plus légère ; l'original n'est jamais modifié.",
   "PNG : optimisation lossless si la case est activée, peu importe la qualité ; de 16 à 8 bits de profondeur par couleur à 75 ou moins ; réduction à 256 couleurs à 50 ou moins.",
   "Les métadonnées sont conservées. Les GIF et autres images animées ne sont jamais compressés.",
-  "BMP, TIFF, HEIF / HEIC et DNG : MyBoard ne sait pas les compresser dans leur format ; au clic sur « Importer », une fenêtre propose de les convertir.",
+  // Lot R7 (IMP-89, réponse Q53 A ; IMP-93) : nouveaux formats ; DNG rangés avec les « originaux de travail ».
+  "BMP, TIFF, HEIF / HEIC, TGA et QOI : MyBoard ne sait pas les compresser dans leur format ; au clic sur « Importer », une fenêtre propose de les convertir.",
+  "JPEG XL et ICO restent tels quels. RAW d'appareils photo (DNG compris), PSD, EXR, HDR et SVG ne sont jamais compressés ni convertis : on perdrait pour toujours ce qui fait leur intérêt (données du capteur, calques, lumières, dessin net à toute taille).",
 ];
 const CONVERT_INFO = [
   "Réencode chaque image dans le format choisi, à côté de l'original.",
   "Si la compression est activée, elle s'applique au format choisi ; sans compression : qualité maximale.",
-  "En JPG, la transparence est remplacée par un fond blanc. Les GIF et WebP animés ne sont jamais convertis.",
+  "En JPG, la transparence est remplacée par un fond blanc. Les GIF et WebP animés ne sont jamais convertis, ni les RAW d'appareils photo (DNG compris), PSD, EXR, HDR et SVG.",
   "Les métadonnées sont conservées, y compris pour les AVIF (traitement via MyBoard).",
 ];
 const DELETE_INFO = [
