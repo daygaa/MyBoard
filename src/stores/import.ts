@@ -26,8 +26,16 @@ type Processing = { compress: boolean; convert: boolean; compressVideos: boolean
 /** Sans aucune compression ni conversion, « Supprimer les originaux » n'a pas de sens : décochée (et grisée, IMP-28). */
 export const processing = (s: Processing) => s.compress || s.convert || s.compressVideos || s.convertVideos;
 
+/** Parcours relancé sur une liste qui existe déjà (case « Sous-dossiers », ajout) : son état (« Analyse du dossier… »,
+ *  bouton « Importer » sans nombre, sablier des lignes) ne s'affiche que s'il dure plus de 0,3 s ; sinon les chiffres
+ *  passent directement de l'ancien au nouveau (IMP-88, retouche 3 du 16/11). */
+const QUIET_SCAN_MS = 300;
+let quietTimer: number | undefined;
+
 type ImportState = {
   snapshot: ImportSnapshot | null;
+  /** Le parcours en cours est montré (faux pendant ses 0,3 premières secondes si la liste existait déjà). */
+  scanShown: boolean;
   /** Inclure les sous-dossiers (IMP-04). */
   recursive: boolean;
   /** « Compresser les images » (IMP-20) et sa qualité. */
@@ -62,10 +70,15 @@ type ImportState = {
   clearDefaultTags: () => void;
 };
 
+/** Phase affichée : un parcours pas encore montré (`scanShown`) laisse la liste « prête » à l'écran. */
+export const shownPhase = (s: ImportState) =>
+  s.snapshot?.phase === "scanning" && !s.scanShown ? "ready" : (s.snapshot?.phase ?? "idle");
+
 export const useImport = create<ImportState>()(
   persist(
     (set, get) => ({
       snapshot: null,
+      scanShown: false,
       recursive: true,
       compress: false,
       quality: QUALITY.initial,
@@ -80,8 +93,18 @@ export const useImport = create<ImportState>()(
       setSnapshot: (snapshot) => {
         // Import terminé : les tags par défaut ont été appliqués, la carte revient à zéro
         // (comme l'encadré de dépôt, IMP-50).
-        const finished = snapshot.phase === "finished" && get().snapshot?.phase === "importing";
-        set(finished ? { snapshot, defaultTags: [] } : { snapshot });
+        const before = get().snapshot;
+        const finished = snapshot.phase === "finished" && before?.phase === "importing";
+        let scanShown = get().scanShown;
+        if (snapshot.phase !== "scanning") {
+          window.clearTimeout(quietTimer);
+          scanShown = false;
+        } else if (before?.phase !== "scanning") {
+          window.clearTimeout(quietTimer);
+          scanShown = !(before?.phase === "ready" && before.lines > 0);
+          if (!scanShown) quietTimer = window.setTimeout(() => set({ scanShown: true }), QUIET_SCAN_MS);
+        }
+        set(finished ? { snapshot, scanShown, defaultTags: [] } : { snapshot, scanShown });
         // Fichiers réimportés : leurs aperçus ratés sont redemandés (LIB-05).
         if (finished) usePreviews.getState().bumpRetry();
       },

@@ -2135,3 +2135,19 @@ outils de test vivaient dans un dossier temporaire qui change à chaque session,
   fichier disparaissent. Aperçus, Explorateur et application par défaut : seulement pour les chemins des groupes
   (`is_duplicate_line`). « Annuler l'import » reste possible après une suppression : il ne touche jamais aux fichiers
   de l'utilisateur, et les fichiers gardés restent sur le disque.
+- 2e tour (16/11, v143). IMP-88 : un dossier « Sous-dossiers » coché MET DE CÔTÉ toute autre source placée sous lui
+  (`Source.absorbed_by`) : plus de ligne, ses fichiers passent tout de suite au dossier (`absorb_under`, les chiffres
+  ne bougent pas) ; case décochée : elles reviennent à leur place avec leurs fichiers (`release`) et sont parcourues de
+  nouveau ; dossier retiré : elles partent avec lui (`with_absorbed`, Q45 B) ; un chemin sous un dossier coché est
+  refusé tout de suite. Un dossier parcouru de nouveau garde ses anciens fichiers jusqu'à la fin du parcours, qui les
+  remplace d'un coup (`seen` = fichiers des autres sources) ; pas de progression pendant un parcours qui ne contient
+  que des sources déjà parcourues ; un fichier retiré pendant ce parcours est noté (`Inner.dropped`) pour ne pas
+  revenir. Interface : `scanShown` (magasin de l'import) n'affiche l'état « parcours » qu'après 0,3 s quand la liste
+  existait déjà (`shownPhase`) ; `src/lib/keepInPlace.ts` garde la ligne cliquée à sa place pendant 2 s, et la liste a
+  `overflow-anchor: none`. IMP-91 (Q43 A, Q44 A) : toute ligne est cochable ; `DupFile.version` (« compressed » /
+  « converted », d'après le format d'une copie qui est l'original : poids ou format différent de la version ; sans
+  original, d'après le nom « _c ») et `converted_from`. Fichier d'une version coché : le premier original gardé est
+  relu (empreinte) avant la transaction ; égale à `original_hash` : le média devient l'original (chemin, nom, clé,
+  extension, poids, dates, `hash` = ancien `original_hash`, `original_hash` NULL, `thumb_status` 0 : miniature,
+  dimensions et durée refaites) ; égale à `hash` : simple déplacement ; sinon rien dans ce groupe (erreur affichée).
+  La table des versions n'est pas touchée.

@@ -50,6 +50,10 @@ pub fn remove_scan_file(state: State<'_, AppState>, path: String) {
         }
         if let Some(i) = inner.files.iter().position(|f| f.path.as_os_str() == path.as_str()) {
             let file = inner.files.remove(i);
+            // Dossier en cours de parcours (ses anciens fichiers restent affichés, IMP-88) : le parcours ne le remet pas.
+            if inner.sources.iter().any(|s| s.id == file.source && s.scanning) {
+                inner.dropped.insert(file.path.clone());
+            }
             // Fichier choisi seul : sa ligne disparaît avec lui ; dans un dossier, le dossier reste (Q40 A).
             inner.sources.retain(|s| s.id != file.source || s.folder);
             inner.after_removal();

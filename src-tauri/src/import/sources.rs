@@ -5,6 +5,12 @@
 //! (même fichier, même dossier, dossier dont tous les fichiers y sont déjà) n'est pas ajouté : « Déjà dans la liste ».
 //! Les sources à parcourir le sont dans un fil à part ; tout changement pendant un parcours le relance avec ce qui
 //! reste à parcourir (un parcours remplacé s'arrête, son résultat est oublié).
+//!
+//! 2e tour (retours du 16/11) : un dossier dont la case « Sous-dossiers » est cochée MET DE CÔTÉ les autres sources
+//! placées sous lui (`absorbed_by`) : elles n'ont plus de ligne, il reprend leurs fichiers ; sa case décochée, elles
+//! reviennent à leur place ; lui retiré, elles partent avec lui (réponse Q45 B). Un dossier parcouru de nouveau garde
+//! ses anciens fichiers jusqu'à la fin de son parcours, qui les remplace d'un coup : les chiffres passent directement
+//! de l'ancien au nouveau (pas de progression envoyée pendant un tel parcours).
 
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
@@ -38,17 +44,58 @@ pub struct Source {
     ignored: u64,
     #[serde(skip)]
     inaccessible: u64,
+    /// Mise de côté par ce dossier « Sous-dossiers » coché, placé au-dessus d'elle (IMP-88, retouche 4) : pas de ligne,
+    /// aucun fichier (le dossier a repris les siens).
+    #[serde(skip)]
+    absorbed_by: Option<u64>,
 }
 
 impl Source {
     pub fn new(id: u64, path: String, folder: bool, recursive: bool) -> Self {
-        Self { id, path, folder, recursive: folder && recursive, files: 0, bytes: 0, scanning: true, fresh: true, ignored: 0, inaccessible: 0 }
+        Self {
+            id,
+            path,
+            folder,
+            recursive: folder && recursive,
+            files: 0,
+            bytes: 0,
+            scanning: true,
+            fresh: true,
+            ignored: 0,
+            inaccessible: 0,
+            absorbed_by: None,
+        }
     }
 
-    /// Ligne affichée : un dossier, ou un fichier pris en charge (un fichier ignoré n'est que compté).
+    /// Ligne affichée : un dossier, ou un fichier pris en charge (un fichier ignoré n'est que compté) ; jamais une
+    /// source mise de côté.
     fn shown(&self) -> bool {
-        self.folder || self.scanning || self.files > 0
+        self.absorbed_by.is_none() && (self.folder || self.scanning || self.files > 0)
     }
+
+    /// Dossier coché qui couvre tout ce qui est placé sous lui.
+    fn takes_all(&self) -> bool {
+        self.folder && self.recursive && self.absorbed_by.is_none()
+    }
+
+    /// Le fichier `file` revient à cette source quand elle est parcourue (chemins comparés sans la casse, comme Windows).
+    fn covers(&self, file: &Path) -> bool {
+        let file = file.to_string_lossy();
+        if !self.folder {
+            return file.to_lowercase() == self.path.to_lowercase();
+        }
+        if self.recursive {
+            return is_under(&file, &self.path);
+        }
+        Path::new(&file.to_lowercase()).parent() == Some(Path::new(&self.path.to_lowercase()))
+    }
+}
+
+/// `path` est placé sous le dossier `folder` (lui-même exclu ; sans compter la casse, comme Windows).
+fn is_under(path: &str, folder: &str) -> bool {
+    let (path, folder) = (path.to_lowercase(), folder.to_lowercase());
+    let (path, folder) = (Path::new(&path), Path::new(&folder));
+    path != folder && path.starts_with(folder)
 }
 
 impl Inner {
@@ -90,6 +137,7 @@ impl Inner {
     pub(super) fn reset(&mut self) {
         self.files.clear();
         self.sources.clear();
+        self.dropped.clear();
         let (recursive, already) = (self.snapshot.recursive, self.snapshot.already_listed);
         self.snapshot = Snapshot::idle(recursive);
         self.snapshot.already_listed = already;
@@ -100,6 +148,67 @@ impl Inner {
     fn sort_files(&mut self) {
         let rank: HashMap<u64, usize> = self.sources.iter().enumerate().map(|(i, s)| (s.id, i)).collect();
         self.files.sort_by_key(|f| rank.get(&f.source).copied().unwrap_or(usize::MAX));
+    }
+
+    /// Le dossier `id`, « Sous-dossiers » coché, met de côté les autres sources placées sous lui (IMP-88, retouche 4) :
+    /// leurs fichiers deviennent les siens tout de suite (les chiffres ne bougent pas), son parcours le confirme.
+    fn absorb_under(&mut self, id: u64) {
+        let Some(root) = self.sources.iter().find(|s| s.id == id && s.takes_all()).map(|s| s.path.clone()) else { return };
+        let mut taken: HashSet<u64> = HashSet::new();
+        let (mut ignored, mut inaccessible) = (0, 0);
+        for s in self.sources.iter_mut().filter(|s| s.id != id && s.absorbed_by.is_none() && is_under(&s.path, &root)) {
+            s.absorbed_by = Some(id);
+            (s.scanning, s.fresh) = (false, false);
+            ignored += std::mem::take(&mut s.ignored);
+            inaccessible += std::mem::take(&mut s.inaccessible);
+            taken.insert(s.id);
+        }
+        if taken.is_empty() {
+            return;
+        }
+        for f in self.files.iter_mut().filter(|f| taken.contains(&f.source)) {
+            f.source = id;
+        }
+        if let Some(s) = self.sources.iter_mut().find(|s| s.id == id) {
+            s.ignored += ignored;
+            s.inaccessible += inaccessible;
+        }
+        self.sort_files();
+    }
+
+    /// Case « Sous-dossiers » du dossier `id` décochée : les sources qu'il avait mises de côté reviennent, à leur place,
+    /// avec leurs fichiers (repris tout de suite, leur parcours le confirme).
+    fn release(&mut self, id: u64) {
+        let back: Vec<Source> = self.sources.iter().filter(|s| s.absorbed_by == Some(id)).cloned().collect();
+        if back.is_empty() {
+            return;
+        }
+        for s in self.sources.iter_mut().filter(|s| s.absorbed_by == Some(id)) {
+            s.absorbed_by = None;
+            (s.scanning, s.fresh) = (true, false);
+        }
+        for f in self.files.iter_mut().filter(|f| f.source == id) {
+            if let Some(s) = back.iter().find(|s| s.covers(&f.path)) {
+                f.source = s.id;
+            }
+        }
+        self.sort_files();
+    }
+
+    /// La source `id` et celles qu'elle a mises de côté, directement ou non (elles partent avec elle, Q45 B).
+    fn with_absorbed(&self, id: u64) -> HashSet<u64> {
+        let mut all = HashSet::from([id]);
+        loop {
+            let before = all.len();
+            for s in &self.sources {
+                if s.absorbed_by.is_some_and(|p| all.contains(&p)) {
+                    all.insert(s.id);
+                }
+            }
+            if all.len() == before {
+                return all;
+            }
+        }
     }
 
     /// « Les importer quand même » (IMP-87) : chaque fichier devient sa propre ligne, affichée pendant l'import.
@@ -148,12 +257,20 @@ pub fn scan_paths(app: AppHandle, state: State<'_, AppState>, paths: Vec<String>
         let mut refused = false;
         let mut added = false;
         for (path, folder) in kinds {
-            if !known.insert(path.to_lowercase()) {
+            // Déjà source (même mise de côté), déjà fichier de la liste, ou placé sous un dossier coché (Q42 A).
+            let covered = inner.sources.iter().any(|s| s.takes_all() && is_under(&path, &s.path));
+            if covered || !known.insert(path.to_lowercase()) {
                 refused = true;
                 continue;
             }
+            // Ajouté de nouveau : un fichier retiré pendant un parcours n'est plus écarté.
+            inner.dropped.retain(|p| {
+                let p = p.to_string_lossy();
+                p.to_lowercase() != path.to_lowercase() && !is_under(&p, &path)
+            });
             let id = inner.next_id();
             inner.sources.push(Source::new(id, path, folder, recursive));
+            inner.absorb_under(id);
             added = true;
         }
         if refused {
@@ -177,9 +294,13 @@ pub fn scan_paths(app: AppHandle, state: State<'_, AppState>, paths: Vec<String>
 /// Lance (ou relance) le parcours des sources pas encore parcourues ; rien à parcourir : la liste est prête.
 pub(super) fn rescan(app: &AppHandle, manager: &ImportManager) {
     let generation = manager.generation.fetch_add(1, Ordering::SeqCst) + 1;
-    let (todo, mut seen, base) = {
+    let (todo, mut seen, base, quiet) = {
         let mut inner = manager.inner.lock().unwrap();
-        let todo: Vec<(u64, PathBuf, bool)> = inner.sources.iter().filter(|s| s.scanning).map(|s| (s.id, PathBuf::from(&s.path), s.recursive)).collect();
+        let pending: Vec<&Source> = inner.sources.iter().filter(|s| s.scanning && s.absorbed_by.is_none()).collect();
+        let todo: Vec<(u64, PathBuf, bool)> = pending.iter().map(|s| (s.id, PathBuf::from(&s.path), s.recursive)).collect();
+        // Seulement des sources déjà parcourues (case changée, sources revenues) : pas de progression, les chiffres
+        // passent d'un coup de l'ancien au nouveau (IMP-88, retouche 3).
+        let quiet = pending.iter().all(|s| !s.fresh);
         if todo.is_empty() {
             if inner.snapshot.phase == Phase::Scanning {
                 inner.snapshot.phase = Phase::Ready;
@@ -188,8 +309,20 @@ pub(super) fn rescan(app: &AppHandle, manager: &ImportManager) {
             manager.update(false, |_| {});
             return;
         }
-        let seen: HashSet<PathBuf> = inner.files.iter().map(|f| f.path.clone()).collect();
-        (todo, seen, inner.snapshot.scan.clone().unwrap_or_default())
+        // Les anciens fichiers des sources parcourues de nouveau restent dans la liste jusqu'à la fin du parcours, mais
+        // ne comptent pas comme « déjà dans la liste » pour lui.
+        let redo: HashSet<u64> = todo.iter().map(|t| t.0).collect();
+        let mut base = ScanSummary::default();
+        let mut seen: HashSet<PathBuf> = HashSet::new();
+        for f in inner.files.iter().filter(|f| !redo.contains(&f.source)) {
+            base.count(f);
+            seen.insert(f.path.clone());
+        }
+        for s in inner.sources.iter().filter(|s| !redo.contains(&s.id)) {
+            base.ignored += s.ignored;
+            base.inaccessible += s.inaccessible;
+        }
+        (todo, seen, base, quiet)
     };
     let app = app.clone();
     let spawned = std::thread::Builder::new().name("import-parcours".into()).spawn(move || {
@@ -200,6 +333,9 @@ pub(super) fn rescan(app: &AppHandle, manager: &ImportManager) {
         for (id, root, recursive) in todo {
             let start = so_far.clone();
             let Some(found) = scan::scan(&root, recursive, id, &mut seen, || !current(), |partial| {
+                if quiet {
+                    return;
+                }
                 let summary = start.plus(partial);
                 manager.update(true, |inner| inner.snapshot.scan = Some(summary));
             }) else {
@@ -212,11 +348,20 @@ pub(super) fn rescan(app: &AppHandle, manager: &ImportManager) {
             if !current() {
                 return;
             }
+            // Les anciens fichiers des sources parcourues sont remplacés d'un coup ; ceux retirés par leur croix pendant
+            // le parcours n'y reviennent pas.
+            let redo: HashSet<u64> = done.iter().map(|d| d.0).collect();
+            inner.files.retain(|f| !redo.contains(&f.source));
+            let dropped = std::mem::take(&mut inner.dropped);
             let mut refused = false;
-            for (id, found) in done {
+            for (id, mut found) in done {
+                if !dropped.is_empty() {
+                    found.files.retain(|f| !dropped.contains(&f.path));
+                }
                 let Some(i) = inner.sources.iter().position(|s| s.id == id) else { continue };
                 // Rien de nouveau : un fichier ou un dossier dont tout est déjà dans la liste (Q42 A).
-                if inner.sources[i].fresh && found.files.is_empty() && found.already > 0 {
+                let keeps = inner.sources.iter().any(|s| s.absorbed_by == Some(id));
+                if inner.sources[i].fresh && found.files.is_empty() && found.already > 0 && !keeps {
                     inner.sources.remove(i);
                     refused = true;
                     continue;
@@ -275,8 +420,10 @@ pub fn remove_scan_source(app: AppHandle, state: State<'_, AppState>, id: u64) {
         if !matches!(inner.snapshot.phase, Phase::Scanning | Phase::Ready) {
             return;
         }
-        inner.sources.retain(|s| s.id != id);
-        inner.files.retain(|f| f.source != id);
+        // Avec les sources qu'il avait mises de côté (réponse Q45 B).
+        let gone = inner.with_absorbed(id);
+        inner.sources.retain(|s| !gone.contains(&s.id));
+        inner.files.retain(|f| !gone.contains(&f.source));
         inner.after_removal();
     });
     if manager.snapshot().phase == Phase::Scanning {
@@ -285,7 +432,9 @@ pub fn remove_scan_source(app: AppHandle, state: State<'_, AppState>, id: u64) {
     super::video::checks::changed();
 }
 
-/// Case « sous-dossiers » d'une ligne de dossier : il est parcouru de nouveau, avec ou sans ses sous-dossiers.
+/// Case « sous-dossiers » d'une ligne de dossier : il est parcouru de nouveau, avec ou sans ses sous-dossiers, en
+/// gardant ses anciens fichiers jusqu'à la fin du parcours. Cochée : il met de côté les sources placées sous lui ;
+/// décochée : elles reviennent (IMP-88, retouche 4).
 #[tauri::command]
 pub fn set_source_recursive(app: AppHandle, state: State<'_, AppState>, id: u64, recursive: bool) {
     let manager = &state.import;
@@ -294,12 +443,16 @@ pub fn set_source_recursive(app: AppHandle, state: State<'_, AppState>, id: u64,
         if !matches!(inner.snapshot.phase, Phase::Scanning | Phase::Ready) {
             return;
         }
-        let Some(source) = inner.sources.iter_mut().find(|s| s.id == id && s.folder) else { return };
+        let Some(source) = inner.sources.iter_mut().find(|s| s.id == id && s.folder && s.absorbed_by.is_none()) else { return };
         if source.recursive == recursive && !source.scanning {
             return;
         }
         (source.recursive, source.scanning) = (recursive, true);
-        inner.files.retain(|f| f.source != id);
+        if recursive {
+            inner.absorb_under(id);
+        } else {
+            inner.release(id);
+        }
         inner.snapshot.phase = Phase::Scanning;
         inner.summarize();
         changed = true;
@@ -307,5 +460,85 @@ pub fn set_source_recursive(app: AppHandle, state: State<'_, AppState>, id: u64,
     if changed {
         rescan(&app, manager);
         super::video::checks::changed();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::formats::Kind;
+
+    fn inner() -> Inner {
+        Inner {
+            snapshot: Snapshot::idle(true),
+            files: Vec::new(),
+            sources: Vec::new(),
+            version: 0,
+            unreadable: Vec::new(),
+            last_tags: Vec::new(),
+            last_emit: std::time::Instant::now(),
+            dropped: Default::default(),
+        }
+    }
+
+    fn add(inner: &mut Inner, path: &str, folder: bool, recursive: bool, files: &[&str]) -> u64 {
+        let id = inner.next_id();
+        let mut s = Source::new(id, path.into(), folder, recursive);
+        (s.scanning, s.fresh) = (false, false);
+        inner.sources.push(s);
+        for f in files {
+            inner.files.push(ScanFile { path: PathBuf::from(f), kind: Kind::Image, ext: "jpg".into(), size: 1, source: id });
+        }
+        id
+    }
+
+    fn owner(inner: &Inner, file: &str) -> u64 {
+        inner.files.iter().find(|f| f.path == Path::new(file)).unwrap().source
+    }
+
+    #[test]
+    fn sous_dossier_mis_de_cote_puis_rendu() {
+        let mut inner = inner();
+        let p = add(&mut inner, r"C:\a", true, false, &[r"C:\a\1.jpg"]);
+        let s = add(&mut inner, r"C:\A\sous", true, false, &[r"C:\a\sous\2.jpg"]);
+        let f = add(&mut inner, r"C:\a\x\3.jpg", false, false, &[r"C:\a\x\3.jpg"]);
+        let other = add(&mut inner, r"C:\ab", true, true, &[r"C:\ab\4.jpg"]);
+        inner.sources[0].recursive = true;
+        inner.absorb_under(p);
+        inner.summarize();
+        assert_eq!(inner.snapshot.lines, 2, r"le dossier coché et C:\ab seulement");
+        assert_eq!((owner(&inner, r"C:\a\sous\2.jpg"), owner(&inner, r"C:\a\x\3.jpg")), (p, p));
+        assert_eq!(owner(&inner, r"C:\ab\4.jpg"), other);
+        assert_eq!(inner.snapshot.scan.as_ref().unwrap().total, 4, "les chiffres ne bougent pas");
+
+        inner.sources[0].recursive = false;
+        inner.release(p);
+        inner.summarize();
+        assert_eq!(inner.snapshot.lines, 4);
+        assert_eq!((owner(&inner, r"C:\a\sous\2.jpg"), owner(&inner, r"C:\a\x\3.jpg")), (s, f));
+        assert_eq!(owner(&inner, r"C:\a\1.jpg"), p);
+        assert!(inner.sources.iter().filter(|x| x.id != p && x.id != other).all(|x| x.scanning && !x.fresh));
+    }
+
+    #[test]
+    fn retire_avec_ce_qu_il_a_mis_de_cote() {
+        let mut inner = inner();
+        let p = add(&mut inner, r"C:\a", true, true, &[]);
+        let s = add(&mut inner, r"C:\a\b", true, true, &[]);
+        let t = add(&mut inner, r"C:\a\b\c", true, false, &[]);
+        let other = add(&mut inner, r"C:\z", true, true, &[]);
+        inner.absorb_under(s);
+        inner.absorb_under(p);
+        assert_eq!(inner.sources.iter().find(|x| x.id == t).unwrap().absorbed_by, Some(s));
+        assert_eq!(inner.with_absorbed(p), HashSet::from([p, s, t]));
+        assert_eq!(inner.with_absorbed(other), HashSet::from([other]));
+    }
+
+    #[test]
+    fn sous_un_dossier() {
+        assert!(is_under(r"C:\A\b", r"c:\a"));
+        assert!(is_under(r"C:\a\b\c.jpg", r"C:\a\"));
+        assert!(!is_under(r"C:\ab", r"C:\a"));
+        assert!(!is_under(r"C:\a", r"C:\a"));
     }
 }

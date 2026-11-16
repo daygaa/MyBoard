@@ -145,17 +145,16 @@ function Body({ p, r }: { p: ImportProgress; r: ImportResult }) {
   );
 }
 
-export function ImportReport() {
-  const snapshot = useImport((s) => s.snapshot);
-  const result = snapshot?.result;
-  const progress = snapshot?.progress;
-  if (snapshot?.phase !== "finished" || !result || !progress || result.reported) return null;
+/** Bilan ouvert. Avec des doublons, il est large (≈ 670 px, retouche 1 d'IMP-91 du 16/11) et le reste jusqu'à sa
+ *  fermeture, même quand le dernier groupe disparaît. */
+function ReportDialog({ result, progress }: { result: ImportResult; progress: ImportProgress }) {
+  const [wide] = useState(result.duplicateGroups.length > 0 && !result.undone);
   const close = () => void api.importReportSeen();
   return (
     <Modal
       open
       even
-      size={result.duplicateGroups.length > 0 && !result.undone ? "lg" : undefined}
+      wide={wide}
       zone="import.bilan"
       onClose={close}
       onEnter={close}
@@ -171,4 +170,12 @@ export function ImportReport() {
       </div>
     </Modal>
   );
+}
+
+export function ImportReport() {
+  const snapshot = useImport((s) => s.snapshot);
+  const result = snapshot?.result;
+  const progress = snapshot?.progress;
+  if (snapshot?.phase !== "finished" || !result || !progress || result.reported) return null;
+  return <ReportDialog result={result} progress={progress} />;
 }

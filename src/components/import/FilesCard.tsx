@@ -1,6 +1,6 @@
 // Carte « Fichiers » de la page d'import (apparence v8) : glisser-déposer de fichiers et de
-// dossiers (IMP-03), bouton « Importer un fichier » (IMP-01), bouton « Importer un dossier »
-// (IMP-02), résumé du contenu trouvé (IMP-05). Chaque ajout s'AJOUTE à la liste (IMP-88, réponse Q20 B) ; la case
+// dossiers (IMP-03), bouton « Ajouter des fichiers » (IMP-01), bouton « Ajouter un dossier »
+// (IMP-02 ; textes de la réponse Q41 B d'IMP-88), résumé du contenu trouvé (IMP-05). Chaque ajout s'AJOUTE à la liste (IMP-88, réponse Q20 B) ; la case
 // « Sous-dossiers inclus par défaut » est le choix des nouveaux dossiers (Q26 A) ; ce qui est déjà dans la liste n'est
 // pas ajouté, avec « Déjà dans la liste » (Q42 A). Ni chemin choisi, ni liste des formats (demande du 14/11).
 // Après un import, la carte revient à son état de départ (IMP-50).
@@ -16,7 +16,7 @@ import { useFileDrop } from "@/hooks/useFileDrop";
 import { api, type ScanSummary } from "@/lib/api";
 import { formatBytes, formatNumber, plural } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { useImport } from "@/stores/import";
+import { shownPhase, useImport } from "@/stores/import";
 
 function ScanLine({ scan, scanning }: { scan: ScanSummary; scanning: boolean }) {
   const parts = [
@@ -74,7 +74,8 @@ export function FilesCard() {
   const snapshot = useImport((s) => s.snapshot);
   const recursive = useImport((s) => s.recursive);
   const setRecursive = useImport((s) => s.setRecursive);
-  const phase = snapshot?.phase ?? "idle";
+  // Un parcours bref (case « Sous-dossiers ») ne change pas l'affichage (IMP-88, retouche 3).
+  const phase = useImport(shownPhase);
   const importing = phase === "importing";
   // Choix en cours d'examen ou d'import ; après l'import, la carte est remise à zéro.
   const active = phase === "scanning" || phase === "ready" || importing;
@@ -90,7 +91,7 @@ export function FilesCard() {
     const picked = await open({
       multiple: true,
       directory: false,
-      title: "Choisir les fichiers à importer",
+      title: "Choisir les fichiers à ajouter",
       filters: [
         { name: "Médias et documents", extensions: extensions ?? [] },
         { name: "Tous les fichiers", extensions: ["*"] },
@@ -100,7 +101,7 @@ export function FilesCard() {
   }
 
   async function chooseFolder() {
-    const picked = await open({ directory: true, multiple: false, title: "Choisir le dossier à importer" });
+    const picked = await open({ directory: true, multiple: false, title: "Choisir le dossier à ajouter" });
     if (typeof picked === "string") scan([picked]);
   }
 
@@ -140,7 +141,7 @@ export function FilesCard() {
             className="border-[#d9a94e]/40 text-[#d9a94e] hover:bg-[#d9a94e]/10 hover:text-[#e3b75f] disabled:hover:bg-background disabled:hover:text-[#d9a94e]"
           >
             <Upload className="h-3.5 w-3.5" />
-            Importer un fichier
+            Ajouter des fichiers
           </Button>
           <Button
             data-zone="import.bouton-dossier"
@@ -151,7 +152,7 @@ export function FilesCard() {
             className="border-border text-muted-foreground hover:bg-secondary hover:text-foreground disabled:hover:bg-background disabled:hover:text-muted-foreground"
           >
             <FolderOpen className="h-3.5 w-3.5" />
-            Importer un dossier
+            Ajouter un dossier
           </Button>
         </div>
         <label className="flex cursor-pointer items-center gap-2 text-sm text-foreground has-disabled:cursor-not-allowed">

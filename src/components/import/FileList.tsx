@@ -53,7 +53,9 @@ export function FileList() {
   const rest = data.total - data.lines.length;
 
   return (
-    <section data-zone="import.liste" className="rounded-xl border border-border bg-card/60 p-6">
+    // Pas d'ancrage du défilement du navigateur dans la liste : il prenait pour repère une ligne déplacée par la mise à
+    // jour et faisait sauter la page ; `keepInPlace` garde la ligne cliquée sous le curseur (IMP-88, retouche 2).
+    <section data-zone="import.liste" className="rounded-xl border border-border bg-card/60 p-6 [overflow-anchor:none]">
       <div className="mb-4 flex items-center justify-between gap-3">
         <h2 className="flex items-center gap-2 text-sm font-semibold tracking-wider text-muted-foreground uppercase">
           <ListChecks className="h-4 w-4 text-[#d9a94e]" />

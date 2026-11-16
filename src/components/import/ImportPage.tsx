@@ -36,8 +36,8 @@ export function ImportPage() {
         </h1>
         <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
           Glissez-déposez vos fichiers ou dossiers, ou cliquez sur{" "}
-          <strong className="text-foreground">Importer un fichier</strong> /{" "}
-          <strong className="text-foreground">Importer un dossier</strong>. MyBoard référence vos photos, vidéos, musiques et
+          <strong className="text-foreground">Ajouter des fichiers</strong> /{" "}
+          <strong className="text-foreground">Ajouter un dossier</strong>. MyBoard référence vos photos, vidéos, musiques et
           documents là où ils sont. Les doublons (même contenu, même sous un autre nom) sont automatiquement ignorés, et les
           miniatures sont créées en arrière-plan.
         </p>

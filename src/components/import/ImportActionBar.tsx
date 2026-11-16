@@ -10,15 +10,15 @@ import { Button } from "@/components/ui/button";
 import { useStats } from "@/hooks/useLibraryData";
 import type { ImportSnapshot } from "@/lib/api";
 import { formatNumber, plural } from "@/lib/format";
-import { useImport } from "@/stores/import";
+import { shownPhase, useImport } from "@/stores/import";
 import { goHome } from "@/stores/search";
 import { ImportControls, UndoButton } from "./ImportControls";
 import { ImportProgress } from "./ImportProgress";
 import { useImportStart } from "./useImportStart";
 
-function StatusText({ snapshot }: { snapshot: ImportSnapshot | null }) {
+function StatusText({ snapshot, phase }: { snapshot: ImportSnapshot | null; phase: string }) {
   const scan = snapshot?.scan;
-  switch (snapshot?.phase) {
+  switch (phase) {
     case "scanning":
       return <span>Analyse du dossier…</span>;
     case "ready":
@@ -31,7 +31,7 @@ function StatusText({ snapshot }: { snapshot: ImportSnapshot | null }) {
         <span>Aucun fichier à importer dans cette sélection</span>
       );
     case "importing":
-      if (snapshot.paused) {
+      if (snapshot?.paused) {
         return (
           <span className="inline-flex items-center gap-2 text-amber-300">
             <Pause className="h-4 w-4" />
@@ -67,7 +67,8 @@ function ThumbsPending() {
 
 export function ImportActionBar() {
   const snapshot = useImport((s) => s.snapshot);
-  const phase = snapshot?.phase ?? "idle";
+  // Un parcours bref (case « Sous-dossiers ») ne change pas l'affichage (IMP-88, retouche 3).
+  const phase = useImport(shownPhase);
   const total = snapshot?.scan?.total ?? 0;
   const canImport = phase === "ready" && total > 0;
   const { start, checking, dialog } = useImportStart();
@@ -78,7 +79,7 @@ export function ImportActionBar() {
       className="sticky top-[57px] z-10 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-[color-mix(in_srgb,var(--card)_40%,var(--background))] px-4 py-3"
     >
       <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
-        <StatusText snapshot={snapshot} />
+        <StatusText snapshot={snapshot} phase={phase} />
       </div>
 
       <div className="flex items-center gap-2">
@@ -95,7 +96,10 @@ export function ImportActionBar() {
         <Button
           data-zone="import.importer"
           disabled={!canImport || checking}
-          onClick={() => void start()}
+          onClick={() => {
+            // Parcours pas encore montré : le bouton garde son aspect, mais attend la liste à jour.
+            if (useImport.getState().snapshot?.phase === "ready") void start();
+          }}
           className="bg-[#d9a94e] text-[#1a1408] hover:bg-[#e3b75f] focus-visible:ring-[#d9a94e]/40 disabled:hover:bg-[#d9a94e]"
         >
           <Upload className="h-4 w-4" />

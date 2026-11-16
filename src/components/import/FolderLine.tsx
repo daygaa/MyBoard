@@ -2,8 +2,11 @@
 // son chemin), nombre de fichiers et poids, petite case « Sous-dossiers » (le dossier est alors parcouru de nouveau), croix
 // pour le retirer en entier. Déplié : ses fichiers, chacun avec sa croix (Q40 A), 100 par 100 (« Voir plus », IMP-11).
 // Clic droit sur la ligne : Retirer de la liste ‖ Afficher dans l'explorateur de fichiers (comme CTX-14).
+// 2e tour (retours du 16/11) : dossier déplié dès son ajout (retouche 1) ; flèche ou case cliquée : la ligne reste sous
+// le curseur pendant la mise à jour (retouche 2, `keepInPlace`) ; parcours bref : pas de « Parcours du dossier… »
+// (retouche 3, `scanShown`).
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { ChevronDown, ChevronRight, Folder, Loader2, X } from "lucide-react";
 
@@ -11,7 +14,9 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { api, type ScanLine } from "@/lib/api";
 import { openContextMenu, type MenuEntry } from "@/lib/contextMenu";
 import { formatBytes, formatNumber, plural } from "@/lib/format";
+import { keepInPlace } from "@/lib/keepInPlace";
 import { cn } from "@/lib/utils";
+import { useImport } from "@/stores/import";
 import { FileRow } from "./FileRow";
 
 const STEP = 100;
@@ -62,12 +67,17 @@ function FolderFiles({ line, locked, version }: { line: ScanLine; locked: boolea
 }
 
 export function FolderLine({ line, locked, version }: { line: ScanLine; locked: boolean; version: number }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(true);
+  const row = useRef<HTMLDivElement>(null);
+  const scanShown = useImport((s) => s.scanShown);
+  // Dossier qui vient d'être ajouté (encore vide) : son parcours se voit tout de suite.
+  const scanning = line.scanning && (scanShown || line.files === 0);
   const name = line.path.split(/[\\/]/).filter(Boolean).pop() ?? line.path;
   const Arrow = open ? ChevronDown : ChevronRight;
   return (
     <li data-zone="import.liste.dossier">
       <div
+        ref={row}
         onContextMenu={(e) => openContextMenu(e, () => folderMenu(line, locked))}
         className="flex items-center gap-3 rounded-lg border border-border bg-background/40 px-2.5 py-2"
       >
@@ -76,7 +86,10 @@ export function FolderLine({ line, locked, version }: { line: ScanLine; locked: 
           data-zone="import.liste.dossier.deplier"
           title={open ? "Replier" : "Déplier"}
           disabled={line.files === 0}
-          onClick={() => setOpen((o) => !o)}
+          onClick={() => {
+            keepInPlace(row.current);
+            setOpen((o) => !o);
+          }}
           className="grid h-11 w-11 shrink-0 place-items-center rounded-md bg-[#0d0e12] text-muted-foreground transition hover:text-foreground disabled:opacity-60"
         >
           <span className="flex items-center">
@@ -89,8 +102,8 @@ export function FolderLine({ line, locked, version }: { line: ScanLine; locked: 
             {name}
           </span>
           <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground tabular-nums">
-            {line.scanning && <Loader2 className="h-3 w-3 animate-spin text-[#d9a94e]" />}
-            {line.scanning
+            {scanning && <Loader2 className="h-3 w-3 animate-spin text-[#d9a94e]" />}
+            {scanning
               ? "Parcours du dossier…"
               : `${formatNumber(line.files)} ${plural(line.files, "fichier")} · ${formatBytes(line.bytes)}`}
           </span>
@@ -99,7 +112,14 @@ export function FolderLine({ line, locked, version }: { line: ScanLine; locked: 
           data-zone="import.liste.dossier.sous-dossiers"
           className={cn("flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground", locked ? "cursor-not-allowed" : "cursor-pointer")}
         >
-          <Checkbox checked={line.recursive} disabled={locked} onCheckedChange={(c) => void api.setSourceRecursive(line.id, c === true)} />
+          <Checkbox
+            checked={line.recursive}
+            disabled={locked}
+            onCheckedChange={(c) => {
+              keepInPlace(row.current);
+              void api.setSourceRecursive(line.id, c === true);
+            }}
+          />
           Sous-dossiers
         </label>
         {!locked && (

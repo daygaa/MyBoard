@@ -274,7 +274,19 @@ export type ImportPhase = "idle" | "scanning" | "ready" | "importing" | "finishe
 
 /** Une ligne d'un groupe de doublons du bilan (IMP-91) : `inLibrary`, le fichier du média ; `deletable` : peut être
  *  coché (pas une version faite par MyBoard ni celle d'une paire, réponse Q36 A). */
-export type DupFile = { path: string; name: string; size: number; ext: string; kind: MediaKind; inLibrary: boolean; deletable: boolean };
+/** Ligne d'un groupe de doublons (IMP-91) ; `version` : le fichier du média est une version faite par MyBoard
+ *  (compressée ou convertie, Q44 A) ; `convertedFrom` : extension de l'original d'une version convertie. */
+export type DupFile = {
+  path: string;
+  name: string;
+  size: number;
+  ext: string;
+  kind: MediaKind;
+  inLibrary: boolean;
+  deletable: boolean;
+  version: "compressed" | "converted" | null;
+  convertedFrom: string | null;
+};
 export type DupGroup = { media: number; files: DupFile[] };
 /** « Supprimer les doublons » : fichiers effacés, et ceux qui n'ont pas pu l'être (ils restent dans leur groupe). */
 export type DupDeleteReport = { deleted: number; failed: { path: string; message: string }[] };

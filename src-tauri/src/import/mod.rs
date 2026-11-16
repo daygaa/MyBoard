@@ -70,6 +70,9 @@ struct Inner {
     unreadable: Vec<ScanFile>,
     last_tags: Vec<NewTag>,
     last_emit: Instant,
+    /// Fichiers retirés par leur croix pendant que le parcours de leur dossier est relancé (IMP-88) : ce parcours ne
+    /// les remet pas dans la liste.
+    dropped: std::collections::HashSet<std::path::PathBuf>,
 }
 
 pub struct ImportManager {
@@ -97,6 +100,7 @@ impl ImportManager {
                 unreadable: Vec::new(),
                 last_tags: Vec::new(),
                 last_emit: Instant::now(),
+                dropped: Default::default(),
             }),
             cancel: AtomicBool::new(false),
             undo: AtomicBool::new(false),

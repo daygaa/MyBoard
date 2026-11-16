@@ -5,9 +5,11 @@
 // toutes décochées à l'ouverture. Clic droit sur la ligne : Copier le nom ‖ Afficher dans l'explorateur de fichiers ‖
 // Ouvrir avec l'application par défaut. « Supprimer les doublons » (confirmé, suppression définitive comme DEL-04)
 // efface les fichiers cochés ; les groupes réduits à un fichier disparaissent, puis la section quand il n'en reste plus.
+// 2e tour (retours du 16/11) : liste plus haute (moitié de la fenêtre), bouton à droite ; une version faite par MyBoard se
+// coche aussi (Q43 A), avec son icône à droite de celle de la bibliothèque : compressée ou convertie (Q44 A).
 
 import { useState } from "react";
-import { ChevronDown, ExternalLink, FolderOpen, Library, Loader2, Trash2 } from "lucide-react";
+import { ChevronDown, ExternalLink, FolderOpen, Library, Loader2, RefreshCw, Shrink, Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -21,6 +23,30 @@ import { ListThumb } from "./ListThumb";
 /** Groupes affichés, puis « Voir plus » (comme la liste avant l'import, IMP-11). */
 const STEP = 50;
 const ICON_BUTTON = "grid h-7 w-7 shrink-0 place-items-center rounded-md text-muted-foreground transition hover:bg-secondary hover:text-foreground";
+
+/** Nom d'un format dans une bulle : « PNG », « WebP », « JPG »… */
+function formatName(ext: string): string {
+  const e = ext.toLowerCase();
+  if (e === "webp") return "WebP";
+  if (e === "webm") return "WebM";
+  if (e === "jpeg" || e === "jpe") return "JPG";
+  return e.toUpperCase();
+}
+
+/** Icône de la version faite par MyBoard, à droite de celle de la bibliothèque (Q44 A). */
+function VersionIcon({ file }: { file: DupFile }) {
+  if (!file.version) return null;
+  const converted = file.version === "converted";
+  const title = converted
+    ? `Version convertie par MyBoard${file.convertedFrom ? ` (${formatName(file.convertedFrom)} → ${formatName(file.ext)})` : ""}`
+    : "Version compressée par MyBoard";
+  const Icon = converted ? RefreshCw : Shrink;
+  return (
+    <span data-zone={`import.bilan.doublons.${converted ? "convertie" : "compressee"}`} title={title} className="shrink-0">
+      <Icon className="h-3.5 w-3.5 text-[#d9a94e]" />
+    </span>
+  );
+}
 
 type Actions = { reveal: (f: DupFile) => void; open: (f: DupFile) => void; copyName: (f: DupFile) => void };
 
@@ -48,6 +74,7 @@ function Row({ file, checked, locked, onCheck, act }: { file: DupFile; checked: 
                 <Library className="h-3.5 w-3.5 text-[#d9a94e]" />
               </span>
             )}
+            <VersionIcon file={file} />
           </span>
           <span className="block text-[11px] text-muted-foreground tabular-nums">{formatBytes(file.size)}</span>
         </span>
@@ -58,7 +85,7 @@ function Row({ file, checked, locked, onCheck, act }: { file: DupFile; checked: 
       <button type="button" data-zone="import.bilan.doublons.ouvrir" title="Ouvrir avec l'application par défaut" onClick={() => act.open(file)} className={ICON_BUTTON}>
         <ExternalLink className="h-4 w-4" />
       </button>
-      <span className="grid w-7 shrink-0 place-items-center" title={!file.deletable ? "Version faite par MyBoard : toujours gardée" : locked ? "Au moins un fichier est gardé dans chaque groupe" : "Supprimer ce fichier du disque"}>
+      <span className="grid w-7 shrink-0 place-items-center" title={!file.deletable ? "Toujours gardé" : locked ? "Au moins un fichier est gardé dans chaque groupe" : "Supprimer ce fichier du disque"}>
         {file.deletable && <Checkbox data-zone="import.bilan.doublons.case" checked={checked} disabled={locked} onCheckedChange={(c) => onCheck(c === true)} />}
       </span>
     </li>
@@ -114,7 +141,7 @@ export function ImportDuplicates({ groups }: { groups: DupGroup[] }) {
       <p className="mb-1 text-[10px] font-semibold tracking-wider uppercase">
         Doublons trouvés ({formatNumber(groups.length)} {plural(groups.length, "groupe")}, {formatNumber(files)} fichiers)
       </p>
-      <div className="max-h-80 overflow-y-auto overscroll-contain rounded-md border border-border bg-background/40 px-2">
+      <div className="max-h-[50vh] overflow-y-auto overscroll-contain rounded-md border border-border bg-background/40 px-2">
         <ul className="divide-y divide-border">
           {groups.slice(0, shown).map((g) => {
             const kept = g.files.filter((f) => !checked.has(f.path)).length;
@@ -146,7 +173,7 @@ export function ImportDuplicates({ groups }: { groups: DupGroup[] }) {
           </div>
         )}
       </div>
-      <div className="mt-2">
+      <div className="mt-2 flex flex-col items-end">
         <Button
           data-zone="import.bilan.doublons.supprimer"
           variant="outline"
@@ -159,7 +186,7 @@ export function ImportDuplicates({ groups }: { groups: DupGroup[] }) {
           Supprimer les doublons
         </Button>
         {errors.map((e) => (
-          <p key={e} className="mt-1 text-xs text-rose-400 select-text">
+          <p key={e} className="mt-1 self-stretch text-xs text-rose-400 select-text">
             {e}
           </p>
         ))}

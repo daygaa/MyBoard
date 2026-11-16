@@ -3,6 +3,17 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Lot R6, 2e tour : sous-dossiers mis de côté, versions de MyBoard dans les doublons (16/11/2026) — Backup v143
+
+SPEC : IMP-88, IMP-91 `[~]` ; décision D-077 (complétée).
+
+- IMP-88 : boutons « Ajouter des fichiers » et « Ajouter un dossier » ; dossier ajouté déplié ; la ligne cliquée (flèche,
+  case « Sous-dossiers ») reste sous le curseur ; plus de clignotement des chiffres quand la case change ; un dossier
+  coché met de côté les sous-dossiers et fichiers ajoutés à part sous lui (ils reviennent si la case est décochée,
+  partent avec lui s'il est retiré).
+- IMP-91 : bilan plus large et plus haut (largeur gardée jusqu'à sa fermeture), bouton à droite ; une version
+  compressée ou convertie par MyBoard peut être cochée, avec son icône ; cochée, le média passe sur l'original gardé.
+
 ## Lot R6 : doublons du bilan, liste de l'import groupée par dossier (16/11/2026) — Backup v142
 
 SPEC : IMP-91, IMP-88 `[~]` ; décision D-077.
