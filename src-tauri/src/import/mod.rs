@@ -28,6 +28,7 @@ mod prefetch;
 pub mod preview;
 pub mod reconvert;
 mod relocate;
+mod rescan;
 mod run;
 mod scan;
 pub mod sources;
@@ -48,7 +49,7 @@ use crate::tags::NewTag;
 pub use plan::ImportOptions;
 pub use scan::ScanSummary;
 use scan::ScanFile;
-pub use state::{FileError, ImportResult, Paused, Phase, Progress, Snapshot};
+pub use state::{FileError, ImportResult, Paused, Phase, Progress, Refused, Snapshot};
 
 /// Un lot de fichiers est validé en base toutes les 200 entrées ou 300 ms.
 const COMMIT_EVERY: usize = 200;
@@ -70,9 +71,11 @@ struct Inner {
     unreadable: Vec<ScanFile>,
     last_tags: Vec<NewTag>,
     last_emit: Instant,
-    /// Fichiers retirés par leur croix pendant que le parcours de leur dossier est relancé (IMP-88) : ce parcours ne
-    /// les remet pas dans la liste.
-    dropped: std::collections::HashSet<std::path::PathBuf>,
+    /// Fichiers retirés par leur croix (chemins en minuscules, IMP-88, retouche 9) : aucun parcours ne les remet dans la
+    /// liste ; oubliés quand le fichier, son dossier ou un dossier au-dessus est ajouté de nouveau (Q47 B, Q48 C).
+    removed: std::collections::HashSet<String>,
+    /// Ajouts refusés en attendant la fin du parcours de ce même ajout : un seul badge pour tout l'ajout (retouche 8).
+    refusing: Refused,
 }
 
 pub struct ImportManager {
@@ -100,7 +103,8 @@ impl ImportManager {
                 unreadable: Vec::new(),
                 last_tags: Vec::new(),
                 last_emit: Instant::now(),
-                dropped: Default::default(),
+                removed: Default::default(),
+                refusing: Refused::default(),
             }),
             cancel: AtomicBool::new(false),
             undo: AtomicBool::new(false),

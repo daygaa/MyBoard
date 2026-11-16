@@ -4,6 +4,8 @@
 // par pages dans le cœur Rust : la page reste fluide avec 100 000 fichiers choisis (IMP-12). « Tout vider » (IMP-51)
 // remet la page à son état de départ. Pendant l'import, la liste reste affichée, sans croix ni « Tout vider » ; elle
 // disparaît à la fin (IMP-50).
+// IMP-88, retouche 6 : les fichiers des dossiers dépliés arrivent dans la même réponse que les lignes (état déplié et
+// « Voir plus » de chaque dossier gardés ici) : la liste passe d'un état complet au suivant, sans image intermédiaire.
 
 import { useEffect, useState } from "react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
@@ -39,13 +41,19 @@ export function FileList() {
   const total = snapshot?.scan?.total ?? 0;
   const bytes = snapshot?.scan?.bytes ?? 0;
   const [shown, setShown] = useState(STEP);
-  // Liste vidée : on repart des 100 premières lignes.
+  // Fichiers montrés par dossier, s'il n'en montre pas 100 : 0 = replié, sinon « Voir plus » cliqué.
+  const [view, setView] = useState<Record<number, number>>({});
+  // Liste vidée : on repart des 100 premières lignes, dossiers dépliés.
   useEffect(() => {
-    if (lines === 0) setShown(STEP);
+    if (lines === 0) {
+      setShown(STEP);
+      setView({});
+    }
   }, [lines]);
+  const folders = Object.entries(view).map(([id, n]): [number, number] => [Number(id), n]);
   const { data } = useQuery({
-    queryKey: ["scan-lines", version, shown, phase],
-    queryFn: () => api.scanLines(0, shown),
+    queryKey: ["scan-lines", version, shown, phase, folders],
+    queryFn: () => api.scanLines(0, shown, folders),
     enabled: visible && lines > 0,
     placeholderData: keepPreviousData,
   });
@@ -80,7 +88,16 @@ export function FileList() {
       <ul className="space-y-1.5">
         {data.lines.map((line) =>
           line.folder ? (
-            <FolderLine key={line.id} line={line} locked={locked} version={version} />
+            <FolderLine
+              key={line.id}
+              line={line}
+              locked={locked}
+              open={(view[line.id] ?? STEP) > 0}
+              onToggle={() =>
+                setView(({ [line.id]: n, ...rest }) => (n === 0 ? rest : { ...rest, [line.id]: 0 }))
+              }
+              onMore={() => setView((v) => ({ ...v, [line.id]: (v[line.id] ?? STEP) + STEP }))}
+            />
           ) : line.entry ? (
             <FileRow key={line.id} entry={line.entry} locked={locked} />
           ) : (

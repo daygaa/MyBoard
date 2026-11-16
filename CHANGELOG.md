@@ -3,6 +3,15 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Lot R6, 3e tour : fichiers retirés, ajouts de nouveau, badge « déjà dans la liste » (16/11/2026) — Backup v144
+
+SPEC : IMP-88 `[~]`, IMP-91 `[x]` (marque de l'utilisateur) ; décision D-077 (complétée).
+
+- IMP-88 : décocher « Sous-dossiers » ne fait plus trembler la page ; pas de case « Sous-dossiers » pour un dossier
+  sans sous-dossier ; « Dossier(s) / Fichier(s) déjà dans la liste » dans le badge bref en haut de l'écran ; un fichier
+  retiré par sa croix ne revient plus ; ajouter de nouveau un dossier de la liste remet ses fichiers retirés (case de sa
+  ligne = case générale) ; un fichier ou un sous-dossier retiré puis ajouté de nouveau devient sa propre ligne.
+
 ## Lot R6, 2e tour : sous-dossiers mis de côté, versions de MyBoard dans les doublons (16/11/2026) — Backup v143
 
 SPEC : IMP-88, IMP-91 `[~]` ; décision D-077 (complétée).

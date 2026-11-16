@@ -2,6 +2,7 @@
 //! dans l'interface, fluide même avec 100 000 fichiers choisis) ; retirer un fichier de la liste (croix, menu du
 //! clic droit, CTX-14), tout vider (IMP-51), afficher un fichier dans l'Explorateur (CTX-14).
 
+use std::collections::HashMap;
 use std::path::Path;
 use std::sync::atomic::Ordering;
 
@@ -9,6 +10,7 @@ use serde::Serialize;
 use tauri::State;
 
 use super::scan::{ScanEntry, ScanFile};
+use super::sources::Source;
 use super::Phase;
 use crate::AppState;
 
@@ -40,6 +42,53 @@ pub fn scan_files(state: State<'_, AppState>, offset: usize, limit: usize, sourc
     }
 }
 
+/// Une ligne de la liste : la source ; pour un fichier choisi seul, sa ligne de fichier ; pour un dossier déplié, ses
+/// premiers fichiers.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ScanLine {
+    #[serde(flatten)]
+    pub source: Source,
+    pub entry: Option<ScanEntry>,
+    pub entries: Vec<ScanEntry>,
+}
+
+#[derive(Serialize)]
+pub struct LinePage {
+    pub lines: Vec<ScanLine>,
+    pub total: usize,
+}
+
+/// Lignes `offset` à `offset + limit` de la liste (1 000 au plus par appel), dans l'ordre des ajouts, avec les fichiers
+/// des dossiers dépliés : `folders` = (dossier, nombre de fichiers montrés, 0 s'il est replié) ; un dossier absent est
+/// déplié, 100 fichiers. Tout arrive d'une seule réponse : une ligne qui réapparaît (case « Sous-dossiers » décochée)
+/// s'affiche déjà remplie, la page ne tremble pas (IMP-88, retouche 6).
+#[tauri::command]
+pub fn scan_lines(state: State<'_, AppState>, offset: usize, limit: usize, folders: Option<Vec<(u64, usize)>>) -> LinePage {
+    let inner = state.import.inner.lock().unwrap();
+    let shown: Vec<&Source> = inner.sources.iter().filter(|s| s.shown()).collect();
+    let page: Vec<&Source> = shown.iter().skip(offset).take(limit.min(1000)).copied().collect();
+    let asked: HashMap<u64, usize> = folders.unwrap_or_default().into_iter().collect();
+    // Fichiers voulus par ligne : 1 pour un fichier seul, sinon ceux du dossier déplié (1 000 au plus).
+    let mut room: HashMap<u64, usize> = page.iter().map(|s| (s.id, if s.folder { asked.get(&s.id).copied().unwrap_or(100).min(1000) } else { 1 })).collect();
+    let mut entries: HashMap<u64, Vec<ScanEntry>> = HashMap::new();
+    for f in &inner.files {
+        if let Some(n) = room.get_mut(&f.source).filter(|n| **n > 0) {
+            *n -= 1;
+            entries.entry(f.source).or_default().push(f.entry());
+        }
+    }
+    let lines = page
+        .into_iter()
+        .map(|s| {
+            let mut mine = entries.remove(&s.id).unwrap_or_default();
+            let entry = if s.folder { None } else { mine.pop() };
+            ScanLine { source: s.clone(), entry, entries: mine }
+        })
+        .collect();
+    LinePage { lines, total: shown.len() }
+}
+
 /// Retire un fichier de la liste (avant l'import seulement, aussi pendant un parcours) ; le résumé et le bouton
 /// « Importer (N) » suivent.
 #[tauri::command]
@@ -50,10 +99,8 @@ pub fn remove_scan_file(state: State<'_, AppState>, path: String) {
         }
         if let Some(i) = inner.files.iter().position(|f| f.path.as_os_str() == path.as_str()) {
             let file = inner.files.remove(i);
-            // Dossier en cours de parcours (ses anciens fichiers restent affichés, IMP-88) : le parcours ne le remet pas.
-            if inner.sources.iter().any(|s| s.id == file.source && s.scanning) {
-                inner.dropped.insert(file.path.clone());
-            }
+            // Retiré pour de bon : aucun parcours ne le remet (case « Sous-dossiers » changée, IMP-88, retouche 9).
+            inner.removed.insert(file.path.to_string_lossy().to_lowercase());
             // Fichier choisi seul : sa ligne disparaît avec lui ; dans un dossier, le dossier reste (Q40 A).
             inner.sources.retain(|s| s.id != file.source || s.folder);
             inner.after_removal();

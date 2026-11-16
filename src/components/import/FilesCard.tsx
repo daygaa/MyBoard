@@ -2,10 +2,9 @@
 // dossiers (IMP-03), bouton « Ajouter des fichiers » (IMP-01), bouton « Ajouter un dossier »
 // (IMP-02 ; textes de la réponse Q41 B d'IMP-88), résumé du contenu trouvé (IMP-05). Chaque ajout s'AJOUTE à la liste (IMP-88, réponse Q20 B) ; la case
 // « Sous-dossiers inclus par défaut » est le choix des nouveaux dossiers (Q26 A) ; ce qui est déjà dans la liste n'est
-// pas ajouté, avec « Déjà dans la liste » (Q42 A). Ni chemin choisi, ni liste des formats (demande du 14/11).
+// pas ajouté : badge bref « Dossier / Fichier(s) déjà dans la liste » (Q42 A ; IMP-88, retouche 8, `stores/import`). Ni chemin choisi, ni liste des formats (demande du 14/11).
 // Après un import, la carte revient à son état de départ (IMP-50).
 
-import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { open } from "@tauri-apps/plugin-dialog";
 import { FileWarning, FolderOpen, Loader2, Upload } from "lucide-react";
@@ -55,21 +54,6 @@ function ScanLine({ scan, scanning }: { scan: ScanSummary; scanning: boolean }) 
   );
 }
 
-/** « Déjà dans la liste » (Q42 A), 3 s après chaque ajout refusé. */
-function useAlreadyListed(count: number): boolean {
-  const [shown, setShown] = useState(false);
-  const last = useRef(count);
-  useEffect(() => {
-    const grew = count > last.current;
-    last.current = count;
-    if (!grew) return;
-    setShown(true);
-    const timer = window.setTimeout(() => setShown(false), 3000);
-    return () => window.clearTimeout(timer);
-  }, [count]);
-  return shown;
-}
-
 export function FilesCard() {
   const snapshot = useImport((s) => s.snapshot);
   const recursive = useImport((s) => s.recursive);
@@ -79,7 +63,6 @@ export function FilesCard() {
   const importing = phase === "importing";
   // Choix en cours d'examen ou d'import ; après l'import, la carte est remise à zéro.
   const active = phase === "scanning" || phase === "ready" || importing;
-  const already = useAlreadyListed(snapshot?.alreadyListed ?? 0);
   const { data: extensions } = useQuery({ queryKey: ["extensions"], queryFn: api.supportedExtensions, staleTime: Infinity });
 
   const scan = (paths: string[]) => {
@@ -159,11 +142,6 @@ export function FilesCard() {
           <Checkbox checked={recursive} disabled={importing} onCheckedChange={(c) => setRecursive(c === true)} />
           Sous-dossiers inclus par défaut
         </label>
-        {already && (
-          <p data-zone="import.deja-dans-la-liste" className="text-xs text-amber-300/90 select-text">
-            Déjà dans la liste
-          </p>
-        )}
         {active && snapshot?.scan && <ScanLine scan={snapshot.scan} scanning={phase === "scanning"} />}
       </div>
 

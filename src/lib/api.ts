@@ -296,7 +296,20 @@ export type ScanEntry = { path: string; name: string; size: number; ext: string;
 export type ScanPage = { entries: ScanEntry[]; total: number };
 /** Une ligne de la liste groupée (IMP-88) : un dossier (dépliable), ou un fichier choisi seul (`entry`, absente tant qu'il
  *  n'est pas parcouru). */
-export type ScanLine = { id: number; path: string; folder: boolean; recursive: boolean; files: number; bytes: number; scanning: boolean; entry: ScanEntry | null };
+/** Ligne de la liste (IMP-88) : `subfolders` : le dossier contient au moins un dossier (case « Sous-dossiers ») ;
+ *  `entries` : premiers fichiers d'un dossier déplié, reçus avec la ligne. */
+export type ScanLine = {
+  id: number;
+  path: string;
+  folder: boolean;
+  recursive: boolean;
+  subfolders: boolean;
+  files: number;
+  bytes: number;
+  scanning: boolean;
+  entry: ScanEntry | null;
+  entries: ScanEntry[];
+};
 export type LinePage = { lines: ScanLine[]; total: number };
 
 /** Format de « Convertir les images en » (IMP-21) ; JFIF = JPEG sous un autre nom. */
@@ -339,8 +352,9 @@ export type ImportSnapshot = {
   listVersion: number;
   /** Case « Sous-dossiers inclus par défaut » (IMP-88, réponse Q26 A). */
   recursive: boolean;
-  /** Ajouts refusés, déjà dans la liste (Q42 A) : « Déjà dans la liste » à chaque hausse. */
+  /** Ajouts refusés, déjà dans la liste (Q42 A) : badge bref à chaque hausse, d'après le détail du dernier refus. */
   alreadyListed: number;
+  already: { folders: number; files: number };
   scan: ScanSummary | null;
   progress: ImportProgress | null;
   result: ImportResult | null;
@@ -383,7 +397,8 @@ export const api = {
   videoReadable: (id: number) => invoke<boolean>("video_readable", { id }),
   /** Liste des fichiers avant l'import, par pages (IMP-10 à IMP-12) ; retirer, tout vider (IMP-51, CTX-14). */
   scanFiles: (offset: number, limit: number, source?: number) => invoke<ScanPage>("scan_files", { offset, limit, source }),
-  scanLines: (offset: number, limit: number) => invoke<LinePage>("scan_lines", { offset, limit }),
+  /** `folders` : [dossier, fichiers montrés (0 : replié)] ; un dossier absent est déplié, 100 fichiers. */
+  scanLines: (offset: number, limit: number, folders: [number, number][]) => invoke<LinePage>("scan_lines", { offset, limit, folders }),
   removeScanSource: (id: number) => invoke<void>("remove_scan_source", { id }),
   setSourceRecursive: (id: number, recursive: boolean) => invoke<void>("set_source_recursive", { id, recursive }),
   removeScanFile: (path: string) => invoke<void>("remove_scan_file", { path }),

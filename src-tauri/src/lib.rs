@@ -135,7 +135,7 @@ pub fn run() {
             library::ffmpeg_status,
             import::import_snapshot,
             import::sources::scan_paths,
-            import::sources::scan_lines,
+            import::list::scan_lines,
             import::sources::remove_scan_source,
             import::sources::set_source_recursive,
             formats::supported_extensions,

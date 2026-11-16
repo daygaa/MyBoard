@@ -99,6 +99,8 @@ struct Collector<'a> {
     source: u64,
     /// Fichiers pris en charge déjà dans la liste (« Déjà dans la liste », IMP-88).
     already: u64,
+    /// Au moins un dossier sous la racine, même sans fichier pris en charge (IMP-88, retouche 7).
+    subfolders: bool,
     summary: ScanSummary,
     last: Instant,
     progress: &'a mut dyn FnMut(&ScanSummary),
@@ -141,7 +143,9 @@ impl Collector<'_> {
                 self.summary.inaccessible += 1;
                 continue;
             };
-            if entry.file_type().is_file() {
+            if entry.depth() > 0 && entry.file_type().is_dir() {
+                self.subfolders = true;
+            } else if entry.file_type().is_file() {
                 // Sous Windows, la taille vient de la lecture du dossier : pas d'accès disque en plus.
                 let size = entry.metadata().map(|m| m.len()).unwrap_or(0);
                 self.add(entry.into_path(), size);
@@ -156,6 +160,8 @@ pub struct Found {
     pub files: Vec<ScanFile>,
     pub summary: ScanSummary,
     pub already: u64,
+    /// La racine contient au moins un dossier (hors dossiers système) : case « Sous-dossiers » affichée.
+    pub subfolders: bool,
 }
 
 /// Parcourt un fichier ou un dossier ajouté (`source`) ; `seen` : chemins déjà dans la liste (jamais deux fois) ;
@@ -173,6 +179,7 @@ pub fn scan(
         seen,
         source,
         already: 0,
+        subfolders: false,
         summary: ScanSummary::default(),
         last: Instant::now(),
         progress: &mut progress,
@@ -186,5 +193,5 @@ pub fn scan(
         Ok(meta) => collector.add(root.to_path_buf(), meta.len()),
         Err(_) => collector.summary.inaccessible += 1,
     }
-    Some(Found { files: collector.files, summary: collector.summary, already: collector.already })
+    Some(Found { files: collector.files, summary: collector.summary, already: collector.already, subfolders: collector.subfolders })
 }

@@ -103,6 +103,28 @@ pub struct Paused {
     pub offline: Option<String>,
 }
 
+/// Dossiers et fichiers d'un ajout refusés, déjà dans la liste (IMP-88, retouche 8).
+#[derive(Clone, Copy, Debug, Default, Serialize)]
+pub struct Refused {
+    pub folders: u64,
+    pub files: u64,
+}
+
+impl Refused {
+    pub fn add(&mut self, folder: bool) {
+        if folder {
+            self.folders += 1;
+        } else {
+            self.files += 1;
+        }
+    }
+
+    pub fn plus(&mut self, other: Refused) {
+        self.folders += other.folders;
+        self.files += other.files;
+    }
+}
+
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Snapshot {
@@ -113,8 +135,10 @@ pub struct Snapshot {
     pub list_version: u64,
     /// Case « Sous-dossiers inclus par défaut » : choix des nouveaux dossiers (IMP-88, réponse Q26 A).
     pub recursive: bool,
-    /// Ajouts refusés, déjà dans la liste (Q42 A) : « Déjà dans la liste » s'affiche à chaque hausse.
+    /// Ajouts refusés, déjà dans la liste (Q42 A) : le badge bref s'affiche à chaque hausse, avec le détail du dernier
+    /// refus (`already` : « Dossier déjà dans la liste »…, IMP-88, retouche 8).
     pub already_listed: u64,
+    pub already: Refused,
     pub scan: Option<ScanSummary>,
     pub progress: Option<Progress>,
     pub result: Option<ImportResult>,
@@ -132,6 +156,7 @@ impl Snapshot {
             list_version: 0,
             recursive,
             already_listed: 0,
+            already: Refused::default(),
             scan: None,
             progress: None,
             result: None,

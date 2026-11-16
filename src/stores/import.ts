@@ -15,6 +15,7 @@ export type DefaultTag = NewTag & { shown?: string };
 
 /** Nom montré d'un tag par défaut. */
 export const shownName = (t: DefaultTag) => t.shown ?? t.name;
+import { showGridBadge } from "./badge";
 import { usePreviews } from "./previews";
 
 /** Qualité de compression : 20 à 95, 85 par défaut (comme la v8, IMP-20). */
@@ -31,6 +32,15 @@ export const processing = (s: Processing) => s.compress || s.convert || s.compre
  *  passent directement de l'ancien au nouveau (IMP-88, retouche 3 du 16/11). */
 const QUIET_SCAN_MS = 300;
 let quietTimer: number | undefined;
+
+/** Texte du badge d'un ajout refusé (IMP-88, retouche 8) : « Dossier », « Dossiers », « Fichier » ou « Fichiers déjà
+ *  dans la liste » ; les deux à la fois : « Dossier et fichiers déjà dans la liste »… */
+function alreadyText({ folders, files }: ImportSnapshot["already"]): string {
+  const folder = folders > 1 ? "Dossiers" : "Dossier";
+  const file = files > 1 ? "fichiers" : "fichier";
+  if (folders > 0) return `${files > 0 ? `${folder} et ${file}` : folder} déjà dans la liste`;
+  return `${files > 1 ? "Fichiers" : "Fichier"} déjà dans la liste`;
+}
 
 type ImportState = {
   snapshot: ImportSnapshot | null;
@@ -105,6 +115,8 @@ export const useImport = create<ImportState>()(
           if (!scanShown) quietTimer = window.setTimeout(() => set({ scanShown: true }), QUIET_SCAN_MS);
         }
         set(finished ? { snapshot, scanShown, defaultTags: [] } : { snapshot, scanShown });
+        // Ajout refusé, déjà dans la liste : badge bref en haut de l'écran (IMP-88, retouche 8).
+        if (before && snapshot.alreadyListed > before.alreadyListed) showGridBadge(alreadyText(snapshot.already));
         // Fichiers réimportés : leurs aperçus ratés sont redemandés (LIB-05).
         if (finished) usePreviews.getState().bumpRetry();
       },

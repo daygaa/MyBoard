@@ -2151,3 +2151,17 @@ outils de test vivaient dans un dossier temporaire qui change à chaque session,
   extension, poids, dates, `hash` = ancien `original_hash`, `original_hash` NULL, `thumb_status` 0 : miniature,
   dimensions et durée refaites) ; égale à `hash` : simple déplacement ; sinon rien dans ce groupe (erreur affichée).
   La table des versions n'est pas touchée.
+- 3e tour (16/11, v144). IMP-88 : `scan_lines(offset, limit, folders)` (passé dans `list.rs`) renvoie aussi les
+  premiers fichiers de chaque dossier déplié (`folders` = [dossier, nombre montré], 0 = replié, absent = 100) ; l'état
+  déplié et « Voir plus » sont gardés dans `FileList` (plus de requête par dossier) : la liste passe d'un état complet
+  au suivant. `scan::Found.subfolders` / `Source.subfolders` : au moins un dossier sous la racine (case cachée sinon).
+  `Snapshot.already` (`Refused` : dossiers, fichiers) = détail du dernier refus, un seul par ajout (`Inner.refusing`
+  attend la fin du parcours) ; badge par `showGridBadge` (magasin de l'import). `Inner.dropped` devient `Inner.removed`
+  (chemins en minuscules, permanent) : tout parcours écarte ces fichiers ; un ajout oublie les retraits qu'il couvre ;
+  croix d'une source : ses retraits oubliés, sauf ceux qu'une autre ligne couvre encore (et ses fichiers couverts par
+  une autre ligne y entrent). Ajout (`add_path`) : dossier qui a sa ligne = `readd` (Q47 B : case = case générale,
+  retraits couverts oubliés, reprend les lignes sous lui s'il est coché ; rien ne change = refusé) ; chemin sous un
+  dossier coché = refusé s'il ne rend aucun fichier retiré, sinon sa propre ligne NON mise de côté (une source mise de
+  côté retrouve sa ligne ; celles qu'elle avait mises de côté passent au dossier coché) ; `release` donne chaque fichier
+  à la ligne la plus proche qui le couvre. `rescan` passe dans `rescan.rs`, les essais dans `sources_tests.rs`. Les
+  fichiers ignorés ou illisibles d'une ligne déjà couverte par un dossier de la liste ne sont comptés qu'une fois.

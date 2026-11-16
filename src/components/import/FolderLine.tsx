@@ -5,9 +5,11 @@
 // 2e tour (retours du 16/11) : dossier déplié dès son ajout (retouche 1) ; flèche ou case cliquée : la ligne reste sous
 // le curseur pendant la mise à jour (retouche 2, `keepInPlace`) ; parcours bref : pas de « Parcours du dossier… »
 // (retouche 3, `scanShown`).
+// 3e tour : ses fichiers arrivent avec la liste (`line.entries`, une seule requête dans `FileList`, qui garde aussi l'état
+// déplié et « Voir plus ») : une ligne qui réapparaît s'affiche déjà remplie (retouche 6) ; pas de case « Sous-dossiers »
+// pour un dossier sans sous-dossier (retouche 7).
 
-import { useRef, useState } from "react";
-import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { useRef } from "react";
 import { ChevronDown, ChevronRight, Folder, Loader2, X } from "lucide-react";
 
 import { Checkbox } from "@/components/ui/checkbox";
@@ -19,8 +21,6 @@ import { cn } from "@/lib/utils";
 import { useImport } from "@/stores/import";
 import { FileRow } from "./FileRow";
 
-const STEP = 100;
-
 function folderMenu(line: ScanLine, locked: boolean): MenuEntry[] {
   return [
     { label: "Retirer de la liste", disabled: locked, run: () => void api.removeScanSource(line.id) },
@@ -29,20 +29,14 @@ function folderMenu(line: ScanLine, locked: boolean): MenuEntry[] {
   ];
 }
 
-/** Fichiers d'un dossier déplié. */
-function FolderFiles({ line, locked, version }: { line: ScanLine; locked: boolean; version: number }) {
-  const [shown, setShown] = useState(STEP);
-  const { data } = useQuery({
-    queryKey: ["scan-folder", line.id, version, shown],
-    queryFn: () => api.scanFiles(0, shown, line.id),
-    placeholderData: keepPreviousData,
-  });
-  if (!data || data.entries.length === 0) return null;
-  const rest = data.total - data.entries.length;
+/** Fichiers d'un dossier déplié, reçus avec sa ligne. */
+function FolderFiles({ line, locked, onMore }: { line: ScanLine; locked: boolean; onMore: () => void }) {
+  if (line.entries.length === 0) return null;
+  const rest = line.files - line.entries.length;
   return (
     <div className="mt-1.5 space-y-1.5 pl-6">
       <ul className="space-y-1.5">
-        {data.entries.map((entry) => (
+        {line.entries.map((entry) => (
           <FileRow key={entry.path} entry={entry} locked={locked} />
         ))}
       </ul>
@@ -54,7 +48,7 @@ function FolderFiles({ line, locked, version }: { line: ScanLine; locked: boolea
           <button
             type="button"
             data-zone="import.liste.dossier.voir-plus"
-            onClick={() => setShown((n) => n + STEP)}
+            onClick={onMore}
             className="flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-sm text-[#d9a94e] transition hover:bg-[#d9a94e]/10"
           >
             <ChevronDown className="h-4 w-4" />
@@ -66,8 +60,9 @@ function FolderFiles({ line, locked, version }: { line: ScanLine; locked: boolea
   );
 }
 
-export function FolderLine({ line, locked, version }: { line: ScanLine; locked: boolean; version: number }) {
-  const [open, setOpen] = useState(true);
+type Props = { line: ScanLine; locked: boolean; open: boolean; onToggle: () => void; onMore: () => void };
+
+export function FolderLine({ line, locked, open, onToggle, onMore }: Props) {
   const row = useRef<HTMLDivElement>(null);
   const scanShown = useImport((s) => s.scanShown);
   // Dossier qui vient d'être ajouté (encore vide) : son parcours se voit tout de suite.
@@ -88,7 +83,7 @@ export function FolderLine({ line, locked, version }: { line: ScanLine; locked: 
           disabled={line.files === 0}
           onClick={() => {
             keepInPlace(row.current);
-            setOpen((o) => !o);
+            onToggle();
           }}
           className="grid h-11 w-11 shrink-0 place-items-center rounded-md bg-[#0d0e12] text-muted-foreground transition hover:text-foreground disabled:opacity-60"
         >
@@ -108,20 +103,22 @@ export function FolderLine({ line, locked, version }: { line: ScanLine; locked: 
               : `${formatNumber(line.files)} ${plural(line.files, "fichier")} · ${formatBytes(line.bytes)}`}
           </span>
         </span>
-        <label
-          data-zone="import.liste.dossier.sous-dossiers"
-          className={cn("flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground", locked ? "cursor-not-allowed" : "cursor-pointer")}
-        >
-          <Checkbox
-            checked={line.recursive}
-            disabled={locked}
-            onCheckedChange={(c) => {
-              keepInPlace(row.current);
-              void api.setSourceRecursive(line.id, c === true);
-            }}
-          />
-          Sous-dossiers
-        </label>
+        {line.subfolders && (
+          <label
+            data-zone="import.liste.dossier.sous-dossiers"
+            className={cn("flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground", locked ? "cursor-not-allowed" : "cursor-pointer")}
+          >
+            <Checkbox
+              checked={line.recursive}
+              disabled={locked}
+              onCheckedChange={(c) => {
+                keepInPlace(row.current);
+                void api.setSourceRecursive(line.id, c === true);
+              }}
+            />
+            Sous-dossiers
+          </label>
+        )}
         {!locked && (
           <button
             type="button"
@@ -134,7 +131,7 @@ export function FolderLine({ line, locked, version }: { line: ScanLine; locked: 
           </button>
         )}
       </div>
-      {open && line.files > 0 && <FolderFiles line={line} locked={locked} version={version} />}
+      {open && <FolderFiles line={line} locked={locked} onMore={onMore} />}
     </li>
   );
 }
