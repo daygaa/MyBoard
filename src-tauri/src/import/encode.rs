@@ -1,4 +1,4 @@
-//! Réencodage d'une image à la qualité choisie (IMP-20) : JPEG et WebP fixes. La résolution ne change pas (IMP-25)
+//! Réencodage d'une image à la qualité choisie (IMP-20) : JPEG et WebP fixes ; AVIF et JPEG XL par ffmpeg. La résolution ne change pas (IMP-25)
 //! et les pixels ne sont pas tournés : les informations de la photo (EXIF, rotation comprise), le XMP, l'IPTC et
 //! le profil de couleurs de l'original sont recopiés tels quels. PNG : règles d'IMP-62 (`png_out.rs`). Autre format
 //! choisi : conversion (`convert.rs`, IMP-21).
@@ -32,7 +32,17 @@ pub fn reencode(path: &std::path::Path, bytes: &[u8], action: Action) -> anyhow:
         let Some(source) = super::convert::read(bytes)? else { return Ok(None) };
         return super::png_out::encode(source.img, &source.meta, Some(quality)).map(Some);
     }
-    bail!("contenu ni JPEG, ni WebP, ni PNG, ni AVIF")
+    // JPEG XL compressé en JPEG XL (lot R7, réponse Q56 A du 17/11) : relu par `jxl-oxide`, réécrit par ffmpeg.
+    if is_jxl(bytes) {
+        let Some(source) = super::convert::read_any(path, bytes)? else { return Ok(None) };
+        return super::convert::jxl(source, quality).map(Some);
+    }
+    bail!("contenu ni JPEG, ni WebP, ni PNG, ni AVIF, ni JPEG XL")
+}
+
+/// JPEG XL : flux seul (FF 0A) ou dans son conteneur (boîte « JXL »).
+fn is_jxl(bytes: &[u8]) -> bool {
+    bytes.starts_with(&[0xFF, 0x0A]) || bytes.starts_with(b"\0\0\0\x0cJXL \r\n\x87\n")
 }
 
 /// WebP animé (drapeau « animation » de l'en-tête VP8X).

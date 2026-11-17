@@ -2197,3 +2197,14 @@ outils de test vivaient dans un dossier temporaire qui change à chaque session,
 - Import (Q53 A) : familles `Tga` et `Qoi` comme BMP ; `Jxl` et `Ico` laissés tels quels par « Compresser »,
   convertis par « Convertir en » ; `Work` (RAW, DNG, PSD, EXR, HDR, SVG) jamais compressés ni convertis (réglage pour
   l'autoriser plus tard : SET-21). Bulles « ⓘ » (IMP-93) : `InfoLines` partagé par la carte des options et la pop-in.
+- 2e tour (17/11, réponses Q55 A à Q57 A) : PSD = document (`formats::DOCUMENTS`, `formats::is_picture` : miniature,
+  grand aperçu, liste avant l'import, `shownAsImage` côté visionneuse) ; schéma 22 : PSD déjà importés passés en
+  `document`. JPEG XL compressé par ffmpeg (`convert::jxl`, libjxl, qualité → distance comme libjxl) ; `libjxl`
+  ajouté à `ffmpeg::NEEDED` (un ffmpeg du PC sans lui est incomplet : copie fournie). ICO rangé dans `Family::Work`.
+- Fils de calcul (`decode::compute_pool`, au lancement) : pool `rayon` global d'un quart des cœurs (au moins 2), en
+  priorité basse ; `rawler` et `jxl-oxide` s'en servent (retouche 89.2 : le son du PC grésillait).
+- Courbe de tons des RAW (`raw::Tone`, retouche 89.3) : puissance, gain, épaule exponentielle, normalisée (blanc = 1),
+  appliquée à chaque couleur ; ses 3 réglages sont cherchés pour chaque photo (≈ 1 000 essais en parallèle, lus sur
+  un histogramme) pour que la luminance, mesurée en 200 points de 3 × 3 pixels, suive celle de l'aperçu de l'appareil
+  (comme le fait le décodeur de Windows) ; sans aperçu : médiane des 7 RAW d'essai. Limite : la saturation n'est pas
+  calée (Canon EOS 6D plus saturé que Photos : Q59). Test ignoré `raw::tests` (courbe choisie par RAW).

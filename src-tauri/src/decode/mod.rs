@@ -72,11 +72,27 @@ fn to_display(img: DynamicImage) -> DynamicImage {
     if alpha { DynamicImage::ImageRgba8(img.into_rgba8()) } else { DynamicImage::ImageRgb8(img.into_rgb8()) }
 }
 
+/// Fils de calcul partagés (`rayon`) : décodage des RAW par `rawler`, des JPEG XL par `jxl-oxide`. Retouche 89.2
+/// (17/11) : avec un fil par cœur, MyBoard prenait 40 à 45 % du processeur pendant les miniatures des RAW et leur
+/// décodage dans la visionneuse, et le son du PC grésillait. Un quart des cœurs (au moins 2), en priorité basse : un
+/// RAW de 24 Mpx passe de 0,9 à 1,2 s (mesuré le 17/11 sur 16 fils → 4) ; le reste du PC passe avant. Appelé au lancement,
+/// avant tout calcul.
+pub fn compute_pool() {
+    let cores = std::thread::available_parallelism().map_or(4, |n| n.get());
+    let built = rayon::ThreadPoolBuilder::new()
+        .num_threads((cores / 4).max(2))
+        .thread_name(|i| format!("myboard-calcul-{i}"))
+        .start_handler(|_| crate::thumbs::lower_thread_priority())
+        .build_global();
+    if let Err(e) = built {
+        eprintln!("[calcul] fils de calcul : {e}");
+    }
+}
+
 /// Courbe sRGB (valeur linéaire 0..1 → valeur affichée 0..1).
 pub(crate) fn srgb(v: f32) -> f32 {
     if v <= 0.003_130_8 { v * 12.92 } else { 1.055 * v.powf(1.0 / 2.4) - 0.055 }
 }
-
 #[cfg(test)]
 mod tests {
     /// Décode chaque fichier d'essai du lot R7 (dossier donné par MYBOARD_FORMATS_R7, RAW dans son sous-dossier
@@ -96,6 +112,10 @@ mod tests {
             let name = path.file_name().unwrap().to_string_lossy().into_owned();
             match full {
                 Ok(img) => {
+                    // Image réduite à 600 px pour les comparaisons (`raw-compare --stats`), si MYBOARD_R7_OUT est donné.
+                    if let Some(out) = std::env::var_os("MYBOARD_R7_OUT") {
+                        img.resize(600, 600, image::imageops::FilterType::Triangle).save(std::path::Path::new(&out).join(format!("{name}.png"))).unwrap();
+                    }
                     let mut line = format!("{name} : {}x{} {:?} en {t_full:.2} s", img.width(), img.height(), img.color());
                     if super::raw::is_raw(&path) {
                         let t = std::time::Instant::now();

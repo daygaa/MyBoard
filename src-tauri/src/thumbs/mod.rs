@@ -274,6 +274,8 @@ fn process(shared: &Shared, job: &Job) -> Option<ThumbUpdate> {
         "document" if is_pdf(&job.path) => {
             pdf::first_page(&job.path, image::PREVIEW_SIZE).and_then(image::thumbs_of).map(|t| (t, None))
         }
+        // PSD : document montré par son image aplatie (réponse Q55 A).
+        "document" if crate::formats::is_picture(&job.path) => image::open_image(&job.path).and_then(image::thumbs_of).map(|t| (t, None)),
         _ => {
             update.status = status::NONE;
             return Some(update);
@@ -286,8 +288,8 @@ fn process(shared: &Shared, job: &Job) -> Option<ThumbUpdate> {
     }) {
         Ok((w, h, duration)) => {
             update.status = status::READY;
-            // Un PDF n'a pas de dimensions à montrer : la taille de sa page rendue n'en est pas une.
-            if job.kind != "document" {
+            // Un PDF n'a pas de dimensions à montrer : la taille de sa page rendue n'en est pas une. Un PSD en a.
+            if job.kind != "document" || crate::formats::is_picture(&job.path) {
                 update.width = Some(w);
                 update.height = Some(h);
             }
@@ -309,6 +311,7 @@ pub fn make_preview(ff: Option<&Ffmpeg>, kind: &str, path: &Path, side: u32) -> 
         }),
         ("video", Some(ff)) => video::video_preview(ff, path, side),
         ("document", _) if is_pdf(path) => pdf::first_page(path, side).and_then(|img| image::preview_of(img, side)),
+        ("document", _) if crate::formats::is_picture(path) => image::open_image(path).and_then(|img| image::preview_of(img, side)),
         _ => anyhow::bail!("pas d'aperçu pour ce type de média"),
     }
 }

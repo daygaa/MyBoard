@@ -3,6 +3,19 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Lot R7, 2e tour : PSD en document, JPEG XL compressé, RAW plus fidèles (17/11/2026) — Backup v147
+
+SPEC : IMP-89 `[~]`, IMP-93 `[~]` ; questions Q58, Q59 ; décision D-078 complétée ; schéma 22.
+
+- IMP-89 : le PSD est rangé avec les documents (jamais compressé ni converti) et reste montré par son image aplatie
+  (miniature, liste avant l'import, visionneuse) ; les PSD déjà importés passent dans les documents. Les JPEG XL sont
+  compressés par ffmpeg (libjxl) ; un ffmpeg du PC sans libjxl n'est plus choisi (copie fournie à la place). Les ICO
+  ne sont plus ni compressés ni convertis. Fichier d'essai `photo.qoi` refait (mêmes pixels que `photo.tga` avant :
+  la 2e version convertie était écartée comme doublon).
+- RAW : calculs sur un quart des cœurs, en priorité basse (processeur de 40-45 % à 16-26 %) ; courbe de tons calée sur
+  l'aperçu de chaque photo : luminosité et contraste proches de l'application Photos.
+- IMP-93 : bulles « ⓘ » de « Compresser les images » et « Convertir les images en » réécrites.
+
 ## Lot R7 : nouveaux formats d'image, RAW d'appareils photo (16/11/2026) — Backup v146
 
 SPEC : IMP-89 `[~]`, VIEW-63 `[~]`, IMP-93 `[~]` ; SET-21 noté pour plus tard ; décision D-078.

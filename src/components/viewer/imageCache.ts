@@ -49,12 +49,15 @@ const waiting = new Map<string, Set<(bitmap: ImageBitmap | null) => void>>();
 function copySize(item: MediaItem): { w: number; h: number } | null {
   const w = item.width ?? 0;
   const h = item.height ?? 0;
-  if (!w || !h || item.kind !== "image" || item.ext === "gif") return null;
+  if (!w || !h || !shownAsImage(item) || item.ext === "gif") return null;
   const dpr = window.devicePixelRatio || 1;
   const k = Math.min(1, (window.screen.width * dpr) / w, (window.screen.height * dpr) / h);
   const size = { w: Math.max(1, Math.round(w * k)), h: Math.max(1, Math.round(h * k)) };
   return size.w * size.h * 4 <= BUDGET ? size : null;
 }
+
+/** Montré comme une image dans la visionneuse : les images et le PSD, rangé avec les documents (lot R7, Q55 A). */
+export const shownAsImage = (item: MediaItem) => item.kind === "image" || item.ext === "psd";
 
 /** Une copie peut-elle être faite pour cette image ? (GIF animés, dimensions inconnues : non.) */
 export const canCopy = (item: MediaItem) => copySize(item) !== null;

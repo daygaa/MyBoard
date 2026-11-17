@@ -10,6 +10,7 @@ import { File, FileSpreadsheet, Music } from "lucide-react";
 
 import { mediaUrl, type MediaItem } from "@/lib/api";
 import { UnplayableVideo } from "./ConvertVideo";
+import { shownAsImage } from "./imageCache";
 import { ImageStage } from "./ImageStage";
 import { LostStage } from "./LostStage";
 import { VideoStage } from "./VideoStage";
@@ -60,7 +61,7 @@ export function MediaStage({ item, onClose, opening }: { item: MediaItem; onClos
   if (item.missing || item.offline) return <LostStage key={item.id} item={item} onClose={onClose} />;
   // GIF animé : lecteur vidéo (VIEW-54) ; s'il ne peut pas être converti (ffmpeg absent…), comme une image.
   if (item.kind === "image" && item.ext === "gif") return <VideoStage item={item} onClose={onClose} fallback={<ImageStage item={item} onClose={onClose} />} />;
-  if (item.kind === "image") return <ImageStage item={item} onClose={onClose} opening={opening} />;
+  if (shownAsImage(item)) return <ImageStage item={item} onClose={onClose} opening={opening} />;
   if (item.kind === "video") {
     const unplayable = (
       <Centered onClose={onClose}>

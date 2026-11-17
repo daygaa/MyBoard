@@ -15,7 +15,8 @@ const HOVER_DELAY = 500;
 const MARGIN = 8;
 
 /** Fichiers qui ont un aperçu (les autres : une icône, comme dans la grille). */
-const hasPreview = (e: ScanEntry) => e.kind === "image" || e.kind === "video" || e.ext === "pdf";
+// PSD : document montré par son image aplatie (lot R7, réponse Q55 A).
+const hasPreview = (e: ScanEntry) => e.kind === "image" || e.kind === "video" || e.ext === "pdf" || e.ext === "psd";
 
 function KindIcon({ entry }: { entry: ScanEntry }) {
   const Icon = entry.kind === "audio" ? Music : entry.kind === "video" ? Film : entry.kind === "image" ? ImageIcon : entry.ext === "pdf" ? FileText : File;

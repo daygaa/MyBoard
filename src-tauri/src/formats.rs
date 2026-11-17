@@ -25,7 +25,8 @@ impl Kind {
 const IMAGES: &[&str] = &[
     "jpg", "jpeg", "jpe", "jfif", "png", "gif", "webp", "bmp", "tif", "tiff", "avif", "heic", "heif", "dng",
 ];
-// Plus ceux du lot R7 (IMP-89) : TGA, ICO, QOI, EXR, HDR, SVG, JPEG XL, PSD, RAW d'appareils photo (`decode`).
+// Plus ceux du lot R7 (IMP-89) : TGA, ICO, QOI, EXR, HDR, SVG, JPEG XL, RAW d'appareils photo (`decode` ; le PSD,
+// aussi lu par `decode`, est un document).
 const VIDEOS: &[&str] = &[
     "mp4", "m4v", "mov", "webm", "mkv", "avi", "wmv", "flv", "mpg", "mpeg", "ts", "m2ts", "mts",
     "3gp", "ogv",
@@ -41,7 +42,15 @@ const DOCUMENTS: &[&str] = &[
     "xls", "xlsx", "xlsm", "ods", "csv",
     // Word (ajouté le 11/10/2026, IMP-07)
     "doc", "docx", "odt",
+    // Photoshop (lot R7, réponse Q55 A du 17/11) : un document de travail, jamais compressé ni converti ; sa miniature
+    // et la visionneuse montrent son image aplatie (`decode`, `is_picture`).
+    "psd",
 ];
+
+/// Document montré comme une image (miniature, visionneuse) : le PSD (réponse Q55 A).
+pub fn is_picture(path: &Path) -> bool {
+    extension(path).as_deref() == Some("psd")
+}
 
 /// Extension en minuscules, sans le point.
 pub fn extension(path: &Path) -> Option<String> {
@@ -52,14 +61,14 @@ pub fn extension(path: &Path) -> Option<String> {
 
 /// Type du fichier d'après son extension ; `None` = format non pris en charge.
 pub fn kind_of_ext(ext: &str) -> Option<Kind> {
-    if IMAGES.contains(&ext) || crate::decode::extensions().any(|e| e == ext) {
+    if DOCUMENTS.contains(&ext) {
+        Some(Kind::Document)
+    } else if IMAGES.contains(&ext) || crate::decode::extensions().any(|e| e == ext) {
         Some(Kind::Image)
     } else if VIDEOS.contains(&ext) {
         Some(Kind::Video)
     } else if AUDIO.contains(&ext) {
         Some(Kind::Audio)
-    } else if DOCUMENTS.contains(&ext) {
-        Some(Kind::Document)
     } else {
         None
     }
@@ -70,7 +79,7 @@ pub fn kind_of_ext(ext: &str) -> Option<Kind> {
 #[tauri::command]
 pub fn supported_extensions() -> Vec<&'static str> {
     let mut images = IMAGES.to_vec();
-    images.extend(crate::decode::extensions());
+    images.extend(crate::decode::extensions().filter(|e| !DOCUMENTS.contains(e)));
     [images.as_slice(), VIDEOS, AUDIO, DOCUMENTS].concat()
 }
 

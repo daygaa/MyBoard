@@ -14,9 +14,10 @@ use std::process::{Command, Stdio};
 
 use serde::Serialize;
 
-/// Encodeurs dont MyBoard se sert (vidéos IMP-22, IMP-69, AVIF IMP-21) ; les autres (aac, mjpeg, png, mov_text,
-/// webvtt) font partie de ffmpeg lui-même.
-const NEEDED: [&str; 6] = ["libx264", "libx265", "libaom-av1", "libvpx", "libvpx-vp9", "libopus"];
+/// Encodeurs dont MyBoard se sert (vidéos IMP-22, IMP-69, AVIF IMP-21, JPEG XL IMP-89 réponse Q56 A) ; les autres (aac,
+/// mjpeg, png, mov_text, webvtt) font partie de ffmpeg lui-même. Sans libjxl (ffmpeg « essentials » de Gyan, essai du
+/// 17/11), le ffmpeg du PC compte comme incomplet : la copie fournie passe avant lui.
+const NEEDED: [&str; 7] = ["libx264", "libx265", "libaom-av1", "libvpx", "libvpx-vp9", "libopus", "libjxl"];
 
 /// Version minimale (IMP-83) : ffmpeg 8.1, le premier qui assemble seul la grille des photos HEIF (IMP-82, essai du
 /// 13/11 : 8.0.1 non, 8.1.3 oui). Comparée par sa bibliothèque libavformat (62.12 pour la 8.1), que les versions « de

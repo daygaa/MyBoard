@@ -76,20 +76,18 @@ enum Family {
     /// Lot R7 (IMP-89, réponse Q53 A) : TGA et QOI, peu compressés ou peu lus ailleurs : comme BMP.
     Tga,
     Qoi,
-    /// JPEG XL (déjà très compressé) et ICO (minuscule) : laissés tels quels par « Compresser » sans le dire, comme
-    /// les GIF ; convertis par « Convertir en ».
+    /// JPEG XL : compressé par ffmpeg (libjxl), gardé s'il est au moins 5 % plus léger (réponse Q56 A du 17/11) ;
+    /// converti par « Convertir en ».
     Jxl,
-    Ico,
-    /// « Originaux de travail » : RAW d'appareils photo (DNG compris), PSD, EXR, HDR, SVG. Jamais compressés ni
-    /// convertis : on perdrait pour toujours ce qui fait leur intérêt (données du capteur, calques, lumières plus fortes
-    /// que le blanc, dessin net à toute taille). Réglage pour l'autoriser plus tard : SET-21.
+    /// « Originaux de travail » : RAW d'appareils photo, DNG, EXR, HDR, SVG (et PSD, devenu un document : Q55 A) ;
+    /// ICO (réponse Q57 A du 17/11). Jamais compressés ni convertis. Réglage pour l'autoriser plus tard : SET-21.
     Work,
 }
 
 impl Family {
-    /// Compressée dans son format par « Compresser les images » (AVIF : réponse Q7 B du 13/11, IMP-85).
+    /// Compressée dans son format par « Compresser les images » (AVIF : réponse Q7 B du 13/11, IMP-85 ; JPEG XL : Q56 A).
     fn compressible(self) -> bool {
-        matches!(self, Family::Jpeg | Family::Webp | Family::Png | Family::Avif)
+        matches!(self, Family::Jpeg | Family::Webp | Family::Png | Family::Avif | Family::Jxl)
     }
 
     /// Ne peut pas être compressée dans son format : citée par la pop-in d'IMP-85, convertie si on y répond « Oui ».
@@ -114,8 +112,7 @@ fn family_of(ext: &str) -> Option<Family> {
         "tga" => Family::Tga,
         "qoi" => Family::Qoi,
         "jxl" => Family::Jxl,
-        "ico" => Family::Ico,
-        "dng" | "psd" | "exr" | "hdr" | "svg" => Family::Work,
+        "dng" | "psd" | "exr" | "hdr" | "svg" | "ico" => Family::Work,
         _ if crate::decode::raw::EXTENSIONS.contains(&ext) => Family::Work,
         _ => return None,
     })
@@ -265,22 +262,24 @@ mod tests {
     fn formats_du_lot_r7() {
         let compress = process(Some(50), None, None);
         let convert = process(None, Some(Target::Webp), None);
-        // « Originaux de travail » : jamais compressés ni convertis, jamais dans la pop-in.
-        for ext in ["dng", "cr2", "nef", "psd", "exr", "hdr", "svg"] {
+        // « Originaux de travail » et ICO (Q57 A) : jamais compressés ni convertis, jamais dans la pop-in.
+        for ext in ["dng", "cr2", "nef", "psd", "exr", "hdr", "svg", "ico"] {
             assert!(!compress.uncompressible_image(ext), "{ext}");
+            assert!(compress.image_action(ext).is_none(), "{ext}");
             assert!(convert.image_action(ext).is_none(), "{ext}");
-            assert!(process(Some(50), None, Some(Target::Jpg)).image_action(ext).is_none(), "{ext}");
+            assert!(process(Some(50), Some(Target::Webp), Some(Target::Jpg)).image_action(ext).is_none(), "{ext}");
         }
         // TGA, QOI : comme BMP.
         for ext in ["tga", "qoi", "bmp"] {
             assert!(compress.uncompressible_image(ext), "{ext}");
             assert!(convert.image_action(ext).is_some(), "{ext}");
         }
-        // JPEG XL, ICO : laissés tels quels par « Compresser », convertis par « Convertir en ».
-        for ext in ["jxl", "ico"] {
-            assert!(!compress.uncompressible_image(ext), "{ext}");
-            assert!(compress.image_action(ext).is_none(), "{ext}");
-            assert!(convert.image_action(ext).is_some(), "{ext}");
-        }
+        // JPEG XL (Q56 A) : compressé dans son format, converti par « Convertir en ».
+        assert!(!compress.uncompressible_image("jxl"));
+        assert!(matches!(compress.image_action("jxl"), Some(Action::Compress(50))));
+        assert!(convert.image_action("jxl").is_some());
+        // PSD (Q55 A) : un document, jamais traité.
+        assert_eq!(crate::formats::kind_of_ext("psd"), Some(Kind::Document));
+        assert!(compress.action(Kind::Document, "psd").is_none());
     }
 }

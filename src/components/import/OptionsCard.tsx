@@ -15,18 +15,18 @@ import { VideoOptions } from "./VideoOptions";
 // Textes des « ⓘ » : ceux de l'utilisateur (IMP-71, 11/11), une ligne par retour à la ligne.
 const COMPRESS_INFO = [
   // Lignes 1, 4 et 5 adaptées à la pop-in d'IMP-85 (réponse Q27 A du 15/11).
-  "Réencode les JPEG, WebP, PNG et AVIF à la qualité choisie.",
+  "Réencode les JPEG, WebP, PNG, AVIF et JPEG XL à la qualité choisie.",
   "La version compressée est enregistrée à côté de l'original et n'est conservée que si elle est au moins 5 % plus légère ; l'original n'est jamais modifié.",
   "PNG : optimisation lossless si la case est activée, peu importe la qualité ; de 16 à 8 bits de profondeur par couleur à 75 ou moins ; réduction à 256 couleurs à 50 ou moins.",
-  "Les métadonnées sont conservées. Les GIF et autres images animées ne sont jamais compressés.",
-  // Lot R7 (IMP-89, réponse Q53 A ; IMP-93) : nouveaux formats ; DNG rangés avec les « originaux de travail ».
+  "Les métadonnées sont conservées. Les GIF et autres images animées ne sont jamais compressés ni convertis.",
+  // Lot R7 (IMP-89, réponses Q53 A, Q55 A à Q57 A ; IMP-93, retours du 17/11).
   "BMP, TIFF, HEIF / HEIC, TGA et QOI : MyBoard ne sait pas les compresser dans leur format ; au clic sur « Importer », une fenêtre propose de les convertir.",
-  "JPEG XL et ICO restent tels quels. RAW d'appareils photo (DNG compris), PSD, EXR, HDR et SVG ne sont jamais compressés ni convertis : on perdrait pour toujours ce qui fait leur intérêt (données du capteur, calques, lumières, dessin net à toute taille).",
+  "RAW d'appareils photo, DNG, PSD, EXR, HDR, SVG et ICO ne sont jamais compressés ni convertis.",
 ];
 const CONVERT_INFO = [
   "Réencode chaque image dans le format choisi, à côté de l'original.",
   "Si la compression est activée, elle s'applique au format choisi ; sans compression : qualité maximale.",
-  "En JPG, la transparence est remplacée par un fond blanc. Les GIF et WebP animés ne sont jamais convertis, ni les RAW d'appareils photo (DNG compris), PSD, EXR, HDR et SVG.",
+  "En JPG, la transparence est remplacée par un fond blanc. Les GIF et WebP animés ne sont jamais convertis, ni les RAW d'appareils photo, DNG, PSD, EXR, HDR, SVG et ICO.",
   "Les métadonnées sont conservées, y compris pour les AVIF (traitement via MyBoard).",
 ];
 const DELETE_INFO = [

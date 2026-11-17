@@ -203,6 +203,34 @@ pub fn avif(source: Source, quality: u8) -> anyhow::Result<Vec<u8>> {
     Ok(enrich(ff, result?, &source.meta, &tmp))
 }
 
+/// JPEG XL par ffmpeg (libjxl), pour « Compresser les images » seulement (lot R7, réponse Q56 A du 17/11). Qualité
+/// traduite en « distance » comme le fait libjxl (90 → 1, visuellement sans perte ; 50 → 4,6 ; 20 → 9,1).
+pub fn jxl(source: Source, quality: u8) -> anyhow::Result<Vec<u8>> {
+    let ff = crate::ffmpeg::shared().context("ffmpeg introuvable : JPEG XL impossible")?;
+    let img = &source.img;
+    let alpha = img.color().has_alpha();
+    let pixels = if alpha { img.to_rgba8().into_raw() } else { img.to_rgb8().into_raw() };
+    let q = f32::from(quality);
+    let distance = if q >= 30.0 { 0.1 + (100.0 - q) * 0.09 } else { 53.0 / 3000.0 * q * q - 23.0 / 20.0 * q + 25.0 };
+    let size = format!("{}x{}", img.width(), img.height());
+    let mut cmd = crate::ffmpeg::command(&ff.ffmpeg);
+    cmd.args(["-hide_banner", "-loglevel", "error", "-f", "rawvideo", "-pix_fmt", if alpha { "rgba" } else { "rgb24" }])
+        .args(["-s", &size, "-i", "-", "-frames:v", "1", "-c:v", "libjxl", "-distance", &format!("{distance:.2}")])
+        .args(["-f", "image2pipe", "-"])
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+    let mut child = cmd.spawn().context("lancement de ffmpeg")?;
+    let mut stdin = child.stdin.take().context("entrée de ffmpeg")?;
+    let writer = std::thread::spawn(move || stdin.write_all(&pixels));
+    let output = child.wait_with_output()?;
+    let _ = writer.join();
+    if !output.status.success() || output.stdout.is_empty() {
+        bail!("ffmpeg (JPEG XL) : {}", String::from_utf8_lossy(&output.stderr).trim());
+    }
+    Ok(output.stdout)
+}
+
 /// EXIF et profil de couleurs ajoutés par MyBoard (IMP-67), gardés seulement si ffmpeg relit ensuite l'image (et sa
 /// transparence) sans erreur ; sinon l'AVIF est gardé sans eux (choix de l'utilisateur, 10/11).
 fn enrich(ff: &crate::ffmpeg::Ffmpeg, plain: Vec<u8>, meta: &Meta, tmp: &Path) -> Vec<u8> {

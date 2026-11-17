@@ -16,6 +16,10 @@ fn source(path: &Path, side: u32) -> anyhow::Result<DynamicImage> {
     if is_pdf(path) {
         return pdf::first_page(path, side);
     }
+    // PSD : document montré par son image aplatie (réponse Q55 A).
+    if formats::is_picture(path) {
+        return open_image(path);
+    }
     let ext = formats::extension(path).unwrap_or_default();
     let ff = crate::ffmpeg::shared();
     match formats::kind_of_ext(&ext) {
