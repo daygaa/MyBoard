@@ -9,7 +9,8 @@ import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 
 import { useEscape } from "@/lib/escape";
-import { copyPlain, keepQuoted } from "@/lib/keepWords";
+import { tagText } from "@/components/tags/TagText";
+import { copyPlain } from "@/lib/keepWords";
 import { cn } from "@/lib/utils";
 
 /** Commandes atteignables au clavier dans une pop-in (cases à cocher comprises : ce sont des boutons). */
@@ -47,14 +48,14 @@ type Props = {
    *  focus ; un autre bouton de la pop-in qui a le focus (Annuler…) garde son rôle. Espace coche la
    *  case marquée `data-principale` (ou la seule case de la pop-in). */
   onEnter?: () => void;
-  /** Mise en forme du titre et d'un texte simple : mots jamais coupés (GEN-22) ; pop-ins des tags : tags cités en
-   *  couleur (GEN-32, `tagText` de components/tags/TagText). */
+  /** Mise en forme du titre et d'un texte simple ; par défaut, d'office pour toute pop-in : mots jamais coupés (GEN-22),
+   *  tags cités par `q()` en couleur (GEN-32, `tagText` de components/tags/TagText). */
   renderText?: (text: string) => ReactNode;
 };
 
 export function Modal(props: Props) {
   const { open, onClose, title, subtitle, description, children, footer, zone, lift = 0, danger = false, dismissible = true, wide = false, size, even = false, onEnter } = props;
-  const renderText = props.renderText ?? keepQuoted;
+  const renderText = props.renderText ?? tagText;
   const close = dismissible ? onClose : () => {};
   const isTop = useEscape(open, close, { modal: true });
   const dialogRef = useRef<HTMLDivElement>(null);

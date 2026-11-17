@@ -2231,3 +2231,29 @@ outils de test vivaient dans un dossier temporaire qui change à chaque session,
   d'écran et impression tournés aussi. Largeur et hauteur en base restent celles du fichier.
 - Adresse directe des fichiers (`directUrl`, D-053) suivie de `?v=<empreinte>` : un fichier tourné garde son chemin,
   la fenêtre ne doit pas reprendre l'ancien.
+
+## D-080 — Rotation sans trace, empreintes d'avant, tags marqués, fichier disparu en cours de séance (lot R8, 2e tour, 17/11/2026)
+
+- VIEW-60, retour 60.6 : ce que MyBoard ajoute pour écrire une rotation (répertoire recopié avec l'étiquette
+  d'orientation à la fin de la structure TIFF, petit bloc EXIF d'un JPEG qui n'en avait pas) est suivi d'une marque de
+  16 octets (« MyBoard », longueur et position du premier répertoire d'avant). Quand l'image redevient droite, la
+  marque dit quoi retirer : le fichier redevient identique à l'octet près. Sans marque (étiquette déjà dans le
+  fichier) : seuls ses 2 octets changent, comme avant.
+- Réponse Q61 A : rotation écrite aussi dans les 3GP (comme le MP4) et les RAW CR2, NEF, NRW, ARW, PEF (premier
+  répertoire, lu par `rawler` : vérifié sur les 4 RAW d'essai, test `raw_tiff_lus_tournes`, ignoré sans
+  `MYBOARD_RAW_DIR`). Autres RAW : rotation d'affichage.
+- Retour 60.4 : empreinte d'un fichier tourné calculée sur plusieurs cœurs (`versions::hash_file_parallel`, BLAKE3
+  avec `rayon` et `mmap` ; même résultat que `hash_file`, qui reste celle de l'import).
+- Réponse Q64 A (schéma 24) : table `turned_hashes` (empreinte d'avant une rotation → média, effacée avec lui). À
+  l'import, un fichier qui a l'une de ces empreintes est un doublon de ce média (jamais un déplacement), sauf à son
+  propre chemin (fiche mise à jour comme d'habitude).
+- Interface : une rotation à la fois, R maintenu n'ajoute rien tant qu'une rotation est en cours (60.1) ; copie nette
+  de l'image tournée faite aussitôt à partir de celle d'avant (`imageCache.adoptTurned`, 60.2) ; vidéo en pause
+  rechargée en pause (60.3).
+- GEN-32, principe général : `q()` marque chaque tag cité par U+2063 (invisible) de part et d'autre du nom ; le
+  rendu par défaut de `Modal` (donc `ConfirmDialog`), la pop-in d'erreur, les menus et les refus des règles passent par
+  `TagText`, qui ne colore que les noms marqués ; côté Rust, `« \u{2063}{}\u{2063} »`. Règle dans `docs/DEV.md`.
+- VIEW-65 : `library_check::found_missing`, appelé quand une commande (`existing_path`) ou le protocole `media://`
+  trouve le fichier absent d'un emplacement accessible : `missing_since` posé tout de suite (comme « Conserver la
+  miniature »), événement `media-missing` (la visionneuse passe à la miniature et au bandeau) et `library-changed`.
+- GEN-29 (réponse Q60 A) : plus de pied de page ; les marges du bas des pages restent les leurs.

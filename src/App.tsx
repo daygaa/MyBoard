@@ -1,5 +1,5 @@
 // Squelette de l'application : barre de titre MyBoard (NAV-04), puis la zone qui défile (en-tête,
-// page courante, pied de page) ; menu burger, visionneuse, menu du clic droit (CTX-01) et message
+// page courante ; plus de pied de page : GEN-29, réponse Q60 A du 17/11) ; menu burger, visionneuse, menu du clic droit (CTX-01) et message
 // d'échec d'une action lancée de la grille (CTX-19) et restauration des données en fin d'import
 // (DEL-05) par-dessus ; bilan de l'import (IMP-45), fichiers disparus (LIB-05), bandeau des emplacements inaccessibles
 // sous l'en-tête (LIB-14) ; badge du travail sur les tags en arrière-plan (TAGM-23).
@@ -10,7 +10,6 @@ import { ImportPage } from "@/components/import/ImportPage";
 import { ImportReport } from "@/components/import/ImportReport";
 import { RestoreDialog } from "@/components/import/RestoreDialog";
 import { BurgerMenu } from "@/components/layout/BurgerMenu";
-import { Footer } from "@/components/layout/Footer";
 import { Header } from "@/components/layout/Header";
 import { TagJobBadge } from "@/components/layout/TagJobBadge";
 import { TitleBar } from "@/components/layout/TitleBar";
@@ -57,7 +56,6 @@ export function App() {
           {/* Page Importer : son contenu garde sa place, barre de défilement affichée ou non (GEN-28 ; gestionnaire de
               tags : dans TagManagerPage, ses onglets allant jusqu'au bord). */}
           <div className={cn("flex flex-1 flex-col", fitted && "min-h-0", route === "import" && "garde-barre")}>{route === "import" ? <ImportPage /> : route === "tags" ? <TagManagerPage /> : <LibraryPage />}</div>
-          <Footer />
         </div>
       </div>
       <BurgerMenu />

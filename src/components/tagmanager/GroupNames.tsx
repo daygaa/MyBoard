@@ -6,7 +6,6 @@
 
 import { Star, X } from "lucide-react";
 
-import { tagText } from "@/components/tags/TagText";
 import { Switch } from "@/components/ui/switch";
 import { openContextMenu } from "@/lib/contextMenu";
 import { formatNumber } from "@/lib/format";
@@ -23,7 +22,7 @@ export const ICON = "grid h-6 w-6 shrink-0 place-items-center rounded text-muted
 /** Confirmation d'une entrée rouge du menu (CTX-02) : le texte sur une seule ligne, tags cités en couleur (GEN-32). */
 export const menuConfirm = ({ title, message, run }: { title: string; message: string; run: () => unknown }) => ({
   danger: true,
-  confirm: { title, message: message.replace(/\n/g, " "), danger: true, renderText: tagText },
+  confirm: { title, message: message.replace(/\n/g, " "), danger: true },
   run: () => void run(),
 });
 

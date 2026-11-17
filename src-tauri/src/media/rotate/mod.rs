@@ -1,7 +1,8 @@
 //! Rotation de ± 90° d'une image ou d'une vidéo (VIEW-60 ; réponses Q21, Q24 A et Q25 A du 14/11).
-//! - JPEG, TIFF, DNG, MP4, MOV : rotation écrite dans le fichier, sans perte (étiquette d'orientation, matrice
-//!   d'affichage : `orientation.rs`, `mp4.rs`). Le fichier change d'empreinte : sa fiche est mise à jour (exception
-//!   voulue à « l'original n'est jamais modifié ») et ses miniatures, tournées, sont rangées sous la nouvelle.
+//! - JPEG, TIFF, DNG, RAW à structure TIFF (CR2, NEF, NRW, ARW, PEF), MP4, MOV, 3GP : rotation écrite dans le fichier,
+//!   sans perte (étiquette d'orientation, matrice d'affichage : `orientation.rs`, `mp4.rs` ; réponse Q61 A). Le fichier
+//!   change d'empreinte : sa fiche est mise à jour (exception voulue à « l'original n'est jamais modifié »), l'empreinte
+//!   d'avant est gardée (doublons, réponse Q64 A) et ses miniatures, tournées, sont rangées sous la nouvelle.
 //! - Autres formats, ou fichier impossible à écrire (lecture seule, ouvert ailleurs, structure inconnue) : rotation
 //!   d'affichage seulement, gardée dans la base (`media.rotation`, schéma 23), appliquée par l'interface.
 
@@ -26,8 +27,10 @@ static ONE_AT_A_TIME: Mutex<()> = Mutex::new(());
 fn writer(ext: &str) -> Option<fn(&Path, bool) -> anyhow::Result<()>> {
     match ext {
         "jpg" | "jpeg" | "jpe" | "jfif" => Some(orientation::turn_jpeg),
-        "tif" | "tiff" | "dng" => Some(orientation::turn_tiff),
-        "mp4" | "m4v" | "mov" => Some(mp4::turn_mp4),
+        // RAW essayés (réponse Q61 A) : leur décodeur lit l'étiquette du premier répertoire. Pas ORF, RW2, CR3, RAF
+        // (autre structure) ; les autres RAW à structure TIFF, sans fichier d'essai, restent en rotation d'affichage.
+        "tif" | "tiff" | "dng" | "cr2" | "nef" | "nrw" | "arw" | "pef" => Some(orientation::turn_tiff),
+        "mp4" | "m4v" | "mov" | "3gp" => Some(mp4::turn_mp4),
         _ => None,
     }
 }
@@ -87,7 +90,7 @@ fn after_write(
     clockwise: bool,
     write: Option<fn(&Path, bool) -> anyhow::Result<()>>,
 ) -> Result<(), OpenFailure> {
-    let hash = versions::hash_file(path)?;
+    let hash = versions::hash_file_parallel(path)?;
     let meta = std::fs::metadata(path)?;
     let modified = meta.modified().ok().and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok()).map(|d| d.as_millis() as i64);
     let saved = {
@@ -105,6 +108,8 @@ fn after_write(
                 if let Some(original) = original {
                     versions::remember(&tx, &hash, original).map_err(failure)?;
                 }
+                // Empreinte d'avant gardée : la même photo non tournée, importée d'ailleurs, est un doublon (Q64 A).
+                versions::remember_turned(&tx, old, id).map_err(failure)?;
                 tx.commit().map_err(failure)?;
                 Ok(true)
             }

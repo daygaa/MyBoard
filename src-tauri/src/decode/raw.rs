@@ -46,21 +46,33 @@ fn open(path: &Path) -> anyhow::Result<(RawSource, Box<dyn Decoder>, Orientation
     Ok((src, decoder, orientation))
 }
 
+/// Orientation lue par le décodeur (essais de la rotation écrite dans un RAW, VIEW-60).
+#[cfg(test)]
+pub(crate) fn orientation_of(path: &Path) -> anyhow::Result<Orientation> {
+    Ok(open(path)?.2)
+}
+
 /// L'aperçu de l'appareil, tourné ; sans aperçu (certains Olympus) : le décodage complet.
 pub fn preview(path: &Path) -> anyhow::Result<DynamicImage> {
+    match embedded(path)? {
+        Some(img) => Ok(img),
+        None => develop(path),
+    }
+}
+
+/// L'aperçu de l'appareil seulement, tourné ; `None` s'il n'y en a pas de lisible. Visionneuse (VIEW-64, retour 64.1) :
+/// rien n'est alors servi comme aperçu ; un décodage complet en plus retardait celui de l'image réelle.
+pub fn embedded(path: &Path) -> anyhow::Result<Option<DynamicImage>> {
     let (src, decoder, orientation) = open(path)?;
     let params = RawDecodeParams::default();
     let found = match decoder.full_image(&src, &params) {
         Ok(Some(img)) => Some(img),
         _ => decoder.preview_image(&src, &params).ok().flatten(),
     };
-    match found {
-        Some(mut img) => {
-            img.apply_orientation(orientation);
-            Ok(img)
-        }
-        None => develop(path),
-    }
+    Ok(found.map(|mut img| {
+        img.apply_orientation(orientation);
+        img
+    }))
 }
 
 /// Décodage complet des données du capteur, tourné.

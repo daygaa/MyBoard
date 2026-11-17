@@ -20,8 +20,9 @@ const YES = "bg-destructive text-white hover:bg-destructive/90";
  *  après son ouverture (choix de l'utilisateur, 24/10). */
 const SURE_DELAY = 500;
 
-/** Médias à supprimer : leur nombre, et le nom du fichier quand il est seul et connu. */
-export type DeleteTarget = { count: number; name?: string };
+/** Médias à supprimer : leur nombre, et le nom du fichier quand il est seul et connu ; `gone` : son fichier est
+ *  introuvable, pas de case « Supprimer les fichiers » (VIEW-65). */
+export type DeleteTarget = { count: number; name?: string; gone?: boolean };
 
 type Props = DeleteTarget & {
   onCancel: () => void;
@@ -29,7 +30,7 @@ type Props = DeleteTarget & {
   onConfirm: (deleteFiles: boolean) => void;
 };
 
-export function DeleteDialog({ count, name, onCancel, onConfirm }: Props) {
+export function DeleteDialog({ count, name, gone = false, onCancel, onConfirm }: Props) {
   const [deleteFiles, setDeleteFiles] = useState(false);
   const [sure, setSure] = useState(false);
   /** Ouverture de la 2e pop-in : Entrée n'y agit qu'après SURE_DELAY (deux appuis réflexes). */
@@ -118,10 +119,12 @@ export function DeleteDialog({ count, name, onCancel, onConfirm }: Props) {
         </>
       }
     >
-      <label data-zone="suppression.fichiers" className="flex cursor-pointer items-center gap-2 text-sm text-foreground">
-        <Checkbox data-principale checked={deleteFiles} onCheckedChange={(c) => setDeleteFiles(c === true)} />
-        Supprimer les fichiers de votre stockage
-      </label>
+      {!gone && (
+        <label data-zone="suppression.fichiers" className="flex cursor-pointer items-center gap-2 text-sm text-foreground">
+          <Checkbox data-principale checked={deleteFiles} onCheckedChange={(c) => setDeleteFiles(c === true)} />
+          Supprimer les fichiers de votre stockage
+        </label>
+      )}
     </Modal>
   );
 }

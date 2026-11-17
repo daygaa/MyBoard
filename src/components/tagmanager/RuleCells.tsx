@@ -15,6 +15,7 @@ import type { ManagedTag } from "@/lib/api";
 import { formatNumber, plural } from "@/lib/format";
 import { addSynonym } from "@/lib/groupRules";
 import type { GroupRow, ParentRow } from "@/lib/rulesApi";
+import { TagText } from "@/components/tags/TagText";
 import { keepQuoted, quote } from "@/lib/keepWords";
 import { addParent } from "@/lib/tagRules";
 import { displayTag, normalizeTag } from "@/lib/tags";
@@ -73,7 +74,12 @@ function AddField({ zone, placeholder, self, listed, onAdd }: { zone: string; pl
         className="h-8"
         inputClassName="font-mono text-xs"
       />
-      {error && <p className="mt-1.5 text-xs text-rose-300">{error}</p>}
+      {/* Refus du cœur Rust : tags cités en couleur (GEN-32). */}
+      {error && (
+        <p className="mt-1.5 text-xs text-rose-300">
+          <TagText text={error} />
+        </p>
+      )}
     </div>
   );
 }

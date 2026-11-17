@@ -3,6 +3,21 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Lot R8, 2e tour : rotation retouchée, tags marqués, plus de pied de page (17/11/2026) — Backup v149
+
+SPEC : VIEW-60, GEN-32, PAGE-06, VIEW-64, GEN-29, VIEW-65 `[~]` ; GEN-34 remis au lot R9 ; décision D-080 ; schéma 24.
+
+- VIEW-60 : R maintenu ne s'emballe plus ; plus de miniature au centre juste après une rotation ; une vidéo en pause
+  le reste ; rotation deux fois plus rapide sur une grosse vidéo ; ↺ ↻ à gauche de « Copier » ; un fichier remis droit
+  redevient identique à l'octet près ; rotation écrite aussi dans les 3GP et les RAW CR2, NEF, NRW, ARW, PEF ; la photo
+  non tournée importée d'ailleurs est reconnue comme doublon.
+- GEN-32 : tout tag cité dans une pop-in, un menu ou un refus de règle est en couleur d'office ; nom fusionné dans un
+  gris à lui.
+- PAGE-06 : apparence d'avant, flèches collées à la page active.
+- VIEW-64 : un RAW sans aperçu lisible garde sa miniature jusqu'à l'image décodée.
+- GEN-29 : plus de pied de page.
+- VIEW-65 : un fichier supprimé pendant que MyBoard est ouvert passe « introuvable » dès qu'une action le constate.
+
 ## Lot R8 : rotation, tags colorés dans les pop-ins, pagination, petites vignettes (17/11/2026) — Backup v148
 
 SPEC : VIEW-60, GRID-16, GEN-32, PAGE-06, VIEW-64, IMP-94 `[~]` ; GEN-29 : question Q60 ; décision D-079 ; schéma 23.

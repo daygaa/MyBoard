@@ -95,6 +95,8 @@ fn existing_path(state: &AppState, id: i64) -> Result<PathBuf, OpenFailure> {
         .map_err(|e| OpenFailure::new(None, e.to_string()))?;
     let path = PathBuf::from(path.ok_or_else(|| OpenFailure::new(None, "Média introuvable dans la bibliothèque."))?);
     if !path.try_exists()? {
+        // Supprimé pendant la séance : le média passe « fichier introuvable » partout (VIEW-65).
+        crate::library_check::found_missing(&state.db.lock().unwrap(), id, &path);
         // Dossier entier absent (disque débranché, dossier renommé…) ou fichier seul absent.
         let folder_missing = path.parent().is_some_and(|dir| !dir.exists());
         return Err(if folder_missing {

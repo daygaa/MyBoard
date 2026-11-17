@@ -58,6 +58,9 @@ type ViewerState = {
   setFullscreen: (on: boolean) => void;
   setError: (error: ExternalError | null) => void;
   markCopied: (id: number) => void;
+  /** Médias passés « fichier introuvable » pendant la séance (VIEW-65) : celui affiché montre aussitôt sa miniature et
+   *  le bandeau (LostStage) ; un message d'erreur déjà affiché reste. */
+  markMissing: (gone: { id: number; path: string }[]) => void;
 };
 
 /** Durée de la confirmation « Copié » (VIEW-35). */
@@ -170,6 +173,13 @@ export const useViewer = create<ViewerState>()((set, get) => {
       settleTimer = setTimeout(() => syncShown(true), FULLSCREEN_SETTLE_MS);
     },
     setError: (error) => set({ error }),
+    markMissing: (gone) => {
+      const { item, index, total, error } = get();
+      const found = item && !item.missing ? gone.find((g) => g.id === item.id) : undefined;
+      if (!item || !found) return;
+      get().show(index, { ...item, missing: true, offline: false, lastPath: found.path }, total);
+      set({ error });
+    },
     markCopied: (id) => {
       clearTimeout(copiedTimer);
       set({ copied: id });

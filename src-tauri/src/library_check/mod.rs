@@ -12,10 +12,10 @@
 
 use std::collections::HashSet;
 use std::path::{Component, Path, PathBuf};
-use std::sync::{Mutex, RwLock};
+use std::sync::{Mutex, OnceLock, RwLock};
 use std::time::Duration;
 
-use rusqlite::params;
+use rusqlite::{Connection, params};
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, State};
 
@@ -121,7 +121,38 @@ pub fn is_offline(path: &str) -> bool {
     }
 }
 
+/// L'application, pour prévenir l'interface d'un fichier trouvé absent depuis n'importe quel fil (VIEW-65).
+static APP: OnceLock<AppHandle> = OnceLock::new();
+
+/// Événement : médias passés « fichier introuvable » pendant la séance (`[{ id, path }]`).
+const MISSING_EVENT: &str = "media-missing";
+
+#[derive(Clone, Serialize)]
+struct Gone {
+    id: i64,
+    path: String,
+}
+
+/// Fichier d'un média trouvé absent pendant la séance (lecture par la visionneuse, copie, rotation… ; VIEW-65) : s'il
+/// manque vraiment (emplacement accessible : un disque débranché reste « inaccessible », LIB-14), le média passe
+/// « fichier introuvable » tout de suite, comme avec « Conserver la miniature » (LIB-05) : miniature et bandeau dans
+/// la visionneuse, marque sur la vignette ; l'interface est prévenue. Un fichier revu perd la marque (vérification
+/// suivante, import).
+pub fn found_missing(conn: &Connection, id: i64, path: &Path) {
+    if presence(path) != Presence::Missing {
+        return;
+    }
+    let marked = conn.execute("UPDATE media SET missing_since = ?1 WHERE id = ?2 AND missing_since IS NULL", params![db::now_ms(), id]);
+    if matches!(marked, Ok(n) if n > 0)
+        && let Some(app) = APP.get()
+    {
+        let _ = app.emit(MISSING_EVENT, vec![Gone { id, path: path.display().to_string() }]);
+        let _ = app.emit("library-changed", ());
+    }
+}
+
 pub fn start(app: AppHandle, db_path: PathBuf) {
+    let _ = APP.set(app.clone());
     let spawned = std::thread::Builder::new().name("verification-fichiers".into()).spawn(move || {
         crate::thumbs::lower_thread_priority();
         if let Err(e) = watch::check(&app, &db_path) {

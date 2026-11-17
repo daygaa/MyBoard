@@ -122,6 +122,13 @@ impl Indexer {
             }
             return Ok(Outcome::Duplicate(other));
         }
+        // Même fichier qu'un média avant que MyBoard le tourne (VIEW-60, réponse Q64 A) : doublon de ce média. Sauf à son
+        // propre chemin (fichier remis comme avant par un autre programme) : la fiche est mise à jour comme d'habitude.
+        if let Some(other) = super::versions::turned_media(conn, &hash)?
+            && existing.as_ref().is_none_or(|e| e.0 != other)
+        {
+            return Ok(Outcome::Duplicate(other));
+        }
         // Aucun programme du PC ne sait lire ce fichier (IMP-87, réponse Q15 A) : pas importé, sauf « Les importer quand
         // même » ; vérifié après les doublons (un doublon reçoit les tags par défaut, comme avant).
         if !self.accept_unreadable

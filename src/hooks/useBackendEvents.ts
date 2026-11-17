@@ -16,6 +16,7 @@ import { useLibraryCheck } from "@/stores/libraryCheck";
 import { usePreviews } from "@/stores/previews";
 import { removeFromSelection, settleSelectionDeletion } from "@/stores/selection";
 import { useThumbs } from "@/stores/thumbs";
+import { useViewer } from "@/stores/viewer";
 
 export function useBackendEvents() {
   useEffect(() => {
@@ -23,6 +24,8 @@ export function useBackendEvents() {
       // Médias ajoutés (import) ou données remises (DEL-05) : la page affichée, les compteurs et les
       // tags (et leurs compteurs) sont relus.
       listen(EVENTS.libraryChanged, () => void refreshLibrary()),
+      // Fichier supprimé pendant la séance (VIEW-65) : la visionneuse montre aussitôt sa miniature et le bandeau.
+      listen<{ id: number; path: string }[]>(EVENTS.mediaMissing, (event) => useViewer.getState().markMissing(event.payload)),
       // Médias supprimés pour de bon (DEL-02) : leurs états gardés par numéro sont oubliés.
       listen<number[]>(EVENTS.mediaDeleted, (event) => {
         forgetFavorites(event.payload);

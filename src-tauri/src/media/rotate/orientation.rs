@@ -1,10 +1,14 @@
 //! Étiquette d'orientation (EXIF 274) écrite dans le fichier, sans toucher à l'image (VIEW-60, réponse Q24 A) : JPEG
-//! (bloc EXIF de l'en-tête), TIFF et DNG (premier répertoire du fichier). Sa valeur, 1 à 8, dit comment tourner (et
-//! retourner) l'image enregistrée pour l'afficher ; un quart de tour de plus la remplace.
+//! (bloc EXIF de l'en-tête), TIFF, DNG et RAW à structure TIFF (premier répertoire du fichier ; réponse Q61 A). Sa
+//! valeur, 1 à 8, dit comment tourner (et retourner) l'image enregistrée pour l'afficher ; un quart de tour de plus la
+//! remplace.
 //! - Étiquette présente : ses 2 octets sont réécrits sur place.
 //! - Absente : le premier répertoire est recopié avec elle à la fin des données (rien d'autre ne bouge : les autres
-//!   valeurs gardent leur place) ; JPEG sans bloc EXIF : un petit bloc est ajouté. Un JPEG qui change de taille est
-//!   écrit à côté, puis remplace l'original (jamais d'original à moitié écrit), date de création gardée.
+//!   valeurs gardent leur place), suivi d'une marque de MyBoard ; JPEG sans bloc EXIF : un petit bloc marqué est
+//!   ajouté. Image redevenue droite : la marque dit ce qui a été ajouté, qui est retiré : le fichier redevient identique
+//!   à l'octet près (retour 60.6 : l'original non tourné, importé d'ailleurs, est reconnu comme doublon). Un JPEG qui
+//!   change de taille est écrit à côté, puis remplace l'original (jamais d'original à moitié écrit), date de création
+//!   gardée.
 
 use std::fs::{File, OpenOptions};
 use std::io::{Read, Seek, SeekFrom, Write};
@@ -19,6 +23,30 @@ const EOI: u8 = 0xD9;
 const APP0: u8 = 0xE0;
 const APP1: u8 = 0xE1;
 const EXIF: &[u8] = b"Exif\0\0";
+
+/// Marque posée juste après un répertoire ajouté par MyBoard : « MyBoard », puis la longueur de la structure TIFF et
+/// la position de son premier répertoire d'avant l'ajout (4 octets chacune, petit-boutiste). Longueur 0 : le bloc EXIF
+/// entier a été ajouté par MyBoard (JPEG qui n'en avait pas).
+const MARK: &[u8; 8] = b"MyBoard\0";
+const MARK_LEN: usize = 16;
+
+/// Ce que MyBoard a ajouté, d'après sa marque.
+#[derive(Clone, Copy)]
+struct Added {
+    len: u32,
+    ifd: u32,
+}
+
+fn mark(len: u32, ifd: u32) -> Vec<u8> {
+    [MARK.as_slice(), &len.to_le_bytes(), &ifd.to_le_bytes()].concat()
+}
+
+fn read_mark(b: &[u8]) -> Option<Added> {
+    if b.len() != MARK_LEN || &b[..8] != MARK {
+        return None;
+    }
+    Some(Added { len: u32::from_le_bytes(b[8..12].try_into().ok()?), ifd: u32::from_le_bytes(b[12..16].try_into().ok()?) })
+}
 
 /// Valeurs 1 à 8 : quarts de tour dans le sens des aiguilles d'une montre, puis miroir horizontal.
 const TURNS: [(u8, bool); 8] = [(0, false), (0, true), (2, false), (2, true), (1, true), (1, false), (3, true), (3, false)];
@@ -51,16 +79,18 @@ impl Order {
     }
 }
 
-/// Premier répertoire d'une structure TIFF : sa position, ses entrées (12 octets chacune), le lien vers le suivant.
+/// Premier répertoire d'une structure TIFF : sa position, ses entrées (12 octets chacune), le lien vers le suivant ;
+/// ajouté par MyBoard (marque juste après lui, à la toute fin de la structure) : ce qu'il y avait avant.
 struct Ifd0 {
     order: Order,
     start: u32,
     entries: Vec<[u8; 12]>,
     next: [u8; 4],
+    added: Option<Added>,
 }
 
-/// `read(position, longueur)` : octets de la structure TIFF (depuis son début).
-fn ifd0(read: &mut dyn FnMut(u64, usize) -> anyhow::Result<Vec<u8>>) -> anyhow::Result<Ifd0> {
+/// `read(position, longueur)` : octets de la structure TIFF (depuis son début), longue de `len` octets.
+fn ifd0(read: &mut dyn FnMut(u64, usize) -> anyhow::Result<Vec<u8>>, len: u64) -> anyhow::Result<Ifd0> {
     let head = read(0, 8)?;
     let order = match head.get(..4) {
         Some(b"II*\0") => Order(true),
@@ -72,7 +102,11 @@ fn ifd0(read: &mut dyn FnMut(u64, usize) -> anyhow::Result<Vec<u8>>) -> anyhow::
     let body = read(u64::from(start) + 2, count * 12 + 4)?;
     let entries = body.as_chunks::<12>().0.to_vec();
     let next = body.get(count * 12..).and_then(|b| b.try_into().ok()).context("répertoire TIFF")?;
-    Ok(Ifd0 { order, start, entries, next })
+    let end = u64::from(start) + 2 + body.len() as u64;
+    let added = if end + MARK_LEN as u64 == len { read(end, MARK_LEN).ok().and_then(|b| read_mark(&b)) } else { None };
+    // Une marque cohérente seulement : ce qu'elle dit d'avant est avant le répertoire ajouté.
+    let added = added.filter(|a| a.len <= start && a.ifd < start);
+    Ok(Ifd0 { order, start, entries, next, added })
 }
 
 enum Plan {
@@ -80,6 +114,8 @@ enum Plan {
     InPlace { at: u64, bytes: [u8; 2] },
     /// Nouveau premier répertoire à ajouter à la fin de la structure ; l'en-tête (position 4) pointera dessus.
     Append { ifd: Vec<u8> },
+    /// Image redevenue droite dans un répertoire ajouté par MyBoard : la structure d'avant revient.
+    Undo(Added),
 }
 
 fn plan(ifd: &Ifd0, clockwise: bool) -> Plan {
@@ -90,6 +126,11 @@ fn plan(ifd: &Ifd0, clockwise: bool) -> Plan {
         // Valeur rangée dans l'entrée elle-même (un nombre de 16 bits) : le cas normal.
         if o.u16(e, 2) == Some(SHORT) && o.u32(e, 4) == Some(1) {
             let current = o.u16(e, 8).unwrap_or(1);
+            if let Some(added) = ifd.added
+                && turned(current, clockwise) == 1
+            {
+                return Plan::Undo(added);
+            }
             return Plan::InPlace { at: u64::from(ifd.start) + 2 + i as u64 * 12 + 8, bytes: o.put16(turned(current, clockwise)) };
         }
     }
@@ -121,13 +162,15 @@ fn write_at(file: &mut File, at: u64, bytes: &[u8]) -> anyhow::Result<()> {
     Ok(())
 }
 
-/// TIFF et DNG : le fichier entier est la structure TIFF ; un répertoire ajouté va à sa fin.
+/// TIFF, DNG et RAW à structure TIFF : le fichier entier est la structure TIFF ; un répertoire ajouté va à sa fin.
 pub fn turn_tiff(path: &Path, clockwise: bool) -> anyhow::Result<()> {
     let mut file = OpenOptions::new().read(true).write(true).open(path)?;
-    let ifd = ifd0(&mut |at, len| read_at(&mut file, at, len))?;
+    let len = file.metadata()?.len();
+    let ifd = ifd0(&mut |at, n| read_at(&mut file, at, n), len)?;
     match plan(&ifd, clockwise) {
         Plan::InPlace { at, bytes } => write_at(&mut file, at, &bytes)?,
         Plan::Append { ifd: data } => {
+            let before = u32::try_from(len).context("fichier TIFF trop grand")?;
             let mut end = file.seek(SeekFrom::End(0))?;
             // Un répertoire commence à une position paire.
             if end % 2 == 1 {
@@ -136,9 +179,16 @@ pub fn turn_tiff(path: &Path, clockwise: bool) -> anyhow::Result<()> {
             }
             let start = u32::try_from(end).context("fichier TIFF trop grand")?;
             file.write_all(&data)?;
+            file.write_all(&mark(before, ifd.start))?;
             file.sync_data()?;
             // Le lien de l'en-tête change en dernier : jusque-là, le fichier reste lisible tel qu'avant.
             write_at(&mut file, 4, &ifd.order.put32(start))?;
+        }
+        Plan::Undo(added) => {
+            // Le lien d'avant d'abord (le répertoire d'origine n'a jamais bougé), puis ce qui a été ajouté part.
+            write_at(&mut file, 4, &ifd.order.put32(added.ifd))?;
+            file.sync_data()?;
+            file.set_len(u64::from(added.len))?;
         }
     }
     file.sync_all()?;
@@ -196,20 +246,24 @@ pub fn turn_jpeg(path: &Path, clockwise: bool) -> anyhow::Result<()> {
     let data = std::fs::read(path)?;
     let (exif, insert_at) = scan_jpeg(&data)?;
     let Some((start, tiff, end)) = exif else {
-        // Pas de bloc EXIF : structure minimale (« MM »), une seule entrée.
+        // Pas de bloc EXIF : structure minimale (« MM »), une seule entrée, marquée (longueur 0 : bloc entier ajouté).
         let mut block = b"MM\0*\0\0\0\x08\0\x01".to_vec();
         block.extend_from_slice(&ORIENTATION.to_be_bytes());
         block.extend_from_slice(&SHORT.to_be_bytes());
         block.extend_from_slice(&1u32.to_be_bytes());
         block.extend_from_slice(&turned(1, clockwise).to_be_bytes());
         block.extend_from_slice(&[0; 6]); // fin de la valeur, puis « pas de répertoire suivant »
+        block.extend_from_slice(&mark(0, 0));
         return replace(path, &[&data[..insert_at], &app1(&block)?, &data[insert_at..]].concat());
     };
     let blob = &data[tiff..end];
-    let ifd = ifd0(&mut |at, len| {
-        let from = usize::try_from(at)?;
-        Ok(blob.get(from..from + len).context("bloc EXIF abîmé")?.to_vec())
-    })?;
+    let ifd = ifd0(
+        &mut |at, len| {
+            let from = usize::try_from(at)?;
+            Ok(blob.get(from..from + len).context("bloc EXIF abîmé")?.to_vec())
+        },
+        blob.len() as u64,
+    )?;
     match plan(&ifd, clockwise) {
         Plan::InPlace { at, bytes } => {
             let mut file = OpenOptions::new().write(true).open(path)?;
@@ -224,8 +278,16 @@ pub fn turn_jpeg(path: &Path, clockwise: bool) -> anyhow::Result<()> {
             }
             let at = u32::try_from(new.len())?;
             new.extend_from_slice(&added);
+            new.extend_from_slice(&mark(u32::try_from(blob.len())?, ifd.start));
             new[4..8].copy_from_slice(&ifd.order.put32(at));
             replace(path, &[&data[..start], &app1(&new)?, &data[end..]].concat())
+        }
+        // Bloc EXIF entier ajouté par MyBoard : retiré ; sinon, la structure d'avant revient.
+        Plan::Undo(Added { len: 0, .. }) => replace(path, &[&data[..start], &data[end..]].concat()),
+        Plan::Undo(before) => {
+            let mut old = blob.get(..before.len as usize).context("bloc EXIF abîmé")?.to_vec();
+            old[4..8].copy_from_slice(&ifd.order.put32(before.ifd));
+            replace(path, &[&data[..start], &app1(&old)?, &data[end..]].concat())
         }
     }
 }
@@ -296,6 +358,96 @@ mod tests {
         turn_jpeg(&path, true).unwrap();
         assert_eq!(read(), image::metadata::Orientation::Rotate180);
         assert_eq!(std::fs::metadata(&path).unwrap().len(), size, "2e tour : sur place");
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    fn scratch(name: &str) -> std::path::PathBuf {
+        let dir = std::env::temp_dir().join(format!("myboard-rotation-{name}-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
+    /// Retour 60.6 : un tour puis l'inverse, et quatre tours dans le même sens, rendent le fichier identique.
+    fn back_to_bytes(path: &Path, turn: fn(&Path, bool) -> anyhow::Result<()>) {
+        let original = std::fs::read(path).unwrap();
+        for clockwise in [true, false] {
+            turn(path, clockwise).unwrap();
+            assert_ne!(std::fs::read(path).unwrap(), original, "tourné : fichier changé");
+            turn(path, !clockwise).unwrap();
+            assert_eq!(std::fs::read(path).unwrap(), original, "un tour puis l'inverse");
+        }
+        for _ in 0..4 {
+            turn(path, true).unwrap();
+        }
+        assert_eq!(std::fs::read(path).unwrap(), original, "quatre tours");
+    }
+
+    #[test]
+    fn jpeg_sans_exif_redevient_identique() {
+        let dir = scratch("j1");
+        let path = dir.join("a.jpg");
+        image::RgbImage::from_pixel(4, 2, image::Rgb([200, 10, 10])).save(&path).unwrap();
+        back_to_bytes(&path, turn_jpeg);
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn jpeg_exif_sans_orientation_redevient_identique() {
+        let dir = scratch("j2");
+        let path = dir.join("a.jpg");
+        image::RgbImage::from_pixel(4, 2, image::Rgb([10, 200, 10])).save(&path).unwrap();
+        // Bloc EXIF à une seule entrée (« Make »), longueur impaire : le répertoire ajouté est précédé d'un octet.
+        let mut tiff = b"MM\0*\0\0\0\x08\0\x01".to_vec();
+        tiff.extend_from_slice(&[0x01, 0x0F, 0, 2, 0, 0, 0, 4, b'A', b'B', b'C', 0]);
+        tiff.extend_from_slice(&[0, 0, 0, 0, b'X']);
+        let data = std::fs::read(&path).unwrap();
+        std::fs::write(&path, [&data[..2], &app1(&tiff).unwrap(), &data[2..]].concat()).unwrap();
+        back_to_bytes(&path, turn_jpeg);
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn tiff_sans_orientation_redevient_identique() {
+        let dir = scratch("t");
+        for (name, extra) in [("pair.tif", false), ("impair.tif", true)] {
+            let path = dir.join(name);
+            image::RgbImage::from_pixel(4, 2, image::Rgb([10, 10, 200])).save(&path).unwrap();
+            if extra {
+                let mut data = std::fs::read(&path).unwrap();
+                if data.len().is_multiple_of(2) {
+                    data.push(0);
+                }
+                std::fs::write(&path, data).unwrap();
+            }
+            back_to_bytes(&path, turn_tiff);
+        }
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// RAW à structure TIFF (réponse Q61 A) : `MYBOARD_RAW_DIR` = dossier des RAW d'essai (copiés, jamais modifiés).
+    /// L'orientation lue par le décodeur suit le quart de tour ; le fichier redevient identique.
+    #[test]
+    #[ignore]
+    fn raw_tiff_lus_tournes() {
+        let Ok(from) = std::env::var("MYBOARD_RAW_DIR") else { return };
+        let dir = scratch("raw");
+        for entry in std::fs::read_dir(from).unwrap() {
+            let src = entry.unwrap().path();
+            let ext = src.extension().unwrap().to_string_lossy().to_lowercase();
+            if !["cr2", "nef", "nrw", "arw", "pef"].contains(&ext.as_str()) {
+                continue;
+            }
+            let path = dir.join(src.file_name().unwrap());
+            std::fs::copy(&src, &path).unwrap();
+            let before = crate::decode::raw::orientation_of(&path).unwrap();
+            turn_tiff(&path, true).unwrap();
+            let after = crate::decode::raw::orientation_of(&path).unwrap();
+            println!("{} : {before:?} -> {after:?}", src.display());
+            let expected = image::metadata::Orientation::from_exif(turned(u16::from(before.to_exif()), true) as u8).unwrap();
+            assert_eq!(after, expected, "{}", src.display());
+            turn_tiff(&path, false).unwrap();
+            assert_eq!(std::fs::read(&path).unwrap(), std::fs::read(&src).unwrap(), "{}", src.display());
+        }
         std::fs::remove_dir_all(&dir).unwrap();
     }
 }

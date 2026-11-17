@@ -1,8 +1,8 @@
 // Barre du bas de la visionneuse (apparence v8, deux lignes).
 // Ligne 1 : infos du fichier (VIEW-10), juste à droite le champ d'ajout de tag (VIEW-20),
-// puis les actions : Copier le fichier (VIEW-35), Favori (VIEW-11), Dossier (VIEW-15),
-// Explorer (VIEW-13), Ouvrir avec l'application par défaut (VIEW-24), Tourner ↺ ↻ (VIEW-60), Imprimer (VIEW-17, images
-// seulement), Supprimer (VIEW-14 : pop-in DEL-04, puis le média suivant). Pas de « Télécharger »
+// puis les actions : Tourner ↺ ↻ (VIEW-60, à gauche de « Copier » : retour 60.5), Copier le fichier (VIEW-35), Favori
+// (VIEW-11), Dossier (VIEW-15), Explorer (VIEW-13), Ouvrir avec l'application par défaut (VIEW-24), Imprimer (VIEW-17,
+// images seulement), Supprimer (VIEW-14 : pop-in DEL-04, puis le média suivant). Pas de « Télécharger »
 // (VIEW-12). Favori : étoile dorée si favori, à jour partout (FAV-03). Dossier : liste à cocher des
 // dossiers ouverte au-dessus du bouton (FOLD-09). Échec d'une action : message d'erreur (VIEW-28).
 // Chaque action a son raccourci clavier (VIEW-36, lib/shortcuts.ts).
@@ -22,7 +22,7 @@ import { viewerActionFor, withShortcut, type ViewerAction } from "@/lib/shortcut
 import { cn } from "@/lib/utils";
 import { setFavorite, useIsFavorite } from "@/stores/favorites";
 import { useViewer } from "@/stores/viewer";
-import { copyFile, openFile, revealFile, rotateMedia } from "./mediaActions";
+import { copyFile, openFile, revealFile, rotateMedia, turning } from "./mediaActions";
 import { DeleteShownDialog } from "./DeleteShown";
 import { fileNameMenu } from "./mediaMenus";
 import { ACTION_BUTTON } from "./viewerChrome";
@@ -80,6 +80,8 @@ function useShortcuts(actions: ActionDef[]) {
       const found = actions.find((a) => a.action === viewerActionFor(e));
       if (!found?.run || found.unavailable !== undefined) return;
       if (found.action === "copy" && window.getSelection()?.toString()) return;
+      // R maintenu (retour 60.1) : une rotation à la fois, rien ne s'accumule ; elles s'arrêtent au relâchement.
+      if (e.repeat && (found.action === "rotateLeft" || found.action === "rotateRight") && turning()) return e.preventDefault();
       e.preventDefault();
       found.run();
     };
@@ -104,6 +106,26 @@ export function InfoBar({ item, children }: { item: MediaItem; children: ReactNo
   ].filter(Boolean);
 
   const actions: ActionDef[] = [
+    // Rotation (VIEW-60, réponse Q25 A) : icônes seules ↺ ↻, grisées pour un son ou un document ;
+    // à gauche de « Copier » (retour 60.5).
+    {
+      action: "rotateLeft",
+      zone: "visionneuse.tourner-gauche",
+      icon: RotateCcw,
+      label: "",
+      title: "Tourner à gauche",
+      run: () => rotateMedia(item, false),
+      unavailable: noRotate,
+    },
+    {
+      action: "rotateRight",
+      zone: "visionneuse.tourner-droite",
+      icon: RotateCw,
+      label: "",
+      title: "Tourner à droite",
+      run: () => rotateMedia(item, true),
+      unavailable: noRotate,
+    },
     {
       action: "copy",
       zone: "visionneuse.copier",
@@ -153,25 +175,6 @@ export function InfoBar({ item, children }: { item: MediaItem; children: ReactNo
       label: "Ouvrir avec…",
       title: "Ouvrir avec l'application par défaut",
       run: () => openFile(item),
-    },
-    // Rotation (VIEW-60, réponse Q25 A) : icônes seules ↺ ↻, grisées pour un son ou un document.
-    {
-      action: "rotateLeft",
-      zone: "visionneuse.tourner-gauche",
-      icon: RotateCcw,
-      label: "",
-      title: "Tourner à gauche",
-      run: () => rotateMedia(item, false),
-      unavailable: noRotate,
-    },
-    {
-      action: "rotateRight",
-      zone: "visionneuse.tourner-droite",
-      icon: RotateCw,
-      label: "",
-      title: "Tourner à droite",
-      run: () => rotateMedia(item, true),
-      unavailable: noRotate,
     },
     {
       action: "print",

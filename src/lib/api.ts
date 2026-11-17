@@ -542,6 +542,8 @@ export const EVENTS = {
   deletionFailed: "deletion-failed",
   /** Fichiers disparus et emplacements inaccessibles (LIB-05, LIB-14). */
   libraryCheck: "library-check",
+  /** Médias passés « fichier introuvable » pendant la séance (VIEW-65) : `[{ id, path }]`. */
+  mediaMissing: "media-missing",
 } as const;
 
 /** Tailles servies par le protocole `thumb://` : 320 px, 128 px (LIB-12), aperçus 640 px (LIB-09)

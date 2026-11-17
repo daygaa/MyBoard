@@ -83,7 +83,8 @@ pub fn check(db: &Connection, child: i64, parent: i64) -> rusqlite::Result<RuleC
         Some("Cette règle existe déjà.".to_string())
     } else if reaches(db, parent, child)? {
         Some(format!(
-            "Impossible : « {} » est déjà un parent de « {} » (directement ou en chaîne), la règle ferait une boucle.",
+            // Tags marqués (U+2063 de part et d'autre) : en couleur dans la pop-in d'erreur (GEN-32, `q()` de l'interface).
+            "Impossible : « \u{2063}{}\u{2063} » est déjà un parent de « \u{2063}{}\u{2063} » (directement ou en chaîne), la règle ferait une boucle.",
             name(db, child)?,
             name(db, parent)?
         ))

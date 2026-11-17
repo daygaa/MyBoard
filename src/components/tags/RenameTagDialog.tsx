@@ -18,7 +18,6 @@ import { displayTag, normalizeTag } from "@/lib/tags";
 import { followRename, runTagAction } from "@/lib/tagManager";
 import { useViewer } from "@/stores/viewer";
 import { MergeSwitch } from "./MergeSwitch";
-import { tagText } from "./TagText";
 
 const CANCEL = "text-foreground hover:bg-secondary hover:text-foreground";
 const GOLD = "bg-[#d9a94e] text-[#1a1408] hover:bg-[#e3b75f] disabled:hover:bg-[#d9a94e]";
@@ -33,13 +32,12 @@ export function SynonymTagDialog({ source, existing, onCancel, onDone }: { sourc
   const [merge, setMerge] = useState<boolean | null>(null);
   const on = merge ?? preview?.fullyMerged ?? false;
   const nothing = preview !== undefined && preview.added.length === 0;
-  const [from, to] = [displayTag(source.name), displayTag(existing.name)];
   const create = () => {
     if (!preview || nothing) return;
     onDone();
     void createGroup({ id: existing.id, name: preview.principal ?? existing.name }, [source.name], on, preview, [], () => {}, true);
   };
-  const where = existing.alias ? `« ${displayTag(existing.alias)} » est fusionné dans « ${to} »` : `« ${to} » existe déjà`;
+  const where = existing.alias ? `${q(existing.alias)} est fusionné dans ${q(existing.name)}` : `${q(existing.name)} existe déjà`;
   return (
     <Modal
       open
@@ -48,11 +46,10 @@ export function SynonymTagDialog({ source, existing, onCancel, onDone }: { sourc
       onClose={onCancel}
       zone="tag-synonyme"
       title="Créer un synonyme ?"
-      renderText={tagText}
       description={
         nothing
-          ? `« ${from} » est déjà un synonyme de « ${displayTag(preview.principal ?? existing.name)} ».`
-          : `${where} (${media(existing.mediaCount)}). « ${from} » et « ${to} » seront reliés : chercher l'un trouvera aussi l'autre. Rien n'est renommé.`
+          ? `${q(source.name)} est déjà un synonyme de ${q(preview.principal ?? existing.name)}.`
+          : `${where} (${media(existing.mediaCount)}). ${q(source.name)} et ${q(existing.name)} seront reliés : chercher l'un trouvera aussi l'autre. Rien n'est renommé.`
       }
       footer={
         <>

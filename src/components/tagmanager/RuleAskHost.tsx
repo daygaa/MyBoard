@@ -9,7 +9,7 @@ import { useState } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { formatNumber } from "@/lib/format";
-import { tagNode, tagText, TagText } from "@/components/tags/TagText";
+import { tagNode, TagText } from "@/components/tags/TagText";
 import { copyPlain } from "@/lib/keepWords";
 import { rememberChecks } from "@/lib/mergeRules";
 import { useRuleAsk, type AskRules, type RuleAsk } from "@/lib/tagRules";
@@ -58,7 +58,6 @@ function Ask({ ask }: { ask: RuleAsk }) {
     <ConfirmDialog
       zone="regle-confirmation"
       title={ask.title}
-      renderText={tagText}
       // La règle « X → Y » reste en place sous le titre quand le texte défile (pop-in limitée en hauteur).
       subtitle={ask.lead && <p onCopy={copyPlain} className="text-[15px] text-foreground [overflow-wrap:break-word]"><TagText text={ask.lead} /></p>}
       message={

@@ -68,11 +68,14 @@ pub fn handle(app: &AppHandle, request: Request<Vec<u8>>, responder: UriSchemeRe
     let ffmpeg = state.thumbs.ffmpeg().cloned();
     let range = request.headers().get(header::RANGE).and_then(|v| v.to_str().ok()).map(str::to_string);
     let name = request.uri().path().trim_start_matches('/').to_string();
+    let app = app.clone();
     // Lecture du disque hors du fil principal : la fenêtre n'attend jamais.
     tauri::async_runtime::spawn_blocking(move || {
+        // Fichier supprimé pendant la séance : le média passe « fichier introuvable » (VIEW-65).
+        let lookup = |rest: &str| lookup(&db_path, rest).filter(|t| present(&app, t));
         let as_jpeg = name.starts_with("jpeg/");
         if let Some(rest) = name.strip_prefix("apercu/") {
-            let response = match lookup(&db_path, rest).and_then(|t| raw_preview(&t.path)) {
+            let response = match lookup(rest).and_then(|t| raw_preview(&t.path)) {
                 Some(bytes) => ok(bytes, "image/jpeg"),
                 None => status(StatusCode::NOT_FOUND),
             };
@@ -80,9 +83,9 @@ pub fn handle(app: &AppHandle, request: Request<Vec<u8>>, responder: UriSchemeRe
             return;
         }
         let target = if let Some(rest) = name.strip_prefix("gif/") {
-            lookup(&db_path, rest).filter(|t| t.ext == "gif").and_then(|t| gif_target(&root, t, rest))
+            lookup(rest).filter(|t| t.ext == "gif").and_then(|t| gif_target(&root, t, rest))
         } else {
-            lookup(&db_path, name.strip_prefix("jpeg/").unwrap_or(&name))
+            lookup(name.strip_prefix("jpeg/").unwrap_or(&name))
         };
         let response = match target {
             Some(target) if as_jpeg => match converted(&target, ffmpeg.as_ref(), true) {
@@ -94,6 +97,17 @@ pub fn handle(app: &AppHandle, request: Request<Vec<u8>>, responder: UriSchemeRe
         };
         responder.respond(response);
     });
+}
+
+/// Le fichier du média est-il sur le disque ? Sinon, la marque « fichier introuvable » est posée (VIEW-65).
+fn present(app: &AppHandle, target: &Target) -> bool {
+    if target.path.exists() {
+        return true;
+    }
+    if let Some(state) = app.try_state::<AppState>() {
+        crate::library_check::found_missing(&state.db.lock().unwrap(), target.id, &target.path);
+    }
+    false
 }
 
 /// Vidéo d'un GIF dans le cache (`<id>/<hash>.mp4`), si elle a été préparée.
@@ -236,7 +250,8 @@ fn raw_preview(path: &Path) -> Option<Vec<u8>> {
     if !crate::decode::raw::is_raw(path) {
         return None;
     }
-    let mut img = crate::decode::raw::preview(path).ok()?;
+    // Sans aperçu lisible (Olympus ORF…) : rien ; la miniature reste jusqu'à l'image décodée (retour 64.1).
+    let mut img = crate::decode::raw::embedded(path).ok()??;
     if img.width().max(img.height()) > RAW_PREVIEW_SIDE {
         img = img.thumbnail(RAW_PREVIEW_SIDE, RAW_PREVIEW_SIDE);
     }

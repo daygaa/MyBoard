@@ -16,6 +16,7 @@ export function DeleteShownDialog({ item, onClose }: { item: MediaItem; onClose:
     <DeleteDialog
       count={1}
       name={item.fileName}
+      gone={item.missing}
       onCancel={onClose}
       onConfirm={(deleteFiles) => {
         onClose();

@@ -12,7 +12,7 @@ import { whileBusy } from "./busy";
 import { formatNumber, plural } from "./format";
 import { rulesApi, type ParentRow } from "./rulesApi";
 import { runTagAction as runAction } from "./tagManager";
-import { quote } from "./keepWords";
+import { quoteTag } from "./keepWords";
 import { displayTag } from "./tags";
 
 /** Une ligne « Règles de parents » d'une pop-in de fusion (lot R5) ; `option` : sa case « Appliquer » (TAGM-27), le
@@ -49,8 +49,9 @@ export type NameOf = (id: number) => string;
  *  curseur d'attente pendant ce temps (GEN-13). */
 export const runTagAction = <T>(label: string, call: () => Promise<T>) => runAction(label, () => whileBusy(call));
 
-/** Tag cité, jamais coupé en fin de ligne (retour T3, point TAGM-16.3 ; GEN-22, keepWords.ts). */
-export const q = (name: string) => quote(displayTag(name));
+/** Tag cité, jamais coupé en fin de ligne (retour T3, point TAGM-16.3 ; GEN-22, keepWords.ts) et marqué : toute pop-in,
+ *  tout menu le met en couleur (GEN-32). TOUT tag cité dans un texte passe par ici (règle de docs/DEV.md). */
+export const q = (name: string) => quoteTag(displayTag(name));
 /** « 3 médias », jamais coupé entre le nombre et le mot. */
 export const media = (n: number) => `${formatNumber(n)} ${plural(n, "média")}`;
 

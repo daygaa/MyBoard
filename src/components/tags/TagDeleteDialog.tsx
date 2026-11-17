@@ -18,7 +18,7 @@ import { api, type DeletePreview, type TagInfo } from "@/lib/api";
 import { formatNumber } from "@/lib/format";
 import { deleteTags } from "@/lib/tagManager";
 import { copyPlain } from "@/lib/keepWords";
-import { tagNode, tagText, TagText } from "./TagText";
+import { tagNode, TagText } from "./TagText";
 import { media, q } from "@/lib/tagRules";
 
 type Props = { tags: Pick<TagInfo, "id" | "name" | "mediaCount">[]; onCancel: () => void; onDone: () => void };
@@ -161,7 +161,6 @@ export function TagDeleteDialog({ tags, onCancel, onDone }: Props) {
       zone="tag-suppression"
       danger
       title={one ? `Supprimer ${q(one.name)} ?` : `Supprimer ces ${formatNumber(tags.length)} tags ?`}
-      renderText={tagText}
       message={
         // Les synonymes (texte et cases) au-dessus du trait ; les règles de parents dessous.
         <div onCopy={copyPlain} className="[overflow-wrap:break-word]">

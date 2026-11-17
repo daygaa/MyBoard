@@ -46,6 +46,6 @@ export function tileMenu(item: MediaItem, index: number, pageSize: number, selec
       : [selection ? removeFromFolderEntry(selection, folder, folderName) : { label: "Retirer de ce dossier", run: () => void setFolderMedia(folder, [item.id], false) }]),
     selection
       ? deleteSelectionEntry(selection)
-      : deleteEntry({ count: 1, name: item.fileName }, (deleteFiles) => void deleteMedia([item.id], deleteFiles)),
+      : deleteEntry({ count: 1, name: item.fileName, gone: item.missing }, (deleteFiles) => void deleteMedia([item.id], deleteFiles)),
   ];
 }

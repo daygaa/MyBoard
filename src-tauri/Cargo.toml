@@ -21,8 +21,9 @@ serde_json = "1"
 anyhow = "1"
 # SQLite compilé avec l'application (aucune installation requise).
 rusqlite = { version = "0.40", features = ["bundled"] }
-# Empreinte du contenu des fichiers (détection des doublons).
-blake3 = "1"
+# Empreinte du contenu des fichiers (détection des doublons). `rayon`, `mmap` : empreinte sur plusieurs cœurs d'un fichier
+# tourné (VIEW-60, retour 60.4).
+blake3 = { version = "1", features = ["rayon", "mmap"] }
 walkdir = "2"
 # Décodage des images pour les miniatures (formats courants, sans dépendance système).
 image = { version = "0.25", default-features = false, features = ["jpeg", "png", "gif", "webp", "bmp", "tiff", "tga", "ico", "qoi", "exr", "hdr"] }

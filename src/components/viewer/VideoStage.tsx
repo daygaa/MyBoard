@@ -29,6 +29,7 @@ import { usePreviewReady } from "@/stores/previews";
 import { useViewer } from "@/stores/viewer";
 
 import { useBurstLight } from "./burst";
+import { clearStartsPaused, startsPaused } from "./mediaActions";
 import { videoMenu } from "./mediaMenus";
 import { stageThumb } from "./navigation";
 import { PlayerBadge, SPEED_BADGE_MS, usePlayerBadge } from "./PlayerBadge";
@@ -104,6 +105,9 @@ export function VideoStage({ item, onClose, fallback }: { item: MediaItem; onClo
     staleTime: Infinity,
   });
   const gif = useGifVideo(item.id, isGif && !light);
+  // Vidéo en pause dont le fichier vient d'être tourné (VIEW-60) : rechargée, elle reste en pause (retour 60.3).
+  const [paused] = useState(() => startsPaused(item));
+  useEffect(() => clearStartsPaused(item), [item]);
   const subs = useSubtitles(item.id, videoRef, !isGif && !light);
   const { volume, muted, loop: videoLoop, speed } = usePlayer();
   const loop = isGif ? gif.loop : videoLoop;
@@ -198,7 +202,7 @@ export function VideoStage({ item, onClose, fallback }: { item: MediaItem; onClo
         <video
           ref={videoRef}
           src={light ? undefined : isGif ? (gif.src ?? undefined) : viaProtocol ? mediaUrl(item) : directUrl(item)}
-          autoPlay={!isGif}
+          autoPlay={!isGif && !paused}
           playsInline
           // 1re image prête : la miniature part à l'image suivante (la vidéo est déjà dessinée dessous).
           onLoadedData={() => fromBurst && requestAnimationFrame(() => setPainted(true))}

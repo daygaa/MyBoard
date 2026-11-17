@@ -32,7 +32,7 @@ export function DeleteKey() {
       } else {
         const item = hoveredMedia();
         if (!item) return;
-        entry = deleteEntry({ count: 1, name: item.fileName }, (deleteFiles) => void deleteMedia([item.id], deleteFiles));
+        entry = deleteEntry({ count: 1, name: item.fileName, gone: item.missing }, (deleteFiles) => void deleteMedia([item.id], deleteFiles));
       }
       e.preventDefault();
       const close = () => setDialog(null);

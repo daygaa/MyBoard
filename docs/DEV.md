@@ -39,7 +39,11 @@ Documents de référence :
 - toute nouvelle pop-in : `onEnter`, `data-principale` (GEN-20), aucun mot coupé (GEN-22), ≤ 80 % de la fenêtre (GEN-25) ;
 - toujours pouvoir revenir en arrière (GEN-21) ; toute zone qui défile à part : `overscroll-behavior: contain` (GEN-24) ;
 - raccourcis : tous dans `src/lib/shortcuts.ts`, lettres des mots anglais, affichés dans les bulles et les menus ;
-- visionneuse : tout nouvel élément flottant va dans `KEEP_SHOWN` (`src/components/viewer/viewerChrome.ts`, VIEW-48).
+- visionneuse : tout nouvel élément flottant va dans `KEEP_SHOWN` (`src/components/viewer/viewerChrome.ts`, VIEW-48) ;
+- tag cité dans un texte (pop-in, menu, message d'erreur) : toujours `q(nom)` (`src/lib/tagRules.ts`), jamais « … »
+  écrit à la main ; côté Rust : `« \u{2063}{nom}\u{2063} »`. `q()` le marque : `Modal` (titre, texte), `ConfirmDialog`,
+  la pop-in d'erreur et les menus le mettent en couleur d'office ; un texte écrit en JSX passe par `<TagText text=… />`
+  (GEN-32).
 
 ## Commandes
 

@@ -141,6 +141,32 @@ function createWorker(): Worker {
 /** Copie décodée prête d'une image (à la taille de l'écran), ou null. */
 export const readyBitmap = (id: string): ImageBitmap | null => entries.get(id)?.bitmap ?? null;
 
+/** Fichier tourné d'un quart de tour (VIEW-60, nouvelle empreinte) : sa copie est faite tout de suite à partir de celle
+ *  d'avant, ou de l'original affiché, tournée ; la visionneuse la montre aussitôt au lieu de la miniature (retour 60.2). */
+export function adoptTurned(before: MediaItem, after: MediaItem, clockwise: boolean) {
+  const size = copySize(after);
+  if (!size || entries.get(after.hash)?.bitmap) return;
+  const shown = document.querySelector<HTMLImageElement>('[data-zone="visionneuse.image"] img[alt]:not([alt=""])');
+  const source = readyBitmap(before.hash) ?? (shown?.complete && shown.naturalWidth > 0 ? shown : null);
+  if (!source) return;
+  const { w, h } = size;
+  const canvas = new OffscreenCanvas(w, h);
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
+  ctx.translate(w / 2, h / 2);
+  ctx.rotate(((clockwise ? 1 : -1) * Math.PI) / 2);
+  // Avant le quart de tour, l'image avait les proportions inverses.
+  ctx.drawImage(source, -h / 2, -w / 2, h, w);
+  const bitmap = canvas.transferToImageBitmap();
+  const old = entries.get(after.hash);
+  if (old) total -= old.bytes;
+  entries.set(after.hash, { bitmap, bytes: w * h * 4 });
+  total += w * h * 4;
+  keep.add(after.hash);
+  notify(after.hash, bitmap);
+  trim();
+}
+
 /** Prévient quand la copie de cette image est prête (ou impossible : null) ; renvoie de quoi se désabonner. */
 export function whenReady(id: string, cb: (bitmap: ImageBitmap | null) => void): () => void {
   const set = waiting.get(id) ?? new Set();

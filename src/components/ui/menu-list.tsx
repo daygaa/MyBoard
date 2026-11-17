@@ -7,6 +7,7 @@
 import type { CSSProperties, RefObject } from "react";
 import { Check, ChevronRight, Minus } from "lucide-react";
 
+import { TagText } from "@/components/tags/TagText";
 import type { MenuEntry, MenuItem } from "@/lib/contextMenu";
 import { cn } from "@/lib/utils";
 import { MENU_ITEM, MENU_ITEM_ACTIVE, MENU_SURFACE } from "./dropdown-menu";
@@ -94,7 +95,7 @@ export function MenuList({ entries, active, listRef, style, zone, onHover, onLea
             )}
             {entry.color && <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: entry.color }} />}
             {/* Libellé très long (nom de dossier…) : coupé par « … ». */}
-            <span className="max-w-80 flex-1 truncate whitespace-nowrap">{entry.label}</span>
+            <span className="max-w-80 flex-1 truncate whitespace-nowrap">{typeof entry.label === "string" ? <TagText text={entry.label} /> : entry.label}</span>
             {entry.detail && (
               <span className={cn("ml-6 text-xs whitespace-nowrap tabular-nums", on ? "opacity-70" : "text-muted-foreground")}>{entry.detail}</span>
             )}
