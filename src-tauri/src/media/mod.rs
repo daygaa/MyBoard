@@ -4,7 +4,7 @@
 //! (VIEW-28). Fichier original servi par le protocole `media://` (voir `protocol.rs`), ou lu
 //! directement par WebView2 pour les images (`direct.rs`, VIEW-53). L'image elle-même (copie, fond
 //! d'écran, capture d'une vidéo) : `picture.rs`. Sous-titres (VIEW-52) : `subtitles.rs` ; GIF lus par
-//! le lecteur vidéo (VIEW-54) : `gif.rs`.
+//! le lecteur vidéo (VIEW-54) : `gif.rs`. Rotation de ± 90° (VIEW-60) : `rotate/`.
 
 mod clipboard;
 pub mod direct;
@@ -12,6 +12,7 @@ pub mod gif;
 pub mod keyframes;
 pub mod picture;
 pub mod protocol;
+pub mod rotate;
 pub mod subtitles;
 
 use std::path::{Path, PathBuf};

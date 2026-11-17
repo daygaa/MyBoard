@@ -157,7 +157,8 @@ impl Process {
 
     fn image_action(&self, ext: &str) -> Option<Action> {
         let source = family_of(ext)?;
-        if source == Family::Work {
+        // GIF : jamais compressé ni converti, même non animé (IMP-94, réponse Q58 A du 17/11).
+        if source == Family::Work || source == Family::Gif {
             return None;
         }
         match self.convert {

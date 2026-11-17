@@ -158,6 +158,18 @@ impl ThumbService {
         self.shared.wake.notify_all();
     }
 
+    /// Fichier tourné (VIEW-60) : ses miniatures 320 et 128 px, tournées d'un quart de tour, sont rangées sous sa
+    /// nouvelle empreinte ; rien n'est relu sur le disque et la vignette ne clignote pas. `false` : pas de miniature
+    /// à tourner (à refaire depuis le fichier).
+    pub fn copy_turned(&self, old: &str, new: &str, clockwise: bool) -> anyhow::Result<bool> {
+        let store = self.shared.store.lock().unwrap();
+        let (Some(normal), Some(small)) = (store::get(&store, store::Tier::Normal, old)?, store::get(&store, store::Tier::Small, old)?) else {
+            return Ok(false);
+        };
+        store::put_thumbs(&store, new, &image::turned(&normal, clockwise)?, &image::turned(&small, clockwise)?)?;
+        Ok(true)
+    }
+
     /// Fait passer en premier les médias de la page affichée (remplace la priorité précédente).
     pub fn prioritize(&self, ids: &[i64]) -> anyhow::Result<()> {
         if ids.is_empty() {

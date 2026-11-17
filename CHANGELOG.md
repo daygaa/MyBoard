@@ -3,6 +3,19 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Lot R8 : rotation, tags colorés dans les pop-ins, pagination, petites vignettes (17/11/2026) — Backup v148
+
+SPEC : VIEW-60, GRID-16, GEN-32, PAGE-06, VIEW-64, IMP-94 `[~]` ; GEN-29 : question Q60 ; décision D-079 ; schéma 23.
+
+- VIEW-60 : rotation de ± 90° des images et des vidéos (boutons ↺ ↻ de la visionneuse, touches R et Maj + R, menus
+  du clic droit) : écrite dans le fichier sans perte pour JPEG, TIFF, DNG, MP4, MOV ; à l'affichage pour les autres
+  formats (gardée dans la base).
+- GEN-32 : les tags cités dans les pop-ins des tags prennent la couleur de leur catégorie et la police du gestionnaire.
+- PAGE-06 : les flèches de la pagination restent à la même place d'une page à l'autre.
+- GRID-16 : sur les petites vignettes, le nom survolé fait au moins 12 px à l'écran, sur 2 ou 3 lignes s'il le faut.
+- VIEW-64 : l'aperçu d'un RAW s'affiche aussi quand sa miniature n'était pas finie à l'ouverture de la grille.
+- IMP-94 : plus aucun GIF n'est converti, même non animé.
+
 ## Lot R7, 2e tour : PSD en document, JPEG XL compressé, RAW plus fidèles (17/11/2026) — Backup v147
 
 SPEC : IMP-89 `[~]`, IMP-93 `[~]` ; questions Q58, Q59 ; décision D-078 complétée ; schéma 22.

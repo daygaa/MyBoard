@@ -4,12 +4,13 @@
 // hors du calque réduit `tile-overlay` (`.tile-star`, index.css : D-008). En mode sélection (SEL-01,
 // SEL-05) : case dans le coin opposé, contour doré si cochée ; un clic coche ou décoche, Maj + clic
 // coche toute la rangée (SEL-10) ; clic droit d'une vignette cochée : menu de la sélection (SEL-08). Vignettes de
-// moins de ~2,2 cm : nom seul, agrandi, sans l'étoile (GRID-11, GRID-08, index.css). Un média supprimé
+// moins de ~2,2 cm : nom seul, agrandi, sans l'étoile (GRID-11, GRID-08, index.css), lisible (12 px à l'écran au
+// moins, sur 2 ou 3 lignes s'il le faut, GRID-16). Un média supprimé
 // disparaît à l'instant du clic (DEL-01). Fichier introuvable (LIB-05) ou emplacement inaccessible (LIB-14) : petite
 // marque sous l'étoile, réduite et masquée comme elle (mêmes règles de densité, précision du 11/11, `.tile-mark`).
 // Hors sélection : clic = visionneuse plein écran (VIEW-01) ; Ctrl + clic = coche la vignette et passe en mode
 // sélection (SEL-11) ; clic droit = menu de la vignette (CTX-05). `data-media` : média sous la souris pour la
-// touche Suppr (GRID-13, MediaGrid).
+// touche Suppr (GRID-13, MediaGrid). Rotation d'affichage (VIEW-60) : la miniature, carrée, tourne sur place.
 //
 // Taille de l'image choisie par la grille d'après la largeur réelle de la vignette (LIB-16) :
 // 128 px (LIB-12) ou 320 px ; pour 640 et 1 280 px, la 320 px s'affiche puis le grand aperçu,
@@ -21,7 +22,7 @@ import { memo, useRef, useState } from "react";
 import { Check, File, FileSpreadsheet, FileText, FileX, Film, Image as ImageIcon, Music, Play, Star, Unplug } from "lucide-react";
 
 import { usePreview } from "@/hooks/usePreview";
-import { THUMB, thumbUrl, type MediaItem, type PreviewSize } from "@/lib/api";
+import { THUMB, shownSize, thumbUrl, turnStyle, type MediaItem, type PreviewSize } from "@/lib/api";
 import { openContextMenu, openContextMenuAsync } from "@/lib/contextMenu";
 import { formatBytes, formatDuration } from "@/lib/format";
 import type { ThumbSize } from "@/lib/grid";
@@ -69,10 +70,17 @@ function Placeholder({ item, status, compact }: { item: MediaItem; status: numbe
  *  la hauteur libérée par la ligne poids / dimensions (≈ 35 px dans le calque des infos). */
 const NAME_PX = 12;
 const NAME_MAX_PX = 28;
+/** Taille du nom à l'écran, au moins (GRID-16) : celle d'une vignette pleine. */
+const NAME_SCREEN_PX = 12;
+/** Lignes du nom au plus (GRID-16), et part de la hauteur de la vignette qu'elles peuvent prendre. */
+const NAME_LINES = 3;
+const NAME_ROOM = 0.7;
 let ruler: CanvasRenderingContext2D | null = null;
 
 /** Mode « nom seul » (GRID-11) : taille du nom pour qu'il tienne en entier sur une ligne dans
- *  toute la largeur, jamais plus petit que la taille normale (au-delà, « … »). Calculée au
+ *  toute la largeur, jamais plus petit que la taille normale. Le calque des infos est réduit avec la
+ *  vignette (GRID-10) : la taille est relevée pour faire au moins 12 px à l'écran ; un nom trop long pour
+ *  une ligne à cette taille passe sur 2 ou 3 lignes, « … » seulement au-delà (GRID-16). Calculée au
  *  survol, pour la seule vignette survolée (D-008). */
 function fitName(name: HTMLElement) {
   const info = name.closest<HTMLElement>(".tile-info");
@@ -83,9 +91,17 @@ function fitName(name: HTMLElement) {
   const textWidth = ruler.measureText(name.textContent ?? "").width;
   const box = getComputedStyle(info);
   const room = info.clientWidth - parseFloat(box.paddingLeft) - parseFloat(box.paddingRight);
+  // Réduction du calque : 1 px du calque fait `scale` px à l'écran.
+  const scale = info.getBoundingClientRect().width / info.clientWidth || 1;
+  const min = Math.max(NAME_PX, NAME_SCREEN_PX / scale);
   // 2 % de marge : un arrondi ne doit pas faire apparaître « … » sur un nom qui tient.
-  const size = Math.min(NAME_MAX_PX, Math.max(NAME_PX, (NAME_PX * room * 0.98) / textWidth));
+  const fit = (NAME_PX * room * 0.98) / textWidth;
+  const size = fit >= min ? Math.min(fit, Math.max(NAME_MAX_PX, min)) : min;
   name.style.setProperty("--name-size", `${size.toFixed(2)}px`);
+  const height = (info.parentElement?.clientHeight ?? 0) * NAME_ROOM;
+  const lines = Math.max(1, Math.min(NAME_LINES, Math.floor(height / (size * 1.2))));
+  name.style.setProperty("--name-lines", String(lines));
+  name.toggleAttribute("data-lignes", fit < min && lines > 1);
 }
 
 /** Dernière position de la souris : après un changement de densité, la vignette sous elle n'a pas reçu « la souris
@@ -204,8 +220,9 @@ export const MediaTile = memo(function MediaTile({ item, index, pageSize, compac
   const small = thumbSize === 128;
   const preview = thumbSize === 640 || thumbSize === 1280 ? thumbSize : null;
   const previewReady = usePreview(ref, item.id, ready && preview !== previewFailed ? preview : null);
-  const width = update?.width ?? item.width;
-  const height = update?.height ?? item.height;
+  // Dimensions affichées : rotation d'affichage comprise (VIEW-60).
+  const { w: width, h: height } = shownSize({ width: update?.width ?? item.width, height: update?.height ?? item.height, rotation: item.rotation });
+  const turn = turnStyle(item);
   const duration = update?.durationMs ?? item.durationMs;
   const isVideo = item.kind === "video";
   const hasBadge = isVideo || item.ext === "gif";
@@ -247,6 +264,7 @@ export const MediaTile = memo(function MediaTile({ item, index, pageSize, compac
             // Miniature 128 px pas encore créée (ancienne bibliothèque) : on prend la 320 px.
             onError={() => (small && !smallFailed ? setSmallFailed(true) : setFailed(true))}
             className="h-full w-full object-cover"
+            style={turn}
           />
           {preview && previewReady && (
             <img
@@ -259,6 +277,7 @@ export const MediaTile = memo(function MediaTile({ item, index, pageSize, compac
               onLoad={(e) => (e.currentTarget.dataset.loaded = "")}
               onError={() => setPreviewFailed(preview)}
               className="absolute inset-0 h-full w-full object-cover opacity-0 transition-opacity duration-200 data-loaded:opacity-100"
+              style={turn}
             />
           )}
         </div>

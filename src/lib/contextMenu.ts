@@ -14,7 +14,8 @@ import { create } from "zustand";
 import { textMenuFor } from "./textMenus";
 
 /** Confirmation demandée avant d'agir (CTX-02) ; `danger` : bouton « Oui » rouge. */
-export type Confirm = { title: string; message: ReactNode; danger?: boolean };
+/** `renderText` : tags cités en couleur (GEN-32). */
+export type Confirm = { title: string; message: ReactNode; danger?: boolean; renderText?: (text: string) => ReactNode };
 
 export type MenuItem = {
   label: string;

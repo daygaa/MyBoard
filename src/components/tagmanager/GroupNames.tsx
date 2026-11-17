@@ -6,6 +6,7 @@
 
 import { Star, X } from "lucide-react";
 
+import { tagText } from "@/components/tags/TagText";
 import { Switch } from "@/components/ui/switch";
 import { openContextMenu } from "@/lib/contextMenu";
 import { formatNumber } from "@/lib/format";
@@ -19,10 +20,10 @@ import { TagName, type TagOf } from "./RuleLines";
 export const LINE = "flex h-8 items-center gap-2 rounded-md px-1.5 text-sm hover:bg-secondary/40";
 export const ICON = "grid h-6 w-6 shrink-0 place-items-center rounded text-muted-foreground transition hover:bg-secondary";
 
-/** Confirmation d'une entrée rouge du menu (CTX-02) : le texte sur une seule ligne. */
+/** Confirmation d'une entrée rouge du menu (CTX-02) : le texte sur une seule ligne, tags cités en couleur (GEN-32). */
 export const menuConfirm = ({ title, message, run }: { title: string; message: string; run: () => unknown }) => ({
   danger: true,
-  confirm: { title, message: message.replace(/\n/g, " "), danger: true },
+  confirm: { title, message: message.replace(/\n/g, " "), danger: true, renderText: tagText },
   run: () => void run(),
 });
 

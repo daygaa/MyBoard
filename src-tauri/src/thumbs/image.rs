@@ -56,6 +56,15 @@ pub fn fit_of(img: DynamicImage, side: u32) -> anyhow::Result<Vec<u8>> {
     Ok(encode(&img))
 }
 
+/// Miniature déjà encodée, tournée d'un quart de tour (fichier tourné, VIEW-60) : carrée et recadrée au centre, elle
+/// est exactement la miniature de l'image tournée.
+pub fn turned(webp: &[u8], clockwise: bool) -> anyhow::Result<Vec<u8>> {
+    let img = image::load_from_memory_with_format(webp, image::ImageFormat::WebP)?;
+    let img = if clockwise { img.rotate90() } else { img.rotate270() };
+    let img = if img.color().has_alpha() { DynamicImage::ImageRgba8(img.into_rgba8()) } else { DynamicImage::ImageRgb8(img.into_rgb8()) };
+    Ok(encode(&img))
+}
+
 /// Décode en se fiant au contenu (pas à l'extension) et applique la rotation EXIF :
 /// une photo de téléphone prise en portrait doit apparaître en portrait. Sauf pour un WebP : la visionneuse
 /// (WebView2) ignore sa rotation EXIF (mesuré le 10/11) ; miniature et dimensions doivent montrer la même chose

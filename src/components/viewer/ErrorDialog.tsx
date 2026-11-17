@@ -10,7 +10,8 @@ import { Check, Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
 import { api } from "@/lib/api";
-import { copyPlain, keepQuoted } from "@/lib/keepWords";
+import { TagText } from "@/components/tags/TagText";
+import { copyPlain } from "@/lib/keepWords";
 import { explainWindowsError } from "@/lib/windowsErrors";
 import { useViewer } from "@/stores/viewer";
 
@@ -43,7 +44,8 @@ export function ErrorDialog() {
           {code && <p className="font-mono text-xs text-rose-300/80">{code}</p>}
           {/* Retour à la ligne entre les mots seulement (GEN-22 ; retour T3, point TAGM-15.9 : « ce » était coupé). */}
           <p onCopy={copyPlain} className="whitespace-pre-line text-rose-200/90 [overflow-wrap:break-word]">
-            {keepQuoted(error.message)}
+            {/* Un tag cité (erreur d'une action sur les tags) est en couleur (GEN-32). */}
+            <TagText text={error.message} />
           </p>
           {explanation && <p>{explanation}</p>}
         </div>

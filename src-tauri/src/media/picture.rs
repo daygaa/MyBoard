@@ -39,6 +39,22 @@ fn ffmpeg_missing() -> OpenFailure {
     OpenFailure::new(None, "ffmpeg est introuvable : installez ffmpeg, puis relancez MyBoard.")
 }
 
+/// Rotation d'affichage du média (VIEW-60), en quarts de tour dans le sens horaire.
+fn turns_of(state: &AppState, id: i64) -> i64 {
+    state.db.lock().unwrap().query_row("SELECT rotation FROM media WHERE id = ?1", [id], |r| r.get(0)).unwrap_or(0)
+}
+
+/// Image telle qu'affichée : orientation de l'appareil photo, puis rotation d'affichage de MyBoard (VIEW-60).
+fn load_shown(state: &AppState, id: i64, path: &Path) -> Result<DynamicImage, OpenFailure> {
+    let img = load(state, path)?;
+    Ok(match turns_of(state, id) % 4 {
+        1 => img.rotate90(),
+        2 => img.rotate180(),
+        3 => img.rotate270(),
+        _ => img,
+    })
+}
+
 /// Image telle qu'affichée (orientation de l'appareil photo appliquée). Formats que Rust ne lit
 /// pas (HEIC…) : convertie par ffmpeg, comme dans la visionneuse.
 fn load(state: &AppState, path: &Path) -> Result<DynamicImage, OpenFailure> {
@@ -61,29 +77,29 @@ fn load(state: &AppState, path: &Path) -> Result<DynamicImage, OpenFailure> {
 #[tauri::command]
 pub async fn copy_image(state: State<'_, AppState>, id: i64) -> Result<(), OpenFailure> {
     let path = existing_path(&state, id)?;
-    clipboard::copy_image(&load(&state, &path)?)
+    clipboard::copy_image(&load_shown(&state, id, &path)?)
 }
 
 /// Fichier à donner à Windows : l'original s'il le prend tel quel et qu'il n'est pas à tourner ;
 /// sinon une copie convertie dans le dossier de données de MyBoard (remplacée à chaque fois).
-fn wallpaper_file(state: &AppState, path: &Path) -> Result<PathBuf, OpenFailure> {
+fn wallpaper_file(state: &AppState, id: i64, path: &Path) -> Result<PathBuf, OpenFailure> {
     let ext = path.extension().map(|e| e.to_string_lossy().to_lowercase()).unwrap_or_default();
     let rotated = || {
         let mut decoder = ImageReader::open(path).ok()?.with_guessed_format().ok()?.into_decoder().ok()?;
         decoder.orientation().ok().map(|o| o != Orientation::NoTransforms)
     };
-    if WALLPAPER_FORMATS.contains(&ext.as_str()) && rotated() == Some(false) {
+    if WALLPAPER_FORMATS.contains(&ext.as_str()) && rotated() == Some(false) && turns_of(state, id) % 4 == 0 {
         return Ok(path.to_path_buf());
     }
     let copy = state.paths.root.join("fond-ecran.png");
-    load(state, path)?.save(&copy).map_err(failure)?;
+    load_shown(state, id, path)?.save(&copy).map_err(failure)?;
     Ok(copy)
 }
 
 #[tauri::command]
 pub async fn set_wallpaper(state: State<'_, AppState>, id: i64) -> Result<(), OpenFailure> {
     let path = existing_path(&state, id)?;
-    apply_wallpaper(&wallpaper_file(&state, &path)?)
+    apply_wallpaper(&wallpaper_file(&state, id, &path)?)
 }
 
 #[cfg(windows)]

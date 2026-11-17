@@ -15,13 +15,16 @@
 // du 15/11) ; illisible aussi, sans copie : carte « Image illisible dans MyBoard » (VIEW-59, UnreadableCard.tsx).
 // RAW d'appareil photo (VIEW-63) : son aperçu intégré, posé sur la miniature, en attendant l'image décodée (copie à
 // la taille de l'écran ou original) ; les voisines (1 avant, 2 après) sont décodées d'avance comme toute image.
+// Fiche de la grille lue avant la fin de la miniature : dimensions reprises de `thumbs-ready` ou de l'aperçu (VIEW-64).
+// Rotation d'affichage (VIEW-60) : tout ce qui précède est posé dans un cadre tourné d'un ou plusieurs quarts de tour.
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
-import { THUMB, directUrl, isCameraRaw, jpegUrl, mediaUrl, rawPreviewUrl, type MediaItem } from "@/lib/api";
+import { THUMB, directUrl, isCameraRaw, jpegUrl, mediaUrl, rawPreviewUrl, turnsOf, type MediaItem } from "@/lib/api";
 import { openContextMenu } from "@/lib/contextMenu";
 import { cn } from "@/lib/utils";
 import { usePreviewReady } from "@/stores/previews";
+import { useThumbs } from "@/stores/thumbs";
 import { useViewer } from "@/stores/viewer";
 import { hideCopy, showCopy } from "./copyCanvas";
 import { canCopy, pauseCopies, readyBitmap, whenReady } from "./imageCache";
@@ -47,8 +50,18 @@ export function ImageStage({ item, onClose, opening = false }: { item: MediaItem
   /** Scène de la copie : le canevas unique (copyCanvas.ts) y est posé ; copie à l'écran ou non. */
   const copyHost = useRef<HTMLDivElement>(null);
   const copyShown = useRef(false);
+  // Fiche lue par la grille avant la fin de sa miniature (RAW juste importé…) : miniature et dimensions arrivées depuis
+  // (`thumbs-ready`). Sans elles, la scène faisait 0 × 0 : ni miniature ni aperçu du RAW, le fond jusqu'à l'image
+  // décodée (VIEW-64).
+  const sent = useThumbs((s) => s.updates[item.id]);
+  const update = sent?.hash === item.hash ? sent : undefined;
+  const thumbReady = (update?.status ?? item.thumbStatus) === THUMB.ready;
   // Dimensions connues par la base (rotation EXIF comprise) ; corrigées au chargement si besoin.
-  const [natural, setNatural] = useState<Size>({ w: item.width ?? 0, h: item.height ?? 0 });
+  const [natural, setNatural] = useState<Size>({ w: item.width ?? update?.width ?? 0, h: item.height ?? update?.height ?? 0 });
+  const [lateW, lateH] = [update?.width ?? 0, update?.height ?? 0];
+  useEffect(() => {
+    if (lateW && lateH) setNatural((n) => (n.w > 0 ? n : { w: lateW, h: lateH }));
+  }, [lateW, lateH]);
   /** Original décodé, affiché : d'un coup sur la copie, en fondu sur la miniature. */
   const [reveal, setReveal] = useState<"instant" | "fade" | null>(null);
   /** Original opaque à l'écran : la copie ou la miniature, dessous, peut partir. */
@@ -67,7 +80,10 @@ export function ImageStage({ item, onClose, opening = false }: { item: MediaItem
     pauseCopies(true);
     return () => pauseCopies(false);
   }, [holding]);
-  const { view, zoomed, animate, handlers, controls } = useZoom(stageRef, natural, onClose);
+  // Rotation d'affichage (VIEW-60) : l'image garde sa taille dans un cadre tourné ; le zoom voit la taille tournée.
+  const turns = turnsOf(item);
+  const shown = turns % 2 ? { w: natural.h, h: natural.w } : natural;
+  const { view, zoomed, animate, handlers, controls } = useZoom(stageRef, shown, onClose);
   // Copie posée avant d'être affichée (elle est à l'écran dès sa première image), dans le canevas unique de la
   // visionneuse (copyCanvas.ts, retour AUT.7.4) ; retirée quand l'original la recouvre ou que l'image change.
   useLayoutEffect(() => {
@@ -133,52 +149,67 @@ export function ImageStage({ item, onClose, opening = false }: { item: MediaItem
         className={cn("absolute top-1/2 left-1/2", zoomed ? "cursor-grab active:cursor-grabbing" : "cursor-zoom-in")}
         onContextMenu={(e) => openContextMenu(e, () => imageMenu(item, controls))}
         style={{
-          width: natural.w,
-          height: natural.h,
+          width: shown.w,
+          height: shown.h,
           transform: `translate(-50%, -50%) translate(${view.tx}px, ${view.ty}px) scale(${view.scale})`,
           // Animation uniquement pour le clic (ZOOM-07) ; molette et glisser suivent la main.
           transition: animate ? `transform ${ANIM_MS}ms ease-out` : undefined,
           willChange: "transform",
         }}
       >
-        {bitmap && !covered && <div ref={copyHost} className="absolute inset-0 overflow-hidden" />}
-        {!bitmap && !covered && item.thumbStatus === THUMB.ready && side > 0 && (
+        <div
+          className="absolute top-1/2 left-1/2"
+          style={{ width: natural.w, height: natural.h, transform: `translate(-50%, -50%) rotate(${turns * 90}deg)` }}
+        >
+          {bitmap && !covered && <div ref={copyHost} className="absolute inset-0 overflow-hidden" />}
+          {!bitmap && !covered && thumbReady && side > 0 && (
+            <img
+              src={stageThumb(item, previewReady)}
+              alt=""
+              draggable={false}
+              className="absolute"
+              style={{ left: (natural.w - side) / 2, top: (natural.h - side) / 2, width: side, height: side }}
+            />
+          )}
+          {!bitmap && !covered && isCameraRaw(item) && (
+            <img
+              src={rawPreviewUrl(item)}
+              alt=""
+              draggable={false}
+              // Dimensions encore inconnues (miniature pas finie) : celles de l'aperçu, mêmes proportions (VIEW-64).
+              onLoad={(e) => {
+                const { naturalWidth: w, naturalHeight: h } = e.currentTarget;
+                setNatural((n) => (n.w > 0 || !w ? n : { w, h }));
+              }}
+              className="absolute inset-0 h-full w-full"
+            />
+          )}
           <img
-            src={stageThumb(item, previewReady)}
-            alt=""
+            src={wantOriginal ? (source === "jpeg" ? jpegUrl(item) : source === "media" ? mediaUrl(item) : directUrl(item)) : undefined}
+            alt={item.fileName}
             draggable={false}
-            className="absolute"
-            style={{ left: (natural.w - side) / 2, top: (natural.h - side) / 2, width: side, height: side }}
+            decoding="async"
+            onError={() => {
+              if (source === "direct" && item.fileUrl) setSource("media");
+              else if (source !== "jpeg") setSource("jpeg");
+              else setBroken(true);
+            }}
+            onLoad={(e) => {
+              const el = e.currentTarget;
+              const size = { w: el.naturalWidth, h: el.naturalHeight };
+              // Affichée seulement une fois décodée : pas de case vide entre miniature (ou copie) et original.
+              void el
+                .decode()
+                .catch(() => undefined)
+                .then(() => {
+                  setNatural((n) => (n.w === size.w && n.h === size.h ? n : size));
+                  setReveal(copyShown.current ? "instant" : "fade");
+                });
+            }}
+            className="absolute inset-0 h-full w-full"
+            style={{ opacity: reveal ? 1 : 0, transition: reveal === "fade" ? `opacity ${FADE_MS}ms` : undefined }}
           />
-        )}
-        {!bitmap && !covered && isCameraRaw(item) && (
-          <img src={rawPreviewUrl(item)} alt="" draggable={false} className="absolute inset-0 h-full w-full" />
-        )}
-        <img
-          src={wantOriginal ? (source === "jpeg" ? jpegUrl(item) : source === "media" ? mediaUrl(item) : directUrl(item)) : undefined}
-          alt={item.fileName}
-          draggable={false}
-          decoding="async"
-          onError={() => {
-            if (source === "direct" && item.fileUrl) setSource("media");
-            else if (source !== "jpeg") setSource("jpeg");
-            else setBroken(true);
-          }}
-          onLoad={(e) => {
-            const el = e.currentTarget;
-            const size = { w: el.naturalWidth, h: el.naturalHeight };
-            // Affichée seulement une fois décodée : pas de case vide entre miniature (ou copie) et original.
-            void el
-              .decode()
-              .catch(() => undefined)
-              .then(() => {
-                setNatural((n) => (n.w === size.w && n.h === size.h ? n : size));
-                setReveal(copyShown.current ? "instant" : "fade");
-              });
-          }}
-          className="absolute inset-0 h-full w-full"
-          style={{ opacity: reveal ? 1 : 0, transition: reveal === "fade" ? `opacity ${FADE_MS}ms` : undefined }}
-        />
+        </div>
       </div>
       {zoomed && <ZoomBadge scale={view.scale} />}
     </div>

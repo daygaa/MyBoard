@@ -25,14 +25,17 @@ type Props = {
   /** Remplace « Annuler » (« Non » : retrait des parents d'une chaîne, TAGM-22). */
   cancelLabel?: string;
   children?: ReactNode;
+  /** Tags cités en couleur (GEN-32) : voir `Modal`. */
+  renderText?: (text: string) => ReactNode;
 };
 
 export function ConfirmDialog(props: Props) {
-  const { title, subtitle, message, danger = false, dangerBorder = false, zone, onCancel, onConfirm, confirmLabel = "Oui", cancelLabel = "Annuler", children } = props;
+  const { title, subtitle, message, danger = false, dangerBorder = false, zone, onCancel, onConfirm, confirmLabel = "Oui", cancelLabel = "Annuler", children, renderText } = props;
   return (
     <Modal
       open
       even
+      renderText={renderText}
       danger={dangerBorder}
       onEnter={onConfirm}
       onClose={onCancel}

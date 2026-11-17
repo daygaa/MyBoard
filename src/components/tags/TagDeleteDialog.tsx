@@ -18,6 +18,7 @@ import { api, type DeletePreview, type TagInfo } from "@/lib/api";
 import { formatNumber } from "@/lib/format";
 import { deleteTags } from "@/lib/tagManager";
 import { copyPlain } from "@/lib/keepWords";
+import { tagNode, tagText, TagText } from "./TagText";
 import { media, q } from "@/lib/tagRules";
 
 type Props = { tags: Pick<TagInfo, "id" | "name" | "mediaCount">[]; onCancel: () => void; onDone: () => void };
@@ -104,7 +105,7 @@ function RulesBlock({ data, removing, onRemove }: { data: DeletePreview; removin
       <div className="space-y-1 text-sm text-muted-foreground">
         {data.rules.slice(0, MAX_RULES).map((r) => (
           <p key={`${r.child}>${r.parent}`}>
-            La règle {q(r.child)} → {q(r.parent)} sera supprimée.
+            <TagText text={`La règle ${q(r.child)} → ${q(r.parent)} sera supprimée.`} />
           </p>
         ))}
         {data.rules.length > MAX_RULES && <p>… et {formatNumber(data.rules.length - MAX_RULES)} autres règles.</p>}
@@ -119,7 +120,7 @@ function RulesBlock({ data, removing, onRemove }: { data: DeletePreview; removin
           <label className="flex cursor-pointer items-center gap-2 text-sm text-foreground">
             <Checkbox checked={removing} onCheckedChange={(c) => onRemove(c === true)} />
             <span className="min-w-0">
-              {`Retirer ${list(data.parents)}${data.further ? ` ainsi que les tags ultérieurs ${chains}` : ""} aux médias ${objects ? "les ayant obtenus" : "l'ayant obtenu"} par ${many ? "ces règles" : "cette règle"} (${media(n)})`}
+              <TagText text={`Retirer ${list(data.parents)}${data.further ? ` ainsi que les tags ultérieurs ${chains}` : ""} aux médias ${objects ? "les ayant obtenus" : "l'ayant obtenu"} par ${many ? "ces règles" : "cette règle"} (${media(n)})`} />
             </span>
           </label>
           <p className="mt-1 pl-6 text-xs text-muted-foreground">Seuls ces tags sont retirés des médias ; les autres règles de la chaîne restent.</p>
@@ -133,7 +134,7 @@ function Option({ zone, checked, onChange, children }: { zone: string; checked: 
   return (
     <label data-zone={zone} onCopy={copyPlain} className="mt-3 flex cursor-pointer items-center gap-2 text-sm text-foreground [overflow-wrap:break-word] first:mt-0">
       <Checkbox checked={checked} onCheckedChange={(c) => onChange(c === true)} />
-      <span className="min-w-0">{children}</span>
+      <span className="min-w-0">{tagNode(children)}</span>
     </label>
   );
 }
@@ -160,12 +161,15 @@ export function TagDeleteDialog({ tags, onCancel, onDone }: Props) {
       zone="tag-suppression"
       danger
       title={one ? `Supprimer ${q(one.name)} ?` : `Supprimer ces ${formatNumber(tags.length)} tags ?`}
+      renderText={tagText}
       message={
         // Les synonymes (texte et cases) au-dessus du trait ; les règles de parents dessous.
         <div onCopy={copyPlain} className="[overflow-wrap:break-word]">
           <div className="space-y-1">
             {lines.map((line) => (
-              <p key={line}>{line}</p>
+              <p key={line}>
+                <TagText text={line} />
+              </p>
             ))}
           </div>
           {data && (

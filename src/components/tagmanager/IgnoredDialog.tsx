@@ -1,7 +1,8 @@
 // « Ignorés (N) » des tags proches (TAGM-13.8 ; refonte, D8.3 ; réponse 4 du lot R6) : une ligne par « Ignorer » ou
 // décochage, telle qu'elle a été faite, avec « Ne plus ignorer » (ces tags pourront de nouveau être proposés ensemble).
-// Ouverte par-dessus la pop-in « Tags proches ».
+// Ouverte par-dessus la pop-in « Tags proches ». Tags en couleur (GEN-32).
 
+import { TagText } from "@/components/tags/TagText";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
 import { api, type ManagedTag, type SimilarIgnore } from "@/lib/api";
@@ -34,7 +35,9 @@ export function IgnoredDialog({ ignores, tagOf, onClose }: { ignores: SimilarIgn
         <div className="max-h-[50vh] space-y-1 overflow-y-auto overscroll-contain pr-1">
           {ignores.map((i) => (
             <div key={i.id} data-zone="tags-proches.ignores.ligne" className="flex items-center gap-3 rounded-lg border border-border px-2.5 py-1.5 text-sm">
-              <span className="min-w-0 flex-1 select-text [overflow-wrap:anywhere]">{lineOf(i, tagOf)}</span>
+              <span className="min-w-0 flex-1 select-text [overflow-wrap:anywhere]">
+                <TagText text={lineOf(i, tagOf)} />
+              </span>
               <Button variant="ghost" size="sm" onClick={() => void runTagAction("Ne plus ignorer", () => api.unignoreSimilar(i.id))} className={CANCEL}>
                 Ne plus ignorer
               </Button>

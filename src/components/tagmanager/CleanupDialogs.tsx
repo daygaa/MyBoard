@@ -10,18 +10,17 @@ import { useMemo, useState } from "react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 
 import { MergeSwitch } from "@/components/tags/MergeSwitch";
+import { TagText } from "@/components/tags/TagText";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Modal } from "@/components/ui/modal";
 import type { ManagedTag } from "@/lib/api";
 import { formatNumber } from "@/lib/format";
-import { whole } from "@/lib/keepWords";
 import { createGroup } from "@/lib/groupRules";
 import { rulesApi, type GroupRow } from "@/lib/rulesApi";
 import { deleteTags } from "@/lib/tagManager";
 import { useUI } from "@/stores/ui";
 import { q } from "@/lib/tagRules";
-import { displayTag } from "@/lib/tags";
 import { CANCEL, GOLD, KeepChoice, kept, mostUsed, RED, TagName } from "./TagChoice";
 
 export function UnusedTagsDialog({ tags, onClose }: { tags: ManagedTag[]; onClose: () => void }) {
@@ -132,8 +131,7 @@ export function CreateSynonymsDialog({ checked, onClose, groupOf, tagOf }: { che
     onClose();
     void createGroup({ id: chief.id, name: head }, others, on, preview, [], () => {}, true);
   };
-  // Chaque nom d'un bloc (GEN-22).
-  const names = preview ? [...preview.existing, ...preview.added].map((n) => whole(displayTag(n.name))) : [];
+  const names = preview ? [...preview.existing, ...preview.added].map((n) => n.name) : [];
   return (
     <Modal
       open
@@ -166,7 +164,8 @@ export function CreateSynonymsDialog({ checked, onClose, groupOf, tagOf }: { che
         />
       </div>
       <p data-zone="tags-synonymes.resultat" className="mt-3 text-sm text-muted-foreground select-text [overflow-wrap:anywhere]">
-        {nothing ? `Ces tags sont déjà des synonymes de ${q(current)}.` : preview ? `Résultat : ★ ${[whole(displayTag(head)), ...names].join(" = ")}` : " "}
+        {/* Tags du groupe obtenu en couleur (GEN-32). */}
+        {nothing ? <TagText text={`Ces tags sont déjà des synonymes de ${q(current)}.`} /> : preview ? <TagText text={`Résultat : ★ ${[head, ...names].map(q).join(" = ")}`} /> : " "}
       </p>
       {!nothing && (
         <div className="mt-3">

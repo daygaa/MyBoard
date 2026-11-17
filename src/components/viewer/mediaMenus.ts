@@ -6,14 +6,14 @@
 // 15/11) : même menu, entrées qui ont besoin de l'image ou de la lecture grisées (`zoom`, `playing` absents).
 
 import { deleteEntry } from "@/components/library/DeleteDialog";
-import type { MediaItem } from "@/lib/api";
+import { canRotate, type MediaItem } from "@/lib/api";
 import type { MenuEntry } from "@/lib/contextMenu";
 import { VIDEO_SHORTCUTS, VIEWER_SHORTCUTS, ZOOM_SHORTCUTS } from "@/lib/shortcuts";
 import { isSilent, SPEEDS, speedLabel, usePlayer } from "@/stores/player";
 import { useViewer } from "@/stores/viewer";
 import type { GifControls } from "./VideoControls";
 import type { Subtitles } from "./Subtitles";
-import { copyFile, copyGifFrame, copyImage, copyName, copyPath, deleteShown, openFile, revealFile, saveFrame, setWallpaper } from "./mediaActions";
+import { copyFile, copyGifFrame, copyImage, copyName, copyPath, deleteShown, openFile, revealFile, rotateMedia, saveFrame, setWallpaper } from "./mediaActions";
 import { printImage } from "./printMedia";
 
 function fullscreenEntry(): MenuEntry {
@@ -47,6 +47,16 @@ function adaptEntry(zoom: ZoomControls | null): MenuEntry {
   return { label: "Adapter à l'écran", shortcut: ZOOM_SHORTCUTS.adapt.label, disabled: !zoom || zoom.adaptDisabled, run: () => zoom?.zoomTo("adapt") };
 }
 
+/** « Tourner à gauche / à droite » (VIEW-60, réponse Q25 A) : sous « Adapter à l'écran », dans la même section ;
+ *  aussi dans le menu d'une vignette (sans raccourci). */
+export function rotateEntries(item: MediaItem, shortcuts = true): MenuEntry[] {
+  const off = !canRotate(item);
+  return [
+    { label: "Tourner à gauche", shortcut: shortcuts ? VIEWER_SHORTCUTS.rotateLeft.label : undefined, disabled: off, run: () => rotateMedia(item, false) },
+    { label: "Tourner à droite", shortcut: shortcuts ? VIEWER_SHORTCUTS.rotateRight.label : undefined, disabled: off, run: () => rotateMedia(item, true) },
+  ];
+}
+
 const fileEntries = (item: MediaItem) => ({
   copy: { label: "Copier le fichier", shortcut: VIEWER_SHORTCUTS.copy.label, run: () => void copyFile(item) },
   path: { label: "Copier le chemin du fichier", run: () => copyPath(item) },
@@ -66,6 +76,7 @@ export function imageMenu(item: MediaItem, zoom: ZoomControls | null): MenuEntry
     fullscreenEntry(),
     zoomEntry(zoom),
     adaptEntry(zoom),
+    ...rotateEntries(item),
     "separator",
     file.path,
     file.open,
@@ -127,6 +138,7 @@ export function videoMenu(item: MediaItem, playing: Playing | null): MenuEntry[]
     fullscreenEntry(),
     zoomEntry(playing?.zoom ?? null),
     adaptEntry(playing?.zoom ?? null),
+    ...rotateEntries(item),
     "separator",
     file.copy,
     ...(gif ? [{ label: "Copier l'image", run: () => copyGifFrame(item, time) }] : []),

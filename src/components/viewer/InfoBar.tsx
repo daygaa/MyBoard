@@ -1,7 +1,7 @@
 // Barre du bas de la visionneuse (apparence v8, deux lignes).
 // Ligne 1 : infos du fichier (VIEW-10), juste à droite le champ d'ajout de tag (VIEW-20),
 // puis les actions : Copier le fichier (VIEW-35), Favori (VIEW-11), Dossier (VIEW-15),
-// Explorer (VIEW-13), Ouvrir avec l'application par défaut (VIEW-24), Imprimer (VIEW-17, images
+// Explorer (VIEW-13), Ouvrir avec l'application par défaut (VIEW-24), Tourner ↺ ↻ (VIEW-60), Imprimer (VIEW-17, images
 // seulement), Supprimer (VIEW-14 : pop-in DEL-04, puis le média suivant). Pas de « Télécharger »
 // (VIEW-12). Favori : étoile dorée si favori, à jour partout (FAV-03). Dossier : liste à cocher des
 // dossiers ouverte au-dessus du bouton (FOLD-09). Échec d'une action : message d'erreur (VIEW-28).
@@ -11,10 +11,10 @@
 
 import { useEffect, useState, type ComponentType, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Check, Copy, ExternalLink, FolderOpen, FolderPlus, Printer, Star, Trash2 } from "lucide-react";
+import { Check, Copy, ExternalLink, FolderOpen, FolderPlus, Printer, RotateCcw, RotateCw, Star, Trash2 } from "lucide-react";
 
 import { folderListLabel, folderPickEntries } from "@/components/folders/folderMenus";
-import { api, type MediaItem } from "@/lib/api";
+import { api, canRotate, shownSize, type MediaItem } from "@/lib/api";
 import { openContextMenu, openMenuAt } from "@/lib/contextMenu";
 import { hasModalLayer } from "@/lib/escape";
 import { formatBytes, formatDuration } from "@/lib/format";
@@ -22,7 +22,7 @@ import { viewerActionFor, withShortcut, type ViewerAction } from "@/lib/shortcut
 import { cn } from "@/lib/utils";
 import { setFavorite, useIsFavorite } from "@/stores/favorites";
 import { useViewer } from "@/stores/viewer";
-import { copyFile, openFile, revealFile } from "./mediaActions";
+import { copyFile, openFile, revealFile, rotateMedia } from "./mediaActions";
 import { DeleteShownDialog } from "./DeleteShown";
 import { fileNameMenu } from "./mediaMenus";
 import { ACTION_BUTTON } from "./viewerChrome";
@@ -61,7 +61,7 @@ function Action({ zone, icon: Icon, label, title, run, unavailable, className, i
       )}
     >
       <Icon className={cn("h-4 w-4", iconClassName)} />
-      <span className="hidden xl:inline">{label}</span>
+      {label && <span className="hidden xl:inline">{label}</span>}
     </button>
   );
 }
@@ -94,8 +94,10 @@ export function InfoBar({ item, children }: { item: MediaItem; children: ReactNo
   const unreadable = useViewer((s) => s.unreadable === item.id);
   const favorite = useIsFavorite(item.id, detail?.favorite ?? item.favorite);
   const [deleting, setDeleting] = useState(false);
+  const shown = shownSize(item);
+  const noRotate = canRotate(item) ? undefined : item.missing || item.offline ? "Tourner : fichier introuvable" : "Tourner : réservé aux images et aux vidéos";
   const meta = [
-    item.width && item.height ? `${item.width}×${item.height}` : "",
+    shown.w && shown.h ? `${shown.w}×${shown.h}` : "",
     formatBytes(item.size),
     formatDuration(item.durationMs),
     detail?.fileCreatedAt ? `créé le ${dateFr(detail.fileCreatedAt)}` : "",
@@ -151,6 +153,25 @@ export function InfoBar({ item, children }: { item: MediaItem; children: ReactNo
       label: "Ouvrir avec…",
       title: "Ouvrir avec l'application par défaut",
       run: () => openFile(item),
+    },
+    // Rotation (VIEW-60, réponse Q25 A) : icônes seules ↺ ↻, grisées pour un son ou un document.
+    {
+      action: "rotateLeft",
+      zone: "visionneuse.tourner-gauche",
+      icon: RotateCcw,
+      label: "",
+      title: "Tourner à gauche",
+      run: () => rotateMedia(item, false),
+      unavailable: noRotate,
+    },
+    {
+      action: "rotateRight",
+      zone: "visionneuse.tourner-droite",
+      icon: RotateCw,
+      label: "",
+      title: "Tourner à droite",
+      run: () => rotateMedia(item, true),
+      unavailable: noRotate,
     },
     {
       action: "print",

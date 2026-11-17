@@ -17,7 +17,8 @@ pub const KINDS: [&str; 4] = ["image", "video", "audio", "document"];
 /// Colonnes d'un média de la grille, dans l'ordre lu par `media_from_row` (préfixées : la requête
 /// peut joindre les favoris ou un dossier).
 const MEDIA_COLUMNS: &str = "media.id, media.hash, media.file_name, media.ext, media.kind, media.size, media.width,      media.height, media.duration_ms, media.thumb_status, EXISTS (SELECT 1 FROM favorites f WHERE f.media_id = media.id), \
-     (SELECT group_concat(fm.folder_id) FROM folder_media fm WHERE fm.media_id = media.id), media.path, media.missing_since IS NOT NULL";
+     (SELECT group_concat(fm.folder_id) FROM folder_media fm WHERE fm.media_id = media.id), media.path, media.missing_since IS NOT NULL, \
+     media.rotation";
 
 /// Demande d'une page de la grille. Filtres et tri sont indépendants des tags (FILT-02).
 #[derive(Debug, Deserialize)]
@@ -78,6 +79,9 @@ pub struct MediaItem {
     pub missing: bool,
     pub offline: bool,
     pub last_path: Option<String>,
+    /// Rotation d'affichage, en quarts de tour dans le sens horaire (VIEW-60) ; largeur et hauteur restent celles du
+    /// fichier.
+    pub rotation: i64,
 }
 
 #[derive(Debug, Serialize)]
@@ -156,6 +160,7 @@ fn media_from_row(r: &rusqlite::Row) -> rusqlite::Result<MediaItem> {
         thumb_status: r.get(9)?,
         favorite: r.get(10)?,
         folders: ids_of(r.get(11)?),
+        rotation: r.get(14)?,
     })
 }
 

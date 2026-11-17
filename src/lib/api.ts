@@ -31,7 +31,23 @@ export type MediaItem = {
   missing?: boolean;
   offline?: boolean;
   lastPath?: string | null;
+  /** Rotation d'affichage en quarts de tour dans le sens horaire (VIEW-60) ; `width`, `height` restent ceux du fichier. */
+  rotation?: number;
 };
+
+/** Seules les images et les vidéos se tournent (VIEW-60) ; pas un fichier introuvable. */
+export const canRotate = (item: Pick<MediaItem, "kind" | "missing" | "offline">) => (item.kind === "image" || item.kind === "video") && !item.missing && !item.offline;
+
+/** Quarts de tour d'affichage (0 à 3) d'un média (VIEW-60). */
+export const turnsOf = (item: Pick<MediaItem, "rotation">) => (item.rotation ?? 0) % 4;
+
+/** Dimensions telles qu'affichées, rotation d'affichage comprise (VIEW-60). */
+export function shownSize(item: Pick<MediaItem, "width" | "height" | "rotation">): { w: number | null; h: number | null } {
+  return turnsOf(item) % 2 ? { w: item.height, h: item.width } : { w: item.width, h: item.height };
+}
+
+/** Style d'une miniature carrée tournée comme le média (VIEW-60) : recadrée au centre, elle tourne sur place. */
+export const turnStyle = (item: Pick<MediaItem, "rotation">) => (turnsOf(item) ? { rotate: `${turnsOf(item) * 90}deg` } : undefined);
 
 /** Dossier manuel (FOLD-01) ; masqué : absent des listes (FOLD-02). */
 /** `createdAt`, `openedAt` : création et dernière ouverture (jamais ouvert : sa création), en ms (tris FOLD-10). */
@@ -427,6 +443,8 @@ export const api = {
     invoke<void>("convert_video", { id, target, quality, deleteOriginal }),
   cancelVideoConversion: () => invoke<void>("cancel_video_conversion"),
   copyMedia: (id: number) => invoke<void>("copy_media", { id }),
+  /** Quart de tour (VIEW-60) : écrit dans le fichier (JPEG, TIFF, DNG, MP4, MOV) ou à l'affichage ; fiche à jour. */
+  rotateMedia: (id: number, clockwise: boolean) => invoke<MediaItem>("rotate_media", { id, clockwise }),
   screenDpi: () => invoke<number | null>("screen_dpi"),
   setViewerFullscreen: (on: boolean) => invoke<void>("set_viewer_fullscreen", { on }),
   setMediaNotes: (id: number, notes: string) => invoke<void>("set_media_notes", { id, notes }),
@@ -576,7 +594,8 @@ export const isCameraRaw = (item: Pick<MediaItem, "ext">) => rawExtensions.has(i
 
 /** Adresse du fichier d'une image ou d'une vidéo pour la visionneuse : lu directement sur le disque par la fenêtre
  *  (VIEW-53, VIEW-55 : 10 fois plus rapide, sans bloquer MyBoard), sinon `media://` (formats convertis, chemins réseau). */
-export const directUrl = (item: MediaItem): string => item.fileUrl ?? mediaUrl(item);
+// L'empreinte en fin d'adresse : un fichier tourné (VIEW-60) garde son chemin, la fenêtre ne doit pas reprendre l'ancien.
+export const directUrl = (item: MediaItem): string => (item.fileUrl ? `${item.fileUrl}?v=${item.hash.slice(0, 12)}` : mediaUrl(item));
 
 /** Adresse de la vidéo d'un GIF (VIEW-54), d'après la réponse de `prepareGif`. */
 export const gifVideoUrl = (path: string) => `${MEDIA_ROOT}${path}`;

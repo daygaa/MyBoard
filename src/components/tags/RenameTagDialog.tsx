@@ -18,6 +18,7 @@ import { displayTag, normalizeTag } from "@/lib/tags";
 import { followRename, runTagAction } from "@/lib/tagManager";
 import { useViewer } from "@/stores/viewer";
 import { MergeSwitch } from "./MergeSwitch";
+import { tagText } from "./TagText";
 
 const CANCEL = "text-foreground hover:bg-secondary hover:text-foreground";
 const GOLD = "bg-[#d9a94e] text-[#1a1408] hover:bg-[#e3b75f] disabled:hover:bg-[#d9a94e]";
@@ -47,6 +48,7 @@ export function SynonymTagDialog({ source, existing, onCancel, onDone }: { sourc
       onClose={onCancel}
       zone="tag-synonyme"
       title="Créer un synonyme ?"
+      renderText={tagText}
       description={
         nothing
           ? `« ${from} » est déjà un synonyme de « ${displayTag(preview.principal ?? existing.name)} ».`

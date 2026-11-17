@@ -326,6 +326,15 @@ html.menu-ouvert #defilement * {
   white-space: nowrap;
   text-overflow: ellipsis;
 }
+/* Nom trop long pour une ligne à une taille lisible (GRID-16, `fitName` de MediaTile) : sur 2 ou 3 lignes, coupé
+   n'importe où (nom sans espace), « … » seulement au-delà. */
+[data-nom-seul] .tile-name[data-lignes] {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: var(--name-lines, 3);
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
 
 /* Impression (VIEW-17) : seul le média est imprimé, jamais la page de l'application. */
 @media print {

@@ -2,13 +2,14 @@
 // Aucun raccourci affiché : ceux de la visionneuse ne marchent pas dans la grille. « Sélectionner » :
 // coche la vignette et passe en mode sélection (SEL-01). Favori : libellé selon l'état (CTX-01).
 // Dossiers : liste à cocher (FOLD-09) ; dans la page d'un dossier, « Retirer de ce dossier » (FOLD-03).
-// Suppression : pop-in avec sa case (DEL-04). Un échec (fichier introuvable…) s'affiche dans une
+// « Tourner à gauche / à droite » (VIEW-60). Suppression : pop-in avec sa case (DEL-04). Un échec (fichier introuvable…) s'affiche dans une
 // pop-in (CTX-19).
 // Vignette cochée en mode sélection (`selection`, SEL-08) : favoris, dossiers, retrait du dossier et
 // suppression agissent sur toute la sélection, avec le nombre dans le libellé ; « Désélectionner ».
 
 import { folderListLabel, folderPickEntries } from "@/components/folders/folderMenus";
 import { copyFile, copyPath, openFile, revealFile } from "@/components/viewer/mediaActions";
+import { rotateEntries } from "@/components/viewer/mediaMenus";
 import type { MediaItem } from "@/lib/api";
 import type { MenuEntry } from "@/lib/contextMenu";
 import { cachedFolders, setFolderMedia } from "@/lib/folders";
@@ -34,6 +35,8 @@ export function tileMenu(item: MediaItem, index: number, pageSize: number, selec
       ? { label: "Désélectionner", run: () => removeFromSelection([item.id]) }
       : { label: "Sélectionner", run: () => (isSelecting() ? addToSelection([item]) : startSelection([item])) },
     "separator",
+    // Rotation (VIEW-60, réponse Q25 A : un média à la fois) : absente du menu d'une sélection.
+    ...(selection ? [] : [...rotateEntries(item, false), "separator" as const]),
     { label: "Ouvrir avec l'application par défaut", run: () => openFile(item) },
     { label: "Afficher dans l'explorateur de fichiers", run: () => revealFile(item) },
     { label: "Copier le chemin du fichier", run: () => copyPath(item) },

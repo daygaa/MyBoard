@@ -6,7 +6,7 @@
 import { useEffect, useState } from "react";
 import { FileX, Unplug } from "lucide-react";
 
-import { thumbUrl, type MediaItem, type ThumbTier } from "@/lib/api";
+import { thumbUrl, turnStyle, type MediaItem, type ThumbTier } from "@/lib/api";
 import { checkApi } from "@/lib/libraryCheck";
 
 const SIZES: Record<ThumbTier, string> = { large: "1 280 px", preview: "640 px", normal: "320 px", small: "128 px" };
@@ -51,7 +51,7 @@ export function LostStage({ item, onClose }: { item: MediaItem; onClose: () => v
       <div className="flex min-h-0 flex-1 items-center justify-center p-6" onClick={(e) => e.target === e.currentTarget && onClose()}>
         {tier ? (
           // Agrandie à la hauteur de la scène (le fond autour reste cliquable pour fermer, VIEW-02).
-          <img data-zone="visionneuse.introuvable.miniature" src={thumbUrl(item.hash, tier)} alt="" draggable={false} className="h-full w-auto max-w-full object-contain" />
+          <img data-zone="visionneuse.introuvable.miniature" src={thumbUrl(item.hash, tier)} alt="" draggable={false} className="h-full w-auto max-w-full object-contain" style={turnStyle(item)} />
         ) : (
           tier === null && (
             <div data-zone="visionneuse.introuvable" className="flex max-w-lg flex-col items-center rounded-xl border border-border bg-card px-8 py-12 text-center">

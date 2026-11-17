@@ -2,7 +2,8 @@
 // première et dernière page, plus un champ « aller à la page ». Affichée en haut et
 // en bas de la grille. Une page inexistante ne peut pas être demandée.
 // La page active reste toujours au centre exact de la fenêtre, alignée avec le logo
-// (PAGE-04) : les pages précédentes se rangent à sa gauche, les suivantes à sa droite.
+// (PAGE-04) : les pages précédentes se rangent à sa gauche, les suivantes à sa droite. Les flèches ne bougent pas
+// d'une page à l'autre (PAGE-06) : on peut cliquer plusieurs fois de suite sans bouger la souris.
 
 import { useLayoutEffect, useRef, useState, type RefObject } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
@@ -52,12 +53,23 @@ function useWindowCentering(ref: RefObject<HTMLElement | null>, shown: boolean) 
   return { paddingLeft: pad.left, paddingRight: pad.right };
 }
 
+/** Flèches immobiles (PAGE-06) : chaque côté de la page active a la largeur de son plus long contenu possible
+ *  (flèche, 4 numéros, « … »), numéros et page active de même largeur ; la flèche est au bout du côté. */
+const ARROW = 32;
+const GAP = 4;
+const DOTS = 20;
+
+/** « … » de largeur fixe. */
+function Dots() {
+  return <span className="w-5 shrink-0 text-center text-muted-foreground/60">…</span>;
+}
+
 /** Numéros avec « … » quand il manque des pages entre deux numéros. */
-function PageButtons({ pages, setPage }: { pages: number[]; setPage: (p: number) => void }) {
+function PageButtons({ pages, setPage, cell }: { pages: number[]; setPage: (p: number) => void; cell: number }) {
   return pages.map((p, i) => (
     <span key={p} className="flex items-center gap-1">
-      {i > 0 && pages[i - 1] !== p - 1 && <span className="px-1 text-muted-foreground/60">…</span>}
-      <button type="button" onClick={() => setPage(p)} className={cn(CELL, LINK)}>
+      {i > 0 && pages[i - 1] !== p - 1 && <Dots />}
+      <button type="button" onClick={() => setPage(p)} className={cn(CELL, LINK)} style={{ width: cell }}>
         {p}
       </button>
     </span>
@@ -138,38 +150,50 @@ export function Pagination({ page, pageCount, total, zone, showSummary = false }
   // « … » entre la dernière page précédente et la page active, ou entre elle et la suivante.
   const gapBefore = before.length > 0 && before[before.length - 1] !== page - 1;
   const gapAfter = after.length > 0 && after[0] !== page + 1;
+  // Largeur d'un numéro : celle du plus grand (tabular-nums : au plus 9 px par chiffre, + marges). Côté : flèche, au
+  // plus 4 numéros (1 ou la dernière, 3 voisines) et un « … » dès 6 pages (PAGE-06).
+  const cell = Math.max(32, String(pageCount).length * 9 + 16);
+  const side = ARROW + Math.min(pageCount - 1, 4) * (cell + GAP) + (pageCount >= 6 ? DOTS + GAP : 0);
 
   return (
     <nav ref={ref} data-zone={zone} aria-label="Pagination" style={centering} className="flex flex-col gap-2">
       <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-1">
-        <div className="flex items-center justify-end gap-1">
-          <button
-            type="button"
-            disabled={page <= 1}
-            onClick={() => setPage(page - 1)}
-            aria-label="Page précédente"
-            className={cn(CELL, page > 1 ? LINK : "text-muted-foreground/40")}
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </button>
-          <PageButtons pages={before} setPage={setPage} />
-          {gapBefore && <span className="px-1 text-muted-foreground/60">…</span>}
+        <div className="flex items-center justify-end">
+          <div className="flex items-center justify-between gap-1" style={{ width: side }}>
+            <button
+              type="button"
+              disabled={page <= 1}
+              onClick={() => setPage(page - 1)}
+              aria-label="Page précédente"
+              className={cn(CELL, page > 1 ? LINK : "text-muted-foreground/40")}
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+            <div className="flex items-center gap-1">
+              <PageButtons pages={before} setPage={setPage} cell={cell} />
+              {gapBefore && <Dots />}
+            </div>
+          </div>
         </div>
-        <span aria-current="page" className={cn(CELL, "bg-[#d9a94e] font-semibold text-[#1a1408]")}>
+        <span aria-current="page" className={cn(CELL, "bg-[#d9a94e] font-semibold text-[#1a1408]")} style={{ width: cell }}>
           {page}
         </span>
-        <div className="flex items-center justify-start gap-1">
-          {gapAfter && <span className="px-1 text-muted-foreground/60">…</span>}
-          <PageButtons pages={after} setPage={setPage} />
-          <button
-            type="button"
-            disabled={page >= pageCount}
-            onClick={() => setPage(page + 1)}
-            aria-label="Page suivante"
-            className={cn(CELL, page < pageCount ? LINK : "text-muted-foreground/40")}
-          >
-            <ChevronRight className="h-4 w-4" />
-          </button>
+        <div className="flex items-center justify-start">
+          <div className="flex items-center justify-between gap-1" style={{ width: side }}>
+            <div className="flex items-center gap-1">
+              {gapAfter && <Dots />}
+              <PageButtons pages={after} setPage={setPage} cell={cell} />
+            </div>
+            <button
+              type="button"
+              disabled={page >= pageCount}
+              onClick={() => setPage(page + 1)}
+              aria-label="Page suivante"
+              className={cn(CELL, page < pageCount ? LINK : "text-muted-foreground/40")}
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          </div>
           <span className="ml-2">
             <GoToPage pageCount={pageCount} />
           </span>

@@ -47,10 +47,14 @@ type Props = {
    *  focus ; un autre bouton de la pop-in qui a le focus (Annuler…) garde son rôle. Espace coche la
    *  case marquée `data-principale` (ou la seule case de la pop-in). */
   onEnter?: () => void;
+  /** Mise en forme du titre et d'un texte simple : mots jamais coupés (GEN-22) ; pop-ins des tags : tags cités en
+   *  couleur (GEN-32, `tagText` de components/tags/TagText). */
+  renderText?: (text: string) => ReactNode;
 };
 
 export function Modal(props: Props) {
   const { open, onClose, title, subtitle, description, children, footer, zone, lift = 0, danger = false, dismissible = true, wide = false, size, even = false, onEnter } = props;
+  const renderText = props.renderText ?? keepQuoted;
   const close = dismissible ? onClose : () => {};
   const isTop = useEscape(open, close, { modal: true });
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -152,7 +156,7 @@ export function Modal(props: Props) {
           </button>
         )}
         <h2 onCopy={copyPlain} className="shrink-0 pr-6 text-lg font-semibold text-foreground select-text [overflow-wrap:break-word]">
-          {keepQuoted(title)}
+          {renderText(title)}
         </h2>
         {subtitle && <div className={cn("shrink-0 select-text", even ? "mt-4" : "mt-1.5")}>{subtitle}</div>}
         {(description || children) && (
@@ -160,7 +164,7 @@ export function Modal(props: Props) {
           <div className={cn("-mx-6 min-h-0 overflow-y-auto overscroll-contain px-6", subtitle ? "mt-1.5" : even ? "mt-4" : description ? "mt-1.5" : "mt-5")}>
             {description && (
               <div onCopy={copyPlain} className="text-sm text-muted-foreground select-text [overflow-wrap:break-word]">
-                {typeof description === "string" ? keepQuoted(description) : description}
+                {typeof description === "string" ? renderText(description) : description}
               </div>
             )}
             {children && <div className={cn("select-text", description && (even ? "mt-4" : "mt-5"))}>{children}</div>}

@@ -35,7 +35,7 @@ pub mod sources;
 mod state;
 mod tally;
 pub mod undo;
-mod versions;
+pub mod versions;
 pub mod video;
 
 use std::sync::Mutex;

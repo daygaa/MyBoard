@@ -26,7 +26,8 @@ const COMPRESS_INFO = [
 const CONVERT_INFO = [
   "Réencode chaque image dans le format choisi, à côté de l'original.",
   "Si la compression est activée, elle s'applique au format choisi ; sans compression : qualité maximale.",
-  "En JPG, la transparence est remplacée par un fond blanc. Les GIF et WebP animés ne sont jamais convertis, ni les RAW d'appareils photo, DNG, PSD, EXR, HDR, SVG et ICO.",
+  // IMP-94 (réponse Q58 A du 17/11) : aucun GIF converti, même non animé.
+  "En JPG, la transparence est remplacée par un fond blanc. Les GIF (animés ou non) et les WebP animés ne sont jamais convertis, ni les RAW d'appareils photo, DNG, PSD, EXR, HDR, SVG et ICO.",
   "Les métadonnées sont conservées, y compris pour les AVIF (traitement via MyBoard).",
 ];
 const DELETE_INFO = [

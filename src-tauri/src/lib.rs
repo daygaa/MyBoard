@@ -178,6 +178,7 @@ pub fn run() {
             media::reveal_media,
             media::open_media,
             media::copy_media,
+            media::rotate::rotate_media,
             display::screen_dpi,
             fullscreen::set_viewer_fullscreen,
             media::set_media_notes,

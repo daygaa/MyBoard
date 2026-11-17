@@ -10,6 +10,7 @@
 // de la barre de progression fluide (ProgressBar.tsx).
 // Clic droit sur la vidéo (pas sur le fond) : son menu (CTX-07).
 // Sous-titres (VIEW-52, Subtitles.tsx) : bouton de la barre, sous-menu du clic droit, touche C.
+// Rotation d'affichage (VIEW-60 : MKV, WebM, AVI, GIF…) : vidéo, GIF et miniature tournés sur place, sous-titres droits.
 // GIF animé (VIEW-54, useGifVideo.ts) : le GIF s'affiche tout de suite, sa vidéo prend le relais au même instant ;
 // pas de son (M sans effet), boucle propre au GIF.
 // Défilement rapide (rafale, burst.ts, retour AUT.7.5) : seulement la miniature (ni lecture, ni son, ni ffprobe, ni
@@ -18,7 +19,7 @@
 import { useContext, useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import { useQuery } from "@tanstack/react-query";
 
-import { api, directUrl, mediaUrl, THUMB, type MediaItem } from "@/lib/api";
+import { api, directUrl, mediaUrl, THUMB, turnsOf, type MediaItem } from "@/lib/api";
 import { openContextMenu } from "@/lib/contextMenu";
 import { hasModalLayer, useEscape } from "@/lib/escape";
 import { videoActionFor, type VideoAction } from "@/lib/shortcuts";
@@ -111,7 +112,10 @@ export function VideoStage({ item, onClose, fallback }: { item: MediaItem; onClo
   const switching = useViewer((s) => s.fullscreen !== s.fullscreenShown);
   // GIF pas encore relayé par sa vidéo : un clic n'y fait rien.
   const waiting = isGif && !gif.ready;
-  const { view, zoomed, animate, handlers, reset, controls, stage } = useZoom(stageRef, natural, onClose, () => !waiting && toggle(videoRef.current));
+  // Rotation d'affichage (VIEW-60) : la vidéo garde sa taille et tourne sur place ; le zoom voit la taille tournée.
+  const turns = turnsOf(item);
+  const shown = turns % 2 ? { w: natural.h, h: natural.w } : natural;
+  const { view, zoomed, animate, handlers, reset, controls, stage } = useZoom(stageRef, shown, onClose, () => !waiting && toggle(videoRef.current));
   const frame = useFrameDuration(videoRef);
   const badge = usePlayerBadge();
   const showBadge = badge.show;
@@ -163,7 +167,7 @@ export function VideoStage({ item, onClose, fallback }: { item: MediaItem; onClo
   }, [frame, showBadge, restartIdle]);
 
   if (failed || gif.failed) return <>{fallback}</>;
-  const transform = `translate(-50%, -50%) translate(${view.tx}px, ${view.ty}px) scale(${view.scale})`;
+  const transform = `translate(-50%, -50%) translate(${view.tx}px, ${view.ty}px) scale(${view.scale}) rotate(${turns * 90}deg)`;
   const transition = animate ? `transform ${ANIM_MS}ms ease-out` : undefined;
   const gifControls = isGif ? { loop: gif.loop, setLoop: gif.setLoop, ready: gif.ready } : undefined;
   // Miniature : carré recadré au centre (D-013), posé sur le carré central du média, comme pour les images.
@@ -236,7 +240,7 @@ export function VideoStage({ item, onClose, fallback }: { item: MediaItem; onClo
         {subs.cues.length > 0 && (
           <SubtitleOverlay
             cues={subs.cues}
-            box={subtitleBox(stage, natural, view, idle ? 0 : bottomInset + FLOAT_GAP + BAR_HEIGHT + lift)}
+            box={subtitleBox(stage, shown, view, idle ? 0 : bottomInset + FLOAT_GAP + BAR_HEIGHT + lift)}
             hold={switching}
           />
         )}

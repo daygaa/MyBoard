@@ -2,7 +2,7 @@
 // 28/10, retour T3, point TAGM-16.1) : la règle, puis les chaînes dont elle fait partie, dessinées en colonnes
 // (ChainStrip, les autres règles restent) ; une case, décochée, pour retirer le parent, et la suite de la chaîne,
 // des médias qui les ont obtenus par cette règle (jamais d'un média qui les avait avant). Ouverte par la corbeille
-// de la ligne et par son menu du clic droit (CTX-02 : « Annuler » rend le menu).
+// de la ligne et par son menu du clic droit (CTX-02 : « Annuler » rend le menu). Tags cités en couleur (GEN-32).
 
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -12,6 +12,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { rulesApi, type ParentRow } from "@/lib/rulesApi";
 import { copyPlain } from "@/lib/keepWords";
 import { deleteParent, media, q, type NameOf } from "@/lib/tagRules";
+import { TagText, tagNode } from "@/components/tags/TagText";
 import { ChainStrip } from "./ChainStrip";
 
 type Props = { row: ParentRow; nameOf: NameOf; onCancel: () => void; onDone: () => void };
@@ -38,7 +39,7 @@ export function ParentDeleteDialog({ row, nameOf, onCancel, onDone }: Props) {
       message={
         <div onCopy={copyPlain} className="space-y-1 [overflow-wrap:break-word]">
           <p>
-            La règle {q(child)} → {q(parent)} sera oubliée.
+            <TagText text={`La règle ${q(child)} → ${q(parent)} sera oubliée.`} />
           </p>
           {chains.length > 0 && (
             <p>{chains.length > 1 ? `Elle fait partie de ces ${chains.length} chaînes` : "Elle fait partie de cette chaîne"} ; les autres règles restent.</p>
@@ -52,9 +53,11 @@ export function ParentDeleteDialog({ row, nameOf, onCancel, onDone }: Props) {
           <label className="flex cursor-pointer items-center gap-2 text-sm text-foreground">
             <Checkbox data-principale checked={remove} onCheckedChange={(c) => setRemove(c === true)} />
             <span className="min-w-0">
-              {further
+              {tagNode(
+                further
                 ? `Retirer ${q(parent)} ainsi que les tags ultérieurs ${chains.length > 1 ? "des chaînes" : "de la chaîne"} aux médias les ayant obtenus par cette règle (${media(n)})`
-                : `Retirer ${q(parent)} aux médias l'ayant obtenu par cette règle (${media(n)})`}
+                : `Retirer ${q(parent)} aux médias l'ayant obtenu par cette règle (${media(n)})`,
+              )}
             </span>
           </label>
           <p className="mt-1 pl-6 text-xs text-muted-foreground">Seuls les tags sont retirés des médias ; les règles, elles, ne sont ni supprimées ni désactivées.</p>

@@ -2208,3 +2208,26 @@ outils de test vivaient dans un dossier temporaire qui change à chaque session,
   un histogramme) pour que la luminance, mesurée en 200 points de 3 × 3 pixels, suive celle de l'aperçu de l'appareil
   (comme le fait le décodeur de Windows) ; sans aperçu : médiane des 7 RAW d'essai. Limite : la saturation n'est pas
   calée (Canon EOS 6D plus saturé que Photos : Q59). Test ignoré `raw::tests` (courbe choisie par RAW).
+
+## D-079 — Rotation de ± 90° : dans le fichier ou à l'affichage (lot R8, 17/11/2026)
+
+- VIEW-60 (réponses Q21, Q24 A, Q25 A du 14/11) : commande `rotate_media(id, clockwise)` (`media/rotate/`), une à la
+  fois (mutex ; l'interface enchaîne aussi les demandes dans l'ordre), qui renvoie la fiche à jour.
+- Écrite dans le fichier, sans toucher à l'image : JPEG (bloc EXIF), TIFF et DNG (premier répertoire) : étiquette
+  d'orientation 274 composée avec le quart de tour (miroirs compris) ; présente : 2 octets réécrits sur place ;
+  absente : premier répertoire recopié avec elle à la fin des données (rien d'autre ne bouge) ; JPEG sans EXIF : petit
+  bloc ajouté ; un JPEG qui grandit est écrit à côté puis remplace l'original (date de création remise). MP4, M4V,
+  MOV : matrice de la boîte `tkhd` de chaque piste vidéo réécrite sur place (valeurs de ffmpeg et des iPhone) ; une
+  matrice inhabituelle (miroir, échelle) n'est pas touchée. La date de modification change, comme avec tout éditeur
+  (une sauvegarde par date et poids voit le fichier modifié).
+- Fichier écrit : nouvelle empreinte, poids, date de modification, largeur et hauteur échangées, dans une transaction
+  (version écrite par MyBoard : nouvelle empreinte reliée à son original, IMP-68) ; si un autre média a déjà ce
+  contenu, le fichier est remis comme avant. Miniatures 320 et 128 px recopiées tournées sous la nouvelle empreinte
+  (`ThumbService::copy_turned` : ni clignotement ni relecture du fichier) ; grands aperçus refaits à la demande.
+- Autres formats (PNG, GIF, WebP, BMP, HEIF, AVIF, RAW d'appareils photo, MKV, WebM, AVI…) ou écriture impossible
+  (lecture seule, fichier ouvert ailleurs, structure inconnue) : rotation d'affichage `media.rotation` (schéma 23,
+  quarts de tour), appliquée par l'interface : miniatures carrées tournées sur place (CSS `rotate`), visionneuse
+  (cadre tourné, zoom calculé sur la taille tournée), dimensions affichées échangées ; copie de l'image, fond
+  d'écran et impression tournés aussi. Largeur et hauteur en base restent celles du fichier.
+- Adresse directe des fichiers (`directUrl`, D-053) suivie de `?v=<empreinte>` : un fichier tourné garde son chemin,
+  la fenêtre ne doit pas reprendre l'ancien.

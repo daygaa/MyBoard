@@ -3,32 +3,37 @@
 // Raccourcis, SET-10). Lettres des mots anglais, en vue de la traduction (FUT-08) : S pour les
 // favoris (« Star », l'icône est une étoile ; convention de Gmail), L pour la boucle (« Loop »).
 
-export type ViewerAction = "copy" | "favorite" | "folder" | "reveal" | "open" | "print" | "delete";
+export type ViewerAction = "copy" | "favorite" | "folder" | "reveal" | "open" | "rotateLeft" | "rotateRight" | "print" | "delete";
 
 type Shortcut = {
   /** Valeur de `KeyboardEvent.key` (en minuscules pour une lettre). */
   key: string;
   ctrl?: boolean;
+  /** Maj exigée (`true`) ou interdite (`false`) ; absent : ignorée. */
+  shift?: boolean;
   /** Affichage dans les bulles d'aide. */
   label: string;
 };
 
+/** Rotation (VIEW-60) : R comme « Rotate », vers la droite ; Maj + R vers la gauche. */
 export const VIEWER_SHORTCUTS: Record<ViewerAction, Shortcut> = {
   copy: { key: "c", ctrl: true, label: "Ctrl+C" },
   favorite: { key: "s", label: "S" },
   folder: { key: "d", label: "D" },
   reveal: { key: "e", label: "E" },
   open: { key: "o", label: "O" },
+  rotateLeft: { key: "r", shift: true, label: "Maj+R" },
+  rotateRight: { key: "r", shift: false, label: "R" },
   print: { key: "i", label: "I" },
   delete: { key: "Delete", label: "Suppr" },
 };
 
-/** Action dont le raccourci correspond à la touche pressée (Maj et Verr. Maj ignorés). */
+/** Action dont le raccourci correspond à la touche pressée (Verr. Maj ignoré ; Maj aussi, sauf pour la rotation). */
 export function viewerActionFor(e: KeyboardEvent): ViewerAction | null {
   if (e.altKey || e.metaKey) return null;
   const key = e.key.length === 1 ? e.key.toLowerCase() : e.key;
   for (const [action, s] of Object.entries(VIEWER_SHORTCUTS) as [ViewerAction, Shortcut][]) {
-    if (s.key === key && Boolean(s.ctrl) === e.ctrlKey) return action;
+    if (s.key === key && Boolean(s.ctrl) === e.ctrlKey && (s.shift === undefined || s.shift === e.shiftKey)) return action;
   }
   return null;
 }
