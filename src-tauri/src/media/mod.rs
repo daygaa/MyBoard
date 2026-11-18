@@ -8,6 +8,7 @@
 
 mod clipboard;
 pub mod direct;
+pub mod file_lock;
 pub mod gif;
 pub mod keyframes;
 pub mod picture;

@@ -151,6 +151,7 @@ pub fn run() {
             import::undo::undo_import,
             import::import_report_seen,
             library_check::library_check_state,
+            library_check::check_file,
             library_check::settle_missing,
             thumbs::preview::best_thumb,
             import::list::scan_files,

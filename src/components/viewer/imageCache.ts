@@ -124,6 +124,12 @@ function createWorker(): Worker {
     busy.delete(id);
     if (++done >= RECYCLE) stopWorker();
     const entry = entries.get(id);
+    // Copie déjà faite entre-temps (image tournée, `adoptTurned`) : elle reste.
+    if (entry?.bitmap && bitmap) {
+      bitmap.close();
+      next();
+      return;
+    }
     if (!entry || !bitmap) {
       bitmap?.close();
       if (entry && !bitmap) forget(id);
@@ -141,25 +147,30 @@ function createWorker(): Worker {
 /** Copie décodée prête d'une image (à la taille de l'écran), ou null. */
 export const readyBitmap = (id: string): ImageBitmap | null => entries.get(id)?.bitmap ?? null;
 
-/** Fichier tourné d'un quart de tour (VIEW-60, nouvelle empreinte) : sa copie est faite tout de suite à partir de celle
- *  d'avant, ou de l'original affiché, tournée ; la visionneuse la montre aussitôt au lieu de la miniature (retour 60.2). */
-export function adoptTurned(before: MediaItem, after: MediaItem, clockwise: boolean) {
+/** Fichier tourné de `quarters` quarts de tour (VIEW-60, nouvelle empreinte) : sa copie est faite tout de suite à
+ *  partir de celle d'avant, ou de l'original affiché, tournée ; la visionneuse la montre aussitôt au lieu de la
+ *  miniature (retour 60.2). Toujours refaite : une copie gardée pour cette empreinte (un tour complet la ramène,
+ *  retour 60.6) a pu être lue pendant une écriture du fichier, dans un autre sens (retour 60.8). */
+export function adoptTurned(before: MediaItem, after: MediaItem, quarters: number) {
   const size = copySize(after);
-  if (!size || entries.get(after.hash)?.bitmap) return;
+  if (!size) return;
   const shown = document.querySelector<HTMLImageElement>('[data-zone="visionneuse.image"] img[alt]:not([alt=""])');
   const source = readyBitmap(before.hash) ?? (shown?.complete && shown.naturalWidth > 0 ? shown : null);
-  if (!source) return;
   const { w, h } = size;
-  const canvas = new OffscreenCanvas(w, h);
-  const ctx = canvas.getContext("2d");
-  if (!ctx) return;
+  const canvas = source ? new OffscreenCanvas(w, h) : null;
+  const ctx = canvas?.getContext("2d");
+  if (!canvas || !ctx || !source) return forget(after.hash);
   ctx.translate(w / 2, h / 2);
-  ctx.rotate(((clockwise ? 1 : -1) * Math.PI) / 2);
-  // Avant le quart de tour, l'image avait les proportions inverses.
-  ctx.drawImage(source, -h / 2, -w / 2, h, w);
+  ctx.rotate((quarters * Math.PI) / 2);
+  // Après un nombre impair de quarts de tour, l'image d'avant avait les proportions inverses.
+  if (quarters % 2) ctx.drawImage(source, -h / 2, -w / 2, h, w);
+  else ctx.drawImage(source, -w / 2, -h / 2, w, h);
   const bitmap = canvas.transferToImageBitmap();
   const old = entries.get(after.hash);
-  if (old) total -= old.bytes;
+  if (old) {
+    total -= old.bytes;
+    old.bitmap?.close();
+  }
   entries.set(after.hash, { bitmap, bytes: w * h * 4 });
   total += w * h * 4;
   keep.add(after.hash);

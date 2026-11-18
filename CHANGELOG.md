@@ -3,6 +3,19 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Lot R8, 3e tour : rotation écrite au relâchement, pagination stable, Espace sur le bilan (18/11/2026) — Backup v150
+
+SPEC : VIEW-60, VIEW-64, VIEW-65, PAGE-07, IMP-95 `[~]` ; décision D-081.
+
+- VIEW-60 : l'image tourne à l'écran à chaque appui sur R, le fichier n'est écrit qu'une fois au relâchement (un clic
+  sur ↺ ↻ ou un menu écrit tout de suite) ; plus d'aperçu déformé ni d'image dans un autre sens que le fichier en
+  tournant pendant la charge (tous formats).
+- VIEW-64 : plus de cadre ni d'icône « image introuvable » pendant la charge d'une image (RAW surtout).
+- VIEW-65 : un média introuvable dont le fichier est revenu se charge normalement dès qu'on l'ouvre ; un fichier
+  disparu est signalé dès l'ouverture, même si son image était gardée en mémoire.
+- PAGE-07 : la pagination ne tremble plus en arrivant à la dernière page.
+- IMP-95 : Espace ferme le bilan d'un import simple.
+
 ## Lot R8, 2e tour : rotation retouchée, tags marqués, plus de pied de page (17/11/2026) — Backup v149
 
 SPEC : VIEW-60, GEN-32, PAGE-06, VIEW-64, GEN-29, VIEW-65 `[~]` ; GEN-34 remis au lot R9 ; décision D-080 ; schéma 24.

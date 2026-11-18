@@ -25,9 +25,11 @@ const MIN_HALF_WIDTH = 380;
  *  Fenêtre trop étroite : marges nulles (centrage sur la grille, sans passer sous la barre latérale).
  *  `shown` : la pagination du haut disparaît quand tout tient sur une page ; à son retour, elle est
  *  mesurée de nouveau, et l'élément disparu n'est jamais mesuré (il donnait des marges nulles : la
- *  pagination revenait centrée sur la grille, retour du 25/10). */
+ *  pagination revenait centrée sur la grille, retour du 25/10).
+ *  Marges posées tout de suite sur l'élément, sans attendre un nouveau rendu : à la dernière page, plus courte, la barre
+ *  de défilement disparaît (puis revient) et la pagination s'élargit de sa largeur ; pendant une image, elle gardait les
+ *  marges d'avant et tremblait (PAGE-07). Mesure du bord extérieur (`border-box`) : les marges ne la changent pas. */
 function useWindowCentering(ref: RefObject<HTMLElement | null>, shown: boolean) {
-  const [pad, setPad] = useState({ left: 0, right: 0 });
   useLayoutEffect(() => {
     const el = ref.current;
     if (!el) return;
@@ -40,18 +42,18 @@ function useWindowCentering(ref: RefObject<HTMLElement | null>, shown: boolean) 
         half < MIN_HALF_WIDTH
           ? { left: 0, right: 0 }
           : { left: Math.round(centre - half - box.left), right: Math.round(box.right - (centre + half)) };
-      setPad((p) => (p.left === next.left && p.right === next.right ? p : next));
+      el.style.paddingLeft = `${next.left}px`;
+      el.style.paddingRight = `${next.right}px`;
     };
     measure();
     const observer = new ResizeObserver(measure);
-    observer.observe(el);
+    observer.observe(el, { box: "border-box" });
     window.addEventListener("resize", measure);
     return () => {
       observer.disconnect();
       window.removeEventListener("resize", measure);
     };
   }, [ref, shown]);
-  return { paddingLeft: pad.left, paddingRight: pad.right };
 }
 
 /** Numéros avec « … » quand il manque des pages entre deux numéros. */
@@ -121,14 +123,14 @@ type Props = {
 
 export function Pagination({ page, pageCount, total, zone, showSummary = false }: Props) {
   const ref = useRef<HTMLElement>(null);
-  const centering = useWindowCentering(ref, pageCount > 1 || showSummary);
+  useWindowCentering(ref, pageCount > 1 || showSummary);
   const setPage = useLibrary((s) => s.setPage);
   const summary = `Page ${page} / ${pageCount} · ${formatNumber(total)} ${plural(total, "média")}`;
 
   if (pageCount <= 1) {
     if (!showSummary) return null;
     return (
-      <nav ref={ref} data-zone={zone} style={centering} className="text-center text-xs text-muted-foreground">
+      <nav ref={ref} data-zone={zone} className="text-center text-xs text-muted-foreground">
         {summary}
       </nav>
     );
@@ -142,7 +144,7 @@ export function Pagination({ page, pageCount, total, zone, showSummary = false }
   const gapAfter = after.length > 0 && after[0] !== page + 1;
 
   return (
-    <nav ref={ref} data-zone={zone} aria-label="Pagination" style={centering} className="flex flex-col gap-2">
+    <nav ref={ref} data-zone={zone} aria-label="Pagination" className="flex flex-col gap-2">
       <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-1">
         <div className="flex items-center justify-end gap-1">
           <PageButtons pages={before} setPage={setPage} />

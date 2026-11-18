@@ -1,15 +1,13 @@
 // Actions sur le fichier d'un média, communes à la barre du bas de la visionneuse (VIEW-13,
-// VIEW-24, VIEW-35, rotation VIEW-60) et aux menus du clic droit (vignette CTX-05, visionneuse CTX-06 à CTX-08).
+// VIEW-24, VIEW-35 ; rotation VIEW-60 : turns.ts) et aux menus du clic droit (vignette CTX-05, visionneuse CTX-06 à CTX-08).
 // Échec : message d'erreur avec le code Windows (VIEW-28 dans la visionneuse, pop-in CTX-19
 // ailleurs), curseur d'attente pendant l'appel (externalOpen.ts).
 
 import { api, type MediaItem } from "@/lib/api";
 import { queryClient } from "@/lib/queryClient";
 import { deleteMedia } from "@/stores/deletion";
-import { usePreviews } from "@/stores/previews";
 import { useViewer } from "@/stores/viewer";
 import { runExternal } from "./externalOpen";
-import { adoptTurned } from "./imageCache";
 import { itemAt } from "./navigation";
 
 /** Le fichier lui-même dans le presse-papiers ; « Copié » s'affiche sur le bouton (VIEW-35). */
@@ -60,54 +58,6 @@ export function saveFrame(item: MediaItem, seconds: number) {
   // Date du jour dans le nom proposé : « JJ-MM-AA » (« / » est interdit dans un nom de fichier).
   const date = new Date().toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "2-digit" }).replaceAll("/", "-");
   void runExternal("Enregistrer une capture d'écran", () => api.saveVideoFrame(item.id, seconds, date));
-}
-
-/** Rotations demandées, faites une à une dans l'ordre des appuis (R pressé plusieurs fois de suite). */
-let rotations: Promise<void> = Promise.resolve();
-/** Rotations demandées pas encore finies. */
-let pendingTurns = 0;
-
-/** Une rotation est en cours : R maintenu n'en ajoute pas d'autre (retour 60.1 : rien ne s'accumule, les rotations
- *  s'arrêtent au relâchement de la touche). */
-export const turning = () => pendingTurns > 0;
-
-/** Vidéo en pause dont le fichier vient d'être tourné : rechargée, elle reste en pause (retour 60.3). */
-let pausedTurn: { id: number; hash: string } | null = null;
-export const startsPaused = (item: MediaItem) => pausedTurn?.id === item.id && pausedTurn.hash === item.hash;
-export function clearStartsPaused(item: MediaItem) {
-  if (startsPaused(item)) pausedTurn = null;
-}
-
-/** Quart de tour (VIEW-60) : la fiche revient à jour (nouvelle empreinte d'un fichier tourné, ou rotation
- *  d'affichage) ; la visionneuse la reprend, la grille relit sa page. */
-export function rotateMedia(item: MediaItem, clockwise: boolean) {
-  pendingTurns++;
-  rotations = rotations.then(async () => {
-    try {
-      const result: { item?: MediaItem } = {};
-      const ok = await runExternal(clockwise ? "Tourner à droite" : "Tourner à gauche", async () => {
-        result.item = await api.rotateMedia(item.id, clockwise);
-      });
-      const updated = result.item;
-      if (!ok || !updated) return;
-      const viewer = useViewer.getState();
-      const before = viewer.open && viewer.item?.id === item.id ? viewer.item : null;
-      // Fichier tourné : ses grands aperçus sont à refaire sous la nouvelle empreinte.
-      if (updated.hash !== item.hash) usePreviews.getState().forget([item.id]);
-      if (before) {
-        if (updated.hash !== before.hash) {
-          // La visionneuse recharge le média : copie de l'image déjà tournée (sans repasser par la miniature, retour
-          // 60.2) ; vidéo en pause : elle le reste.
-          adoptTurned(before, updated, clockwise);
-          if (document.querySelector<HTMLVideoElement>('[data-zone="visionneuse.video"] video')?.paused) pausedTurn = { id: updated.id, hash: updated.hash };
-        }
-        viewer.show(viewer.index, updated, viewer.total);
-      }
-      void queryClient.invalidateQueries({ queryKey: ["media"] });
-    } finally {
-      pendingTurns--;
-    }
-  });
 }
 
 /** Supprime le média affiché par la visionneuse (DEL-04), puis montre le suivant : le précédent s'il

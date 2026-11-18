@@ -16,7 +16,10 @@
 // RAW d'appareil photo (VIEW-63) : son aperçu intégré, posé sur la miniature, en attendant l'image décodée (copie à
 // la taille de l'écran ou original) ; les voisines (1 avant, 2 après) sont décodées d'avance comme toute image.
 // Fiche de la grille lue avant la fin de la miniature : dimensions reprises de `thumbs-ready` ou de l'aperçu (VIEW-64).
-// Rotation d'affichage (VIEW-60) : tout ce qui précède est posé dans un cadre tourné d'un ou plusieurs quarts de tour.
+// Rotation d'affichage (VIEW-60) : tout ce qui précède est posé dans un cadre tourné d'un ou plusieurs quarts de tour,
+// ceux de la fiche plus ceux pas encore écrits (R maintenu, retour 60.7, turns.ts).
+// Aucune image montrée avant d'être chargée (aperçu du RAW, miniature, original) : sinon le moteur dessine un cadre et
+// son icône « image introuvable » pendant la charge ou après un échec (retour 64.2).
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
@@ -30,6 +33,7 @@ import { hideCopy, showCopy } from "./copyCanvas";
 import { canCopy, pauseCopies, readyBitmap, whenReady } from "./imageCache";
 import { imageMenu } from "./mediaMenus";
 import { stageThumb } from "./navigation";
+import { useTurnsAhead, writingTurns } from "./turns";
 import { Centered, UnreadableCard } from "./UnreadableCard";
 import { ANIM_MS, useZoom, type Size } from "./useZoom";
 import { ZoomBadge } from "./ZoomBadge";
@@ -81,7 +85,7 @@ export function ImageStage({ item, onClose, opening = false }: { item: MediaItem
     return () => pauseCopies(false);
   }, [holding]);
   // Rotation d'affichage (VIEW-60) : l'image garde sa taille dans un cadre tourné ; le zoom voit la taille tournée.
-  const turns = turnsOf(item);
+  const turns = (turnsOf(item) + useTurnsAhead(item.id)) % 4;
   const shown = turns % 2 ? { w: natural.h, h: natural.w } : natural;
   const { view, zoomed, animate, handlers, controls } = useZoom(stageRef, shown, onClose);
   // Copie posée avant d'être affichée (elle est à l'écran dès sa première image), dans le canevas unique de la
@@ -120,6 +124,10 @@ export function ImageStage({ item, onClose, opening = false }: { item: MediaItem
     return () => cancelAnimationFrame(frame);
   }, [reveal]);
   const previewReady = usePreviewReady(item.id, 640);
+  /** Aperçu du RAW : en charge, affiché, ou absent (pas d'aperçu lisible, retour 64.1). */
+  const [rawPreview, setRawPreview] = useState<"loading" | "shown" | "none">("loading");
+  /** Miniature en échec (pas encore refaite sous une nouvelle empreinte…) : retirée. */
+  const [thumbFailed, setThumbFailed] = useState(false);
   const side = Math.min(natural.w, natural.h);
   const card = broken && !bitmap;
   useEffect(() => {
@@ -162,16 +170,17 @@ export function ImageStage({ item, onClose, opening = false }: { item: MediaItem
           style={{ width: natural.w, height: natural.h, transform: `translate(-50%, -50%) rotate(${turns * 90}deg)` }}
         >
           {bitmap && !covered && <div ref={copyHost} className="absolute inset-0 overflow-hidden" />}
-          {!bitmap && !covered && thumbReady && side > 0 && (
+          {!bitmap && !covered && thumbReady && side > 0 && !thumbFailed && (
             <img
               src={stageThumb(item, previewReady)}
               alt=""
               draggable={false}
+              onError={() => setThumbFailed(true)}
               className="absolute"
               style={{ left: (natural.w - side) / 2, top: (natural.h - side) / 2, width: side, height: side }}
             />
           )}
-          {!bitmap && !covered && isCameraRaw(item) && (
+          {!bitmap && !covered && isCameraRaw(item) && rawPreview !== "none" && (
             <img
               src={rawPreviewUrl(item)}
               alt=""
@@ -180,8 +189,11 @@ export function ImageStage({ item, onClose, opening = false }: { item: MediaItem
               onLoad={(e) => {
                 const { naturalWidth: w, naturalHeight: h } = e.currentTarget;
                 setNatural((n) => (n.w > 0 || !w ? n : { w, h }));
+                setRawPreview("shown");
               }}
+              onError={() => setRawPreview("none")}
               className="absolute inset-0 h-full w-full"
+              style={{ visibility: rawPreview === "shown" ? "visible" : "hidden" }}
             />
           )}
           <img
@@ -190,6 +202,9 @@ export function ImageStage({ item, onClose, opening = false }: { item: MediaItem
             draggable={false}
             decoding="async"
             onError={() => {
+              // Fichier en train d'être tourné : l'adresse d'avant ne répond plus (nouvelle empreinte) ; la scène du média
+              // tourné va remplacer celle-ci, sans passer par la carte « Image illisible ».
+              if (writingTurns(item.id)) return;
               if (source === "direct" && item.fileUrl) setSource("media");
               else if (source !== "jpeg") setSource("jpeg");
               else setBroken(true);
@@ -207,7 +222,7 @@ export function ImageStage({ item, onClose, opening = false }: { item: MediaItem
                 });
             }}
             className="absolute inset-0 h-full w-full"
-            style={{ opacity: reveal ? 1 : 0, transition: reveal === "fade" ? `opacity ${FADE_MS}ms` : undefined }}
+            style={{ opacity: reveal ? 1 : 0, visibility: reveal ? "visible" : "hidden", transition: reveal === "fade" ? `opacity ${FADE_MS}ms` : undefined }}
           />
         </div>
       </div>

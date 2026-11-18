@@ -29,7 +29,7 @@ import { usePreviewReady } from "@/stores/previews";
 import { useViewer } from "@/stores/viewer";
 
 import { useBurstLight } from "./burst";
-import { clearStartsPaused, startsPaused } from "./mediaActions";
+import { clearStartsPaused, startsPaused, useTurnsAhead } from "./turns";
 import { videoMenu } from "./mediaMenus";
 import { stageThumb } from "./navigation";
 import { PlayerBadge, SPEED_BADGE_MS, usePlayerBadge } from "./PlayerBadge";
@@ -117,7 +117,8 @@ export function VideoStage({ item, onClose, fallback }: { item: MediaItem; onClo
   // GIF pas encore relayé par sa vidéo : un clic n'y fait rien.
   const waiting = isGif && !gif.ready;
   // Rotation d'affichage (VIEW-60) : la vidéo garde sa taille et tourne sur place ; le zoom voit la taille tournée.
-  const turns = turnsOf(item);
+  // Quarts de tour affichés, pas encore dans la fiche (R maintenu, retour 60.7) compris.
+  const turns = (turnsOf(item) + useTurnsAhead(item.id)) % 4;
   const shown = turns % 2 ? { w: natural.h, h: natural.w } : natural;
   const { view, zoomed, animate, handlers, reset, controls, stage } = useZoom(stageRef, shown, onClose, () => !waiting && toggle(videoRef.current));
   const frame = useFrameDuration(videoRef);

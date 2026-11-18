@@ -4,11 +4,15 @@
 // l'application par défaut » (VIEW-24) ; vidéo : aussi « Convertir » (VIEW-25, ConvertVideo.tsx) ;
 // pareil pour un son illisible (.wma : trouvé en testant tous les formats, IMP-05). Fichier introuvable (LIB-05) ou
 // emplacement inaccessible (LIB-14) : sa plus grande miniature et un bandeau (LostStage.tsx, retour du 11/11).
+// À chaque ouverture : le fichier est-il toujours là, ou revenu ? Absent : marqué « introuvable » tout de suite, même si
+// la fenêtre a gardé son image (VIEW-65) ; revenu à son chemin : la marque part, il se charge normalement (retour 65.1).
 
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { File, FileSpreadsheet, Music } from "lucide-react";
 
 import { mediaUrl, type MediaItem } from "@/lib/api";
+import { checkApi } from "@/lib/libraryCheck";
+import { useViewer } from "@/stores/viewer";
 import { UnplayableVideo } from "./ConvertVideo";
 import { shownAsImage } from "./imageCache";
 import { ImageStage } from "./ImageStage";
@@ -58,6 +62,20 @@ function AudioStage({ item, onClose }: { item: MediaItem; onClose: () => void })
 
 /** `opening` : média ouvert depuis la grille, aucune flèche encore (image : original demandé aussitôt, VIEW-53). */
 export function MediaStage({ item, onClose, opening }: { item: MediaItem; onClose: () => void; opening: boolean }) {
+  useEffect(() => {
+    if (item.offline) return;
+    let live = true;
+    void checkApi
+      .checkFile(item.id)
+      .then((now) => {
+        const v = useViewer.getState();
+        if (live && now && v.open && v.item?.id === item.id) v.show(v.index, now, v.total);
+      })
+      .catch(() => undefined);
+    return () => {
+      live = false;
+    };
+  }, [item.id, item.offline]);
   if (item.missing || item.offline) return <LostStage key={item.id} item={item} onClose={onClose} />;
   // GIF animé : lecteur vidéo (VIEW-54) ; s'il ne peut pas être converti (ffmpeg absent…), comme une image.
   if (item.kind === "image" && item.ext === "gif") return <VideoStage item={item} onClose={onClose} fallback={<ImageStage item={item} onClose={onClose} />} />;

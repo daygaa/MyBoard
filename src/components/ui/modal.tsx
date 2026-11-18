@@ -48,13 +48,16 @@ type Props = {
    *  focus ; un autre bouton de la pop-in qui a le focus (Annuler…) garde son rôle. Espace coche la
    *  case marquée `data-principale` (ou la seule case de la pop-in). */
   onEnter?: () => void;
+  /** Espace, dans une pop-in sans case à cocher principale (bilan d'un import simple : le fermer, IMP-95) ; une commande
+   *  qui a le focus garde son rôle. */
+  onSpace?: () => void;
   /** Mise en forme du titre et d'un texte simple ; par défaut, d'office pour toute pop-in : mots jamais coupés (GEN-22),
    *  tags cités par `q()` en couleur (GEN-32, `tagText` de components/tags/TagText). */
   renderText?: (text: string) => ReactNode;
 };
 
 export function Modal(props: Props) {
-  const { open, onClose, title, subtitle, description, children, footer, zone, lift = 0, danger = false, dismissible = true, wide = false, size, even = false, onEnter } = props;
+  const { open, onClose, title, subtitle, description, children, footer, zone, lift = 0, danger = false, dismissible = true, wide = false, size, even = false, onEnter, onSpace } = props;
   const renderText = props.renderText ?? tagText;
   const close = dismissible ? onClose : () => {};
   const isTop = useEscape(open, close, { modal: true });
@@ -113,14 +116,19 @@ export function Modal(props: Props) {
         if (own?.matches(CONTROL)) return;
         const boxes = dialog.querySelectorAll<HTMLElement>('[role="checkbox"]:not([disabled])');
         const main = dialog.querySelector<HTMLElement>('[role="checkbox"][data-principale]:not([disabled])') ?? (boxes.length === 1 ? boxes[0] : null);
-        if (!main) return;
-        e.preventDefault();
-        main.click();
+        if (main) {
+          e.preventDefault();
+          main.click();
+        } else if (onSpace) {
+          e.preventDefault();
+          e.stopPropagation();
+          onSpace();
+        }
       }
     };
     window.addEventListener("keydown", onKey, true);
     return () => window.removeEventListener("keydown", onKey, true);
-  }, [open, onEnter, isTop]);
+  }, [open, onEnter, onSpace, isTop]);
 
   if (!open) return null;
   return createPortal(

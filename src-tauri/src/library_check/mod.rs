@@ -15,7 +15,7 @@ use std::path::{Component, Path, PathBuf};
 use std::sync::{Mutex, OnceLock, RwLock};
 use std::time::Duration;
 
-use rusqlite::{Connection, params};
+use rusqlite::{Connection, OptionalExtension, params};
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, State};
 
@@ -181,6 +181,51 @@ pub(super) fn update(app: &AppHandle, change: impl FnOnce(&mut Inner)) {
         inner.state.clone()
     };
     let _ = app.emit(EVENT, snapshot);
+}
+
+/// Média ouvert dans la visionneuse (VIEW-65) : son fichier est-il toujours, ou de nouveau, à son chemin ?
+/// - marqué « fichier introuvable » et revenu (retour 65.1 du 18/11) : il perd la marque (comme à la vérification
+///   suivante : miniature en échec refaite) et sort de la liste des disparus ; la visionneuse le charge normalement ;
+/// - pas marqué et absent (emplacement accessible) : marqué tout de suite (`found_missing`). Avant, seule une lecture du
+///   fichier le constatait : une image gardée en mémoire par la fenêtre se rouvrait sans le bandeau.
+/// Renvoie la fiche à jour si son état a changé, sinon `None`. Hors du fil de la fenêtre (disque lent ou réseau).
+#[tauri::command]
+pub async fn check_file(app: AppHandle, state: State<'_, AppState>, id: i64) -> Result<Option<crate::library::MediaItem>, String> {
+    let err = |e: rusqlite::Error| e.to_string();
+    let row: Option<(String, bool)> =
+        state.db.lock().unwrap().query_row("SELECT path, missing_since IS NOT NULL FROM media WHERE id = ?1", [id], |r| Ok((r.get(0)?, r.get(1)?))).optional().map_err(err)?;
+    let Some((path, marked)) = row else { return Ok(None) };
+    let path = PathBuf::from(path);
+    if marked {
+        if !std::fs::metadata(&path).is_ok_and(|m| m.is_file()) {
+            return Ok(None);
+        }
+        state
+            .db
+            .lock()
+            .unwrap()
+            .execute(
+                "UPDATE media SET missing_since = NULL, thumb_status = CASE WHEN thumb_status = ?1 THEN 0 ELSE thumb_status END WHERE id = ?2",
+                params![crate::thumbs::status::ERROR, id],
+            )
+            .map_err(err)?;
+        // Encore dans la liste des disparus de la vérification (pop-in pas encore répondue) : il en sort.
+        if STATE.lock().unwrap().all.iter().any(|m| m.id == id) {
+            update(&app, |inner| {
+                inner.all.retain(|m| m.id != id);
+                inner.state.missing_version += 1;
+            });
+        }
+        state.thumbs.wake();
+        let _ = app.emit("library-changed", ());
+    } else {
+        if presence(&path) != Presence::Missing {
+            return Ok(None);
+        }
+        found_missing(&state.db.lock().unwrap(), id, &path);
+    }
+    let conn = state.db.lock().unwrap();
+    Ok(crate::library::media_rows(&conn, &[u32::try_from(id).map_err(|e| e.to_string())?]).map_err(err)?.into_iter().next())
 }
 
 /// État actuel (au démarrage de l'interface).

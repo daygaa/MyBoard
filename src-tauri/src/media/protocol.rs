@@ -71,6 +71,9 @@ pub fn handle(app: &AppHandle, request: Request<Vec<u8>>, responder: UriSchemeRe
     let app = app.clone();
     // Lecture du disque hors du fil principal : la fenêtre n'attend jamais.
     tauri::async_runtime::spawn_blocking(move || {
+        // Fichier en train d'être tourné : la lecture attend la fin de l'écriture, puis l'empreinte est relue (le
+        // contenu servi est toujours celui de l'empreinte demandée, retour 60.8). Pas la vidéo d'un GIF (cache).
+        let _reading = (!name.starts_with("gif/")).then(|| id_of(&name)).flatten().map(super::file_lock::reading);
         // Fichier supprimé pendant la séance : le média passe « fichier introuvable » (VIEW-65).
         let lookup = |rest: &str| lookup(&db_path, rest).filter(|t| present(&app, t));
         let as_jpeg = name.starts_with("jpeg/");
@@ -115,6 +118,12 @@ fn gif_target(root: &Path, gif: Target, rest: &str) -> Option<Target> {
     let hash = rest.split_once('/')?.1.split('.').next()?;
     let path = super::gif::cached_video(root, hash);
     path.exists().then(|| Target { id: gif.id, hash: gif.hash, path, ext: "mp4".into() })
+}
+
+/// Numéro du média d'une adresse (`<id>/…`, `apercu/<id>/…`, `jpeg/<id>/…`).
+fn id_of(name: &str) -> Option<i64> {
+    let rest = name.strip_prefix("apercu/").or_else(|| name.strip_prefix("jpeg/")).unwrap_or(name);
+    rest.split_once('/')?.0.parse().ok()
 }
 
 /// `<id>/<hash>.<ext>` → le média correspondant, s'il existe avec cette empreinte.

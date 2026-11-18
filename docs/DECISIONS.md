@@ -2232,6 +2232,26 @@ outils de test vivaient dans un dossier temporaire qui change à chaque session,
 - Adresse directe des fichiers (`directUrl`, D-053) suivie de `?v=<empreinte>` : un fichier tourné garde son chemin,
   la fenêtre ne doit pas reprendre l'ancien.
 
+## D-081 — Rotation écrite au relâchement, verrou par média, bilan simple fermé par Espace (lot R8, 3e tour, 18/11/2026)
+
+- VIEW-60, retour 60.7 (réponse Q66 C) : la rotation affichée d'avance est tenue par l'interface (`turns.ts` : quarts
+  de tour affichés en plus de la fiche, par média) ; la commande `rotate_media(id, quarters)` (1 à 3 quarts de tour
+  dans le sens horaire) écrit tout d'un coup : étiquette d'orientation (`orientation::turned(valeur, quarts)`), matrice
+  d'une vidéo, miniatures tournées (`image::turned`) ; largeur et hauteur échangées seulement pour un nombre impair de
+  quarts de tour. 0 quart de tour : rien d'écrit.
+- VIEW-60, retour 60.8 : `media::file_lock` (nouveau) : verrou de lecture / écriture PAR MÉDIA, en mémoire. Une
+  rotation (`writing`) attend la fin des lectures en cours du fichier ; les lectures (`reading`) attendent la fin de
+  l'écriture, nouvelle empreinte comprise ; une rotation qui attend passe avant les nouvelles lectures. Lecteurs :
+  protocole `media://` (fichier, `apercu/`, `jpeg/`), fabrication des miniatures (empreinte relue sous le verrou) et des
+  grands aperçus. Règles : jamais une lecture dans une autre du même média, ni `reading` en tenant la base. Non couvert :
+  les fichiers lus directement par la fenêtre (adresse `fileUrl`) ; pour eux, après une rotation, les adresses du média
+  reçoivent une version (`?t=` / `&t=`, `markTurned`) : la fenêtre ne ressert jamais une image gardée pour l'empreinte.
+- VIEW-65, retour 65.1 : commande `check_file(id)`, appelée à chaque ouverture dans la visionneuse (`MediaStage`) :
+  fichier revenu à son chemin → `missing_since` effacé, miniature en échec refaite, média retiré de la liste des
+  disparus ; pas marqué et absent → `found_missing` (une image gardée en mémoire par la fenêtre ne relisait pas le
+  fichier : pas de bandeau). Fiche à jour renvoyée si l'état a changé. Commande `async` (disque lent ou réseau).
+- IMP-95 : `Modal` reçoit `onSpace` (Espace sans case principale) ; le bilan d'import ne le donne que s'il est simple.
+
 ## D-080 — Rotation sans trace, empreintes d'avant, tags marqués, fichier disparu en cours de séance (lot R8, 2e tour, 17/11/2026)
 
 - VIEW-60, retour 60.6 : ce que MyBoard ajoute pour écrire une rotation (répertoire recopié avec l'étiquette

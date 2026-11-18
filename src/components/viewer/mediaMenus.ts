@@ -13,7 +13,8 @@ import { isSilent, SPEEDS, speedLabel, usePlayer } from "@/stores/player";
 import { useViewer } from "@/stores/viewer";
 import type { GifControls } from "./VideoControls";
 import type { Subtitles } from "./Subtitles";
-import { copyFile, copyGifFrame, copyImage, copyName, copyPath, deleteShown, openFile, revealFile, rotateMedia, saveFrame, setWallpaper } from "./mediaActions";
+import { copyFile, copyGifFrame, copyImage, copyName, copyPath, deleteShown, openFile, revealFile, saveFrame, setWallpaper } from "./mediaActions";
+import { rotateMedia } from "./turns";
 import { printImage } from "./printMedia";
 
 function fullscreenEntry(): MenuEntry {

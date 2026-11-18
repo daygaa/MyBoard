@@ -3,7 +3,7 @@
 
 import { invoke } from "@tauri-apps/api/core";
 
-import type { MediaKind, ThumbTier } from "./api";
+import type { MediaItem, MediaKind, ThumbTier } from "./api";
 
 export type MissingMedia = { id: number; hash: string; fileName: string; path: string; kind: MediaKind };
 export type OfflineRoot = { root: string; count: number };
@@ -17,4 +17,6 @@ export const checkApi = {
   settle: (keep: boolean) => invoke<void>("settle_missing", { keep }),
   /** Plus grande miniature déjà faite d'un média introuvable ou inaccessible (« large », « preview », « normal », « small »). */
   bestThumb: (hash: string) => invoke<ThumbTier | null>("best_thumb", { hash }),
+  /** Média ouvert : son fichier est-il revenu (marque retirée) ou parti (marque posée) ? Sa fiche à jour si l'état a changé. */
+  checkFile: (id: number) => invoke<MediaItem | null>("check_file", { id }),
 };

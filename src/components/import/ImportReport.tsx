@@ -5,6 +5,7 @@
 // illisibles sur ce PC, pas importés, avec « Les importer quand même » (IMP-87). Doublons trouvés, à supprimer du disque
 // (IMP-91, `ImportDuplicates`) : la pop-in est alors un peu plus large. Monté
 // dans App : il s'ouvre même si l'on a quitté la page Importer.
+// Bilan simple (« N importés sur X » et la compression, rien d'autre) : Espace le ferme aussi (IMP-95).
 
 import { useState } from "react";
 
@@ -111,6 +112,30 @@ function title(r: ImportResult): string {
   return r.cancelled ? "Import terminé avant la fin de la liste" : "Import terminé";
 }
 
+/** Lignes sous « N importés sur X » ; une ligne à 0 n'est pas montrée. */
+function lines(p: ImportProgress, r: ImportResult): [string, number][] {
+  return [
+    ["Déjà présents", p.alreadyPresent],
+    ["Mis à jour (fichier modifié)", p.updated],
+    ["Doublons ignorés", p.duplicates],
+    ["Retrouvés à un autre endroit", p.relocated],
+    ["Écartés (paires)", p.setAside],
+    ["Non traités (Terminer ici)", r.cancelled ? p.total - p.processed : 0],
+    ["Supprimés du disque", p.deleted],
+    ["Suppressions impossibles", p.deleteFailed],
+    ["Erreurs", p.errors],
+    ["Illisibles sur ce PC (pas importés)", p.unreadable],
+    ["Fichiers disparus pendant l'import", p.vanished],
+  ];
+}
+
+/** Bilan qui ne montre que « N importés sur X » et la compression (IMP-95). */
+function isSimple(p: ImportProgress, r: ImportResult): boolean {
+  if (r.undone || r.fatal || r.duplicateGroups.length > 0) return false;
+  if (r.errorFiles.length > 0 || r.vanishedFiles.length > 0 || r.unreadableFiles.length > 0) return false;
+  return lines(p, r).every(([, value]) => value === 0);
+}
+
 function Body({ p, r }: { p: ImportProgress; r: ImportResult }) {
   if (r.undone) {
     return <p>{`Tout l'import a été défait : ${undoneText(r.undone)}. Vos fichiers d'origine n'ont pas été touchés.`}</p>;
@@ -122,17 +147,9 @@ function Body({ p, r }: { p: ImportProgress; r: ImportResult }) {
         {plural(p.imported, "importé")} sur <span className="tabular-nums">{formatNumber(p.total)}</span>
       </p>
       <div className="mt-3 space-y-1">
-        <Line label="Déjà présents" value={p.alreadyPresent} />
-        <Line label="Mis à jour (fichier modifié)" value={p.updated} />
-        <Line label="Doublons ignorés" value={p.duplicates} />
-        <Line label="Retrouvés à un autre endroit" value={p.relocated} />
-        <Line label="Écartés (paires)" value={p.setAside} />
-        <Line label="Non traités (Terminer ici)" value={r.cancelled ? p.total - p.processed : 0} />
-        <Line label="Supprimés du disque" value={p.deleted} />
-        <Line label="Suppressions impossibles" value={p.deleteFailed} />
-        <Line label="Erreurs" value={p.errors} />
-        <Line label="Illisibles sur ce PC (pas importés)" value={p.unreadable} />
-        <Line label="Fichiers disparus pendant l'import" value={p.vanished} />
+        {lines(p, r).map(([label, value]) => (
+          <Line key={label} label={label} value={value} />
+        ))}
       </div>
       <Compression p={p} />
       {r.fatal && <p className="mt-4 text-rose-400">{r.fatal}</p>}
@@ -158,6 +175,7 @@ function ReportDialog({ result, progress }: { result: ImportResult; progress: Im
       zone="import.bilan"
       onClose={close}
       onEnter={close}
+      onSpace={isSimple(progress, result) ? close : undefined}
       title={title(result)}
       footer={
         <Button data-zone="import.bilan.fermer" onClick={close} className="bg-[#d9a94e] text-[#1a1408] hover:bg-[#e3b75f]">

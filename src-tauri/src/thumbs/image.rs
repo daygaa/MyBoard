@@ -56,11 +56,16 @@ pub fn fit_of(img: DynamicImage, side: u32) -> anyhow::Result<Vec<u8>> {
     Ok(encode(&img))
 }
 
-/// Miniature déjà encodée, tournée d'un quart de tour (fichier tourné, VIEW-60) : carrée et recadrée au centre, elle
+/// Miniature déjà encodée, tournée de `quarters` quarts de tour dans le sens horaire (fichier tourné, VIEW-60) : carrée et recadrée au centre, elle
 /// est exactement la miniature de l'image tournée.
-pub fn turned(webp: &[u8], clockwise: bool) -> anyhow::Result<Vec<u8>> {
+pub fn turned(webp: &[u8], quarters: u8) -> anyhow::Result<Vec<u8>> {
     let img = image::load_from_memory_with_format(webp, image::ImageFormat::WebP)?;
-    let img = if clockwise { img.rotate90() } else { img.rotate270() };
+    let img = match quarters % 4 {
+        1 => img.rotate90(),
+        2 => img.rotate180(),
+        3 => img.rotate270(),
+        _ => img,
+    };
     let img = if img.color().has_alpha() { DynamicImage::ImageRgba8(img.into_rgba8()) } else { DynamicImage::ImageRgb8(img.into_rgb8()) };
     Ok(encode(&img))
 }

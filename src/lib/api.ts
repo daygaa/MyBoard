@@ -444,7 +444,8 @@ export const api = {
   cancelVideoConversion: () => invoke<void>("cancel_video_conversion"),
   copyMedia: (id: number) => invoke<void>("copy_media", { id }),
   /** Quart de tour (VIEW-60) : écrit dans le fichier (JPEG, TIFF, DNG, MP4, MOV) ou à l'affichage ; fiche à jour. */
-  rotateMedia: (id: number, clockwise: boolean) => invoke<MediaItem>("rotate_media", { id, clockwise }),
+  /** `quarters` : quarts de tour dans le sens horaire, 1 à 3 (VIEW-60, retour 60.7 : écrits d'un coup). */
+  rotateMedia: (id: number, quarters: number) => invoke<MediaItem>("rotate_media", { id, quarters }),
   screenDpi: () => invoke<number | null>("screen_dpi"),
   setViewerFullscreen: (on: boolean) => invoke<void>("set_viewer_fullscreen", { on }),
   setMediaNotes: (id: number, notes: string) => invoke<void>("set_media_notes", { id, notes }),
@@ -575,18 +576,25 @@ const MEDIA_ROOT = convertFileSrc("", "media");
 
 /** Adresse du FICHIER ORIGINAL d'un média (protocole `media://`, visionneuse). L'empreinte
  *  fait partie de l'adresse : son contenu ne change jamais, la fenêtre peut le garder en cache. */
+/** Médias dont le fichier a été tourné pendant la séance (VIEW-60, retour 60.8) : une version en plus dans leurs
+ *  adresses. Un tour complet ramène la même empreinte (retour 60.6) ; sans elle, la fenêtre pouvait resservir l'image
+ *  gardée pour cette adresse, lue pendant une écriture du fichier, donc dans un autre sens. */
+const turnedAt = new Map<number, number>();
+export const markTurned = (id: number) => void turnedAt.set(id, Date.now());
+const version = (id: number, sep: "?" | "&") => (turnedAt.has(id) ? `${sep}t=${turnedAt.get(id)}` : "");
+
 export function mediaUrl(item: Pick<MediaItem, "id" | "hash" | "ext">): string {
-  return `${MEDIA_ROOT}${item.id}/${item.hash}.${item.ext}`;
+  return `${MEDIA_ROOT}${item.id}/${item.hash}.${item.ext}${version(item.id, "?")}`;
 }
 
 /** Image que la fenêtre n'a pas su afficher, convertie en JPEG par un décodeur de MyBoard (VIEW-59, réponse Q34 A). */
 export function jpegUrl(item: Pick<MediaItem, "id" | "hash" | "ext">): string {
-  return `${MEDIA_ROOT}jpeg/${item.id}/${item.hash}.${item.ext}`;
+  return `${MEDIA_ROOT}jpeg/${item.id}/${item.hash}.${item.ext}${version(item.id, "?")}`;
 }
 
 /** Aperçu JPEG rangé par l'appareil photo dans un RAW (VIEW-63) : affiché en attendant l'image décodée. */
 export function rawPreviewUrl(item: Pick<MediaItem, "id" | "hash" | "ext">): string {
-  return `${MEDIA_ROOT}apercu/${item.id}/${item.hash}.${item.ext}`;
+  return `${MEDIA_ROOT}apercu/${item.id}/${item.hash}.${item.ext}${version(item.id, "?")}`;
 }
 
 /** Extensions des RAW d'appareils photo (liste du cœur Rust, IMP-89), lues au démarrage. */
@@ -597,7 +605,7 @@ export const isCameraRaw = (item: Pick<MediaItem, "ext">) => rawExtensions.has(i
 /** Adresse du fichier d'une image ou d'une vidéo pour la visionneuse : lu directement sur le disque par la fenêtre
  *  (VIEW-53, VIEW-55 : 10 fois plus rapide, sans bloquer MyBoard), sinon `media://` (formats convertis, chemins réseau). */
 // L'empreinte en fin d'adresse : un fichier tourné (VIEW-60) garde son chemin, la fenêtre ne doit pas reprendre l'ancien.
-export const directUrl = (item: MediaItem): string => (item.fileUrl ? `${item.fileUrl}?v=${item.hash.slice(0, 12)}` : mediaUrl(item));
+export const directUrl = (item: MediaItem): string => (item.fileUrl ? `${item.fileUrl}?v=${item.hash.slice(0, 12)}${version(item.id, "&")}` : mediaUrl(item));
 
 /** Adresse de la vidéo d'un GIF (VIEW-54), d'après la réponse de `prepareGif`. */
 export const gifVideoUrl = (path: string) => `${MEDIA_ROOT}${path}`;

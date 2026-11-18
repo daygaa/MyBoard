@@ -96,7 +96,7 @@ fn top_box(file: &mut File, kind: &[u8; 4]) -> anyhow::Result<Option<(u64, u64)>
     Ok(None)
 }
 
-pub fn turn_mp4(path: &Path, clockwise: bool) -> anyhow::Result<()> {
+pub fn turn_mp4(path: &Path, quarters: u8) -> anyhow::Result<()> {
     let mut file = OpenOptions::new().read(true).write(true).open(path)?;
     let (moov_at, moov_len) = top_box(&mut file, b"moov")?.context("index de la vidéo (moov) introuvable")?;
     if moov_len > MAX_MOOV {
@@ -118,7 +118,7 @@ pub fn turn_mp4(path: &Path, clockwise: bool) -> anyhow::Result<()> {
         let (Some(current), Some(w), Some(h)) = (tkhd.get(m..m + 36).and_then(angle), size(0), size(1)) else {
             bail!("matrice d'affichage inhabituelle (miroir ou échelle) : non modifiée");
         };
-        let next = (current + if clockwise { 90 } else { 270 }) % 360;
+        let next = (current + 90 * u32::from(quarters % 4)) % 360;
         writes.push((moov_at + (start + tkhd_at + m) as u64, matrix(next, w, h)));
     }
     if writes.is_empty() {

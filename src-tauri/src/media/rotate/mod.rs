@@ -1,4 +1,7 @@
-//! Rotation de ± 90° d'une image ou d'une vidéo (VIEW-60 ; réponses Q21, Q24 A et Q25 A du 14/11).
+//! Rotation d'une image ou d'une vidéo par quarts de tour (VIEW-60 ; réponses Q21, Q24 A et Q25 A du 14/11). R maintenu :
+//! l'interface tourne l'image à l'écran à chaque appui et n'écrit le fichier qu'une fois, au relâchement, de tous les
+//! quarts de tour d'un coup (retour 60.7, réponse Q66 C). Pendant l'écriture, personne ne lit le fichier (`file_lock`,
+//! retour 60.8).
 //! - JPEG, TIFF, DNG, RAW à structure TIFF (CR2, NEF, NRW, ARW, PEF), MP4, MOV, 3GP : rotation écrite dans le fichier,
 //!   sans perte (étiquette d'orientation, matrice d'affichage : `orientation.rs`, `mp4.rs` ; réponse Q61 A). Le fichier
 //!   change d'empreinte : sa fiche est mise à jour (exception voulue à « l'original n'est jamais modifié »), l'empreinte
@@ -15,16 +18,16 @@ use std::sync::Mutex;
 use rusqlite::{ErrorCode, OptionalExtension, params};
 use tauri::State;
 
-use super::{OpenFailure, existing_path};
+use super::{OpenFailure, existing_path, file_lock};
 use crate::AppState;
 use crate::import::versions;
 use crate::library::{MediaItem, media_rows};
 
-/// Une rotation à la fois : des appuis rapides sur R s'enchaînent dans l'ordre, chacun sur le fichier déjà tourné.
+/// Une rotation à la fois : des clics rapides sur ↺ ↻ s'enchaînent dans l'ordre, chacun sur le fichier déjà tourné.
 static ONE_AT_A_TIME: Mutex<()> = Mutex::new(());
 
 /// Façon d'écrire la rotation dans le fichier, selon son extension ; `None` : affichage seulement.
-fn writer(ext: &str) -> Option<fn(&Path, bool) -> anyhow::Result<()>> {
+fn writer(ext: &str) -> Option<fn(&Path, u8) -> anyhow::Result<()>> {
     match ext {
         "jpg" | "jpeg" | "jpe" | "jfif" => Some(orientation::turn_jpeg),
         // RAW essayés (réponse Q61 A) : leur décodeur lit l'étiquette du premier répertoire. Pas ORF, RW2, CR3, RAF
@@ -39,9 +42,11 @@ fn failure(e: impl std::fmt::Display) -> OpenFailure {
     OpenFailure::new(None, e.to_string())
 }
 
-/// Tourne le média d'un quart de tour ; renvoie sa fiche à jour (empreinte, dimensions, rotation d'affichage).
+/// Tourne le média de `quarters` quarts de tour dans le sens horaire (1 à 3) ; renvoie sa fiche à jour (empreinte,
+/// dimensions, rotation d'affichage). 0 (un tour complet) : rien n'est écrit.
 #[tauri::command]
-pub async fn rotate_media(state: State<'_, AppState>, id: i64, clockwise: bool) -> Result<MediaItem, OpenFailure> {
+pub async fn rotate_media(state: State<'_, AppState>, id: i64, quarters: u8) -> Result<MediaItem, OpenFailure> {
+    let quarters = quarters % 4;
     let _turn = ONE_AT_A_TIME.lock().unwrap_or_else(|e| e.into_inner());
     let path = existing_path(&state, id)?;
     let row: Option<(String, String, String, Option<String>)> = state
@@ -55,8 +60,11 @@ pub async fn rotate_media(state: State<'_, AppState>, id: i64, clockwise: bool) 
     if kind != "image" && kind != "video" {
         return Err(failure("Seules les images et les vidéos peuvent être tournées."));
     }
-    let written = match writer(&ext.to_lowercase()) {
-        Some(write) => match write(&path, clockwise) {
+    let write = writer(&ext.to_lowercase()).filter(|_| quarters > 0);
+    // Lectures en cours du fichier finies d'abord ; les suivantes attendent la nouvelle empreinte (retour 60.8).
+    let _writing = write.map(|_| file_lock::writing(id));
+    let written = match write {
+        Some(write) => match write(&path, quarters) {
             Ok(()) => true,
             Err(e) => {
                 eprintln!("[rotation] {} : {e:#} ; rotation d'affichage seulement", path.display());
@@ -66,14 +74,13 @@ pub async fn rotate_media(state: State<'_, AppState>, id: i64, clockwise: bool) 
         None => false,
     };
     if written {
-        after_write(&state, id, &path, (&hash, original.as_deref()), clockwise, writer(&ext.to_lowercase()))?;
-    } else {
-        let quarter = if clockwise { 1 } else { 3 };
+        after_write(&state, id, &path, (&hash, original.as_deref()), quarters, write)?;
+    } else if quarters > 0 {
         state
             .db
             .lock()
             .unwrap()
-            .execute("UPDATE media SET rotation = (rotation + ?1) % 4 WHERE id = ?2", params![quarter, id])
+            .execute("UPDATE media SET rotation = (rotation + ?1) % 4 WHERE id = ?2", params![quarters, id])
             .map_err(failure)?;
     }
     let items = media_rows(&state.db.lock().unwrap(), &[u32::try_from(id).map_err(failure)?]).map_err(failure)?;
@@ -87,8 +94,8 @@ fn after_write(
     id: i64,
     path: &Path,
     (old, original): (&str, Option<&str>),
-    clockwise: bool,
-    write: Option<fn(&Path, bool) -> anyhow::Result<()>>,
+    quarters: u8,
+    write: Option<fn(&Path, u8) -> anyhow::Result<()>>,
 ) -> Result<(), OpenFailure> {
     let hash = versions::hash_file_parallel(path)?;
     let meta = std::fs::metadata(path)?;
@@ -97,8 +104,11 @@ fn after_write(
         let mut db = state.db.lock().unwrap();
         let tx = db.transaction().map_err(failure)?;
         let updated = tx.execute(
-            "UPDATE media SET hash = ?1, size = ?2, file_modified_at = ?3, width = height, height = width WHERE id = ?4",
-            params![hash, meta.len() as i64, modified, id],
+            // Largeur et hauteur échangées seulement après un nombre impair de quarts de tour (pas après un demi-tour).
+            "UPDATE media SET hash = ?1, size = ?2, file_modified_at = ?3,
+                 width = CASE WHEN ?5 % 2 = 1 THEN height ELSE width END, height = CASE WHEN ?5 % 2 = 1 THEN width ELSE height END
+             WHERE id = ?4",
+            params![hash, meta.len() as i64, modified, id, quarters],
         );
         match updated {
             Err(rusqlite::Error::SqliteFailure(e, _)) if e.code == ErrorCode::ConstraintViolation => Ok(false),
@@ -117,11 +127,11 @@ fn after_write(
     }?;
     if !saved {
         if let Some(write) = write {
-            let _ = write(path, !clockwise);
+            let _ = write(path, 4 - quarters);
         }
         return Err(failure("Un autre média de la bibliothèque a déjà exactement ce contenu : rotation annulée."));
     }
-    if !state.thumbs.copy_turned(old, &hash, clockwise).unwrap_or(false) {
+    if !state.thumbs.copy_turned(old, &hash, quarters).unwrap_or(false) {
         let _ = state.db.lock().unwrap().execute("UPDATE media SET thumb_status = ?1 WHERE id = ?2", params![crate::thumbs::status::TODO, id]);
         state.thumbs.wake();
     }

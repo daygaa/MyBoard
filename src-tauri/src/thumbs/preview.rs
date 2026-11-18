@@ -214,6 +214,8 @@ fn next_job(inner: &Inner) -> PreviewKey {
 
 fn fabricate(inner: &Inner, key: PreviewKey) -> anyhow::Result<()> {
     let Some(tier) = key.tier() else { return Ok(()) };
+    // Pas pendant une rotation du fichier : l'aperçu serait rangé sous l'empreinte d'avant (retour 60.8).
+    let _reading = crate::media::file_lock::reading(key.id);
     let row: Option<(String, String, String)> = inner
         .db
         .lock()

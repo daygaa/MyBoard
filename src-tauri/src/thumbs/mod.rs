@@ -62,7 +62,6 @@ pub struct ThumbUpdate {
 #[derive(Clone)]
 struct Job {
     id: i64,
-    hash: String,
     path: PathBuf,
     kind: String,
 }
@@ -158,15 +157,15 @@ impl ThumbService {
         self.shared.wake.notify_all();
     }
 
-    /// Fichier tourné (VIEW-60) : ses miniatures 320 et 128 px, tournées d'un quart de tour, sont rangées sous sa
+    /// Fichier tourné (VIEW-60) : ses miniatures 320 et 128 px, tournées de `quarters` quarts de tour, sont rangées sous sa
     /// nouvelle empreinte ; rien n'est relu sur le disque et la vignette ne clignote pas. `false` : pas de miniature
     /// à tourner (à refaire depuis le fichier).
-    pub fn copy_turned(&self, old: &str, new: &str, clockwise: bool) -> anyhow::Result<bool> {
+    pub fn copy_turned(&self, old: &str, new: &str, quarters: u8) -> anyhow::Result<bool> {
         let store = self.shared.store.lock().unwrap();
         let (Some(normal), Some(small)) = (store::get(&store, store::Tier::Normal, old)?, store::get(&store, store::Tier::Small, old)?) else {
             return Ok(false);
         };
-        store::put_thumbs(&store, new, &image::turned(&normal, clockwise)?, &image::turned(&small, clockwise)?)?;
+        store::put_thumbs(&store, new, &image::turned(&normal, quarters)?, &image::turned(&small, quarters)?)?;
         Ok(true)
     }
 
@@ -197,7 +196,7 @@ impl ThumbService {
 fn job_from_row(row: &rusqlite::Row) -> rusqlite::Result<Job> {
     Ok(Job {
         id: row.get(0)?,
-        hash: row.get(1)?,
+        // Colonne 1 (empreinte) : relue sous le verrou du fichier au moment de faire la miniature (retour 60.8).
         path: PathBuf::from(row.get::<_, String>(2)?),
         kind: row.get(3)?,
     })
@@ -252,19 +251,21 @@ fn load_todo(shared: &Shared, in_flight: &HashSet<i64>) -> rusqlite::Result<Vec<
 
 /// Fabrique la miniature ; `None` si le média n'est plus à faire (déjà traité entre-temps).
 fn process(shared: &Shared, job: &Job) -> Option<ThumbUpdate> {
-    let still_todo = {
+    // Fichier en train d'être tourné : la miniature attend la fin de l'écriture et prend l'empreinte d'après ; avant,
+    // elle pouvait être faite du fichier déjà tourné et rangée sous l'empreinte d'avant (retour 60.8).
+    let _reading = crate::media::file_lock::reading(job.id);
+    let current = {
         let db = shared.db.lock().unwrap();
-        db.query_row("SELECT thumb_status FROM media WHERE id = ?1", [job.id], |r| r.get::<_, i64>(0))
+        db.query_row("SELECT thumb_status, hash FROM media WHERE id = ?1", [job.id], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?)))
             .optional()
             .ok()
             .flatten()
-            == Some(status::TODO)
     };
-    if !still_todo {
+    let Some((status::TODO, hash)) = current else {
         return None;
-    }
+    };
     let ff = ffmpeg::shared();
-    let mut update = ThumbUpdate { id: job.id, hash: job.hash.clone(), status: status::ERROR, width: None, height: None, duration_ms: None };
+    let mut update = ThumbUpdate { id: job.id, hash: hash.clone(), status: status::ERROR, width: None, height: None, duration_ms: None };
 
     let made = match job.kind.as_str() {
         // HEIF / HEIC, DNG : ffmpeg récent ou décodeur de Windows (IMP-80, IMP-82).
@@ -295,7 +296,7 @@ fn process(shared: &Shared, job: &Job) -> Option<ThumbUpdate> {
     };
 
     match made.and_then(|(thumb, duration)| {
-        store::put_thumbs(&shared.store.lock().unwrap(), &job.hash, &thumb.webp, &thumb.small)?;
+        store::put_thumbs(&shared.store.lock().unwrap(), &hash, &thumb.webp, &thumb.small)?;
         Ok((thumb.width, thumb.height, duration))
     }) {
         Ok((w, h, duration)) => {

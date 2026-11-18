@@ -22,12 +22,13 @@ import { viewerActionFor, withShortcut, type ViewerAction } from "@/lib/shortcut
 import { cn } from "@/lib/utils";
 import { setFavorite, useIsFavorite } from "@/stores/favorites";
 import { useViewer } from "@/stores/viewer";
-import { copyFile, openFile, revealFile, rotateMedia, turning } from "./mediaActions";
+import { copyFile, openFile, revealFile } from "./mediaActions";
 import { DeleteShownDialog } from "./DeleteShown";
 import { fileNameMenu } from "./mediaMenus";
 import { ACTION_BUTTON } from "./viewerChrome";
 import { isTyping } from "./navigation";
 import { printImage } from "./printMedia";
+import { rotateMedia, turnByKey, useTurnsAhead, writeTurns } from "./turns";
 import { TagAdder } from "./ViewerTags";
 
 type ActionDef = {
@@ -38,6 +39,8 @@ type ActionDef = {
   title: string;
   /** Absent : action grisée « bientôt disponible » (phase 3). */
   run?: () => void;
+  /** Par le clavier, si ce n'est pas `run` (rotation : à l'écran seulement, écrite au relâchement). */
+  byKey?: (repeat: boolean) => void;
   /** Raison pour laquelle l'action est grisée pour ce média. */
   unavailable?: string;
   className?: string;
@@ -80,14 +83,27 @@ function useShortcuts(actions: ActionDef[]) {
       const found = actions.find((a) => a.action === viewerActionFor(e));
       if (!found?.run || found.unavailable !== undefined) return;
       if (found.action === "copy" && window.getSelection()?.toString()) return;
-      // R maintenu (retour 60.1) : une rotation à la fois, rien ne s'accumule ; elles s'arrêtent au relâchement.
-      if (e.repeat && (found.action === "rotateLeft" || found.action === "rotateRight") && turning()) return e.preventDefault();
       e.preventDefault();
-      found.run();
+      if (found.byKey) found.byKey(e.repeat);
+      else found.run();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [actions]);
+  // R relâché (Maj+R aussi) : la rotation affichée est écrite dans le fichier, d'un coup (retour 60.7, réponse Q66 C) ;
+  // de même si la fenêtre perd la main (relâchement jamais reçu) ou si la visionneuse se ferme.
+  useEffect(() => {
+    const onUp = (e: KeyboardEvent) => {
+      if (e.key.toLowerCase() === "r") writeTurns();
+    };
+    window.addEventListener("keyup", onUp);
+    window.addEventListener("blur", writeTurns);
+    return () => {
+      window.removeEventListener("keyup", onUp);
+      window.removeEventListener("blur", writeTurns);
+      writeTurns();
+    };
+  }, []);
 }
 
 export function InfoBar({ item, children }: { item: MediaItem; children: ReactNode }) {
@@ -96,7 +112,8 @@ export function InfoBar({ item, children }: { item: MediaItem; children: ReactNo
   const unreadable = useViewer((s) => s.unreadable === item.id);
   const favorite = useIsFavorite(item.id, detail?.favorite ?? item.favorite);
   const [deleting, setDeleting] = useState(false);
-  const shown = shownSize(item);
+  const ahead = useTurnsAhead(item.id);
+  const shown = shownSize({ ...item, rotation: (item.rotation ?? 0) + ahead });
   const noRotate = canRotate(item) ? undefined : item.missing || item.offline ? "Tourner : fichier introuvable" : "Tourner : réservé aux images et aux vidéos";
   const meta = [
     shown.w && shown.h ? `${shown.w}×${shown.h}` : "",
@@ -115,6 +132,7 @@ export function InfoBar({ item, children }: { item: MediaItem; children: ReactNo
       label: "",
       title: "Tourner à gauche",
       run: () => rotateMedia(item, false),
+      byKey: (repeat) => turnByKey(item, false, repeat),
       unavailable: noRotate,
     },
     {
@@ -124,6 +142,7 @@ export function InfoBar({ item, children }: { item: MediaItem; children: ReactNo
       label: "",
       title: "Tourner à droite",
       run: () => rotateMedia(item, true),
+      byKey: (repeat) => turnByKey(item, true, repeat),
       unavailable: noRotate,
     },
     {

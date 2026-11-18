@@ -51,10 +51,12 @@ fn read_mark(b: &[u8]) -> Option<Added> {
 /// Valeurs 1 à 8 : quarts de tour dans le sens des aiguilles d'une montre, puis miroir horizontal.
 const TURNS: [(u8, bool); 8] = [(0, false), (0, true), (2, false), (2, true), (1, true), (1, false), (3, true), (3, false)];
 
-/// Valeur après un quart de tour de l'image affichée. Un miroir inverse le sens du tour enregistré.
-pub fn turned(value: u16, clockwise: bool) -> u16 {
+/// Valeur après `quarters` quarts de tour (sens horaire, 1 à 3) de l'image affichée. Un miroir inverse le sens du tour
+/// enregistré.
+pub fn turned(value: u16, quarters: u8) -> u16 {
     let (k, mirror) = TURNS.get(usize::from(value).wrapping_sub(1)).copied().unwrap_or((0, false));
-    let k = (k + if clockwise != mirror { 1 } else { 3 }) % 4;
+    let q = quarters % 4;
+    let k = (k + if mirror { (4 - q) % 4 } else { q }) % 4;
     TURNS.iter().position(|&t| t == (k, mirror)).map_or(1, |i| i as u16 + 1)
 }
 
@@ -118,7 +120,7 @@ enum Plan {
     Undo(Added),
 }
 
-fn plan(ifd: &Ifd0, clockwise: bool) -> Plan {
+fn plan(ifd: &Ifd0, quarters: u8) -> Plan {
     let o = ifd.order;
     let found = ifd.entries.iter().position(|e| o.u16(e, 0) == Some(ORIENTATION));
     if let Some(i) = found {
@@ -127,11 +129,11 @@ fn plan(ifd: &Ifd0, clockwise: bool) -> Plan {
         if o.u16(e, 2) == Some(SHORT) && o.u32(e, 4) == Some(1) {
             let current = o.u16(e, 8).unwrap_or(1);
             if let Some(added) = ifd.added
-                && turned(current, clockwise) == 1
+                && turned(current, quarters) == 1
             {
                 return Plan::Undo(added);
             }
-            return Plan::InPlace { at: u64::from(ifd.start) + 2 + i as u64 * 12 + 8, bytes: o.put16(turned(current, clockwise)) };
+            return Plan::InPlace { at: u64::from(ifd.start) + 2 + i as u64 * 12 + 8, bytes: o.put16(turned(current, quarters)) };
         }
     }
     // Absente (ou mal formée : remplacée) : entrée ajoutée à sa place dans l'ordre des numéros.
@@ -140,7 +142,7 @@ fn plan(ifd: &Ifd0, clockwise: bool) -> Plan {
     entry[..2].copy_from_slice(&o.put16(ORIENTATION));
     entry[2..4].copy_from_slice(&o.put16(SHORT));
     entry[4..8].copy_from_slice(&o.put32(1));
-    entry[8..10].copy_from_slice(&o.put16(turned(1, clockwise)));
+    entry[8..10].copy_from_slice(&o.put16(turned(1, quarters)));
     let at = entries.partition_point(|e| o.u16(e.as_slice(), 0).unwrap_or(0) < ORIENTATION);
     entries.insert(at, entry);
     let mut out = o.put16(entries.len() as u16).to_vec();
@@ -163,11 +165,11 @@ fn write_at(file: &mut File, at: u64, bytes: &[u8]) -> anyhow::Result<()> {
 }
 
 /// TIFF, DNG et RAW à structure TIFF : le fichier entier est la structure TIFF ; un répertoire ajouté va à sa fin.
-pub fn turn_tiff(path: &Path, clockwise: bool) -> anyhow::Result<()> {
+pub fn turn_tiff(path: &Path, quarters: u8) -> anyhow::Result<()> {
     let mut file = OpenOptions::new().read(true).write(true).open(path)?;
     let len = file.metadata()?.len();
     let ifd = ifd0(&mut |at, n| read_at(&mut file, at, n), len)?;
-    match plan(&ifd, clockwise) {
+    match plan(&ifd, quarters) {
         Plan::InPlace { at, bytes } => write_at(&mut file, at, &bytes)?,
         Plan::Append { ifd: data } => {
             let before = u32::try_from(len).context("fichier TIFF trop grand")?;
@@ -242,7 +244,7 @@ fn app1(tiff: &[u8]) -> anyhow::Result<Vec<u8>> {
     Ok(out)
 }
 
-pub fn turn_jpeg(path: &Path, clockwise: bool) -> anyhow::Result<()> {
+pub fn turn_jpeg(path: &Path, quarters: u8) -> anyhow::Result<()> {
     let data = std::fs::read(path)?;
     let (exif, insert_at) = scan_jpeg(&data)?;
     let Some((start, tiff, end)) = exif else {
@@ -251,7 +253,7 @@ pub fn turn_jpeg(path: &Path, clockwise: bool) -> anyhow::Result<()> {
         block.extend_from_slice(&ORIENTATION.to_be_bytes());
         block.extend_from_slice(&SHORT.to_be_bytes());
         block.extend_from_slice(&1u32.to_be_bytes());
-        block.extend_from_slice(&turned(1, clockwise).to_be_bytes());
+        block.extend_from_slice(&turned(1, quarters).to_be_bytes());
         block.extend_from_slice(&[0; 6]); // fin de la valeur, puis « pas de répertoire suivant »
         block.extend_from_slice(&mark(0, 0));
         return replace(path, &[&data[..insert_at], &app1(&block)?, &data[insert_at..]].concat());
@@ -264,7 +266,7 @@ pub fn turn_jpeg(path: &Path, clockwise: bool) -> anyhow::Result<()> {
         },
         blob.len() as u64,
     )?;
-    match plan(&ifd, clockwise) {
+    match plan(&ifd, quarters) {
         Plan::InPlace { at, bytes } => {
             let mut file = OpenOptions::new().write(true).open(path)?;
             write_at(&mut file, tiff as u64 + at, &bytes)?;
@@ -332,12 +334,15 @@ mod tests {
     #[test]
     fn quarts_de_tour() {
         // Sans miroir : 1 → 6 → 3 → 8 → 1 dans le sens horaire, l'inverse dans l'autre.
-        assert_eq!([1, 6, 3, 8].map(|v| turned(v, true)), [6, 3, 8, 1]);
-        assert_eq!([1, 6, 3, 8].map(|v| turned(v, false)), [8, 1, 6, 3]);
+        assert_eq!([1, 6, 3, 8].map(|v| turned(v, 1)), [6, 3, 8, 1]);
+        assert_eq!([1, 6, 3, 8].map(|v| turned(v, 3)), [8, 1, 6, 3]);
         // Avec miroir : un tour puis l'inverse revient au départ.
         for v in 1..=8 {
-            assert_eq!(turned(turned(v, true), false), v);
-            assert_eq!((0..4).fold(v, |x, _| turned(x, true)), v);
+            assert_eq!(turned(turned(v, 1), 3), v);
+            assert_eq!((0..4).fold(v, |x, _| turned(x, 1)), v);
+            // Plusieurs quarts de tour écrits d'un coup (retour 60.7) : comme autant de quarts de tour un à un.
+            assert_eq!(turned(v, 2), turned(turned(v, 1), 1));
+            assert_eq!(turned(v, 3), turned(turned(turned(v, 1), 1), 1));
         }
     }
 
@@ -348,14 +353,14 @@ mod tests {
         let path = dir.join("a.jpg");
         let img = image::RgbImage::from_pixel(4, 2, image::Rgb([200, 10, 10]));
         img.save(&path).unwrap();
-        turn_jpeg(&path, true).unwrap();
+        turn_jpeg(&path, 1).unwrap();
         let read = || {
             let mut d = image::ImageReader::open(&path).unwrap().with_guessed_format().unwrap().into_decoder().unwrap();
             image::ImageDecoder::orientation(&mut d).unwrap()
         };
         assert_eq!(read(), image::metadata::Orientation::Rotate90);
         let size = std::fs::metadata(&path).unwrap().len();
-        turn_jpeg(&path, true).unwrap();
+        turn_jpeg(&path, 1).unwrap();
         assert_eq!(read(), image::metadata::Orientation::Rotate180);
         assert_eq!(std::fs::metadata(&path).unwrap().len(), size, "2e tour : sur place");
         std::fs::remove_dir_all(&dir).unwrap();
@@ -368,16 +373,16 @@ mod tests {
     }
 
     /// Retour 60.6 : un tour puis l'inverse, et quatre tours dans le même sens, rendent le fichier identique.
-    fn back_to_bytes(path: &Path, turn: fn(&Path, bool) -> anyhow::Result<()>) {
+    fn back_to_bytes(path: &Path, turn: fn(&Path, u8) -> anyhow::Result<()>) {
         let original = std::fs::read(path).unwrap();
-        for clockwise in [true, false] {
-            turn(path, clockwise).unwrap();
+        for quarters in [1, 2, 3] {
+            turn(path, quarters).unwrap();
             assert_ne!(std::fs::read(path).unwrap(), original, "tourné : fichier changé");
-            turn(path, !clockwise).unwrap();
+            turn(path, 4 - quarters).unwrap();
             assert_eq!(std::fs::read(path).unwrap(), original, "un tour puis l'inverse");
         }
         for _ in 0..4 {
-            turn(path, true).unwrap();
+            turn(path, 1).unwrap();
         }
         assert_eq!(std::fs::read(path).unwrap(), original, "quatre tours");
     }
@@ -440,12 +445,12 @@ mod tests {
             let path = dir.join(src.file_name().unwrap());
             std::fs::copy(&src, &path).unwrap();
             let before = crate::decode::raw::orientation_of(&path).unwrap();
-            turn_tiff(&path, true).unwrap();
+            turn_tiff(&path, 1).unwrap();
             let after = crate::decode::raw::orientation_of(&path).unwrap();
             println!("{} : {before:?} -> {after:?}", src.display());
-            let expected = image::metadata::Orientation::from_exif(turned(u16::from(before.to_exif()), true) as u8).unwrap();
+            let expected = image::metadata::Orientation::from_exif(turned(u16::from(before.to_exif()), 1) as u8).unwrap();
             assert_eq!(after, expected, "{}", src.display());
-            turn_tiff(&path, false).unwrap();
+            turn_tiff(&path, 3).unwrap();
             assert_eq!(std::fs::read(&path).unwrap(), std::fs::read(&src).unwrap(), "{}", src.display());
         }
         std::fs::remove_dir_all(&dir).unwrap();
