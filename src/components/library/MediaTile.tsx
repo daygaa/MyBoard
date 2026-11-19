@@ -32,6 +32,7 @@ import { setFavorite, useIsFavorite } from "@/stores/favorites";
 import { isSelected, startSelection, toggleRowOf, toggleSelected, useIsSelected, useSelection } from "@/stores/selection";
 import { useThumbs } from "@/stores/thumbs";
 import { useViewer } from "@/stores/viewer";
+import { useTurnsAhead } from "@/components/viewer/turns";
 import { loadSelection } from "./selectionMenu";
 import { tileMenu } from "./tileMenu";
 
@@ -221,8 +222,10 @@ export const MediaTile = memo(function MediaTile({ item, index, pageSize, compac
   const preview = thumbSize === 640 || thumbSize === 1280 ? thumbSize : null;
   const previewReady = usePreview(ref, item.id, ready && preview !== previewFailed ? preview : null);
   // Dimensions affichées : rotation d'affichage comprise (VIEW-60).
-  const { w: width, h: height } = shownSize({ width: update?.width ?? item.width, height: update?.height ?? item.height, rotation: item.rotation });
-  const turn = turnStyle(item);
+  // Quarts de tour affichés, pas encore écrits (menu « Tourner », écrit 0,5 s après : réponse Q67 A) compris.
+  const rotation = (item.rotation ?? 0) + useTurnsAhead(item.id);
+  const { w: width, h: height } = shownSize({ width: update?.width ?? item.width, height: update?.height ?? item.height, rotation });
+  const turn = turnStyle({ rotation });
   const duration = update?.durationMs ?? item.durationMs;
   const isVideo = item.kind === "video";
   const hasBadge = isVideo || item.ext === "gif";

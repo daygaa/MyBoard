@@ -3,6 +3,14 @@
 Format : une entrée par tâche livrée, la plus récente en haut. Les IDs renvoient à `docs/SPEC.md`.
 La colonne « Backup » renvoie au dossier `Backups/vX` correspondant.
 
+## Lot R8, 4e tour : rotation sans limite, écrite une fois, image gardée d'un fichier disparu (19/11/2026) — Backup v151
+
+SPEC : VIEW-60, VIEW-65 `[~]` ; décision D-082.
+
+- VIEW-60 : R maintenu tourne l'image sans limite ; le fichier n'est écrit qu'une fois, 0,5 s après la dernière
+  rotation (R, boutons ↺ ↻, menus) ; la vignette tourne tout de suite.
+- VIEW-65 : un fichier disparu dont l'image est encore en mémoire la montre, nette, au lieu de la miniature.
+
 ## Lot R8, 3e tour : rotation écrite au relâchement, pagination stable, Espace sur le bilan (18/11/2026) — Backup v150
 
 SPEC : VIEW-60, VIEW-64, VIEW-65, PAGE-07, IMP-95 `[~]` ; décision D-081.

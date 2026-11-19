@@ -1,7 +1,8 @@
-// Rotation d'un média (VIEW-60). L'image tourne à l'écran dès chaque appui sur R ; le fichier n'est écrit qu'une fois,
-// au relâchement de la touche, avec tous les quarts de tour d'un coup (retour 60.7, réponse Q66 C) : un tour complet
-// avant le relâchement n'écrit rien. Un clic sur ↺ ↻ ou une entrée de menu écrit tout de suite. Pendant l'écriture,
-// l'image reste tournée à l'écran ; la fiche à jour (nouvelle empreinte) prend ensuite sa place.
+// Rotation d'un média (VIEW-60). L'image tourne à l'écran dès chaque rotation (R, Maj+R, ↺ ↻, menu ; R maintenu : à
+// chaque répétition de la touche, sans limite, retour 60.9) ; le fichier est écrit une seule fois, 0,5 s après la
+// dernière rotation, avec tous les quarts de tour d'un coup (retours 60.7 et 60.10, réponses Q66 C et Q67 A) : un tour
+// complet n'écrit rien. Visionneuse fermée ou fenêtre quittée avant : écrit tout de suite. Pendant l'écriture, l'image
+// reste tournée à l'écran ; la fiche à jour (nouvelle empreinte) prend ensuite sa place.
 
 import { create } from "zustand";
 
@@ -12,8 +13,8 @@ import { useViewer } from "@/stores/viewer";
 import { runExternal } from "./externalOpen";
 import { adoptTurned } from "./imageCache";
 
-/** R maintenu : un quart de tour à l'écran au plus toutes les 200 ms (le rythme de la v149, où chacun était écrit). */
-const HELD_MS = 200;
+/** Attente après la dernière rotation avant d'écrire le fichier (réponse Q67 A). */
+const SETTLE_MS = 500;
 
 type Turns = {
   /** Quarts de tour (sens horaire, 1 à 3) affichés en plus de la fiche, par média : pas encore écrits, ou en cours. */
@@ -43,30 +44,36 @@ function addAhead(s: Turns, id: number, quarters: number): Turns["ahead"] {
 /** Quarts de tour affichés, pas encore envoyés, par média. */
 const unsent = new Map<number, number>();
 let writes: Promise<void> = Promise.resolve();
-let lastHeld = 0;
+let settle: ReturnType<typeof setTimeout> | undefined;
+/** R (ou Maj+R) enfoncé : rien n'est écrit avant son relâchement ; l'attente de 0,5 s part de là. Sinon, avec la
+ *  répétition de Windows (1re répétition ~500 ms après l'appui), une écriture partait pendant l'appui. */
+let held = false;
 
-function turnShown(item: MediaItem, clockwise: boolean) {
+/** Quart de tour (R, Maj+R, ↺ ↻, menu) : à l'écran tout de suite ; fichier écrit 0,5 s après la dernière rotation. */
+export function rotateMedia(item: MediaItem, clockwise: boolean) {
   const q = clockwise ? 1 : 3;
   unsent.set(item.id, mod4((unsent.get(item.id) ?? 0) + q));
   useTurns.setState((s) => ({ ahead: addAhead(s, item.id, q) }));
+  later();
 }
 
-/** R ou Maj+R : quart de tour à l'écran seulement (écrit au relâchement, `writeTurns`) ; maintenu : toutes les 200 ms. */
-export function turnByKey(item: MediaItem, clockwise: boolean, repeat: boolean) {
-  const now = performance.now();
-  if (repeat && now - lastHeld < HELD_MS) return;
-  lastHeld = now;
-  turnShown(item, clockwise);
+function later() {
+  clearTimeout(settle);
+  if (!held) settle = setTimeout(writeTurns, SETTLE_MS);
 }
 
-/** Clic sur ↺ ↻ ou entrée de menu : quart de tour écrit tout de suite. */
-export function rotateMedia(item: MediaItem, clockwise: boolean) {
-  turnShown(item, clockwise);
-  writeTurns();
+/** R enfoncé (`true`) ou relâché (`false`). */
+export function holdTurnKey(down: boolean) {
+  if (held === down) return;
+  held = down;
+  later();
 }
 
-/** R relâché (ou fenêtre quittée, visionneuse fermée) : les quarts de tour affichés sont écrits, d'un coup par média. */
+/** Les quarts de tour affichés sont écrits, d'un coup par média : 0,5 s après la dernière rotation, ou tout de suite
+ *  (visionneuse fermée, fenêtre quittée). */
 export function writeTurns() {
+  clearTimeout(settle);
+  held = false;
   for (const [id, quarters] of unsent) {
     unsent.delete(id);
     if (quarters) write(id, quarters);

@@ -28,7 +28,7 @@ import { fileNameMenu } from "./mediaMenus";
 import { ACTION_BUTTON } from "./viewerChrome";
 import { isTyping } from "./navigation";
 import { printImage } from "./printMedia";
-import { rotateMedia, turnByKey, useTurnsAhead, writeTurns } from "./turns";
+import { holdTurnKey, rotateMedia, useTurnsAhead, writeTurns } from "./turns";
 import { TagAdder } from "./ViewerTags";
 
 type ActionDef = {
@@ -39,8 +39,6 @@ type ActionDef = {
   title: string;
   /** Absent : action grisée « bientôt disponible » (phase 3). */
   run?: () => void;
-  /** Par le clavier, si ce n'est pas `run` (rotation : à l'écran seulement, écrite au relâchement). */
-  byKey?: (repeat: boolean) => void;
   /** Raison pour laquelle l'action est grisée pour ce média. */
   unavailable?: string;
   className?: string;
@@ -84,17 +82,18 @@ function useShortcuts(actions: ActionDef[]) {
       if (!found?.run || found.unavailable !== undefined) return;
       if (found.action === "copy" && window.getSelection()?.toString()) return;
       e.preventDefault();
-      if (found.byKey) found.byKey(e.repeat);
-      else found.run();
+      if (found.action === "rotateLeft" || found.action === "rotateRight") holdTurnKey(true);
+      found.run();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [actions]);
-  // R relâché (Maj+R aussi) : la rotation affichée est écrite dans le fichier, d'un coup (retour 60.7, réponse Q66 C) ;
-  // de même si la fenêtre perd la main (relâchement jamais reçu) ou si la visionneuse se ferme.
+  // Rotation pas encore écrite (0,5 s après la dernière, réponse Q67 A) : écrite tout de suite si la fenêtre perd la main
+  // ou si la visionneuse se ferme.
+  // R relâché : l'attente de 0,5 s commence (rien n'est écrit tant que la touche est enfoncée).
   useEffect(() => {
     const onUp = (e: KeyboardEvent) => {
-      if (e.key.toLowerCase() === "r") writeTurns();
+      if (e.key.toLowerCase() === "r") holdTurnKey(false);
     };
     window.addEventListener("keyup", onUp);
     window.addEventListener("blur", writeTurns);
@@ -132,7 +131,6 @@ export function InfoBar({ item, children }: { item: MediaItem; children: ReactNo
       label: "",
       title: "Tourner à gauche",
       run: () => rotateMedia(item, false),
-      byKey: (repeat) => turnByKey(item, false, repeat),
       unavailable: noRotate,
     },
     {
@@ -142,7 +140,6 @@ export function InfoBar({ item, children }: { item: MediaItem; children: ReactNo
       label: "",
       title: "Tourner à droite",
       run: () => rotateMedia(item, true),
-      byKey: (repeat) => turnByKey(item, true, repeat),
       unavailable: noRotate,
     },
     {

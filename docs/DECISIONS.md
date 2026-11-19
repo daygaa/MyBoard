@@ -2232,6 +2232,15 @@ outils de test vivaient dans un dossier temporaire qui change à chaque session,
 - Adresse directe des fichiers (`directUrl`, D-053) suivie de `?v=<empreinte>` : un fichier tourné garde son chemin,
   la fenêtre ne doit pas reprendre l'ancien.
 
+## D-082 — Rotation écrite 0,5 s après la dernière, copie en mémoire d'un fichier disparu (lot R8, 4e tour, 19/11/2026)
+
+- VIEW-60, retours 60.9 et 60.10 (réponse Q67 A) : `turns.ts` n'écrit plus au relâchement mais 0,5 s après la dernière
+  rotation (`SETTLE_MS`), quelle qu'en soit l'origine ; R enfoncé (`holdTurnKey`) suspend l'attente jusqu'au relâchement
+  (la 1re répétition de Windows arrive ~500 ms après l'appui) ; plus de limite de rythme avec R maintenu. Les quarts de
+  tour pas encore écrits sont aussi affichés sur la vignette de la grille (`MediaTile`).
+- VIEW-65, retour 65.2 (réponse Q68 A) : `LostStage` montre la copie à la taille de l'écran encore en mémoire
+  (`readyBitmap`), redessinée dans les proportions de la fiche, au lieu de la miniature.
+
 ## D-081 — Rotation écrite au relâchement, verrou par média, bilan simple fermé par Espace (lot R8, 3e tour, 18/11/2026)
 
 - VIEW-60, retour 60.7 (réponse Q66 C) : la rotation affichée d'avance est tenue par l'interface (`turns.ts` : quarts
